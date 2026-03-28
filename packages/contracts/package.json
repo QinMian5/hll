@@ -1,0 +1,15 @@
+{
+  "name": "@knowledge/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "export": "bash scripts/export-openapi.sh",
+    "generate:types": "bash scripts/generate-types.sh",
+    "generate:client": "bash scripts/generate-client.sh",
+    "verify": "bash scripts/verify-up-to-date.sh"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.10.1"
+  }
+}

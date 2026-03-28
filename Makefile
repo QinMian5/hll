@@ -1,19 +1,13 @@
-.PHONY: bootstrap dev down api web contracts contracts-check test check
+.PHONY: bootstrap dev-up dev-down contracts contracts-check test check
 
 bootstrap:
 	bash scripts/bootstrap.sh
 
-dev:
+dev-up:
 	bash scripts/dev-up.sh
 
-down:
+dev-down:
 	bash scripts/dev-down.sh
-
-api:
-	bash scripts/run-api.sh
-
-web:
-	bash scripts/run-web.sh
 
 contracts:
 	bash scripts/contracts.sh

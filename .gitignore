@@ -1,0 +1,6 @@
+.DS_Store
+/node_modules/
+/.pnpm-store/
+/.worktrees/
+
+/.orbital/specs/plans
