@@ -1,52 +1,44 @@
 ---
-abstract: Canonical system definition, user focus, and scope baseline for the Knowledge platform.
-out_of_scope: Implementation mechanics, detailed API semantics, and delivery step procedures.
+abstract: High-level system definition for an API-first open knowledge network.
+out_of_scope: Implementation details, data-model internals, and module-level technical specifications.
 ---
 
-# Design: system-definition
-
-## Active Truth Policy
-- This document contains only currently accepted system-definition decisions.
-- Superseded decisions are removed from active text instead of preserved as migration narrative.
-
-## Context
-- **Purpose:** Define what the system is, who it serves, what value it delivers, what V1 includes and excludes, and where expansion is allowed.
-- **Scope/Boundaries:** Product and system-definition scope only. Module-level implementation details are defined in other design documents.
-- **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
+# Design: 00-system-definition
 
 ## System Definition
-The system is a strongly governed full-stack knowledge platform delivered from one monorepo. It contains one FastAPI API service, one React web application, and one repository-owned contract package. The backend OpenAPI definition is the authoritative integration contract, and frontend API integration is performed through generated contract artifacts.
+The system is an API-first open knowledge network for the agent era.
+V1 exposes read-only HTTP API requests as the only external invocation channel.
+The platform organizes knowledge as atomic cards and relation links to support machine-oriented retrieval and network visualization.
 
 ## Target Users
-- Primary product users: people who create, browse, and search knowledge through the web application.
-- Primary engineering users: backend engineers, frontend engineers, platform/release engineers, and maintainers operating in one governed delivery workflow.
+The primary target users are Agents.
 
 ## Core Value
-- Deliver one consistent web experience for knowledge and search workflows.
-- Keep backend and frontend behavior aligned through one versioned, auditable API contract.
-- Preserve predictable delivery through explicit boundaries, deterministic contract generation, and reproducible quality gates.
+The core value is to enable open knowledge dissemination and sharing in the agent era through a machine-consumable knowledge network.
 
 ## V1 Scope
 ### In Scope
-- One FastAPI API service in `apps/api` for knowledge and search capabilities.
-- One React web application in `apps/web` for knowledge and search user flows.
-- Backend-exported OpenAPI as the single source of truth for interface contracts.
-- Generated contract artifacts in `packages/contracts` consumed by the web app for backend API access.
-- Repository-level governance commands and quality gates for bootstrap, testing, contract verification, and reproducible local/CI execution.
+- Read-only HTTP API.
+- Atomic knowledge cards.
+- Relation links with initial strength from offline cosine-similarity computation.
+- 2D knowledge-card network visualization with zoom support.
+- Platform-official knowledge construction.
 
 ### Out of Scope
-- Additional backend services beyond the single FastAPI API service.
-- Additional client applications beyond the single React web application.
-- Direct frontend HTTP integration that bypasses generated contract artifacts.
-- Product domains outside the knowledge and search module set.
-- Architecture commitments for distributed multi-service deployment autonomy in V1.
+- CLI product.
+- User contribution workflow.
+- Authentication, API keys, and token models.
+- Source-verification requirements.
+- Iterative relation-evolution algorithms beyond initial cosine-based strength.
+
+## Milestone Acceptance (V1)
+- System baseline is established.
+- Database baseline is established.
+- Card-network visualization is available in the frontend.
+- Initial cosine-similarity relation strength is computed and usable.
 
 ## Future Expansion Directions
-- Add new business domains as bounded modules while preserving contract-driven integration and repository governance.
-- Add additional clients that consume generated contract artifacts from the same authoritative OpenAPI source.
-- Expand automation and delivery controls while keeping boundary enforcement and merge-time validation as mandatory controls.
-
-## Validation
-- A reader can identify system definition, target users, core value, V1 in/out scope, and expansion direction from this document alone.
-- Statements define current accepted state without migration or historical comparison wording.
-- Scope commitments remain aligned with related requirements and repository-structure governance.
+- Community contribution and governance models.
+- Authentication and access-control models.
+- Source provenance and verification models.
+- Relation-evolution algorithms beyond initial similarity.
