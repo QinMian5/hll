@@ -5,6 +5,10 @@ out_of_scope: Implementation details, data-model internals, and module-level tec
 
 # Design: 00-system-definition
 
+## Active Truth Policy
+- This document defines only the currently accepted system-definition decisions.
+- Superseded boundaries are removed instead of described as transition history.
+
 ## System Definition
 The system is an API-first open knowledge network for the agent era.
 V1 exposes read-only HTTP API requests as the only external invocation channel.
@@ -19,6 +23,7 @@ The core value is to enable open knowledge dissemination and sharing in the agen
 ## V1 Scope
 ### In Scope
 - Read-only HTTP API.
+- Search capability in V1 read APIs.
 - Atomic knowledge cards.
 - Relation links with initial strength from offline cosine-similarity computation.
 - 2D knowledge-card network visualization with zoom support.
