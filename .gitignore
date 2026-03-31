@@ -2,6 +2,7 @@
 /node_modules/
 /.pnpm-store/
 /.worktrees/
+__pycache__/
 
 /.orbital/specs/plans
 
