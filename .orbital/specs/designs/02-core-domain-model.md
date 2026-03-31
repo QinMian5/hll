@@ -20,6 +20,7 @@ out_of_scope: API endpoint contracts, SQL migration scripts, and large-scale par
 from __future__ import annotations
 
 from sqlalchemy import CheckConstraint, Float, ForeignKey, Index, Integer, Text, UniqueConstraint
+from pgvector.sqlalchemy import Vector
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -33,6 +34,7 @@ class Node(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
 
     edges: Mapped[list["Edge"]] = relationship(
         secondary="adjacency",
@@ -83,6 +85,7 @@ class Adjacency(Base):
 
 ## Semantic Rules
 - `Node` is the atomic knowledge unit.
+- `Node.embedding` is required and uses fixed dimension `1536`.
 - `Edge` is an undirected relation between two distinct nodes.
 - V1 stores one canonical edge per unordered node pair.
 - `Edge.strength` uses normalized range `[0, 1]`.
@@ -112,7 +115,7 @@ class Adjacency(Base):
 - **Not introducing partitioning/sharding or other large-scale mechanisms in V1:** exceeds MVP complexity goals.
 
 ## Validation
+- PostgreSQL extension `vector` is enabled before applying vector-backed schema.
 - Neighbor-query path can be expressed as `Node -> Adjacency(node_id index) -> Edge`.
 - Unordered-edge uniqueness and no-self-loop constraints are enforced by database constraints.
 - V1 documents only accepted current state and omits migration narration.
-
