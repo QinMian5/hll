@@ -1,2 +1,37 @@
-# abstract: Placeholder scaffold for infra/compose/docker-compose.dev.yml
-# out_of_scope: Runtime service orchestration details
+# abstract: Development overrides for the Docker Compose base topology.
+# out_of_scope: Production runtime hardening and host-level security controls.
+services:
+  api:
+    command:
+      [
+        "uv",
+        "run",
+        "uvicorn",
+        "main:app",
+        "--app-dir",
+        "src",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
+    volumes:
+      - ../../apps/api/src:/app/src
+      - ../../alembic:/app/alembic
+      - ../../alembic.ini:/app/alembic.ini
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      target: dev
+    volumes:
+      - ../../apps/web:/workspace/apps/web
+      - ../../packages/contracts:/workspace/packages/contracts
+    ports:
+      - "5173:5173"
+
+volumes:
+  knowledge_postgres_data:
+    name: knowledge_postgres_dev_data

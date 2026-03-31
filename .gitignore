@@ -4,3 +4,6 @@
 /.worktrees/
 
 /.orbital/specs/plans
+
+infra/env/.env*
+!infra/env/.env.example

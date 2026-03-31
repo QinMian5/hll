@@ -1,0 +1,19 @@
+# abstract: Docker build context exclusions for faster and cleaner image builds.
+# out_of_scope: Runtime volume mounts and deployment secret management.
+.git
+.gitignore
+.DS_Store
+.worktrees
+.orbital/specs/plans
+.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache
+**/.coverage
+**/node_modules
+**/.pnpm-store
+**/dist
+**/build
+*.log
+
