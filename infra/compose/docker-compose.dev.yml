@@ -1,6 +1,12 @@
 # abstract: Development overrides for the Docker Compose base topology.
 # out_of_scope: Production runtime hardening and host-level security controls.
 services:
+  migrate:
+    volumes:
+      - ../../apps/api/src:/app/src
+      - ../../alembic:/app/alembic
+      - ../../alembic.ini:/app/alembic.ini
+
   api:
     command:
       [

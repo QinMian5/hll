@@ -1,0 +1,7 @@
+# abstract: Development-only compose override for migration autogeneration with outbound network access.
+# out_of_scope: Runtime API serving topology and production migration execution policy.
+services:
+  migrate:
+    networks:
+      - backend
+      - edge

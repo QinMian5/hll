@@ -1,6 +1,6 @@
 """
 Abstract: Alembic environment setup for online and offline migrations.
-Out of scope: ORM model metadata management and migration revision authoring.
+Out of scope: Migration revision authoring and runtime request handling.
 """
 
 from __future__ import annotations
@@ -10,6 +10,8 @@ from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+from shared.db.base import Base
+import modules.knowledge.model  # noqa: F401
 
 config = context.config
 
@@ -22,7 +24,7 @@ if not database_url:
 
 config.set_main_option("sqlalchemy.url", database_url)
 
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
@@ -56,4 +58,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-

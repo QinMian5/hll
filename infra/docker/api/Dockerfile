@@ -1,6 +1,6 @@
 # abstract: Build and runtime image for the FastAPI service and migration runner.
 # out_of_scope: Compose orchestration policy and PostgreSQL extension packaging.
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+FROM ghcr.io/astral-sh/uv:0.10.3-python3.14-trixie-slim
 
 WORKDIR /app
 
@@ -18,4 +18,3 @@ ENV PATH="/app/.venv/bin:${PATH}"
 EXPOSE 8000
 
 CMD ["uv", "run", "uvicorn", "main:app", "--app-dir", "src", "--host", "0.0.0.0", "--port", "8000"]
-
