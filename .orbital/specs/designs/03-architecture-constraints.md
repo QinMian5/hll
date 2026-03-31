@@ -51,7 +51,7 @@ out_of_scope: Detailed error code taxonomy, advanced CI matrices, and full-scale
 ## Minimal Quality Gates (Phase-1)
 - `lint/format`
 - `typecheck`
-- `fast unit`
+- `test`
 - `contract drift`
 
 ## Deferred to Later Phases

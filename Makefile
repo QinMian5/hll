@@ -1,4 +1,4 @@
-.PHONY: bootstrap dev-up dev-down prod-up prod-down contracts contracts-check test check
+.PHONY: bootstrap dev-up dev-down prod-up prod-down format fix lint typecheck contracts contracts-check test check
 
 bootstrap:
 	bash scripts/bootstrap.sh
@@ -14,6 +14,21 @@ prod-up:
 
 prod-down:
 	bash scripts/prod-down.sh
+
+format:
+	uvx ruff format apps/api/src
+	pnpm --dir apps/web run format
+
+fix:
+	uvx ruff check --fix apps/api/src
+	uvx ruff format apps/api/src
+	pnpm --dir apps/web run fix
+
+lint:
+	bash scripts/lint.sh
+
+typecheck:
+	bash scripts/typecheck.sh
 
 contracts:
 	bash scripts/contracts.sh

@@ -24,3 +24,23 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = ["core", "modules", "shared"]
+
+[tool.ruff]
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF", "ANN"]
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --maxfail=1"
+testpaths = ["tests"]
+markers = [
+    "unit: Fast and deterministic unit tests.",
+    "integration: Tests that cross process, filesystem, or service boundaries.",
+    "contract: Contract validation tests for API and generated artifacts.",
+    "slow: Tests with runtime unsuitable for the fast feedback loop.",
+]
+
+[tool.ty.src]
+include = ["src"]

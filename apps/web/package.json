@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "pnpm biome lint --write",
+    "lint": "pnpm biome lint .",
     "preview": "vite preview",
-    "check": "pnpm biome check --write",
-    "format": "pnpm biome format --write",
-    "test": "vitest"
+    "check": "pnpm biome check .",
+    "fix": "pnpm biome check --write .",
+    "format": "pnpm biome format --write .",
+    "ci": "pnpm biome ci .",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest --run"
   },
   "dependencies": {
     "@logto/react": "^4.0.13",

@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
+# abstract: Run the default test gate for backend unit tests and frontend vitest checks.
+# out_of_scope: Integration tests, contract verification, and lint/type checking.
+
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
+WEB_DIR="$ROOT_DIR/apps/web"
 
-uv --directory "$API_DIR" run pytest
+echo "[test] backend unit (pytest)"
+uv --directory "$API_DIR" run pytest "$API_DIR/tests/unit"
 
-(
-  cd "$ROOT_DIR"
-  pnpm --filter web run test -- --run
-)
+echo "[test] frontend (vitest)"
+pnpm --dir "$WEB_DIR" run test
