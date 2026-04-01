@@ -5,7 +5,9 @@ Out of scope: Real database connectivity and migration lifecycle behavior.
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator, Generator
 from pathlib import Path
+from typing import cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
@@ -18,7 +20,7 @@ import shared.db.session as session_module
 def configured_db_runtime(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-) -> None:
+) -> Generator[None]:
     dotenv_file = tmp_path / ".env.dev"
     dotenv_file.write_text(
         "\n".join(
@@ -69,7 +71,10 @@ def test_get_async_session_factory_uses_expected_defaults() -> None:
 @pytest.mark.usefixtures("configured_db_runtime")
 @pytest.mark.anyio
 async def test_get_async_session_yields_asyncsession() -> None:
-    session_generator = session_module.get_async_session()
+    session_generator = cast(
+        AsyncGenerator[AsyncSession],
+        session_module.get_async_session(),
+    )
     session = await anext(session_generator)
     try:
         assert isinstance(session, AsyncSession)

@@ -155,7 +155,7 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    settings = Settings()
+    settings = Settings.model_validate({})
     if _is_test_settings_context():
         validate_test_database_settings(settings)
     return settings

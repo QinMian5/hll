@@ -5,8 +5,10 @@ Out of scope: Migration execution and runtime database I/O behavior.
 
 from __future__ import annotations
 
+from typing import cast
+
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import CheckConstraint
+from sqlalchemy import CheckConstraint, Table
 
 from modules.knowledge.model import Adjacency, Edge, Node
 from shared.db.base import Base
@@ -24,7 +26,8 @@ def test_nodes_embedding_is_vector_1536() -> None:
 
 
 def test_edges_constraints_present() -> None:
-    constraints = Edge.__table__.constraints
+    edge_table = cast(Table, Edge.__table__)
+    constraints = edge_table.constraints
     constraint_names = {constraint.name for constraint in constraints}
     assert "ck_edges_canonical_pair" in constraint_names
     assert "ck_edges_strength_range" in constraint_names
@@ -66,7 +69,7 @@ def test_edges_foreign_keys_use_cascade_delete() -> None:
 
 
 def test_adjacency_composite_pk_and_indexes() -> None:
-    table = Adjacency.__table__
+    table = cast(Table, Adjacency.__table__)
     pk_column_names = {column.name for column in table.primary_key.columns}
     assert pk_column_names == {"node_id", "edge_id"}
 

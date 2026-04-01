@@ -30,7 +30,7 @@ All API-visible errors must use one response structure:
 ```json
 {
   "error": {
-    "code": "infra.db.connection_unavailable",
+    "code": "INFRA_DB_CONNECTION_UNAVAILABLE",
     "message": "Database is temporarily unavailable.",
     "details": {},
     "hint": "Retry later or contact support if the issue persists.",
@@ -40,14 +40,12 @@ All API-visible errors must use one response structure:
 ```
 
 ### Field Contract
-- `error.code`: required non-empty string; machine-consumable primary contract key.
+- `error.code`: required non-empty string from `ErrorCode(StrEnum)` value; machine-consumable primary contract key.
 - `error.message`: required non-empty string; human-readable summary.
 - `error.details`: required object; defaults to `{}` when no safe structured details exist.
 - `error.hint`: required non-empty string; actionable and safe guidance for callers.
 - `error.request_id`: required non-empty string; correlates response with logs.
-- Every exposed `error.code` must define a default non-empty `hint`.
-- Unknown internal exceptions must use a fixed fallback hint:
-  - `"Retry later or contact support with the provided request_id."`
+- Every exposed `error.code` must use an explicit non-empty `hint`; implicit fallback hints are forbidden.
 
 ### Non-Disclosure Rule
 - Stack traces, raw exception text, SQL text/parameters, credentials, tokens, full DSNs, and unfiltered request bodies must not appear in API responses.
@@ -55,27 +53,28 @@ All API-visible errors must use one response structure:
 ## Error Code Governance
 
 ### Naming Contract
-- Error codes are formatted as `<category>.<module>.<name>`.
+- Error code value format is `<DOMAIN>_<CATEGORY>_<DETAIL>`.
+- Error codes are defined centrally through `ErrorCode(StrEnum)`.
+- Runtime/business code must not perform string-format validation for error codes.
+- Error code format correctness is enforced by unit-test gates.
 - `error.code` is stable after exposure; message/hint text may evolve.
 - HTTP status must not be encoded into `error.code`.
 
-### Allowed Categories
-- `presentation`: transport/parsing/shape-level request errors.
-- `domain`: domain truth and business-rule errors within a module.
-- `application`: orchestration/use-case flow errors across module operations.
-- `infra`: infrastructure/dependency/configuration/runtime platform failures.
-- `internal`: unknown/unexpected internal failures.
+### Allowed Domain Segment Values
+- `DOMAIN`: domain truth and business-rule errors.
+- `APPLICATION`: orchestration/use-case flow errors, including API request-shape/input-invalid failures.
+- `INFRA`: infrastructure/dependency/configuration/runtime platform failures.
+- `INTERNAL`: unknown/unexpected internal failures.
 
-### Module Segment Rule
-- `module` must map to stable repository capability boundaries such as `api`, `knowledge`, `search`, `db`, `config`.
-- Temporary implementation names are forbidden in `module`.
+### Category Segment Rule
+- `CATEGORY` must map to stable repository capability boundaries such as `API`, `KNOWLEDGE`, `SEARCH`, `DB`, `CONFIG`.
+- Temporary implementation names are forbidden in `CATEGORY`.
 
 ## Error Semantics and Layer Boundaries
 
 ### Minimal Error Class Tree
 ```text
 AppError
-├── PresentationError
 ├── DomainError
 ├── ApplicationError
 ├── InfrastructureError
@@ -94,7 +93,7 @@ AppError
   - must not leak raw driver/ORM exceptions to upper layers.
 
 ## HTTP Mapping Baseline
-- Request structure validation errors map to `422` and use `presentation.api.request_validation_failed`.
+- Request structure validation errors map to `422` and use `APPLICATION_API_INPUT_INVALID`.
 - Domain/application errors map by semantic subtype:
   - not found: `404`
   - conflict/invalid state: `409`
@@ -103,19 +102,21 @@ AppError
 - Infrastructure errors map by operational semantics:
   - temporary dependency unavailable: `503`
   - non-classified infrastructure/internal platform failure: `500`
-- Unknown uncaught exceptions map to `500` with `internal.api.unexpected_error`.
+- Unknown uncaught exceptions map to `500` with `INTERNAL_API_UNEXPECTED_ERROR`.
 
 ## Deterministic Mapping Contract
-- `domain.*` uses a minimum frozen subtype set:
-  - `domain.<module>.resource_not_found` -> `404`
-  - `domain.<module>.state_conflict` -> `409`
-  - `domain.<module>.rule_violation` -> `422`
-  - other `domain.*` fallback -> `422`
-- `application.*` uses a minimum frozen subtype set:
-  - `application.<module>.input_invalid` -> `400`
-  - `application.<module>.state_conflict` -> `409`
-  - `application.<module>.rule_violation` -> `422`
-  - other `application.*` fallback -> `422`
+- `DOMAIN_*` uses a minimum frozen subtype set:
+  - `DOMAIN_<CATEGORY>_RESOURCE_NOT_FOUND` -> `404`
+  - `DOMAIN_<CATEGORY>_STATE_CONFLICT` -> `409`
+  - `DOMAIN_<CATEGORY>_RULE_VIOLATION` -> `422`
+  - other `DOMAIN_*` fallback -> `422`
+- `APPLICATION_*` uses a minimum frozen subtype set:
+  - `APPLICATION_<CATEGORY>_INPUT_INVALID` -> `400`
+  - `APPLICATION_<CATEGORY>_STATE_CONFLICT` -> `409`
+  - `APPLICATION_<CATEGORY>_RULE_VIOLATION` -> `422`
+  - other `APPLICATION_*` fallback -> `422`
+- Special-case override:
+  - `APPLICATION_API_INPUT_INVALID` -> `422` (request-shape validation contract).
 - A request returns exactly one error (fail-fast). Aggregated multi-error payloads are out of MVP scope.
 - If multiple application subtypes are detected in one validation path, priority is fixed:
   1. `input_invalid`
@@ -127,8 +128,8 @@ AppError
   3. `rule_violation`
 
 ## 422 Boundary Rule
-- `presentation.*` under `422` means transport/schema-level request-shape invalidity.
-- Business semantic failures must use `domain.*` or `application.*` even if status also maps to `422`.
+- `APPLICATION_API_INPUT_INVALID` under `422` means transport/schema-level request-shape invalidity.
+- Business semantic failures must use `DOMAIN_*` or `APPLICATION_*` even if status also maps to `422`.
 - Clients must branch by `error.code`, not by status/message text.
 
 ## Runtime Error Handling Flow
@@ -214,16 +215,16 @@ AppError
 - Redaction is mandatory before logging high-risk input-originated values.
 
 ## Extensibility Governance
-- New modules must register and use a stable `module` segment before exposing new error codes.
+- New capabilities must use a stable `CATEGORY` segment before exposing new error codes.
 - New error codes must satisfy naming contract and non-duplication checks.
 - Existing exposed `error.code` values are contract-stable and cannot be silently renamed.
-- Error catalog expansion is incremental and module-driven; no speculative global mega-catalog is introduced in MVP.
+- Error catalog expansion is incremental and capability-driven; no speculative global mega-catalog is introduced in MVP.
 
 ## Validation
 - All API-visible errors conform to unified envelope and non-null `hint`.
-- Validation errors are normalized to status `422` with stable presentation error code.
-- Unknown internal errors always use fixed fallback `hint` text.
-- `domain.*` and `application.*` mappings follow frozen subtype sets and deterministic priorities.
+- Validation errors are normalized to status `422` with stable `APPLICATION_API_INPUT_INVALID` code.
+- Unknown internal errors still require explicit non-empty `hint`.
+- `DOMAIN_*` and `APPLICATION_*` mappings follow frozen subtype sets and deterministic priorities.
 - Infrastructure temporary-unavailability cases return `503`; unknown internals return `500`.
 - Startup-critical config/DB failures are fail-fast and log-observable.
 - Logs for every error path carry `request_id` and semantic error identity.
@@ -232,9 +233,9 @@ AppError
 | Rule | Verification Method | Owner Layer | Gate |
 |---|---|---|---|
 | Envelope fields exist and `hint` is non-null/non-empty | unit tests for payload builders | `core/errors.py` | `test` |
-| `error.code` format `<category>.<module>.<name>` | unit tests for code registry/constructors | `core/errors.py` | `test` |
-| Validation errors map to `422` + presentation code | unit/integration handler tests | `core/error_handlers.py` + `api` | `test` |
-| `domain.*`/`application.*` deterministic subtype mapping and priority | unit handler mapping tests | `core/error_handlers.py` | `test` |
+| `ErrorCode` values follow `<DOMAIN>_<CATEGORY>_<DETAIL>` | unit tests over enum values | `core/errors.py` | `test` |
+| Validation errors map to `422` + `APPLICATION_API_INPUT_INVALID` | unit/integration handler tests | `core/error_handlers.py` + `api` | `test` |
+| `DOMAIN_*`/`APPLICATION_*` deterministic subtype mapping and priority | unit handler mapping tests | `core/error_handlers.py` | `test` |
 | `503` vs `500` split for infrastructure/unknown errors | integration runtime-path tests | `shared/db` + `core/error_handlers.py` | `test` |
 | Runtime request-id propagation to payload/header/logs | middleware + handler integration tests | `core/request_id.py` + `api` | `test` |
 | Startup fail-fast with startup `request_id` logging | startup integration tests | `core/config.py` + `shared/db/session.py` + `main.py` | `test` |

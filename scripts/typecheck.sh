@@ -9,7 +9,7 @@ API_DIR="$ROOT_DIR/apps/api"
 WEB_DIR="$ROOT_DIR/apps/web"
 
 echo "[typecheck] backend (ty)"
-uvx ty check --project "$API_DIR" "$API_DIR/src"
+uv run --project "$API_DIR" ty check --project "$API_DIR" "$API_DIR/src"
 
 echo "[typecheck] frontend (tsc)"
 pnpm --dir "$WEB_DIR" run typecheck

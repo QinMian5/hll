@@ -34,8 +34,13 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 - `typecheck`
 - `test`
 - `contract drift`
+- `commit message lint`
 
 ## Tooling Policy
+### Git Hook Manager
+- Git hooks are managed by pre-commit.
+- Hook source of truth is `.pre-commit-config.yaml`.
+
 ### Backend Python
 - Lint/format tool is Ruff.
 - Ruff scope for gates is only `apps/api/src`.
@@ -68,8 +73,21 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
     - `contract drift` -> `scripts/contracts-check.sh`
 
 ### Pre-commit
-- Pre-commit runs only staged frontend Biome fast-fix.
-- Pre-commit does not run full lint/typecheck/test chains.
+- Pre-commit executes local write/fix and type validation hooks before commit.
+- Hook set is:
+  - `uv run --project apps/api ruff format`
+  - `uv run --project apps/api ruff check --fix`
+  - `uv run --project apps/api ty check`
+  - `pnpm --dir apps/web exec biome check --write`
+  - `pnpm --dir apps/web exec tsc --noEmit`
+  - `pnpm --dir apps/web exec commitlint --config commitlint.config.cjs --edit`
+- Filename passing behavior:
+  - Code-quality hooks set `pass_filenames: false`.
+  - Code-quality hooks run without staged filename arguments.
+  - Commit message hook runs at `commit-msg` stage and consumes the commit message filename.
+- Commit message contract:
+  - Commit messages must match `type(scope): description`.
+  - Scope is required.
 
 ### CI
 - CI is fail-fast and blocking for:
@@ -77,6 +95,7 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
   - `typecheck`
   - `test` (backend unit-only + frontend test command)
   - `contract drift`
+  - `commit message lint`
 - CI validation commands are read-only and do not rewrite files.
 
 ## Failure and Flake Policy

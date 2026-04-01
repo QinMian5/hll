@@ -25,12 +25,12 @@ test-integration:
 	bash scripts/test-integration.sh
 
 format:
-	uvx ruff format apps/api/src
+	uv run --project apps/api ruff format apps/api/src
 	pnpm --dir apps/web run format
 
 fix:
-	uvx ruff check --fix apps/api/src
-	uvx ruff format apps/api/src
+	uv run --project apps/api ruff check --fix apps/api/src
+	uv run --project apps/api ruff format apps/api/src
 	pnpm --dir apps/web run fix
 
 lint:

@@ -1,11 +1,47 @@
 # abstract: Pre-commit hooks for fast local quality checks in MVP phase-1.
 # out_of_scope: Full CI gate orchestration, backend test execution, and release validation.
+
 repos:
   - repo: local
     hooks:
-      - id: web-biome-staged-fix
-        name: web-biome-staged-fix
-        entry: bash scripts/precommit-biome-staged.sh
+      # =========================
+      # Python (apps/api)
+      # =========================
+      - id: api-ruff-format
+        name: api-ruff-format
+        entry: uv run --project apps/api ruff format
         language: system
-        files: ^apps/web/
         pass_filenames: false
+
+      - id: api-ruff-check-fix
+        name: api-ruff-check-fix
+        entry: uv run --project apps/api ruff check --fix
+        language: system
+        pass_filenames: false
+
+      - id: api-ty-check
+        name: api-ty-check
+        entry: uv run --project apps/api ty check
+        language: system
+        pass_filenames: false
+
+      # =========================
+      # Frontend (apps/web)
+      # =========================
+      - id: web-biome-check-write
+        name: web-biome-check-write
+        entry: pnpm --dir apps/web exec biome check --write
+        language: system
+        pass_filenames: false
+
+      - id: web-tsc-no-emit
+        name: web-tsc-no-emit
+        entry: pnpm --dir apps/web exec tsc --noEmit
+        language: system
+        pass_filenames: false
+
+      - id: commitlint
+        name: commitlint
+        entry: pnpm --dir apps/web exec commitlint --config commitlint.config.cjs --edit
+        language: system
+        stages: [commit-msg]

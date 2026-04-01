@@ -84,7 +84,7 @@ def test_build_app_database_url_from_components(
     monkeypatch.setenv("DB_HOST", "env_should_be_ignored")
     monkeypatch.setenv("APP_DB_PASSWORD", "env_secret_should_be_ignored")
 
-    settings = config_module.Settings()
+    settings = config_module.Settings.model_validate({})
     assert (
         settings.app_database_url
         == "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge"
@@ -93,8 +93,8 @@ def test_build_app_database_url_from_components(
 
 @pytest.mark.usefixtures("default_settings_sources")
 def test_init_values_override_dotenv_and_yaml() -> None:
-    settings = config_module.Settings(
-        app_db_password="init_secret",
+    settings = config_module.Settings.model_validate(
+        {"app_db_password": "init_secret"},
     )
 
     assert (
@@ -115,7 +115,7 @@ def test_settings_require_all_components_without_defaults(
     )
 
     with pytest.raises(ValidationError):
-        config_module.Settings()
+        config_module.Settings.model_validate({})
 
 
 def test_settings_reject_unsupported_dotenv_keys(
@@ -131,7 +131,7 @@ def test_settings_reject_unsupported_dotenv_keys(
     )
 
     with pytest.raises(ValidationError, match="unexpected_key"):
-        config_module.Settings()
+        config_module.Settings.model_validate({})
 
 
 def test_settings_require_explicit_dotenv_path(
@@ -141,7 +141,7 @@ def test_settings_require_explicit_dotenv_path(
     config_module.get_settings.cache_clear()
 
     with pytest.raises(RuntimeError, match="SETTINGS_DOTENV_PATH"):
-        config_module.Settings()
+        config_module.Settings.model_validate({})
 
 
 def test_settings_raise_when_configured_dotenv_file_missing(
@@ -153,12 +153,12 @@ def test_settings_raise_when_configured_dotenv_file_missing(
     config_module.get_settings.cache_clear()
 
     with pytest.raises(FileNotFoundError, match="does not exist"):
-        config_module.Settings()
+        config_module.Settings.model_validate({})
 
 
 @pytest.mark.usefixtures("default_settings_sources")
 def test_validate_test_database_settings_accepts_isolated_test_target() -> None:
-    settings = config_module.Settings()
+    settings = config_module.Settings.model_validate({})
     settings.db_host = "127.0.0.1"
     settings.db_name = "knowledge_test"
     settings.app_db_user = "knowledge_app_test"
@@ -172,7 +172,7 @@ def test_validate_test_database_settings_accepts_isolated_test_target() -> None:
 
 @pytest.mark.usefixtures("default_settings_sources")
 def test_validate_test_database_settings_rejects_non_test_database_name() -> None:
-    settings = config_module.Settings()
+    settings = config_module.Settings.model_validate({})
     settings.db_host = "127.0.0.1"
     settings.app_db_user = "knowledge_app_test"
     settings.migration_db_user = "knowledge_migration_test"
@@ -187,7 +187,7 @@ def test_validate_test_database_settings_rejects_non_test_database_name() -> Non
 
 @pytest.mark.usefixtures("default_settings_sources")
 def test_validate_test_database_settings_rejects_host_outside_allowlist() -> None:
-    settings = config_module.Settings()
+    settings = config_module.Settings.model_validate({})
 
     settings.db_name = "knowledge_test"
     settings.app_db_user = "knowledge_app_test"
@@ -202,7 +202,7 @@ def test_validate_test_database_settings_rejects_host_outside_allowlist() -> Non
 
 @pytest.mark.usefixtures("default_settings_sources")
 def test_validate_test_database_settings_rejects_non_test_role_names() -> None:
-    settings = config_module.Settings()
+    settings = config_module.Settings.model_validate({})
     settings.db_host = "127.0.0.1"
     settings.db_name = "knowledge_test"
 
