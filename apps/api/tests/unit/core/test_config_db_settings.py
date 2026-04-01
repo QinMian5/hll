@@ -85,13 +85,13 @@ def test_build_app_database_url_from_components(
 
     settings = config_module.Settings()
     assert (
-        settings.app_database_url == "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge"
+        settings.app_database_url
+        == "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge"
     )
 
 
 @pytest.mark.usefixtures("default_settings_sources")
 def test_init_values_override_dotenv_and_yaml() -> None:
-
     settings = config_module.Settings(
         app_db_password="init_secret",
     )
@@ -114,4 +114,39 @@ def test_settings_require_all_components_without_defaults(
     )
 
     with pytest.raises(ValidationError):
+        config_module.Settings()
+
+
+def test_settings_reject_unsupported_dotenv_keys(
+    settings_sources_factory: Callable[..., tuple[Path, Path]],
+) -> None:
+    settings_sources_factory(
+        dotenv_content="\n".join(
+            [
+                DEFAULT_DOTENV_CONTENT,
+                "UNEXPECTED_KEY=boom",
+            ]
+        )
+    )
+
+    with pytest.raises(ValidationError, match="unexpected_key"):
+        config_module.Settings()
+
+
+def test_settings_require_explicit_dotenv_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config_module, "SETTINGS_DOTENV_PATH", None)
+
+    with pytest.raises(RuntimeError, match="SETTINGS_DOTENV_PATH"):
+        config_module.Settings()
+
+
+def test_settings_raise_when_configured_dotenv_file_missing(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(config_module, "SETTINGS_DOTENV_PATH", tmp_path / "missing.env")
+
+    with pytest.raises(FileNotFoundError, match="does not exist"):
         config_module.Settings()

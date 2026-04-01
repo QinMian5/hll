@@ -20,7 +20,9 @@ if config.config_file_name is not None:
 
 database_url = os.getenv("MIGRATION_DATABASE_URL") or os.getenv("DATABASE_URL")
 if not database_url:
-    raise RuntimeError("MIGRATION_DATABASE_URL or DATABASE_URL must be set for Alembic migrations")
+    raise RuntimeError(
+        "MIGRATION_DATABASE_URL or DATABASE_URL must be set for Alembic migrations"
+    )
 
 config.set_main_option("sqlalchemy.url", database_url)
 

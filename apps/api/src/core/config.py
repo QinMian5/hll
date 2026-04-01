@@ -1,5 +1,5 @@
 """
-Abstract: Minimal settings entrypoint using init + infra dotenv
+Abstract: Minimal settings entrypoint using init + explicit dotenv path
 with optional infra yaml fallback.
 Out of scope: Request-scoped dependency injection and
 SQLAlchemy session lifecycle wiring.
@@ -21,7 +21,22 @@ from pydantic_settings import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 SETTINGS_YAML_PATH = PROJECT_ROOT / "infra" / "config" / "settings.yaml"
-SETTINGS_DOTENV_PATH = PROJECT_ROOT / "infra" / "env" / ".env.dev"
+SETTINGS_DOTENV_PATH: Path | None = None
+
+
+def _require_dotenv_path() -> Path:
+    if SETTINGS_DOTENV_PATH is None:
+        raise RuntimeError(
+            "SETTINGS_DOTENV_PATH is not configured. "
+            "Set an explicit dotenv file path before loading Settings."
+        )
+
+    if not SETTINGS_DOTENV_PATH.exists():
+        raise FileNotFoundError(
+            f"Configured settings dotenv file does not exist: {SETTINGS_DOTENV_PATH}"
+        )
+
+    return SETTINGS_DOTENV_PATH
 
 
 def _build_postgres_url(
@@ -62,11 +77,12 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # Keep framework-defined signature names for keyword compatibility.
         return (
             init_settings,
             DotEnvSettingsSource(
                 settings_cls,
-                env_file=SETTINGS_DOTENV_PATH,
+                env_file=_require_dotenv_path(),
                 env_file_encoding="utf-8",
             ),
             YamlConfigSettingsSource(
