@@ -213,7 +213,7 @@ def test_validate_test_database_settings_rejects_non_test_role_names() -> None:
         )
 
 
-def test_get_settings_enforces_test_guardrails_when_app_env_is_test(
+def test_get_settings_does_not_mix_test_guardrails_into_runtime_loader(
     settings_sources_factory: Callable[..., tuple[Path, Path]],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -222,7 +222,7 @@ def test_get_settings_enforces_test_guardrails_when_app_env_is_test(
     config_module.get_settings.cache_clear()
 
     try:
-        with pytest.raises(ValueError, match="DB_NAME must end with '_test'"):
-            config_module.get_settings()
+        settings = config_module.get_settings()
+        assert settings.db_name == "knowledge"
     finally:
         config_module.get_settings.cache_clear()

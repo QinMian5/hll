@@ -85,15 +85,6 @@ def validate_test_database_settings(
         raise ValueError("MIGRATION_DB_USER must end with '_test' in test environment.")
 
 
-def _is_test_settings_context() -> bool:
-    app_env = os.getenv("APP_ENV", "").strip().lower()
-    if app_env == "test":
-        return True
-
-    dotenv_path = _resolve_dotenv_path()
-    return dotenv_path is not None and dotenv_path.name == ".env.test"
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         extra="forbid",
@@ -155,7 +146,4 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    settings = Settings.model_validate({})
-    if _is_test_settings_context():
-        validate_test_database_settings(settings)
-    return settings
+    return Settings.model_validate({})

@@ -51,6 +51,7 @@ def test_settings(test_env_file: Path) -> Iterator[Settings]:
     os.environ["APP_ENV"] = "test"
     config_module.get_settings.cache_clear()
     settings = config_module.get_settings()
+    config_module.validate_test_database_settings(settings)
     try:
         yield settings
     finally:
