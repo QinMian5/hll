@@ -9,6 +9,7 @@ import os
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy.engine import make_url
 from sqlalchemy import engine_from_config, pool
 from shared.db.base import Base
 import modules.knowledge.model  # noqa: F401
@@ -18,11 +19,22 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-database_url = os.getenv("MIGRATION_DATABASE_URL") or os.getenv("DATABASE_URL")
+database_url = os.getenv("MIGRATION_DATABASE_URL")
 if not database_url:
-    raise RuntimeError(
-        "MIGRATION_DATABASE_URL or DATABASE_URL must be set for Alembic migrations"
-    )
+    raise RuntimeError("MIGRATION_DATABASE_URL must be set for Alembic migrations.")
+
+if os.getenv("APP_ENV") == "test":
+    parsed_database_url = make_url(database_url)
+    if not (
+        parsed_database_url.database and parsed_database_url.database.endswith("_test")
+    ):
+        raise RuntimeError(
+            "Test migrations must target a database ending with '_test'."
+        )
+    if not (
+        parsed_database_url.username and parsed_database_url.username.endswith("_test")
+    ):
+        raise RuntimeError("Test migrations must use a role ending with '_test'.")
 
 config.set_main_option("sqlalchemy.url", database_url)
 

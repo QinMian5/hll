@@ -48,7 +48,8 @@ def settings_sources_factory(
         settings_yaml.write_text(yaml_content, encoding="utf-8")
         dotenv_file.write_text(dotenv_content, encoding="utf-8")
         monkeypatch.setattr(config_module, "SETTINGS_YAML_PATH", settings_yaml)
-        monkeypatch.setattr(config_module, "SETTINGS_DOTENV_PATH", dotenv_file)
+        monkeypatch.setenv("SETTINGS_DOTENV_PATH", str(dotenv_file))
+        config_module.get_settings.cache_clear()
         return settings_yaml, dotenv_file
 
     return _apply
@@ -136,7 +137,8 @@ def test_settings_reject_unsupported_dotenv_keys(
 def test_settings_require_explicit_dotenv_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(config_module, "SETTINGS_DOTENV_PATH", None)
+    monkeypatch.delenv("SETTINGS_DOTENV_PATH", raising=False)
+    config_module.get_settings.cache_clear()
 
     with pytest.raises(RuntimeError, match="SETTINGS_DOTENV_PATH"):
         config_module.Settings()
@@ -146,7 +148,81 @@ def test_settings_raise_when_configured_dotenv_file_missing(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr(config_module, "SETTINGS_DOTENV_PATH", tmp_path / "missing.env")
+    missing_path = tmp_path / "missing.env"
+    monkeypatch.setenv("SETTINGS_DOTENV_PATH", str(missing_path))
+    config_module.get_settings.cache_clear()
 
     with pytest.raises(FileNotFoundError, match="does not exist"):
         config_module.Settings()
+
+
+@pytest.mark.usefixtures("default_settings_sources")
+def test_validate_test_database_settings_accepts_isolated_test_target() -> None:
+    settings = config_module.Settings()
+    settings.db_host = "127.0.0.1"
+    settings.db_name = "knowledge_test"
+    settings.app_db_user = "knowledge_app_test"
+    settings.migration_db_user = "knowledge_migration_test"
+
+    config_module.validate_test_database_settings(
+        settings,
+        allowed_hosts={"localhost", "127.0.0.1"},
+    )
+
+
+@pytest.mark.usefixtures("default_settings_sources")
+def test_validate_test_database_settings_rejects_non_test_database_name() -> None:
+    settings = config_module.Settings()
+    settings.db_host = "127.0.0.1"
+    settings.app_db_user = "knowledge_app_test"
+    settings.migration_db_user = "knowledge_migration_test"
+
+    settings.db_name = "knowledge"
+    with pytest.raises(ValueError, match="DB_NAME must end with '_test'"):
+        config_module.validate_test_database_settings(
+            settings,
+            allowed_hosts={"localhost", "127.0.0.1"},
+        )
+
+
+@pytest.mark.usefixtures("default_settings_sources")
+def test_validate_test_database_settings_rejects_host_outside_allowlist() -> None:
+    settings = config_module.Settings()
+
+    settings.db_name = "knowledge_test"
+    settings.app_db_user = "knowledge_app_test"
+    settings.migration_db_user = "knowledge_migration_test"
+    settings.db_host = "db.internal.prod"
+    with pytest.raises(ValueError, match="DB_HOST must be one of"):
+        config_module.validate_test_database_settings(
+            settings,
+            allowed_hosts={"localhost", "127.0.0.1"},
+        )
+
+
+@pytest.mark.usefixtures("default_settings_sources")
+def test_validate_test_database_settings_rejects_non_test_role_names() -> None:
+    settings = config_module.Settings()
+    settings.db_host = "127.0.0.1"
+    settings.db_name = "knowledge_test"
+
+    with pytest.raises(ValueError, match="APP_DB_USER must end with '_test'"):
+        config_module.validate_test_database_settings(
+            settings,
+            allowed_hosts={"localhost", "127.0.0.1"},
+        )
+
+
+def test_get_settings_enforces_test_guardrails_when_app_env_is_test(
+    settings_sources_factory: Callable[..., tuple[Path, Path]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings_sources_factory()
+    monkeypatch.setenv("APP_ENV", "test")
+    config_module.get_settings.cache_clear()
+
+    try:
+        with pytest.raises(ValueError, match="DB_NAME must end with '_test'"):
+            config_module.get_settings()
+    finally:
+        config_module.get_settings.cache_clear()

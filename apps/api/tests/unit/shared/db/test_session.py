@@ -35,7 +35,7 @@ def configured_db_runtime(
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(config_module, "SETTINGS_DOTENV_PATH", dotenv_file)
+    monkeypatch.setenv("SETTINGS_DOTENV_PATH", str(dotenv_file))
     monkeypatch.setattr(session_module, "_engine", None)
     monkeypatch.setattr(session_module, "_async_session_factory", None)
     config_module.get_settings.cache_clear()

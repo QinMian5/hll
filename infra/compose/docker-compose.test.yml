@@ -1,0 +1,40 @@
+# abstract: Lightweight isolated PostgreSQL topology for integration and migration tests.
+# out_of_scope: Application container runtime and production ingress networking.
+services:
+  postgres:
+    build:
+      context: ../..
+      dockerfile: infra/docker/postgres/Dockerfile
+    image: knowledge-postgres:18
+    environment:
+      POSTGRES_DB: ${DB_NAME:-knowledge_test}
+      POSTGRES_USER: ${MIGRATION_DB_USER:-knowledge_migration_test}
+      POSTGRES_PASSWORD: ${MIGRATION_DB_PASSWORD:-change_me}
+      APP_DB_USER: ${APP_DB_USER:-knowledge_app_test}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-change_me}
+      MIGRATION_DB_USER: ${MIGRATION_DB_USER:-knowledge_migration_test}
+      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:-change_me}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$MIGRATION_DB_USER -d $$POSTGRES_DB",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 2s
+    ports:
+      - "127.0.0.1:${DB_PORT:-55432}:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql
+    networks:
+      - backend
+    restart: "no"
+
+volumes:
+  postgres_test_data:
+
+networks:
+  backend:
+    internal: true

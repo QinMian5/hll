@@ -7,6 +7,7 @@ SQLAlchemy session lifecycle wiring.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote
@@ -21,22 +22,31 @@ from pydantic_settings import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 SETTINGS_YAML_PATH = PROJECT_ROOT / "infra" / "config" / "settings.yaml"
-SETTINGS_DOTENV_PATH: Path | None = None
+SETTINGS_DOTENV_PATH_ENV_VAR = "SETTINGS_DOTENV_PATH"
+DEFAULT_TEST_ALLOWED_DB_HOSTS = frozenset({"localhost", "127.0.0.1"})
+
+
+def _resolve_dotenv_path() -> Path | None:
+    raw_dotenv_path = os.getenv(SETTINGS_DOTENV_PATH_ENV_VAR)
+    if not raw_dotenv_path:
+        return None
+    return Path(raw_dotenv_path).expanduser()
 
 
 def _require_dotenv_path() -> Path:
-    if SETTINGS_DOTENV_PATH is None:
+    dotenv_path = _resolve_dotenv_path()
+    if dotenv_path is None:
         raise RuntimeError(
-            "SETTINGS_DOTENV_PATH is not configured. "
+            f"{SETTINGS_DOTENV_PATH_ENV_VAR} is not configured. "
             "Set an explicit dotenv file path before loading Settings."
         )
 
-    if not SETTINGS_DOTENV_PATH.exists():
+    if not dotenv_path.exists():
         raise FileNotFoundError(
-            f"Configured settings dotenv file does not exist: {SETTINGS_DOTENV_PATH}"
+            f"Configured settings dotenv file does not exist: {dotenv_path}"
         )
 
-    return SETTINGS_DOTENV_PATH
+    return dotenv_path
 
 
 def _build_postgres_url(
@@ -52,6 +62,36 @@ def _build_postgres_url(
     encoded_host = quote(host, safe="")
     encoded_database = quote(database, safe="")
     return f"postgresql+psycopg://{encoded_user}:{encoded_password}@{encoded_host}:{port}/{encoded_database}"
+
+
+def validate_test_database_settings(
+    settings: Settings,
+    *,
+    allowed_hosts: set[str] | frozenset[str] = DEFAULT_TEST_ALLOWED_DB_HOSTS,
+) -> None:
+    if not settings.db_name.endswith("_test"):
+        raise ValueError("DB_NAME must end with '_test' in test environment.")
+
+    if settings.db_host not in allowed_hosts:
+        expected_hosts = ", ".join(sorted(allowed_hosts))
+        raise ValueError(
+            f"DB_HOST must be one of [{expected_hosts}] in test environment."
+        )
+
+    if not settings.app_db_user.endswith("_test"):
+        raise ValueError("APP_DB_USER must end with '_test' in test environment.")
+
+    if not settings.migration_db_user.endswith("_test"):
+        raise ValueError("MIGRATION_DB_USER must end with '_test' in test environment.")
+
+
+def _is_test_settings_context() -> bool:
+    app_env = os.getenv("APP_ENV", "").strip().lower()
+    if app_env == "test":
+        return True
+
+    dotenv_path = _resolve_dotenv_path()
+    return dotenv_path is not None and dotenv_path.name == ".env.test"
 
 
 class Settings(BaseSettings):
@@ -115,4 +155,7 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    if _is_test_settings_context():
+        validate_test_database_settings(settings)
+    return settings
