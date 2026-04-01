@@ -1,0 +1,2 @@
+# abstract: Reserved YAML configuration input for API settings source chain.
+# out_of_scope: Secret credential storage and environment-specific runtime secrets.
