@@ -14,6 +14,7 @@ out_of_scope: Endpoint-level business error catalogs, frontend copy customizatio
 - **Scope/Boundaries:** Covers error semantics, HTTP mapping, startup/runtime behavior, logging obligations, and extension governance.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 - **Related Designs:** `03-architecture-constraints`, `04-repository-structure`, `07-quality-engineering`, `09-database-runtime-access`.
+- **Precedence Rule:** For error-path response/logging/request-correlation behavior, this document is authoritative if any other document defines a conflicting default.
 
 ## Design Goals
 - Keep MVP implementation lightweight while freezing long-lived public error contracts.
@@ -105,6 +106,11 @@ AppError
 - Unknown uncaught exceptions map to `500` with `internal.api.unexpected_error`.
 
 ## Deterministic Mapping Contract
+- `domain.*` uses a minimum frozen subtype set:
+  - `domain.<module>.resource_not_found` -> `404`
+  - `domain.<module>.state_conflict` -> `409`
+  - `domain.<module>.rule_violation` -> `422`
+  - other `domain.*` fallback -> `422`
 - `application.*` uses a minimum frozen subtype set:
   - `application.<module>.input_invalid` -> `400`
   - `application.<module>.state_conflict` -> `409`
@@ -113,6 +119,10 @@ AppError
 - A request returns exactly one error (fail-fast). Aggregated multi-error payloads are out of MVP scope.
 - If multiple application subtypes are detected in one validation path, priority is fixed:
   1. `input_invalid`
+  2. `state_conflict`
+  3. `rule_violation`
+- If multiple domain subtypes are detected in one validation path, priority is fixed:
+  1. `resource_not_found`
   2. `state_conflict`
   3. `rule_violation`
 
@@ -131,10 +141,32 @@ AppError
 7. Client receives unified envelope with same `request_id` used in logs.
 
 ## Startup Fail-Fast Flow
-- Logging must initialize before startup-critical checks.
+- Startup bootstrap logger must initialize before startup-critical checks.
+- Bootstrap logger exists only to surface startup failures before runtime logging is fully configured.
 - Settings load errors and DB-initialization errors must fail startup immediately.
 - Startup failures do not produce HTTP responses, but must use the same error-code governance and logging field policy.
 - Development-only relaxed startup behavior may be enabled explicitly; production baseline remains strict fail-fast.
+
+### Startup Sequence Matrix
+| Stage | Action | Failure Outcome | Required Log Channel |
+|---|---|---|---|
+| S1 | Initialize bootstrap stderr logger | fail process if logger cannot initialize | process stderr |
+| S2 | Generate startup `request_id` | regenerate until valid | bootstrap stderr logger |
+| S3 | Load settings | fail-fast | bootstrap stderr logger |
+| S4 | Initialize runtime logger (console + file) | fail-fast | bootstrap stderr logger for failure record |
+| S5 | Run DB startup readiness checks | fail-fast | runtime logger when available; otherwise bootstrap stderr logger |
+
+## Startup Error Correlation Contract
+- Startup failures must still emit a non-empty correlation identifier.
+- When request context is unavailable, startup error logs must generate a correlation ID compatible with request-ID format policy.
+- Startup log field name for this identifier is `request_id` (same key as runtime error logs).
+- Startup error logs must include:
+  - generated `request_id`
+  - `error.code`
+  - `startup_phase`
+  - `exception_class`
+  - cause-chain/stack-trace metadata
+- Startup error paths do not emit API response envelopes; correlation and semantic identity are guaranteed through logs.
 
 ## Request ID Governance
 - API accepts inbound `X-Request-ID` only when it passes format validation.
@@ -154,12 +186,19 @@ AppError
 - Every handled and unhandled error must be logged.
 - 5xx and unknown errors must preserve full exception stack trace and cause chain.
 
-### Required Error Log Context
+### Required Runtime Error Log Context (request path)
 - `request_id`
 - `error.code`
-- `http_status` when applicable
+- `http_status`
 - `path`
 - `method`
+- `exception_class`
+- cause-chain/stack-trace metadata
+
+### Required Startup Error Log Context (no request path)
+- `request_id` (generated startup correlation identifier)
+- `error.code`
+- `startup_phase`
 - `exception_class`
 - cause-chain/stack-trace metadata
 
@@ -184,10 +223,23 @@ AppError
 - All API-visible errors conform to unified envelope and non-null `hint`.
 - Validation errors are normalized to status `422` with stable presentation error code.
 - Unknown internal errors always use fixed fallback `hint` text.
-- `application.*` mapping follows frozen subtype set and deterministic priority.
+- `domain.*` and `application.*` mappings follow frozen subtype sets and deterministic priorities.
 - Infrastructure temporary-unavailability cases return `503`; unknown internals return `500`.
 - Startup-critical config/DB failures are fail-fast and log-observable.
-- Logs for every error path carry request correlation and semantic error identity.
+- Logs for every error path carry `request_id` and semantic error identity.
+
+### Compliance Matrix
+| Rule | Verification Method | Owner Layer | Gate |
+|---|---|---|---|
+| Envelope fields exist and `hint` is non-null/non-empty | unit tests for payload builders | `core/errors.py` | `test` |
+| `error.code` format `<category>.<module>.<name>` | unit tests for code registry/constructors | `core/errors.py` | `test` |
+| Validation errors map to `422` + presentation code | unit/integration handler tests | `core/error_handlers.py` + `api` | `test` |
+| `domain.*`/`application.*` deterministic subtype mapping and priority | unit handler mapping tests | `core/error_handlers.py` | `test` |
+| `503` vs `500` split for infrastructure/unknown errors | integration runtime-path tests | `shared/db` + `core/error_handlers.py` | `test` |
+| Runtime request-id propagation to payload/header/logs | middleware + handler integration tests | `core/request_id.py` + `api` | `test` |
+| Startup fail-fast with startup `request_id` logging | startup integration tests | `core/config.py` + `shared/db/session.py` + `main.py` | `test` |
+| Startup sequence S1..S5 behavior and logger-channel guarantees | startup integration tests with controlled failure injection | `main.py` + `core/logging.py` + `core/config.py` | `test` |
+| Error envelope exposure in OpenAPI contract | contract tests against OpenAPI schema | `api` + `packages/contracts` | `contract drift` |
 
 ## Deferred to Later Phases
 - Full module-by-module exhaustive error code catalogs.

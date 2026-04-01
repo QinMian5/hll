@@ -1,6 +1,6 @@
 ---
 abstract: MVP phase-1 architecture constraints for fast delivery with extensible boundaries.
-out_of_scope: Detailed error code taxonomy, advanced CI matrices, and full-scale architecture lint automation.
+out_of_scope: Module-level exhaustive error-code catalogs, advanced CI matrices, and full-scale architecture lint automation.
 ---
 
 # Design: 03-architecture-constraints
@@ -46,7 +46,7 @@ out_of_scope: Detailed error code taxonomy, advanced CI matrices, and full-scale
 - Errors must be logged for debugging.
 - Error logs must preserve the original exception stack trace.
 - Original stack trace is logged only; it is not returned in client response payloads.
-- Detailed error code taxonomy and HTTP mapping are intentionally deferred.
+- Deterministic error taxonomy and HTTP mapping governance are defined in `13-global-error-governance`.
 
 ## Minimal Quality Gates (Phase-1)
 - `lint/format`
@@ -55,7 +55,7 @@ out_of_scope: Detailed error code taxonomy, advanced CI matrices, and full-scale
 - `contract drift`
 
 ## Deferred to Later Phases
-- Detailed error code catalog and HTTP status mapping table.
+- Per-module exhaustive error code catalogs beyond current global governance baseline.
 - PR/main differentiated CI matrices.
 - Broad test taxonomy expansion and complex marker governance.
 - Full import-matrix automation and advanced architecture lint policies.

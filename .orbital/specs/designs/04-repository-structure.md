@@ -107,10 +107,9 @@ packages/contracts/
 
 ## Governance Anchors
 - Detailed architecture constraints are defined in `03-architecture-constraints`.
-- Minimal phase-1 quality gates are `lint/format`, `typecheck`, `fast unit`, and `contract drift`.
+- Minimal phase-1 quality gates are `lint/format`, `typecheck`, `test`, and `contract drift`.
 - This document defines layout ownership only and does not redefine dependency policy details.
 
 ## Deferred to Later Phases
 - Detailed CI stage matrices and environment-specific gate variants.
-- Detailed error taxonomy and HTTP mapping.
 - Full import-matrix automation and advanced architecture lint policies.
