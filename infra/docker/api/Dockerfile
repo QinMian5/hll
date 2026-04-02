@@ -8,10 +8,10 @@ COPY apps/api/pyproject.toml /app/pyproject.toml
 COPY apps/api/uv.lock /app/uv.lock
 COPY apps/api/README.md /app/README.md
 COPY apps/api/src /app/src
-COPY alembic.ini /app/alembic.ini
-COPY alembic /app/alembic
+COPY apps/api/alembic.ini /app/alembic.ini
+COPY apps/api/alembic /app/alembic
 
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen
 
 ENV PATH="/app/.venv/bin:${PATH}"
 

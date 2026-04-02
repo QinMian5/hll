@@ -47,5 +47,5 @@ PY
 (
   cd "$ROOT_DIR"
   MIGRATION_DATABASE_URL="$MIGRATION_DATABASE_URL" \
-    uv --directory "$API_DIR" run alembic -c "$ROOT_DIR/alembic.ini" upgrade head
+    uv --directory "$API_DIR" run alembic -c "$API_DIR/alembic.ini" upgrade head
 )

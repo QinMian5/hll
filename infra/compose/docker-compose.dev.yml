@@ -4,8 +4,8 @@ services:
   migrate:
     volumes:
       - ../../apps/api/src:/app/src
-      - ../../alembic:/app/alembic
-      - ../../alembic.ini:/app/alembic.ini
+      - ../../apps/api/alembic:/app/alembic
+      - ../../apps/api/alembic.ini:/app/alembic.ini
 
   api:
     command:
@@ -24,8 +24,8 @@ services:
       ]
     volumes:
       - ../../apps/api/src:/app/src
-      - ../../alembic:/app/alembic
-      - ../../alembic.ini:/app/alembic.ini
+      - ../../apps/api/alembic:/app/alembic
+      - ../../apps/api/alembic.ini:/app/alembic.ini
     ports:
       - "8000:8000"
 

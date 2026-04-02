@@ -8,7 +8,6 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_BASE="$ROOT_DIR/infra/compose/docker-compose.base.yml"
 COMPOSE_ENV="$ROOT_DIR/infra/env/.env.dev"
 COMPOSE_DEV="$ROOT_DIR/infra/compose/docker-compose.dev.yml"
-COMPOSE_AUTOGEN="$ROOT_DIR/infra/compose/docker-compose.autogen.yml"
 
 MSG="${MSG:-${1:-}}"
 if [[ -z "$MSG" ]]; then
@@ -20,6 +19,5 @@ docker compose \
   --env-file "$COMPOSE_ENV" \
   -f "$COMPOSE_BASE" \
   -f "$COMPOSE_DEV" \
-  -f "$COMPOSE_AUTOGEN" \
   run --rm migrate \
-  uv run alembic revision --autogenerate -m "$MSG"
+  uv run alembic -c /app/alembic.ini revision --autogenerate -m "$MSG"

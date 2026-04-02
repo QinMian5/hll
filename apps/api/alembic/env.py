@@ -8,11 +8,12 @@ from __future__ import annotations
 import os
 from logging.config import fileConfig
 
-from alembic import context
-from sqlalchemy.engine import make_url
 from sqlalchemy import engine_from_config, pool
-from shared.db.base import Base
+from sqlalchemy.engine import make_url
+
 import modules.knowledge.model  # noqa: F401
+from alembic import context
+from shared.db.base import Base
 
 config = context.config
 

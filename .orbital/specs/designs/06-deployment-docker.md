@@ -36,6 +36,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `compose.base.yml`: shared service definitions and common network/volume baseline, including `redis` and `worker`.
 - `compose.dev.yml`: development-only overrides (source mounts, debug commands, direct local port exposure, no `nginx` service).
 - `compose.prod.yml`: production-only overrides (runtime restart policy, `nginx` edge service, `80/443` exposure).
+- Migration autogeneration uses the same base+dev layering and does not use a dedicated compose overlay file.
 
 ## Volume Lifecycle Policy
 - Development uses non-external volumes and supports optional volume cleanup through an explicit destroy flag.
@@ -46,6 +47,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `db` uses a custom PostgreSQL Dockerfile and is the extension package baseline owner.
 - `api` uses a custom Dockerfile.
 - `worker` reuses the API image with Dramatiq worker command override.
+- The API image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - `redis` uses fixed-tag official image `redis:7-bookworm`.
 - `web` uses a custom Dockerfile with separate dev/prod targets.
 - `nginx` uses a fixed-tag official image in production and does not use a custom Dockerfile.

@@ -10,8 +10,8 @@ from collections.abc import Sequence
 
 import pgvector  # noqa: F401
 import sqlalchemy as sa  # noqa: F401
-from alembic import op  # noqa: F401
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "2a855fefebad"
@@ -28,4 +28,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Downgrade schema."""
     # no-op by design: extension remains installed across downgrades
-    pass

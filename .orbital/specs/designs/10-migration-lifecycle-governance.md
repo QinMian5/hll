@@ -16,6 +16,7 @@ out_of_scope: Runtime request-session management, API business orchestration, an
 
 ## Migration Governance Boundary
 - Alembic `env.py` is the metadata-entry boundary for migration autogeneration and upgrade execution.
+- Alembic configuration and revision assets are owned by `apps/api` at `apps/api/alembic.ini` and `apps/api/alembic/**`.
 - Migration execution in this repository is performed through governed script entrypoints under `scripts/alembic-*.sh`.
 - Ad hoc migration execution paths outside governed entrypoints are out of baseline policy.
 

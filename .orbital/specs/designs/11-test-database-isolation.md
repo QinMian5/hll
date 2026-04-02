@@ -30,6 +30,7 @@ out_of_scope: Production database hardening, backup strategy, and multi-node top
 
 ## Migration Safety Policy
 - Test migration entrypoint is `scripts/alembic-upgrade-test.sh`.
+- Test migration configuration is loaded from `apps/api/alembic.ini`.
 - Test migration uses `MIGRATION_DATABASE_URL` derived from component settings at runtime.
 - Alembic in test mode (`APP_ENV=test`) enforces `_test` database and role suffix before migration execution.
 - Alembic migration entrypoint requires `MIGRATION_DATABASE_URL` and does not fallback to runtime `DATABASE_URL`.

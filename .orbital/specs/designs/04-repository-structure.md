@@ -31,7 +31,7 @@ repo/
 ```
 
 ## Directory Ownership
-- `apps/api`: FastAPI service source, runtime entrypoint, and API-side tests.
+- `apps/api`: FastAPI service source, runtime entrypoint, API-side tests, and Alembic migration assets.
 - `apps/web`: React web client source and web-side tests.
 - `packages/contracts`: authoritative OpenAPI snapshot and generated client artifacts for frontend consumption.
 - `infra`: deployment and environment template assets, not application business logic.
@@ -42,6 +42,10 @@ repo/
 ### API Application (`apps/api`)
 ```text
 apps/api/
+  alembic/
+    env.py
+    versions/
+  alembic.ini
   src/
     main.py
     core/
