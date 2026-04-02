@@ -11,7 +11,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
-- **Scope/Boundaries:** Covers module ownership for frontend, backend API, business core, database, and reserved infrastructure modules.
+- **Scope/Boundaries:** Covers module ownership for frontend, backend API, knowledge, search, ingestion, database, and runtime infrastructure dependencies.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Module Responsibilities
@@ -22,7 +22,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Provide viewport zoom and graph browsing interactions.
   - Render card layout and undirected edge visualization.
   - Provide V1 search interaction and query submission.
-  - Consume read-only HTTP API responses for visualization.
+  - Consume search read API responses for visualization.
 - **Non-responsibilities:**
   - Filter interaction logic in V1.
   - Relation computation logic.
@@ -31,8 +31,8 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### Backend API
 - **Responsibilities:**
-  - Expose read-only HTTP API endpoints.
-  - Expose V1 search read endpoints.
+  - Expose V1 search read endpoint.
+  - Expose V1 ingestion accept endpoint.
   - Validate request inputs and normalize response outputs.
   - Publish the API contract boundary for consumers.
 - **Non-responsibilities:**
@@ -40,25 +40,42 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Frontend rendering behavior ownership.
   - Storage-engine implementation ownership.
 
-### Business Core
+### knowledge Module
 - **Responsibilities:**
-  - Own read-use-case orchestration for cards and relations.
-  - Define domain semantics for atomic cards and undirected relation strength.
-  - Host offline cosine-similarity initialization logic for relation strength.
-  - Provide domain read models to Backend API.
+  - Own `Node/Edge/Adjacency` domain semantics and graph persistence truth.
+  - Own repository and model access for graph persistence.
+  - Provide service-layer APIs consumed by `search` and `ingestion`.
+  - Execute node persistence and edge materialization in worker-triggered write flow.
 - **Non-responsibilities:**
   - HTTP transport concerns.
   - Frontend rendering concerns.
-  - Infrastructure protocol details.
+  - Queue broker protocol details.
 
-### Database
+### search Module
 - **Responsibilities:**
-  - Persist card and relation data as the system record source.
-  - Serve read retrieval required by Business Core.
+  - Own read-side search orchestration.
+  - Build query embedding and request cosine retrieval through `knowledge.service`.
+  - Shape read response with matched cards and connected titles.
 - **Non-responsibilities:**
-  - API response shaping.
-  - Frontend interaction behavior.
-  - Business orchestration logic.
+  - Direct repository or model access in `knowledge`.
+  - Write-path orchestration.
+
+### ingestion Module
+- **Responsibilities:**
+  - Own write-side ingestion acceptance endpoint and async dispatch orchestration.
+  - Publish accepted ingestion jobs to Redis/Dramatiq worker execution.
+  - Invoke `knowledge.service` for node persistence and edge materialization.
+- **Non-responsibilities:**
+  - Direct repository or model access in `knowledge`.
+  - Read-side search response orchestration.
+
+## Runtime Infrastructure Dependencies (Enabled in V1)
+
+### Queue
+- Redis + Dramatiq are enabled to run ingestion asynchronous workflows.
+
+### External Services
+- Embedding service integration is enabled for ingestion worker execution and search query embedding.
 
 ## Reserved Modules (Not Implemented in V1)
 
@@ -66,23 +83,16 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - Reserved for future read acceleration.
 - Not enabled in V1 runtime.
 
-### Queue
-- Reserved for future asynchronous workflows.
-- Not enabled in V1 runtime.
-
 ### Object Storage
 - Reserved for future large-object and asset storage.
 - Not enabled in V1 runtime.
 
-### External Services
-- Reserved for future third-party capability integration.
-- Not enabled in V1 runtime.
-
 ## Dependency Direction
 - V1 runtime dependency direction is:
-  - `Frontend -> Backend API -> Business Core -> Database`
+  - `Frontend -> Backend API(search) -> Search module -> Knowledge module -> Database`
+  - `Backend API(ingestion) -> Ingestion module -> Redis/Dramatiq worker -> Knowledge module -> Database`
 - Reserved modules do not participate in V1 runtime behavior.
 
 ## V1 Boundary Summary
-- V1 delivers read-only API serving, search, card-relation retrieval, and 2D graph browsing with zoom, layout, and edge rendering.
-- V1 excludes filter interaction and excludes runtime dependency on cache, queue, object storage, and external services.
+- V1 delivers ingestion acceptance API, search read API, card-relation retrieval, and 2D graph browsing with zoom, layout, and edge rendering.
+- V1 excludes filter interaction and excludes runtime dependency on cache and object storage.

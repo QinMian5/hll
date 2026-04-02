@@ -103,6 +103,9 @@ AppError
   - temporary dependency unavailable: `503`
   - non-classified infrastructure/internal platform failure: `500`
 - Unknown uncaught exceptions map to `500` with `INTERNAL_API_UNEXPECTED_ERROR`.
+- Ingestion acceptance endpoint keeps asynchronous acceptance semantics:
+  - valid payloads return `202` after request acceptance.
+  - downstream enqueue/worker failures are internal-only and do not alter the accepted response.
 
 ## Deterministic Mapping Contract
 - `DOMAIN_*` uses a minimum frozen subtype set:
@@ -117,6 +120,7 @@ AppError
   - other `APPLICATION_*` fallback -> `422`
 - Special-case override:
   - `APPLICATION_API_INPUT_INVALID` -> `422` (request-shape validation contract).
+  - ingestion accepted request -> `202` (asynchronous acceptance contract).
 - A request returns exactly one error (fail-fast). Aggregated multi-error payloads are out of MVP scope.
 - If multiple application subtypes are detected in one validation path, priority is fixed:
   1. `input_invalid`
@@ -225,7 +229,8 @@ AppError
 - Validation errors are normalized to status `422` with stable `APPLICATION_API_INPUT_INVALID` code.
 - Unknown internal errors still require explicit non-empty `hint`.
 - `DOMAIN_*` and `APPLICATION_*` mappings follow frozen subtype sets and deterministic priorities.
-- Infrastructure temporary-unavailability cases return `503`; unknown internals return `500`.
+- Infrastructure temporary-unavailability cases return `503` except accepted-ingestion asynchronous downstream failures; unknown internals return `500`.
+- Ingestion endpoint returns `202` on valid accepted payloads while preserving internal log observability for downstream asynchronous failures.
 - Startup-critical config/DB failures are fail-fast and log-observable.
 - Logs for every error path carry `request_id` and semantic error identity.
 
@@ -237,6 +242,7 @@ AppError
 | Validation errors map to `422` + `APPLICATION_API_INPUT_INVALID` | unit/integration handler tests | `core/error_handlers.py` + `api` | `test` |
 | `DOMAIN_*`/`APPLICATION_*` deterministic subtype mapping and priority | unit handler mapping tests | `core/error_handlers.py` | `test` |
 | `503` vs `500` split for infrastructure/unknown errors | integration runtime-path tests | `shared/db` + `core/error_handlers.py` | `test` |
+| Accepted-ingestion contract keeps `202` for valid payloads with downstream failures handled internally | integration tests for ingestion endpoint plus worker failure scenarios | `modules/ingestion` + `core/error_handlers.py` | `test` |
 | Runtime request-id propagation to payload/header/logs | middleware + handler integration tests | `core/request_id.py` + `api` | `test` |
 | Startup fail-fast with startup `request_id` logging | startup integration tests | `core/config.py` + `shared/db/session.py` + `main.py` | `test` |
 | Startup sequence S1..S5 behavior and logger-channel guarantees | startup integration tests with controlled failure injection | `main.py` + `core/logging.py` + `core/config.py` | `test` |

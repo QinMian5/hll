@@ -19,17 +19,20 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Production external exposure is restricted to `80/443` through `Nginx`.
 - Development exposes `web` on `5173` and `api` on `8000` directly for debugging.
 - `db` remains internal-only in both environments.
-- Production runtime chain is `nginx -> web -> api -> db`.
-- Development runtime chain is `web -> api -> db`.
+- `redis` remains internal-only in both environments.
+- Production search read chain is `nginx -> web -> api -> db`.
+- Production ingestion write chain is `api -> redis -> worker -> db`.
+- Development search read chain is `web -> api -> db`.
+- Development ingestion write chain is `api -> redis -> worker -> db`.
 - Migration is a dedicated one-shot job and not part of API startup.
 
 ## Network Boundaries
-- `backend` network is internal-only and contains `postgres`, `migrate`, and `api`.
+- `backend` network is internal-only and contains `db`, `redis`, `migrate`, `api`, and `worker`.
 - `edge` network contains `web`, `api`, and `nginx` (production only for `nginx`).
 - Cross-service access must follow network boundaries rather than host port access.
 
 ## Compose Layering Strategy
-- `compose.base.yml`: shared service definitions and common network/volume baseline.
+- `compose.base.yml`: shared service definitions and common network/volume baseline, including `redis` and `worker`.
 - `compose.dev.yml`: development-only overrides (source mounts, debug commands, direct local port exposure, no `nginx` service).
 - `compose.prod.yml`: production-only overrides (runtime restart policy, `nginx` edge service, `80/443` exposure).
 
@@ -39,16 +42,18 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - PostgreSQL persistent data in production must bind to an external named volume.
 
 ## Container Build Strategy
-- `postgres` uses a custom Dockerfile and is the extension package baseline owner.
+- `db` uses a custom PostgreSQL Dockerfile and is the extension package baseline owner.
 - `api` uses a custom Dockerfile.
+- `worker` reuses the API image with Dramatiq worker command override.
+- `redis` uses a fixed-tag official image.
 - `web` uses a custom Dockerfile with separate dev/prod targets.
 - `nginx` uses a fixed-tag official image in production and does not use a custom Dockerfile.
 
 ## Startup and Gating Order
 - Required startup order is fixed:
-  1. `db` reaches healthy state.
+  1. `db` and `redis` reach healthy state.
   2. `migrate` one-shot job runs and exits successfully.
-  3. `api` starts.
+  3. `api` and `worker` start.
   4. `web` starts.
 - `api` must not auto-run migrations.
 - Startup dependency control must use `healthcheck + depends_on`.
@@ -89,6 +94,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Known startup failures must fail explicitly and stop rollout progression.
 - Silent fallback and partial startup in known invalid states are forbidden.
 - Error details must remain observable in logs for debugging.
+- Ingestion enqueue failures are logged and observable while accepted-ingestion response semantics remain unchanged.
 
 ## Deferred to Later Phases
 - Backup and restore strategy definition.

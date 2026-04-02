@@ -52,9 +52,11 @@ apps/api/
     modules/
       knowledge/
       search/
+      ingestion/
     shared/
       db/
       integrations/
+      queue/
       utils/
   tests/
   pyproject.toml
@@ -104,6 +106,8 @@ packages/contracts/
 3. `apps/api/src/shared` SHALL contain reusable technical capabilities only.
 4. Runtime configuration sources are limited to git-tracked YAML and non-committed `.env`; test-only code injection is allowed only in tests.
 5. `infra/env` contains deployment templates or examples and is not an additional runtime configuration source for application code.
+6. `apps/api/src/modules/knowledge` SHALL remain the only owner of graph persistence models and repositories.
+7. `apps/api/src/modules/search` and `apps/api/src/modules/ingestion` SHALL access graph persistence only through `knowledge.service`.
 
 ## Governance Anchors
 - Detailed architecture constraints are defined in `03-architecture-constraints`.

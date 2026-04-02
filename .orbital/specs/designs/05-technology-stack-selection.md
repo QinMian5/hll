@@ -19,7 +19,7 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Prefer mature defaults with low integration risk.
 - Keep phase-1 operational complexity minimal.
 - Keep strong contract-driven integration (`OpenAPI -> generated client`).
-- Defer non-essential runtime components even if dependencies are preinstalled.
+- Defer non-essential runtime components except approved ingestion async dependencies.
 
 ## Selected Stack (Phase-1)
 
@@ -31,6 +31,7 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - ORM and migrations: `SQLAlchemy 2` + `Alembic`
 - Database: `PostgreSQL`
 - Vector extension: `pgvector`
+- Async worker framework: `Dramatiq`
 
 #### Why selected
 - The stack is aligned with API-first development and deterministic contract export.
@@ -54,13 +55,14 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Containerization: `Docker`
 - Local orchestration: `Docker Compose`
 - Primary datastore: `PostgreSQL` (containerized for local/CI parity)
+- Queue broker: `Redis`
+- Runtime external integration: HTTP embedding service
 
 #### Why selected
 - Minimal reproducible infrastructure baseline.
 - Low operational overhead for a single API service and single web client.
 
 ## Installed but Deferred for Runtime Use
-- `Redis`
 - `TanStack Router`
 - `Zustand`
 - `TanStack Form`
@@ -72,7 +74,6 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Deferred components are not required in the phase-1 runtime path unless a scope decision changes.
 
 ## Why Deferred Instead of Enabled in Phase-1
-- `Redis`: cache layer is reserved and not part of phase-1 runtime.
 - `TanStack Router`: route complexity is not yet high enough to require type-safe router specialization.
 - `Zustand`: global client-state complexity is not yet justified.
 - `TanStack Form` and `Zod`: phase-1 is read-first and does not require advanced form workflows.
@@ -81,11 +82,12 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 ## Explicit Non-Goals for Phase-1
 - Enabling authentication/authorization flows.
 - Introducing cache runtime dependency.
+- Introducing keyword or hybrid retrieval runtime dependency.
 - Building complex form or admin-console interaction systems.
 - Adding additional backend service decomposition.
 
 ## Revisit Triggers
-- Introduce `Redis` when measurable read hot paths require cache-level latency reduction.
+- Introduce Redis cache usage when measurable read hot paths require cache-level latency reduction.
 - Enable `TanStack Router` when URL/stateful navigation becomes a core behavior surface.
 - Enable `Zustand` when cross-feature client state cannot be managed cleanly with local state/query cache.
 - Enable `TanStack Form`/`Zod` when write-heavy workflows enter scope.
