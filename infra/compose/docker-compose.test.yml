@@ -1,4 +1,4 @@
-# abstract: Lightweight isolated PostgreSQL topology for integration and migration tests.
+# abstract: Lightweight isolated PostgreSQL + Redis topology for integration and migration tests.
 # out_of_scope: Application container runtime and production ingress networking.
 services:
   postgres:
@@ -28,6 +28,21 @@ services:
       - "127.0.0.1:${DB_PORT:-55432}:5432"
     volumes:
       - postgres_test_data:/var/lib/postgresql
+    networks:
+      - backend
+    restart: "no"
+
+  redis:
+    image: redis:7-bookworm
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 2s
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-56379}:6379"
     networks:
       - backend
     restart: "no"

@@ -5,23 +5,20 @@ Out of scope: Real database connectivity and migration lifecycle behavior.
 
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, Generator
+from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
-import core.config as config_module
 import shared.db.session as session_module
+from core.config import Settings
 
 
 @pytest.fixture
-def configured_db_runtime(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> Generator[None]:
-    dotenv_file = tmp_path / ".env.dev"
+def runtime_settings(tmp_path: Path) -> Settings:
+    dotenv_file = tmp_path / ".env.runtime"
     dotenv_file.write_text(
         "\n".join(
             [
@@ -32,26 +29,29 @@ def configured_db_runtime(
                 "APP_DB_PASSWORD=secret",
                 "MIGRATION_DB_USER=knowledge_migration",
                 "MIGRATION_DB_PASSWORD=secret_m",
+                "REDIS_URL=redis://redis:6379/0",
+                "EMBEDDING_API_URL=https://api.openai.com/v1/embeddings",
+                "EMBEDDING_MODEL=text-embedding-3-small",
+                "EMBEDDING_API_KEY=test-key",
+                "EMBEDDING_TIMEOUT_SECONDS=10",
+                "SEARCH_MAX_MATCHED=5",
+                "SEARCH_MAX_CONNECTED=10",
+                "EDGE_SIMILARITY_TOP_K=10",
+                "EDGE_SIMILARITY_MIN_STRENGTH=0.6",
             ]
         ),
         encoding="utf-8",
     )
-
-    monkeypatch.setenv("SETTINGS_DOTENV_PATH", str(dotenv_file))
-    monkeypatch.setattr(session_module, "_engine", None)
-    monkeypatch.setattr(session_module, "_async_session_factory", None)
-    config_module.get_settings.cache_clear()
-
-    yield
-
-    config_module.get_settings.cache_clear()
+    return Settings(_env_file=dotenv_file)
 
 
-@pytest.mark.usefixtures("configured_db_runtime")
-def test_get_engine_is_lazy_singleton_and_async() -> None:
-    engine = session_module.get_engine()
+def test_build_async_engine_uses_expected_runtime_settings(
+    runtime_settings: Settings,
+) -> None:
+    engine = session_module.build_async_engine(
+        database_url=runtime_settings.app_database_url
+    )
     assert isinstance(engine, AsyncEngine)
-    assert engine is session_module.get_engine()
     assert engine.url.drivername == "postgresql+psycopg"
     assert engine.url.username == "knowledge_app"
     assert engine.url.password == "secret"
@@ -60,20 +60,29 @@ def test_get_engine_is_lazy_singleton_and_async() -> None:
     assert engine.url.database == "knowledge"
 
 
-@pytest.mark.usefixtures("configured_db_runtime")
-def test_get_async_session_factory_uses_expected_defaults() -> None:
-    session_factory = session_module.get_async_session_factory()
-    assert session_factory.kw["bind"] is session_module.get_engine()
+def test_build_async_session_factory_uses_expected_defaults(
+    runtime_settings: Settings,
+) -> None:
+    engine = session_module.build_async_engine(
+        database_url=runtime_settings.app_database_url
+    )
+    session_factory = session_module.build_async_session_factory(engine=engine)
+    assert session_factory.kw["bind"] is engine
     assert session_factory.kw["expire_on_commit"] is False
     assert session_factory.class_ is AsyncSession
 
 
-@pytest.mark.usefixtures("configured_db_runtime")
 @pytest.mark.anyio
-async def test_get_async_session_yields_asyncsession() -> None:
+async def test_open_async_session_yields_asyncsession(
+    runtime_settings: Settings,
+) -> None:
+    engine = session_module.build_async_engine(
+        database_url=runtime_settings.app_database_url
+    )
+    session_factory = session_module.build_async_session_factory(engine=engine)
     session_generator = cast(
         AsyncGenerator[AsyncSession],
-        session_module.get_async_session(),
+        session_module.open_async_session(session_factory=session_factory),
     )
     session = await anext(session_generator)
     try:

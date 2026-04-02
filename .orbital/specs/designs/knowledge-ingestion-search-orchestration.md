@@ -11,7 +11,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the accepted V1 module orchestration for `knowledge`, `ingestion`, and `search` under async ingestion with Redis and Dramatiq.
+- **Purpose:** Define the accepted V1 module orchestration for `knowledge_graph`, `ingestion`, and `search` under async ingestion with Redis and Dramatiq.
 - **Scope/Boundaries:** Covers module ownership, endpoint contracts, asynchronous processing flow, data visibility rules, and runtime observability obligations.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
@@ -22,26 +22,31 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 
 ## Module Ownership
 
-### knowledge
+### knowledge_graph
 - Owns persistent domain truth for `Node`, `Edge`, and `Adjacency`.
 - Is the only module allowed to own and access graph persistence models and repositories.
-- Exposes service-layer APIs consumed by `search` and `ingestion`.
-- Defines shared Pydantic DTOs used for cross-module validation.
+- Exposes read/write domain service ports consumed by `search` and `ingestion`.
+- Contains domain DTOs used by `knowledge_graph` service ports and repository outputs.
+- Does not contain HTTP route handlers, queue broker configuration, or worker actor declarations.
 
 ### ingestion
 - Owns write-side HTTP acceptance endpoint and write orchestration.
 - Accepts valid payloads and returns `202 Accepted`.
-- Publishes async jobs to Redis via Dramatiq.
+- Owns ingestion-scoped queue broker configuration and publishes async jobs to Redis via Dramatiq.
 - Uses project-managed Redis service on Docker backend network as queue broker target.
 - Consumes embedding integration in worker execution path.
-- Calls `knowledge.service` for node creation and edge materialization.
-- Must not import `knowledge.repo` or `knowledge.model`.
+- Calls `knowledge_graph` write service port for node creation and edge materialization.
+- Contains `api.py`, `schema.py`, `service.py`, ingestion queue broker wiring, and worker job-processing primitives.
+- Must not import `knowledge_graph.repo` or `knowledge_graph.model`.
+- Must not resolve runtime settings internally; ingestion runtime dependencies are injected from entrypoint composition providers.
 
 ### search
 - Owns read-side HTTP search endpoint and read orchestration.
 - Uses cosine-only query retrieval.
-- Calls `knowledge.service` for candidate retrieval and connected-title expansion.
-- Must not import `knowledge.repo` or `knowledge.model`.
+- Calls `knowledge_graph` read service port for candidate retrieval and connected-title expansion.
+- Contains `api.py`, `schema.py`, and read orchestration `service.py`.
+- Does not contain queue broker setup, worker actor declarations, or write-path orchestration.
+- Must not import `knowledge_graph.repo` or `knowledge_graph.model`.
 
 ## API Contract
 
@@ -73,8 +78,8 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 2. API returns `4xx` for invalid payloads according to global error-governance mapping.
 3. API publishes a Dramatiq message for valid payloads.
 4. API returns `202` for valid payloads.
-5. Worker receives message and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
-6. Worker calls `knowledge.service` to persist `Node`.
+5. Dramatiq actor in `entrypoints/worker/actors.py` receives message and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
+6. Worker calls `knowledge_graph` write service port to persist `Node`.
 7. Worker computes cosine similarity and persists `Edge` and `Adjacency` rows.
 8. Search path reads persisted graph data only; no processing-state data is exposed by search.
 
@@ -85,6 +90,8 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - OpenAI Embeddings API is required in both ingestion worker flow and search query flow.
 - Embedding model is fixed to `text-embedding-3-small` in MVP runtime defaults.
 - PostgreSQL remains the persistent source of truth for graph entities.
+- Runtime configuration values are sourced from `.env` via `pydantic-settings`; YAML is not a runtime source.
+- `load_settings()` usage is restricted to composition entrypoints (`entrypoints/runtime.py` and `alembic/env.py`).
 
 ## Failure Handling
 - Invalid ingestion request payloads are client-visible as `4xx` according to global error-governance mapping.
@@ -102,7 +109,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - **Checks:**
   - Contract tests assert `POST /ingestions/cards` returns `4xx` on invalid payload and `202` on valid payload.
   - Search contract tests assert `matched_cards` include only `title` and `content`.
-  - Architecture checks assert `search` and `ingestion` do not import `knowledge.repo/model`.
+  - Architecture checks assert `search` and `ingestion` do not import `knowledge_graph.repo/model`.
   - Integration tests verify worker-materialized nodes/edges become searchable.
 - **Evidence:**
   - Passing test suite for API contracts, async worker flow, and architecture constraints.

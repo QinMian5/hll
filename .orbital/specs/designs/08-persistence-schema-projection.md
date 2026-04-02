@@ -16,7 +16,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - **Upstream Design Dependency:** `02-core-domain-model` is the semantic source of truth.
 
 ## Projection Boundary
-- The persistence projection for V1 is represented by SQLAlchemy models under `modules/knowledge/model.py`.
+- The persistence projection for V1 is represented by SQLAlchemy models under `modules/knowledge_graph/model.py`.
 - Persistence projection uses shared metadata from `shared/db/base.py`.
 - The projection contains only persistence semantics and must not include API response shaping rules.
 

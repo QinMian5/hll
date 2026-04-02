@@ -1,52 +1,20 @@
 """
-Abstract: Minimal settings entrypoint using init + explicit dotenv path
-with optional infra yaml fallback.
+Abstract: Pydantic settings schema and database URL assembly helpers.
 Out of scope: Request-scoped dependency injection and
 SQLAlchemy session lifecycle wiring.
 """
 
 from __future__ import annotations
 
-import os
-from functools import lru_cache
 from pathlib import Path
+from typing import Any, cast
 from urllib.parse import quote
 
-from pydantic_settings import (
-    BaseSettings,
-    DotEnvSettingsSource,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
-    YamlConfigSettingsSource,
-)
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
-SETTINGS_YAML_PATH = PROJECT_ROOT / "infra" / "config" / "settings.yaml"
-SETTINGS_DOTENV_PATH_ENV_VAR = "SETTINGS_DOTENV_PATH"
-DEFAULT_TEST_ALLOWED_DB_HOSTS = frozenset({"localhost", "127.0.0.1"})
-
-
-def _resolve_dotenv_path() -> Path | None:
-    raw_dotenv_path = os.getenv(SETTINGS_DOTENV_PATH_ENV_VAR)
-    if not raw_dotenv_path:
-        return None
-    return Path(raw_dotenv_path).expanduser()
-
-
-def _require_dotenv_path() -> Path:
-    dotenv_path = _resolve_dotenv_path()
-    if dotenv_path is None:
-        raise RuntimeError(
-            f"{SETTINGS_DOTENV_PATH_ENV_VAR} is not configured. "
-            "Set an explicit dotenv file path before loading Settings."
-        )
-
-    if not dotenv_path.exists():
-        raise FileNotFoundError(
-            f"Configured settings dotenv file does not exist: {dotenv_path}"
-        )
-
-    return dotenv_path
+DEFAULT_DOTENV_PATH = PROJECT_ROOT / "infra" / "env" / ".env.dev"
 
 
 def _build_postgres_url(
@@ -64,31 +32,12 @@ def _build_postgres_url(
     return f"postgresql+psycopg://{encoded_user}:{encoded_password}@{encoded_host}:{port}/{encoded_database}"
 
 
-def validate_test_database_settings(
-    settings: Settings,
-    *,
-    allowed_hosts: set[str] | frozenset[str] = DEFAULT_TEST_ALLOWED_DB_HOSTS,
-) -> None:
-    if not settings.db_name.endswith("_test"):
-        raise ValueError("DB_NAME must end with '_test' in test environment.")
-
-    if settings.db_host not in allowed_hosts:
-        expected_hosts = ", ".join(sorted(allowed_hosts))
-        raise ValueError(
-            f"DB_HOST must be one of [{expected_hosts}] in test environment."
-        )
-
-    if not settings.app_db_user.endswith("_test"):
-        raise ValueError("APP_DB_USER must end with '_test' in test environment.")
-
-    if not settings.migration_db_user.endswith("_test"):
-        raise ValueError("MIGRATION_DB_USER must end with '_test' in test environment.")
-
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         extra="forbid",
         case_sensitive=False,
+        env_file=DEFAULT_DOTENV_PATH,
+        env_file_encoding="utf-8",
     )
 
     db_host: str
@@ -98,30 +47,15 @@ class Settings(BaseSettings):
     app_db_password: str
     migration_db_user: str
     migration_db_password: str
-
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
-        # Keep framework-defined signature names for keyword compatibility.
-        return (
-            init_settings,
-            DotEnvSettingsSource(
-                settings_cls,
-                env_file=_require_dotenv_path(),
-                env_file_encoding="utf-8",
-            ),
-            YamlConfigSettingsSource(
-                settings_cls,
-                yaml_file=SETTINGS_YAML_PATH,
-                yaml_file_encoding="utf-8",
-            ),
-        )
+    redis_url: str
+    embedding_api_url: str
+    embedding_model: str
+    embedding_api_key: str
+    embedding_timeout_seconds: float = Field(gt=0)
+    search_max_matched: int = Field(ge=1)
+    search_max_connected: int = Field(ge=1)
+    edge_similarity_top_k: int = Field(ge=1)
+    edge_similarity_min_strength: float = Field(ge=0.0, le=1.0)
 
     @property
     def app_database_url(self) -> str:
@@ -144,6 +78,9 @@ class Settings(BaseSettings):
         )
 
 
-@lru_cache(maxsize=1)
-def get_settings() -> Settings:
-    return Settings.model_validate({})
+def load_settings(*, env_file: Path | str | None = None) -> Settings:
+    resolved_env_file = (
+        DEFAULT_DOTENV_PATH if env_file is None else Path(env_file).expanduser()
+    )
+    settings_factory = cast(Any, Settings)
+    return cast(Settings, settings_factory(_env_file=resolved_env_file))

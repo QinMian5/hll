@@ -1,5 +1,5 @@
 """
-Abstract: Unit tests for knowledge persistence schema projection.
+Abstract: Unit tests for knowledge-graph persistence schema projection.
 Out of scope: Migration execution and runtime database I/O behavior.
 """
 
@@ -10,7 +10,7 @@ from typing import cast
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import CheckConstraint, Table
 
-from modules.knowledge.model import Adjacency, Edge, Node
+from modules.knowledge_graph.model import Adjacency, Edge, Node
 from shared.db.base import Base
 
 

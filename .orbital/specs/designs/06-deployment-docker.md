@@ -87,7 +87,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Migration failure blocks release progression (fail-fast).
 
 ## Configuration and Secrets Boundary
-- Configuration model remains `committed YAML + runtime env`.
+- Configuration model remains `.env`-driven runtime settings through `pydantic-settings`.
 - Environment files use `.env.example`, `.env.dev`, and `.env.prod` naming.
 - Environment template files (`.env.example`, `.env.dev`, `.env.prod`) are tracked in version control.
 - Sensitive values are provided through runtime environment variables or `.env` and are not committed.

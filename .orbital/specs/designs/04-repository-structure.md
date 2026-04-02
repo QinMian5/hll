@@ -52,21 +52,35 @@ apps/api/
       config.py
       logging.py
       errors.py
-      deps.py
+    entrypoints/
+      runtime.py
+      api/
+        app.py
+        providers.py
+      worker/
+        actors.py
     modules/
-      knowledge/
+      knowledge_graph/
       search/
       ingestion/
     shared/
       db/
       integrations/
-      queue/
       utils/
   tests/
   pyproject.toml
   Dockerfile
 ```
 - `apps/api/src/core/config.py` is the single `pydantic-settings` entrypoint.
+
+### API Module Content Ownership
+- `modules/knowledge_graph` contains domain truth and persistence ownership (`model.py`, `repo.py`, `service.py`, `dto.py`, `ports.py`, `builders.py`).
+- `modules/knowledge_graph` excludes HTTP endpoint files and queue transport wiring.
+- `modules/search` contains read-side HTTP contract files (`api.py`, `schema.py`) and read orchestration service logic.
+- `modules/search` excludes direct persistence access and worker/queue concerns.
+- `modules/ingestion` contains write-side HTTP contract files (`api.py`, `schema.py`), ingestion orchestration (`service.py`), ingestion-owned queue broker (`queue.py`), and worker job-processing primitives (`workers.py`).
+- `modules/ingestion` excludes graph persistence models/repositories and search-response orchestration.
+- `entrypoints` is the composition layer and contains FastAPI app/provider wiring and Dramatiq actor registration.
 
 ### Web Application (`apps/web`)
 ```text
@@ -108,14 +122,26 @@ packages/contracts/
 1. `packages/contracts` SHALL NOT contain application business logic.
 2. `infra` SHALL NOT contain application business logic.
 3. `apps/api/src/shared` SHALL contain reusable technical capabilities only.
-4. Runtime configuration sources are limited to git-tracked YAML and non-committed `.env`; test-only code injection is allowed only in tests.
-5. `infra/env` contains deployment templates or examples and is not an additional runtime configuration source for application code.
-6. `apps/api/src/modules/knowledge` SHALL remain the only owner of graph persistence models and repositories.
-7. `apps/api/src/modules/search` and `apps/api/src/modules/ingestion` SHALL access graph persistence only through `knowledge.service`.
+4. Runtime configuration is sourced from `.env` through `pydantic-settings`; YAML is not a runtime configuration source.
+5. `infra/env` contains environment templates and active env files consumed by runtime and test `Settings`.
+6. `apps/api/src/modules/knowledge_graph` SHALL remain the only owner of graph persistence models and repositories.
+7. `apps/api/src/modules/search` and `apps/api/src/modules/ingestion` SHALL access graph persistence only through `knowledge_graph` domain service ports.
+8. `apps/api/src/modules/knowledge_graph` SHALL include `model.py`, `repo.py`, `service.py`, domain DTOs, and domain service ports.
+9. `apps/api/src/modules/knowledge_graph` SHALL NOT include HTTP route files, queue broker setup, or worker actor definitions.
+10. `apps/api/src/modules/search` SHALL include only read-side API transport and orchestration logic.
+11. `apps/api/src/modules/search` SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
+12. `apps/api/src/modules/ingestion` SHALL include write-side API transport/orchestration plus ingestion-owned queue broker and worker job-processing primitives.
+13. `apps/api/src/modules/ingestion` SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
+14. `apps/api/src/shared` SHALL include only cross-module infrastructure (`db`, external integrations, and generic utilities); ingestion-specific queue code SHALL NOT be placed under `shared`.
+15. `apps/api/src/entrypoints/runtime.py` SHALL be the runtime composition root for app/worker settings and singleton dependency assembly.
+16. Runtime modules under `apps/api/src/**` SHALL NOT read environment variables directly (`os.getenv`, `os.environ`).
+17. Runtime dependency resolution SHALL use explicit injection and SHALL NOT use nullable-fallback dependency signatures.
+18. `apps/api/src/modules/**` SHALL NOT import `apps/api/src/entrypoints/**`.
 
 ## Governance Anchors
 - Detailed architecture constraints are defined in `03-architecture-constraints`.
 - Minimal phase-1 quality gates are `lint/format`, `typecheck`, `test`, and `contract drift`.
+- Dependency-direction enforcement is implemented through `import-linter` contracts in `apps/api/pyproject.toml`.
 - This document defines layout ownership only and does not redefine dependency policy details.
 
 ## Deferred to Later Phases

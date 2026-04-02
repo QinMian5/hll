@@ -6,12 +6,13 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.18.4",
+    "dramatiq[redis]>=1.18.0",
     "fastapi>=0.135.2",
     "httpx>=0.28.1",
     "pgvector>=0.4.2",
     "psycopg[binary]>=3.3.3",
-    "pydantic>=2.12.5",
     "pydantic-settings>=2.13.1",
+    "pydantic>=2.12.5",
     "pytest>=9.0.2",
     "redis>=7.4.0",
     "sqlalchemy[asyncio]>=2.0.48",
@@ -23,14 +24,32 @@ requires = ["uv_build>=0.11.2,<0.12"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = ["core", "modules", "shared"]
+module-name = ["core", "entrypoints", "modules", "shared"]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.11",
+    "pytest-anyio>=0.0.0",
+    "pytest>=9.0.2",
+    "ruff>=0.15.8",
+    "ty>=0.0.27",
+]
 
 [tool.ruff]
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF", "ANN"]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF", "ANN", "TID"]
 ignore = ["B008"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"core.config.load_settings".msg = "Use entrypoints.runtime.get_settings() from composition roots."
+"os.getenv".msg = "Use Pydantic Settings instead of direct environment access."
+"os.environ".msg = "Use Pydantic Settings instead of direct environment access."
+
+[tool.ruff.lint.per-file-ignores]
+"src/entrypoints/runtime.py" = ["TID251"]
+"alembic/env.py" = ["TID251"]
 
 [tool.pytest.ini_options]
 addopts = "--strict-markers --maxfail=1"
@@ -38,21 +57,59 @@ testpaths = ["tests"]
 markers = [
     "unit: Fast and deterministic unit tests.",
     "integration: Tests that cross process, filesystem, or service boundaries.",
-    "db: Tests requiring an isolated PostgreSQL database.",
+    "db: Tests requiring isolated backend runtime dependencies (PostgreSQL/Redis).",
     "migration: Tests validating migration bootstrap and schema upgrade behavior.",
     "contract: Contract validation tests for API and generated artifacts.",
     "slow: Tests with runtime unsuitable for the fast feedback loop.",
+    "anyio: Run async tests with AnyIO backend.",
 ]
 
 [tool.ty.src]
 include = ["src"]
 
 [tool.importlinter]
-root_packages = ["core", "shared", "modules"]
+root_packages = ["core", "entrypoints", "modules", "shared"]
 
-[dependency-groups]
-dev = [
-    "import-linter>=2.11",
-    "ruff>=0.15.8",
-    "ty>=0.0.27",
+[[tool.importlinter.contracts]]
+name = "core must stay foundational"
+type = "forbidden"
+source_modules = ["core"]
+forbidden_modules = ["entrypoints", "modules", "shared"]
+
+[[tool.importlinter.contracts]]
+name = "shared must stay infrastructure-only"
+type = "forbidden"
+source_modules = ["shared"]
+forbidden_modules = ["core", "entrypoints", "modules"]
+
+[[tool.importlinter.contracts]]
+name = "modules must not depend on entrypoints or core"
+type = "forbidden"
+source_modules = ["modules"]
+forbidden_modules = ["entrypoints", "core"]
+
+[[tool.importlinter.contracts]]
+name = "search cannot import knowledge-graph internals"
+type = "forbidden"
+source_modules = ["modules.search"]
+allow_indirect_imports = true
+forbidden_modules = [
+    "modules.knowledge_graph.model",
+    "modules.knowledge_graph.repo",
 ]
+
+[[tool.importlinter.contracts]]
+name = "ingestion cannot import knowledge-graph internals"
+type = "forbidden"
+source_modules = ["modules.ingestion"]
+allow_indirect_imports = true
+forbidden_modules = [
+    "modules.knowledge_graph.model",
+    "modules.knowledge_graph.repo",
+]
+
+[[tool.importlinter.contracts]]
+name = "knowledge-graph must not depend on orchestration modules"
+type = "forbidden"
+source_modules = ["modules.knowledge_graph"]
+forbidden_modules = ["modules.search", "modules.ingestion"]

@@ -28,6 +28,19 @@ services:
       - backend
     restart: unless-stopped
 
+  redis:
+    image: redis:7-bookworm
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    networks:
+      - backend
+    restart: unless-stopped
+
   migrate:
     build:
       context: ../..
@@ -38,7 +51,7 @@ services:
         condition: service_healthy
     environment:
       MIGRATION_DATABASE_URL: postgresql+psycopg://${MIGRATION_DB_USER:-knowledge_migration}:${MIGRATION_DB_PASSWORD:-knowledge_migration_dev_change_me}@postgres:5432/${POSTGRES_DB:-knowledge}
-    command: ["uv", "run", "alembic", "upgrade", "head"]
+    command: ["uv", "run", "alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
     networks:
       - backend
     restart: "no"
@@ -51,10 +64,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg://${APP_DB_USER:-knowledge_app}:${APP_DB_PASSWORD:-knowledge_app_dev_change_me}@postgres:5432/${POSTGRES_DB:-knowledge}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api.openai.com/v1/embeddings}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
     command:
       [
         "uv",
@@ -73,6 +92,26 @@ services:
     networks:
       - backend
       - edge
+    restart: unless-stopped
+
+  worker:
+    image: knowledge-api:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql+psycopg://${APP_DB_USER:-knowledge_app}:${APP_DB_PASSWORD:-knowledge_app_dev_change_me}@postgres:5432/${POSTGRES_DB:-knowledge}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api.openai.com/v1/embeddings}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+    command: ["uv", "run", "dramatiq", "--path", "src", "entrypoints.worker.actors"]
+    networks:
+      - backend
     restart: unless-stopped
 
   web:

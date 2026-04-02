@@ -10,14 +10,10 @@ ENV_FILE="$ROOT_DIR/infra/env/.env.test"
 
 source "$ROOT_DIR/scripts/lib/test-env-guards.sh"
 
-assert_test_env_file_name "$ENV_FILE"
 assert_test_env_file_exists "$ENV_FILE"
 validate_test_settings "$API_DIR" "$ENV_FILE"
 
-export SETTINGS_DOTENV_PATH="$ENV_FILE"
-export APP_ENV=test
 unset DATABASE_URL
-unset MIGRATION_DATABASE_URL
 
 MIGRATION_DATABASE_URL="$(build_migration_database_url "$API_DIR" "$ENV_FILE")"
 
@@ -46,6 +42,5 @@ PY
 
 (
   cd "$ROOT_DIR"
-  MIGRATION_DATABASE_URL="$MIGRATION_DATABASE_URL" \
-    uv --directory "$API_DIR" run alembic -c "$API_DIR/alembic.ini" upgrade head
+  uv --directory "$API_DIR" run alembic -x "env_file=$ENV_FILE" -c "$API_DIR/alembic.ini" upgrade head
 )

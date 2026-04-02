@@ -14,35 +14,28 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from core.config import get_settings
 
-_engine: AsyncEngine | None = None
-_async_session_factory: async_sessionmaker[AsyncSession] | None = None
-
-
-def get_engine() -> AsyncEngine:
-    global _engine
-    if _engine is None:
-        settings = get_settings()
-        _engine = create_async_engine(
-            settings.app_database_url,
-            pool_pre_ping=True,
-        )
-    return _engine
+def build_async_engine(*, database_url: str) -> AsyncEngine:
+    return create_async_engine(
+        database_url,
+        pool_pre_ping=True,
+    )
 
 
-def get_async_session_factory() -> async_sessionmaker[AsyncSession]:
-    global _async_session_factory
-    if _async_session_factory is None:
-        _async_session_factory = async_sessionmaker(
-            get_engine(),
-            expire_on_commit=False,
-            class_=AsyncSession,
-        )
-    return _async_session_factory
+def build_async_session_factory(
+    *,
+    engine: AsyncEngine,
+) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(
+        engine,
+        expire_on_commit=False,
+        class_=AsyncSession,
+    )
 
 
-async def get_async_session() -> AsyncIterator[AsyncSession]:
-    async_session_factory = get_async_session_factory()
-    async with async_session_factory() as session:
+async def open_async_session(
+    *,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> AsyncIterator[AsyncSession]:
+    async with session_factory() as session:
         yield session

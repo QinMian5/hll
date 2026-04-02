@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# abstract: Stop the isolated test PostgreSQL container stack and optional test volumes.
+# abstract: Stop the isolated test PostgreSQL + Redis container stack and optional test volumes.
 # out_of_scope: Environment provisioning and migration execution.
 
 set -euo pipefail
@@ -10,8 +10,6 @@ ENV_FILE="$ROOT_DIR/infra/env/.env.test"
 TEST_COMPOSE_PROJECT="${TEST_COMPOSE_PROJECT:-knowledge-test-${USER:-local}}"
 
 source "$ROOT_DIR/scripts/lib/test-env-guards.sh"
-
-assert_test_env_file_name "$ENV_FILE"
 
 REMOVE_VOLUMES=false
 if [[ "${1:-}" == "--volumes" ]]; then

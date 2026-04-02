@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# abstract: Start an isolated PostgreSQL container stack dedicated to tests.
+# abstract: Start an isolated PostgreSQL + Redis container stack dedicated to tests.
 # out_of_scope: Running migrations and executing pytest suites.
 
 set -euo pipefail
@@ -11,7 +11,6 @@ TEST_COMPOSE_PROJECT="${TEST_COMPOSE_PROJECT:-knowledge-test-${USER:-local}}"
 
 source "$ROOT_DIR/scripts/lib/test-env-guards.sh"
 
-assert_test_env_file_name "$ENV_FILE"
 assert_test_env_file_exists "$ENV_FILE"
 validate_test_settings "$ROOT_DIR/apps/api" "$ENV_FILE"
 

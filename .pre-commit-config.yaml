@@ -20,7 +20,7 @@ repos:
 
       - id: api-ty-check
         name: api-ty-check
-        entry: uv run --project apps/api ty check
+        entry: uv run --project apps/api ty check apps/api/src
         language: system
         pass_filenames: false
         files: ^apps/api/

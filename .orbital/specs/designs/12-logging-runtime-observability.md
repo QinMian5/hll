@@ -45,14 +45,14 @@ out_of_scope: External log aggregation platforms, tracing/metrics systems, and b
 
 ## Configuration Contract
 - Logging configuration is loaded through the same single `pydantic-settings` entrypoint.
-- Runtime sources follow the project precedence contract: `YAML < .env`.
+- Runtime source follows project policy: `.env` via `pydantic-settings`.
 - Active runtime logging keys are required (no implicit defaults):
   - `LOG_LEVEL`
   - `LOG_NAMESPACE_ROOT`
   - `LOG_FILE_PATH`
   - `LOG_FILE_MAX_BYTES`
   - `LOG_FILE_BACKUP_COUNT`
-- Logging keys follow the same source policy as other runtime settings: YAML provides optional non-secret defaults and `.env` may override.
+- Logging keys follow the same source policy as other runtime settings: values are provided by `.env`/runtime environment injection for declared `Settings` fields.
 - Current deployment baseline path is:
   - `LOG_FILE_PATH=/var/log/knowledge/api/app.log`
 

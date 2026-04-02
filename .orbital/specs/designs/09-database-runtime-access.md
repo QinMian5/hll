@@ -16,7 +16,8 @@ out_of_scope: Domain schema definition, Alembic revision lifecycle strategy, and
 
 ## Runtime Access Boundary
 - Runtime database access is implemented through `shared/db/session.py`.
-- Runtime settings are loaded through the project `pydantic-settings` entrypoint.
+- Runtime settings are loaded through the project `pydantic-settings` entrypoint from `.env`.
+- Runtime assembly of engine/session dependencies is composed in `entrypoints/runtime.py`.
 - Runtime access APIs expose asynchronous SQLAlchemy primitives and do not expose persistence internals beyond session scope.
 
 ## Connection Component Model
@@ -39,9 +40,11 @@ out_of_scope: Domain schema definition, Alembic revision lifecycle strategy, and
 - Missing required runtime connection components are startup errors.
 - Connection setup failures fail explicitly and surface original exception context in logs.
 - Runtime access layer must not silently fallback to alternate hidden connection sources.
+- Runtime access layer must not resolve settings internally; settings are injected from the composition root.
 
 ## Ownership and Non-Responsibilities
-- This module owns runtime access composition and session lifecycle defaults.
+- `shared/db/session.py` owns runtime access primitives (`engine`, `session factory`, `session generator`) and session lifecycle defaults.
+- `entrypoints/runtime.py` owns runtime composition of these primitives with settings.
 - This module does not own domain schema constraints or migration sequencing policy.
 
 ## Validation

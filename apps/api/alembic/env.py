@@ -5,14 +5,14 @@ Out of scope: Migration revision authoring and runtime request handling.
 
 from __future__ import annotations
 
-import os
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
-from sqlalchemy.engine import make_url
 
-import modules.knowledge.model  # noqa: F401
+import modules.knowledge_graph.model  # noqa: F401
 from alembic import context
+from core.config import load_settings
 from shared.db.base import Base
 
 config = context.config
@@ -20,24 +20,13 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-database_url = os.getenv("MIGRATION_DATABASE_URL")
-if not database_url:
-    raise RuntimeError("MIGRATION_DATABASE_URL must be set for Alembic migrations.")
+runtime_args = context.get_x_argument(as_dictionary=True)
+env_file_arg = runtime_args.get("env_file")
+settings = load_settings(
+    env_file=None if env_file_arg is None else Path(env_file_arg).expanduser()
+)
 
-if os.getenv("APP_ENV") == "test":
-    parsed_database_url = make_url(database_url)
-    if not (
-        parsed_database_url.database and parsed_database_url.database.endswith("_test")
-    ):
-        raise RuntimeError(
-            "Test migrations must target a database ending with '_test'."
-        )
-    if not (
-        parsed_database_url.username and parsed_database_url.username.endswith("_test")
-    ):
-        raise RuntimeError("Test migrations must use a role ending with '_test'.")
-
-config.set_main_option("sqlalchemy.url", database_url)
+config.set_main_option("sqlalchemy.url", settings.migration_database_url)
 
 target_metadata = Base.metadata
 

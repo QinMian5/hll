@@ -36,6 +36,7 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 - `typecheck`
 - `test`
 - `contract drift`
+- `dependency boundary checks (import-linter)`
 - `commit message lint`
 
 ## Tooling Policy
@@ -46,7 +47,7 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 ### Backend Python
 - Lint/format tool is Ruff.
 - Ruff scope for gates is only `apps/api/src`.
-- Ruff select set: `E,F,I,B,UP,SIM,C4,PIE,RUF,ANN`.
+- Ruff select set: `E,F,I,B,UP,SIM,C4,PIE,RUF,ANN,TID`.
 - Ruff ignore set: `B008`.
 - `ruff format` is for local formatting; CI gate runs read-only lint checks.
 
@@ -79,7 +80,7 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 - Hook set is:
   - `uv run --project apps/api ruff format`
   - `uv run --project apps/api ruff check --fix`
-  - `uv run --project apps/api ty check`
+  - `uv run --project apps/api ty check apps/api/src`
   - `pnpm --dir apps/web exec biome check --write`
   - `pnpm --dir apps/web exec tsc --noEmit`
   - `pnpm --dir apps/web exec commitlint --config commitlint.config.cjs --edit`

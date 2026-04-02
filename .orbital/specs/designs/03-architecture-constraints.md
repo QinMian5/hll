@@ -16,28 +16,34 @@ out_of_scope: Module-level exhaustive error-code catalogs, advanced CI matrices,
 - Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Layering and Dependency Direction
-- Backend layering is fixed to `api -> service -> repo`.
-- Reverse dependency is forbidden in backend modules.
+- Backend runtime layering is fixed to `entrypoints -> modules -> shared`.
+- `core` is foundational and can be imported by `entrypoints` and tooling entrypoints only.
+- Reverse dependency is forbidden across these layers.
 - Backend cross-module direct access to another module `repo/model` is forbidden.
 - Backend cross-module interaction must go through the target module `service`.
 - Frontend flow is fixed to `UI/page -> feature service -> generated contract client`.
 - Frontend UI/component layer direct backend HTTP calls are forbidden.
 
 ## Naming Constraints
-- Backend module file names are fixed: `api.py`, `service.py`, `repo.py`, `schema.py`, `model.py`.
-- Transport/response models must not share names with ORM/domain models.
+- Backend file names MUST express layer intent and module ownership.
+- HTTP transport models MUST stay under the owning API-orchestration module (`search` or `ingestion`).
+- Knowledge-graph domain DTOs MUST stay under `modules/knowledge_graph` and MUST NOT be named as HTTP transport schemas.
+- Domain ports MAY use role-specific names (`ports.py`, `dto.py`) when they improve boundary clarity.
 - Names must keep transport semantics and persistence semantics clearly separated.
 
 ## Configuration Constraints
-- Allowed configuration sources are only: `YAML`, `.env`, and test-time code injection.
-- No other runtime configuration source is allowed.
-- Configuration precedence is fixed to `YAML < .env`.
-- Configuration must be loaded through a single `pydantic-settings` entrypoint.
-- Business code must not read environment variables directly.
-- `.env` may override only fields declared in `pydantic-settings`.
-- YAML stores non-sensitive configuration and is committed to git.
-- `.env` stores sensitive values and is not committed to git.
-- Test overrides must use the same `Settings` construction path.
+- Allowed runtime configuration source is `.env` loaded through `pydantic-settings`.
+- Runtime configuration must be loaded through one project entrypoint (`core/config.py`) and composed only from declared `Settings` fields.
+- Business and orchestration modules must not read environment variables directly (`os.getenv`, `os.environ`, and equivalent direct environment reads are forbidden).
+- YAML configuration sources are not part of runtime policy.
+- Test overrides must use the same `Settings` construction path (`Settings(..., _env_file=...)`) and must not introduce alternate loaders.
+
+## Dependency Injection Constraints
+- Runtime dependency construction is centralized in `apps/api/src/entrypoints/runtime.py` and consumed by `entrypoints/api/providers.py` and `entrypoints/worker/actors.py`.
+- `load_settings()` is a composition-root API and must be called only from composition entrypoints (`entrypoints/runtime.py`) and migration runtime entrypoint (`alembic/env.py`).
+- Service and orchestration code must receive dependencies through explicit constructor/function parameters.
+- Nullable dependency parameters used as runtime fallback (`dependency: T | None = None`) are forbidden in runtime paths.
+- Implicit fallback expressions (`x or provider()`) are forbidden for dependency resolution in runtime paths.
 
 ## Error Handling Constraints
 - Errors must fail explicitly.
@@ -53,9 +59,10 @@ out_of_scope: Module-level exhaustive error-code catalogs, advanced CI matrices,
 - `typecheck`
 - `test`
 - `contract drift`
+- `dependency boundary checks (import-linter)`
 
 ## Deferred to Later Phases
 - Per-module exhaustive error code catalogs beyond current global governance baseline.
 - PR/main differentiated CI matrices.
 - Broad test taxonomy expansion and complex marker governance.
-- Full import-matrix automation and advanced architecture lint policies.
+- Full graph-wide architecture governance beyond the current `import-linter` boundary set.
