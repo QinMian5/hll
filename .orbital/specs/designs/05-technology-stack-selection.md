@@ -55,12 +55,13 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Containerization: `Docker`
 - Local orchestration: `Docker Compose`
 - Primary datastore: `PostgreSQL` (containerized for local/CI parity)
-- Queue broker: `Redis`
-- Runtime external integration: HTTP embedding service
+- Queue broker: `Redis` via project-managed container image `redis:7-bookworm`
+- Runtime external integration: OpenAI Embeddings API with model `text-embedding-3-small`
 
 #### Why selected
 - Minimal reproducible infrastructure baseline.
 - Low operational overhead for a single API service and single web client.
+- Queue transport remains internal to Docker backend network and does not require host-local Redis.
 
 ## Installed but Deferred for Runtime Use
 - `TanStack Router`

@@ -64,6 +64,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - **Responsibilities:**
   - Own write-side ingestion acceptance endpoint and async dispatch orchestration.
   - Publish accepted ingestion jobs to Redis/Dramatiq worker execution.
+  - Use project-managed Redis service on Docker backend network for queue transport.
   - Invoke `knowledge.service` for node persistence and edge materialization.
 - **Non-responsibilities:**
   - Direct repository or model access in `knowledge`.
@@ -73,9 +74,11 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### Queue
 - Redis + Dramatiq are enabled to run ingestion asynchronous workflows.
+- Redis is provided as a project-managed Docker service and consumed through backend-network service addressing (`redis://redis:6379/0`).
 
 ### External Services
-- Embedding service integration is enabled for ingestion worker execution and search query embedding.
+- OpenAI Embeddings API integration is enabled for ingestion worker execution and search query embedding.
+- The active embedding model is `text-embedding-3-small`.
 
 ## Reserved Modules (Not Implemented in V1)
 

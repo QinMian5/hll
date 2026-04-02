@@ -32,6 +32,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Owns write-side HTTP acceptance endpoint and write orchestration.
 - Accepts valid payloads and returns `202 Accepted`.
 - Publishes async jobs to Redis via Dramatiq.
+- Uses project-managed Redis service on Docker backend network as queue broker target.
 - Consumes embedding integration in worker execution path.
 - Calls `knowledge.service` for node creation and edge materialization.
 - Must not import `knowledge.repo` or `knowledge.model`.
@@ -72,15 +73,17 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 2. API returns `4xx` for invalid payloads according to global error-governance mapping.
 3. API publishes a Dramatiq message for valid payloads.
 4. API returns `202` for valid payloads.
-5. Worker receives message and requests embedding from external embedding service.
+5. Worker receives message and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
 6. Worker calls `knowledge.service` to persist `Node`.
 7. Worker computes cosine similarity and persists `Edge` and `Adjacency` rows.
 8. Search path reads persisted graph data only; no processing-state data is exposed by search.
 
 ## Runtime Dependencies
 - Redis is required as queue broker for ingestion.
+- Queue runtime uses project-managed Redis Docker service (`redis`) and backend-network addressing (`redis://redis:6379/0`).
 - Dramatiq is required for async worker execution.
-- External embedding service is required in both ingestion worker flow and search query flow.
+- OpenAI Embeddings API is required in both ingestion worker flow and search query flow.
+- Embedding model is fixed to `text-embedding-3-small` in MVP runtime defaults.
 - PostgreSQL remains the persistent source of truth for graph entities.
 
 ## Failure Handling

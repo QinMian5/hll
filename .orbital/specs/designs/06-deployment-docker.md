@@ -19,7 +19,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Production external exposure is restricted to `80/443` through `Nginx`.
 - Development exposes `web` on `5173` and `api` on `8000` directly for debugging.
 - `db` remains internal-only in both environments.
-- `redis` remains internal-only in both environments.
+- `redis` remains internal-only in both environments and is provided by a project-managed service definition.
 - Production search read chain is `nginx -> web -> api -> db`.
 - Production ingestion write chain is `api -> redis -> worker -> db`.
 - Development search read chain is `web -> api -> db`.
@@ -30,6 +30,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `backend` network is internal-only and contains `db`, `redis`, `migrate`, `api`, and `worker`.
 - `edge` network contains `web`, `api`, and `nginx` (production only for `nginx`).
 - Cross-service access must follow network boundaries rather than host port access.
+- API and worker access Redis through Docker service DNS (`redis`) on `backend`, not host-local `localhost`.
 
 ## Compose Layering Strategy
 - `compose.base.yml`: shared service definitions and common network/volume baseline, including `redis` and `worker`.
@@ -45,7 +46,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `db` uses a custom PostgreSQL Dockerfile and is the extension package baseline owner.
 - `api` uses a custom Dockerfile.
 - `worker` reuses the API image with Dramatiq worker command override.
-- `redis` uses a fixed-tag official image.
+- `redis` uses fixed-tag official image `redis:7-bookworm`.
 - `web` uses a custom Dockerfile with separate dev/prod targets.
 - `nginx` uses a fixed-tag official image in production and does not use a custom Dockerfile.
 
@@ -86,9 +87,14 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 ## Configuration and Secrets Boundary
 - Configuration model remains `committed YAML + runtime env`.
 - Environment files use `.env.example`, `.env.dev`, and `.env.prod` naming.
-- Only `.env.example` is tracked in version control; `.env.dev` and `.env.prod` are local/non-tracked files.
+- Environment template files (`.env.example`, `.env.dev`, `.env.prod`) are tracked in version control.
 - Sensitive values are provided through runtime environment variables or `.env` and are not committed.
 - Compose injects environment values but does not become an additional business configuration source.
+- Queue and embedding runtime configuration include:
+  - `REDIS_URL` with backend-network address default `redis://redis:6379/0`
+  - `EMBEDDING_API_URL` default `https://api.openai.com/v1/embeddings`
+  - `EMBEDDING_MODEL` default `text-embedding-3-small`
+  - `EMBEDDING_API_KEY` from runtime secret injection
 
 ## Failure Policy
 - Known startup failures must fail explicitly and stop rollout progression.
