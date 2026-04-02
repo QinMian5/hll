@@ -16,6 +16,7 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
   - [`03-architecture-constraints.md`](./03-architecture-constraints.md)
   - [`06-deployment-docker.md`](./06-deployment-docker.md)
   - [`unit-test-best-practice.md`](./unit-test-best-practice.md)
+  - [`fastapi-unit-test-governance.md`](./fastapi-unit-test-governance.md)
 
 ## Quality Objectives
 - Keep feedback loops fast for MVP delivery.
@@ -28,6 +29,7 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 - Architecture constraints remain governed by `03`.
 - Deployment structure remains governed by `06`.
 - Unit-test writing practices remain governed by `unit-test-best-practice`.
+- FastAPI HTTP endpoint test governance remains governed by `fastapi-unit-test-governance`.
 
 ## Phase-1 Required Gates
 - `lint/format`

@@ -4,47 +4,47 @@
 repos:
   - repo: local
     hooks:
-      # =========================
-      # Python (apps/api)
-      # =========================
       - id: api-ruff-format
         name: api-ruff-format
         entry: uv run --project apps/api ruff format
         language: system
         pass_filenames: false
+        files: ^apps/api/
 
       - id: api-ruff-check-fix
         name: api-ruff-check-fix
         entry: uv run --project apps/api ruff check --fix
         language: system
         pass_filenames: false
+        files: ^apps/api/
 
       - id: api-ty-check
         name: api-ty-check
         entry: uv run --project apps/api ty check
         language: system
         pass_filenames: false
+        files: ^apps/api/
 
       - id: api-import-linter
         name: api-import-linter
         entry: uv run --project apps/api lint-imports --config apps/api/pyproject.toml
         language: system
         pass_filenames: false
+        files: ^apps/api/
 
-      # =========================
-      # Frontend (apps/web)
-      # =========================
       - id: web-biome-check-write
         name: web-biome-check-write
         entry: pnpm --dir apps/web exec biome check --write
         language: system
         pass_filenames: false
+        files: ^apps/web/
 
       - id: web-tsc-no-emit
         name: web-tsc-no-emit
         entry: pnpm --dir apps/web exec tsc --noEmit
         language: system
         pass_filenames: false
+        files: ^apps/web/
 
       - id: commitlint
         name: commitlint
