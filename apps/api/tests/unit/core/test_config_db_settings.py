@@ -31,6 +31,7 @@ DEFAULT_DOTENV_CONTENT = "\n".join(
         "SEARCH_MAX_CONNECTED=10",
         "EDGE_SIMILARITY_TOP_K=10",
         "EDGE_SIMILARITY_MIN_STRENGTH=0.6",
+        "LOG_FILE_PATH=logs/api/app.log",
     ]
 )
 
@@ -92,6 +93,43 @@ def test_settings_require_all_components_without_defaults(
     )
     with pytest.raises(ValidationError):
         config_module.Settings(_env_file=dotenv_file)
+
+
+def test_settings_require_log_file_path(
+    dotenv_file_factory: Callable[[str], Path],
+) -> None:
+    filtered_lines = [
+        line
+        for line in DEFAULT_DOTENV_CONTENT.splitlines()
+        if not line.startswith("LOG_FILE_PATH=")
+    ]
+    dotenv_file = dotenv_file_factory(dotenv_content="\n".join(filtered_lines))
+    with pytest.raises(ValidationError, match="log_file_path"):
+        config_module.Settings(_env_file=dotenv_file)
+
+
+def test_settings_apply_logging_defaults_when_optional_keys_absent(
+    dotenv_file_factory: Callable[[str], Path],
+) -> None:
+    dotenv_file = dotenv_file_factory(
+        dotenv_content=DEFAULT_DOTENV_CONTENT,
+    )
+    settings = config_module.Settings(_env_file=dotenv_file)
+    assert settings.log_level == "INFO"
+    assert settings.log_file_max_bytes == 10_485_760
+    assert settings.log_file_backup_count == 5
+
+
+def test_load_settings_resolves_logging_fields_from_tracked_test_env(
+    repo_root: Path,
+) -> None:
+    settings = config_module.Settings(
+        _env_file=repo_root / "infra" / "env" / ".env.test"
+    )
+    assert settings.log_file_path.strip()
+    assert settings.log_level == "INFO"
+    assert settings.log_file_max_bytes == 10_485_760
+    assert settings.log_file_backup_count == 5
 
 
 def test_settings_reject_unsupported_dotenv_keys(

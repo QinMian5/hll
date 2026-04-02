@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     search_max_connected: int = Field(ge=1)
     edge_similarity_top_k: int = Field(ge=1)
     edge_similarity_min_strength: float = Field(ge=0.0, le=1.0)
+    log_level: str = Field(default="INFO", min_length=1)
+    log_file_path: str
+    log_file_max_bytes: int = Field(default=10_485_760, gt=0)
+    log_file_backup_count: int = Field(default=5, ge=1)
 
     @property
     def app_database_url(self) -> str:

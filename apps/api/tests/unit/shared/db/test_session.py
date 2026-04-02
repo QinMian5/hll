@@ -38,6 +38,7 @@ def runtime_settings(tmp_path: Path) -> Settings:
                 "SEARCH_MAX_CONNECTED=10",
                 "EDGE_SIMILARITY_TOP_K=10",
                 "EDGE_SIMILARITY_MIN_STRENGTH=0.6",
+                "LOG_FILE_PATH=logs/api/app.log",
             ]
         ),
         encoding="utf-8",

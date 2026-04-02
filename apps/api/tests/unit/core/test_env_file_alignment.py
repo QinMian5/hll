@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-ENV_FILENAMES = (".env.example", ".env.dev", ".env.prod")
+ENV_FILENAMES = (".env.example", ".env.dev", ".env.prod", ".env.test")
 
 
 def _line_kind(line: str) -> str:

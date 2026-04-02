@@ -6,6 +6,7 @@ __pycache__/
 
 /.orbital/specs/plans
 /human_workspace/
+/logs/
 
 infra/env/.env*
 !infra/env/.env.example

@@ -1,82 +1,94 @@
 ---
-abstract: Runtime logging design for API console/file output, namespace layering, and fail-fast initialization.
-out_of_scope: External log aggregation platforms, tracing/metrics systems, and business-domain event taxonomy.
+abstract: Minimal MVP logging design for unified process initialization and console plus rotating-file output.
+out_of_scope: Request correlation identifiers, global error-governance refactor, external log shipping, and tracing or metrics rollout.
 ---
 
 # Design: 12-logging-runtime-observability
 
 ## Active Truth Policy
-- This document records only the currently accepted runtime logging decisions.
-- Superseded logging choices are removed instead of kept as transition notes.
-- Scope is limited to API runtime logging behavior and deployment-facing log persistence wiring.
+- This document describes only the currently accepted MVP logging behavior.
+- Superseded logging decisions are removed from active text.
+- Scope is limited to runtime logging initialization and consumption patterns.
 
 ## Context
-- Purpose: define a production-usable and troubleshooting-oriented logging baseline for API runtime.
-- Scope/Boundaries: logger namespace strategy, handler topology, rotation policy, configuration contract, startup failure policy, and Docker bind-mount policy.
+- Purpose: deliver a minimal logging baseline that is immediately useful for debugging and extensible for later production hardening.
+- Scope/Boundaries: startup initialization contract, handler topology, rotation policy, logger usage pattern, and entrypoint ownership.
 - Related Requirements: R-001, R-004, R-005, R-006.
-- Related Designs: `03-architecture-constraints`, `04-repository-structure`, `06-deployment-docker`, `13-global-error-governance`.
+- Related Designs: `04-repository-structure`, `13-global-error-governance`.
 
-## Runtime Logging Objectives
-- Logging serves local/server troubleshooting and deployment diagnostics.
-- Runtime output must be visible in container console logs.
-- Runtime output must also persist to one rotating file for local inspection.
-- Logging behavior must fail explicitly on known invalid initialization states.
+## MVP Logging Goals
+- Runtime logs must appear in console output.
+- Runtime logs must persist to one rotating file.
+- Logging initialization must be centralized and deterministic per process.
+- Non-entrypoint modules must consume logger instances without performing logging setup.
+- The design must keep extension points open without introducing additional logging frameworks in this round.
 
-## Namespace Layering Model
-- Logger hierarchy uses a single configurable namespace root.
-- Module loggers are created as descendants under the root namespace.
-- Descendant loggers propagate to process-root handlers.
-- Single-file persistence is retained while preserving namespace segmentation in log records.
+## Logging Module Contract
+- `apps/api/src/core/logging.py` is the single logging-infrastructure module.
+- The module exposes only:
+  - `configure_logging(...)`: process-level logging initialization.
+  - `get_logger(name)`: module-level logger retrieval.
+- Logging setup is idempotent: repeated calls in the same process must not duplicate handlers.
 
 ## Handler Topology
-- Python process root logger (`logging.getLogger()`) owns exactly two handlers:
-  1. text console handler (`StreamHandler`)
-  2. text file handler (`RotatingFileHandler`)
-- Application namespace loggers do not own handlers and rely on propagation.
-- Both handlers use a unified text format including timestamp, level, logger name, and message.
-- Structured JSON logging is explicitly deferred.
+- Python process root logger (`logging.getLogger()`) owns exactly two handlers after initialization:
+  1. `StreamHandler` for console output.
+  2. `RotatingFileHandler` for file persistence.
+- Application loggers are descendants and do not own handlers.
+- Both handlers use one shared text formatter that includes:
+  - timestamp
+  - level
+  - logger name
+  - log message
+- JSON formatting is deferred.
 
-## File Rotation Policy
+## Rotation Policy
 - Rotation strategy is size-based.
-- Baseline limits:
+- MVP baseline values:
   - `LOG_FILE_MAX_BYTES=10485760` (10MB)
   - `LOG_FILE_BACKUP_COUNT=5`
-- Rotation is local file rollover within the same directory.
+- Rotation stays in the same directory as the main log file.
 
-## Configuration Contract
-- Logging configuration is loaded through the same single `pydantic-settings` entrypoint.
-- Runtime source follows project policy: `.env` via `pydantic-settings`.
-- Active runtime logging keys are required (no implicit defaults):
+## Configuration Policy
+- Logging values are configured at process startup through the existing settings entrypoint.
+- MVP supports explicit configuration for:
   - `LOG_LEVEL`
-  - `LOG_NAMESPACE_ROOT`
   - `LOG_FILE_PATH`
   - `LOG_FILE_MAX_BYTES`
   - `LOG_FILE_BACKUP_COUNT`
-- Logging keys follow the same source policy as other runtime settings: values are provided by `.env`/runtime environment injection for declared `Settings` fields.
-- Current deployment baseline path is:
-  - `LOG_FILE_PATH=/var/log/knowledge/api/app.log`
+- Required key:
+  - `LOG_FILE_PATH`
+- Defaulted keys:
+  - `LOG_LEVEL=INFO`
+  - `LOG_FILE_MAX_BYTES=10485760` (10MB)
+  - `LOG_FILE_BACKUP_COUNT=5`
+- `LOG_NAMESPACE_ROOT` is not required in this round.
+- This round does not add request-correlation-specific configuration.
 
-## Startup and Failure Policy
-- Startup uses two stages:
-  1. Bootstrap startup logger on stderr only (no file handler), for pre-settings failure visibility.
-  2. Runtime logging initialization from validated settings using configured console + rotating-file handlers.
-- Logging is initialized during API startup before business request handling.
-- Initialization validates that the parent directory already exists, is a directory, and is writable.
-- Automatic creation of the parent directory is forbidden.
-- If target path is invalid, parent directory is missing, or path is not writable, startup must fail-fast and surface the original exception context.
-- Silent runtime fallback to console-only mode is forbidden for known file-path setup failures.
-- Bootstrap stderr logging is emergency startup instrumentation only and must not be treated as runtime fallback mode.
-- Error-path request correlation semantics (`request_id` propagation and startup correlation behavior) are governed by `13-global-error-governance`.
+## Entrypoint Ownership
+- Logging initialization is performed only in process entrypoints.
+- API process entrypoint initializes logging once in `apps/api/src/main.py` before serving requests.
+- Worker process entrypoint initializes logging once in `apps/api/src/entrypoints/worker/actors.py` at process bootstrap path before actor execution.
+- Business modules import `get_logger(__name__)` (or `logging.getLogger(__name__)` where unchanged) and must not configure handlers.
 
-## Docker Bind-Mount Policy
-- Log file persistence uses host bind mount, not Docker named volume.
-- Required mapping:
-  - host: `<repo-root>/logs/api/`
-  - container: `/var/log/knowledge/api`
-- Host directory is a deployment prerequisite and must be provisioned with writable permissions for the API runtime user before container startup.
-- The mapped host directory is the operational log inspection location for local/server troubleshooting.
+## Failure Behavior
+- Known logging setup errors must fail explicitly during entrypoint startup.
+- `LOG_FILE_PATH` parent-directory policy:
+  - if parent directory is missing, runtime may create it.
+  - if parent path exists but is not a directory, startup must fail.
+  - if directory creation fails, startup must fail.
+  - if target directory is not writable, startup must fail.
+- Silent fallback behavior for failed handler setup is forbidden.
+- Runtime continues only after successful logging initialization.
+
+## Error and Request-ID Boundary for This Round
+- This round does not introduce a new request-ID module.
+- This round does not expand global error-governance contracts.
+- Existing error contracts may continue to emit current fields, but logging work in this round must not depend on new request-correlation mechanisms.
+- Error logs must remain debug-usable through semantic fields such as `event`, `error_code` (when present), and `exception_class`.
 
 ## Deferred to Later Phases
-- Per-namespace dedicated files and multi-sink routing policies.
-- Remote shipping sinks (for example ELK/Loki/Cloud logging backends).
-- JSON structured logging schema.
+- Dedicated per-namespace files.
+- Remote log shipping backends.
+- JSON structured logging.
+- Request-correlation governance redesign.

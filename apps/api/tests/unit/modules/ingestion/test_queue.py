@@ -39,10 +39,13 @@ def test_get_broker_raises_when_broker_construction_fails(
     monkeypatch: pytest.MonkeyPatch,
     reset_broker_cache: None,
 ) -> None:
+    def _raise_broker_unavailable(**_: object) -> None:
+        raise RuntimeError("broker unavailable")
+
     monkeypatch.setattr(
         broker_module,
         "RedisBroker",
-        lambda **_: (_ for _ in ()).throw(RuntimeError("broker unavailable")),
+        _raise_broker_unavailable,
     )
 
     with pytest.raises(RuntimeError, match="broker unavailable"):
