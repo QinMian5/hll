@@ -47,8 +47,12 @@ markers = [
 [tool.ty.src]
 include = ["src"]
 
+[tool.importlinter]
+root_packages = ["core", "shared", "modules"]
+
 [dependency-groups]
 dev = [
+    "import-linter>=2.11",
     "ruff>=0.15.8",
     "ty>=0.0.27",
 ]

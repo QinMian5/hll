@@ -11,5 +11,8 @@ WEB_DIR="$ROOT_DIR/apps/web"
 echo "[lint] backend (ruff)"
 uv run --project "$API_DIR" ruff check "$API_DIR/src"
 
+echo "[lint] backend (import-linter)"
+uv run --project "$API_DIR" lint-imports --config "$API_DIR/pyproject.toml"
+
 echo "[lint] frontend (biome)"
 pnpm --dir "$WEB_DIR" run ci

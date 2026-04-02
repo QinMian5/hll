@@ -25,6 +25,12 @@ repos:
         language: system
         pass_filenames: false
 
+      - id: api-import-linter
+        name: api-import-linter
+        entry: uv run --project apps/api lint-imports --config apps/api/pyproject.toml
+        language: system
+        pass_filenames: false
+
       # =========================
       # Frontend (apps/web)
       # =========================
