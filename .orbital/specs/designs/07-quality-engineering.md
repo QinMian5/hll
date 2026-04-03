@@ -30,6 +30,9 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 - Deployment structure remains governed by `06`.
 - Unit-test writing practices remain governed by `unit-test-best-practice`.
 - FastAPI HTTP endpoint test governance remains governed by `fastapi-unit-test-governance`.
+- Repository-level aggregate commands are owned by `Makefile`.
+- Root `pnpm` commands are limited to JS/TS-scoped actions.
+- The default human-facing repository command surface is `make`, `make bootstrap`, `make fix`, `make test`, `make check`, `make integration`, environment lifecycle commands, and Alembic commands.
 
 ## Phase-1 Required Gates
 - `lint/format`
@@ -43,6 +46,7 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 ### Git Hook Manager
 - Git hooks are managed by pre-commit.
 - Hook source of truth is `.pre-commit-config.yaml`.
+- Hook installation scope includes both `pre-commit` and `commit-msg`.
 
 ### Backend Python
 - Lint/format tool is Ruff.
@@ -61,19 +65,32 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 - Default blocked scope is only `apps/api/src`.
 
 ### Frontend
-- Frontend lint/format tool is Biome.
+- JS/TS lint/format tool is Biome.
 - Local development may run auto-fix commands.
 - CI must run read-only validation commands.
 - `lint/check` are validation-only commands.
 - `fix/format` are write commands.
+- Repository-level JS/TS scope includes `apps/web` and `packages/contracts`.
+- Biome configuration source of truth is repository-root `biome.json`.
+- Shared TypeScript base configuration is repository-root `tsconfig.base.json`.
+- Repository-level TypeScript build entrypoint is repository-root `tsconfig.json`.
 
 ## Execution Model by Stage
 ### Local Development
 - Developers may run fix/format commands before validation gates.
-- Recommended local sequence: `fix/format -> lint -> typecheck -> test -> contract drift`.
-  - Gate mapping:
-    - `lint/format` -> `scripts/lint.sh` for read-only checks and `make fix`/`make format` for local writes
-    - `contract drift` -> `scripts/contracts-check.sh`
+- Recommended local sequence: `make fix -> make test -> make check`.
+- Recommended escalation for broader changes: `make integration`.
+- Gate mapping:
+  - `make fix` applies safe repository-wide fixes.
+  - `make test` runs the default fast test suite.
+  - `make check` runs the pre-submit aggregate checks, including lint, typecheck, default tests, and contract drift validation.
+  - `make integration` runs the heavier integration test flow.
+  - JS/TS-scoped commands:
+    - `pnpm run js:lint`
+    - `pnpm run js:fix`
+    - `pnpm run js:format`
+    - `pnpm run js:typecheck`
+    - `pnpm run web:test`
 
 ### Pre-commit
 - Pre-commit executes local write/fix and type validation hooks before commit.
@@ -81,9 +98,10 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
   - `uv run --project apps/api ruff format`
   - `uv run --project apps/api ruff check --fix`
   - `uv run --project apps/api ty check apps/api/src`
-  - `pnpm --dir apps/web exec biome check --write`
-  - `pnpm --dir apps/web exec tsc --noEmit`
-  - `pnpm --dir apps/web exec commitlint --config commitlint.config.cjs --edit`
+  - `uv run --project apps/api lint-imports --config apps/api/pyproject.toml`
+  - `pnpm run js:fix`
+  - `pnpm run js:typecheck`
+  - `pnpm exec commitlint --edit`
 - Filename passing behavior:
   - Code-quality hooks set `pass_filenames: false`.
   - Code-quality hooks run without staged filename arguments.
@@ -91,6 +109,7 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 - Commit message contract:
   - Commit messages must match `type(scope): description`.
   - Scope is required.
+- Commitlint configuration source of truth is repository-root `commitlint.config.cjs`.
 
 ### CI
 - CI is fail-fast and blocking for:

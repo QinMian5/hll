@@ -24,7 +24,7 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 ## Selected Stack (Phase-1)
 
 ### Backend
-- Package and environment manager: `uv`
+- Package and environment manager: root `uv` workspace with member `pyproject.toml` files
 - Language and runtime: `Python` + `Uvicorn`
 - Web framework: `FastAPI`
 - Data validation and settings: `Pydantic v2` + `pydantic-settings`
@@ -38,10 +38,10 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - The stack is aligned with API-first development and deterministic contract export.
 - It provides a stable path for `Node/Edge/Adjacency` relational modeling and `Node.embedding` vector storage.
 - `scikit-learn` provides the approved deterministic Phase 1 PCA + agglomerative-clustering rebuild baseline without introducing a second backend service.
-- Tooling is modern and compatible with monorepo governance and reproducible local/CI workflows.
+- Root `uv.lock`, root `.venv`, and member-local dependency declarations provide reproducible Python workflows without per-member virtual environments.
 
 ### Operator CLI
-- Package and environment manager: `uv`
+- Package and environment manager: root `uv` workspace with `apps/cli` as a member
 - Language and runtime: `Python`
 - Agent framework: `Pydantic AI`
 - Agent workflow graph: `Pydantic Graph`
@@ -55,7 +55,7 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - `httpx` keeps the CLI submission boundary simple and compatible with the authoritative ingestion API contract.
 
 ### Frontend
-- Workspace and package manager: `pnpm`
+- Workspace and package manager: root `pnpm` workspace
 - Build tool: `Vite`
 - UI framework: `React` + `TypeScript`
 - Semantic-map rendering engine: `deck.gl`
@@ -63,12 +63,16 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Contract consumption: generated TypeScript client from repository OpenAPI artifacts
 - Styling: `Tailwind CSS`
 - Component library baseline: `shadcn/ui`
+- Repository-level JS/TS developer tooling: `Biome`, `TypeScript`, `Commitlint`
+- Root `pnpm` commands are scoped to JS/TS responsibilities rather than full-repository orchestration
 
 #### Why selected
 - Fast development loop and low initial boilerplate.
 - Strong compatibility with generated TypeScript API client consumption.
 - `deck.gl` supports non-geospatial 2D semantic-map rendering, viewport-driven tile loading, and semantic zoom.
 - Sufficient for phase-1 semantic-map browsing and read-oriented UI.
+- Root-managed JS/TS tooling keeps cross-member quality rules aligned across `apps/web` and `packages/contracts`.
+- Repository-level orchestration remains in a small human-facing `Makefile`, which avoids overloading `pnpm` with Python-facing workflows.
 
 ### Infrastructure
 - Containerization: `Docker`

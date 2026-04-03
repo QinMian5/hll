@@ -1,6 +1,10 @@
 # abstract: Pre-commit hooks for fast local quality checks in MVP phase-1.
 # out_of_scope: Full CI gate orchestration, backend test execution, and release validation.
 
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
 repos:
   - repo: local
     hooks:
@@ -32,22 +36,22 @@ repos:
         pass_filenames: false
         files: ^apps/api/
 
-      - id: web-biome-check-write
-        name: web-biome-check-write
-        entry: pnpm --dir apps/web exec biome check --write
+      - id: js-biome-check-write
+        name: js-biome-check-write
+        entry: pnpm run js:fix
         language: system
         pass_filenames: false
-        files: ^apps/web/
+        files: ^(apps/web/|packages/contracts/)
 
-      - id: web-tsc-no-emit
-        name: web-tsc-no-emit
-        entry: pnpm --dir apps/web exec tsc --noEmit
+      - id: js-tsc-no-emit
+        name: js-tsc-no-emit
+        entry: pnpm run js:typecheck
         language: system
         pass_filenames: false
-        files: ^apps/web/
+        files: ^(apps/web/|packages/contracts/)
 
       - id: commitlint
         name: commitlint
-        entry: pnpm --dir apps/web exec commitlint --config commitlint.config.cjs --edit
+        entry: pnpm exec commitlint --edit
         language: system
         stages: [commit-msg]

@@ -27,15 +27,26 @@ repo/
   infra/
   scripts/
   .orbital/specs/
+  .python-version
+  .pre-commit-config.yaml
+  biome.json
+  commitlint.config.cjs
   Makefile
+  package.json
+  pnpm-workspace.yaml
+  pyproject.toml
   README.md
+  tsconfig.base.json
+  tsconfig.json
+  uv.lock
 ```
 
 ## Directory Ownership
+- repository root: cross-member workspace configuration, human-facing repository execution entrypoints, shared quality tooling configuration, shared TypeScript base configuration, and git-hook governance.
 - `apps/api`: FastAPI service source, runtime entrypoint, API-side tests, and Alembic migration assets.
-- `apps/cli`: Local operator-facing CLI source, local agent review flow, submission adapter, and CLI-side tests.
-- `apps/web`: React web client source and web-side tests.
-- `packages/contracts`: authoritative OpenAPI snapshot and generated client artifacts for frontend consumption.
+- `apps/cli`: local operator-facing CLI source and CLI-specific dependency declaration.
+- `apps/web`: React web client source, web-specific package manifest, and web-specific TypeScript entrypoint configs.
+- `packages/contracts`: authoritative OpenAPI snapshot, generated client artifacts, contracts-specific scripts, and contracts-specific package manifest.
 - `infra`: deployment and environment template assets, not application business logic.
 - `scripts`: repository automation scripts invoked by top-level governance commands.
 - `.orbital/specs`: active requirements and design documents.
@@ -103,25 +114,18 @@ apps/web/
       config/
   tests/
   package.json
+  tsconfig.app.json
+  tsconfig.node.json
   Dockerfile
 ```
 
 ### Operator CLI Application (`apps/cli`)
 ```text
 apps/cli/
-  src/
-    main.py
-    card_review_cli/
-      config.py
-      models.py
-      review_agent.py
-      graph.py
-      submitter.py
-      formatter.py
-  tests/
+  main.py
   pyproject.toml
 ```
-- `apps/cli` owns the local single-card submission command, typed review output models, local agent orchestration, graph branching, backend submission adapter, and CLI-side tests.
+- `apps/cli` owns the local single-card submission command, typed review output models, local agent orchestration, graph branching, and backend submission adapter.
 - `apps/cli` excludes knowledge-graph persistence ownership, backend ingestion internals, and frontend rendering concerns.
 
 ### Contracts Package (`packages/contracts`)
@@ -134,7 +138,7 @@ packages/contracts/
     client.ts
   scripts/
   package.json
-  README.md
+  tsconfig.json
 ```
 
 ## Contract Integration
@@ -143,28 +147,30 @@ packages/contracts/
 - Frontend consumes backend APIs only through generated contract artifacts.
 
 ## Boundary Rules
-1. `packages/contracts` SHALL NOT contain application business logic.
-2. `infra` SHALL NOT contain application business logic.
-3. `apps/api/src/shared` SHALL contain reusable technical capabilities only.
-4. Runtime configuration is sourced from `.env` through `pydantic-settings`; YAML is not a runtime configuration source.
-5. `infra/env` contains environment templates and active env files consumed by runtime and test `Settings`.
-6. `apps/api/src/modules/knowledge_graph` SHALL remain the only owner of graph persistence models and repositories.
-7. `apps/api/src/modules/search`, `apps/api/src/modules/ingestion`, and `apps/api/src/modules/semantic_map` SHALL access graph persistence only through `knowledge_graph` domain service ports.
-8. `apps/api/src/modules/knowledge_graph` SHALL include `model.py`, `repo.py`, `service.py`, domain DTOs, and domain service ports.
-9. `apps/api/src/modules/knowledge_graph` SHALL NOT include HTTP route files, queue broker setup, or worker actor definitions.
-10. `apps/api/src/modules/search` SHALL include only read-side API transport and orchestration logic.
-11. `apps/api/src/modules/search` SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
-12. `apps/api/src/modules/ingestion` SHALL include write-side API transport/orchestration plus ingestion-owned queue broker and worker job-processing primitives.
-13. `apps/api/src/modules/ingestion` SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
-14. `apps/api/src/shared` SHALL include only cross-module infrastructure (`db`, external integrations, and generic utilities); ingestion-specific queue code SHALL NOT be placed under `shared`.
-15. `apps/api/src/entrypoints/runtime.py` SHALL be the runtime composition root for app/worker settings and singleton dependency assembly.
-16. Runtime modules under `apps/api/src/**` SHALL NOT read environment variables directly (`os.getenv`, `os.environ`).
-17. Runtime dependency resolution SHALL use explicit injection and SHALL NOT use nullable-fallback dependency signatures.
-18. `apps/api/src/modules/**` SHALL NOT import `apps/api/src/entrypoints/**`.
-19. `apps/api/src/modules/semantic_map` SHALL access knowledge-domain truth only through `knowledge_graph` service ports and SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
-20. `apps/web/src/features/semantic-map` SHALL own semantic-map deck.gl rendering, semantic-map API adapters, and feature-specific UI overlays; only genuinely reusable technical primitives may move into `apps/web/src/shared/**`.
-21. `apps/cli` SHALL own only local command execution, agent review orchestration, and ingestion API submission behavior.
-22. `apps/cli` SHALL NOT own backend persistence, worker runtime, or direct database access.
+1. Repository-root configuration files SHALL own all cross-member tooling and workspace behavior.
+2. Member directories SHALL retain only member-scoped dependencies, runtime configuration, and source assets.
+3. `packages/contracts` SHALL NOT contain application business logic.
+4. `infra` SHALL NOT contain application business logic.
+5. `apps/api/src/shared` SHALL contain reusable technical capabilities only.
+6. Runtime configuration is sourced from `.env` through `pydantic-settings`; YAML is not a runtime configuration source.
+7. `infra/env` contains environment templates and active env files consumed by runtime and test `Settings`.
+8. `apps/api/src/modules/knowledge_graph` SHALL remain the only owner of graph persistence models and repositories.
+9. `apps/api/src/modules/search`, `apps/api/src/modules/ingestion`, and `apps/api/src/modules/semantic_map` SHALL access graph persistence only through `knowledge_graph` domain service ports.
+10. `apps/api/src/modules/knowledge_graph` SHALL include `model.py`, `repo.py`, `service.py`, domain DTOs, and domain service ports.
+11. `apps/api/src/modules/knowledge_graph` SHALL NOT include HTTP route files, queue broker setup, or worker actor definitions.
+12. `apps/api/src/modules/search` SHALL include only read-side API transport and orchestration logic.
+13. `apps/api/src/modules/search` SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
+14. `apps/api/src/modules/ingestion` SHALL include write-side API transport/orchestration plus ingestion-owned queue broker and worker job-processing primitives.
+15. `apps/api/src/modules/ingestion` SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
+16. `apps/api/src/shared` SHALL include only cross-module infrastructure (`db`, external integrations, and generic utilities); ingestion-specific queue code SHALL NOT be placed under `shared`.
+17. `apps/api/src/entrypoints/runtime.py` SHALL be the runtime composition root for app/worker settings and singleton dependency assembly.
+18. Runtime modules under `apps/api/src/**` SHALL NOT read environment variables directly (`os.getenv`, `os.environ`).
+19. Runtime dependency resolution SHALL use explicit injection and SHALL NOT use nullable-fallback dependency signatures.
+20. `apps/api/src/modules/**` SHALL NOT import `apps/api/src/entrypoints/**`.
+21. `apps/api/src/modules/semantic_map` SHALL access knowledge-domain truth only through `knowledge_graph` service ports and SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
+22. `apps/web/src/features/semantic-map` SHALL own semantic-map deck.gl rendering, semantic-map API adapters, and feature-specific UI overlays; only genuinely reusable technical primitives may move into `apps/web/src/shared/**`.
+23. `apps/cli` SHALL own only local command execution, agent review orchestration, and ingestion API submission behavior.
+24. `apps/cli` SHALL NOT own backend persistence, worker runtime, or direct database access.
 
 ## Governance Anchors
 - Detailed architecture constraints are defined in `03-architecture-constraints`.

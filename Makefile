@@ -1,4 +1,25 @@
-.PHONY: bootstrap dev-up dev-down prod-up prod-down test-db-up test-db-down test-integration format fix lint typecheck contracts contracts-check test check alembic-autogen alembic-upgrade-dev alembic-upgrade-test alembic-upgrade-prod
+.DEFAULT_GOAL := help
+
+.PHONY: help bootstrap dev-up dev-down prod-up prod-down test-db-up test-db-down fix test check integration alembic-autogen alembic-upgrade-dev alembic-upgrade-test alembic-upgrade-prod
+
+help:
+	@printf '%s\n' \
+		'Available commands:' \
+		'  make bootstrap             Initialize repository dependencies and local tools' \
+		'  make dev-up                Start local development services' \
+		'  make dev-down              Stop local development services' \
+		'  make prod-up               Start local production-like services' \
+		'  make prod-down             Stop local production-like services' \
+		'  make test-db-up            Start isolated test database services' \
+		'  make test-db-down          Stop isolated test database services' \
+		'  make fix                   Apply safe repository-wide auto-fixes' \
+		'  make test                  Run the default fast test suite' \
+		'  make check                 Run the pre-submit aggregate checks' \
+		'  make integration           Run the heavier integration test flow' \
+		'  make alembic-autogen       Generate a new Alembic migration' \
+		'  make alembic-upgrade-dev   Apply migrations to the development database' \
+		'  make alembic-upgrade-test  Apply migrations to the test database' \
+		'  make alembic-upgrade-prod  Apply migrations to the production database'
 
 bootstrap:
 	bash scripts/bootstrap.sh
@@ -21,35 +42,19 @@ test-db-up:
 test-db-down:
 	bash scripts/test-db-down.sh $(ARGS)
 
-test-integration:
-	bash scripts/test-integration.sh
-
-format:
-	uv run --project apps/api ruff format apps/api/src
-	pnpm --dir apps/web run format
-
 fix:
 	uv run --project apps/api ruff check --fix apps/api/src
 	uv run --project apps/api ruff format apps/api/src
-	pnpm --dir apps/web run fix
-
-lint:
-	bash scripts/lint.sh
-
-typecheck:
-	bash scripts/typecheck.sh
-
-contracts:
-	bash scripts/contracts.sh
-
-contracts-check:
-	bash scripts/contracts-check.sh
+	pnpm run js:fix
 
 test:
 	bash scripts/run-tests.sh
 
 check:
 	bash scripts/check-all.sh
+
+integration:
+	bash scripts/test-integration.sh
 
 alembic-autogen:
 	bash scripts/alembic-autogen.sh

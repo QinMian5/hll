@@ -6,7 +6,17 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!dist", "!coverage", "!node_modules"]
+    "includes": [
+      "apps/web/**",
+      "packages/contracts/**",
+      "!apps/web/dist/**",
+      "!apps/web/coverage/**",
+      "!apps/web/node_modules/**",
+      "!packages/contracts/node_modules/**",
+      "!packages/contracts/openapi/**",
+      "!packages/contracts/generated/README.md",
+      "!node_modules/**"
+    ]
   },
   "formatter": {
     "enabled": true,

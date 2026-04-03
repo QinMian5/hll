@@ -4,469 +4,474 @@
  */
 
 export interface paths {
-    "/cards": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Ingestion */
-        post: operations["create_ingestion_cards_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  "/cards": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Search Cards */
-        get: operations["search_cards_search_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /** Create Ingestion */
+    post: operations["create_ingestion_cards_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/semantic-map/manifest/current": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Current Manifest */
-        get: operations["get_current_manifest_semantic_map_manifest_current_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Search Cards */
+    get: operations["search_cards_search_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/semantic-map/manifest/current": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/semantic-map/versions/{version}/tiles/regions/{semantic_level}/{z}/{x}/{y}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Region Tile */
-        get: operations["get_region_tile_semantic_map_versions__version__tiles_regions__semantic_level___z___x___y__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Get Current Manifest */
+    get: operations["get_current_manifest_semantic_map_manifest_current_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/semantic-map/versions/{version}/tiles/regions/{semantic_level}/{z}/{x}/{y}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    /** Get Region Tile */
+    get: operations["get_region_tile_semantic_map_versions__version__tiles_regions__semantic_level___z___x___y__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        Bounds4: [
-            number,
-            number,
-            number,
-            number
-        ];
-        /** CoordinateSystemResponse */
-        CoordinateSystemResponse: {
-            /**
-             * Axis Direction
-             * @constant
-             */
-            axis_direction: "x-right-y-up";
-            /**
-             * Bounds Format
-             * @constant
-             */
-            bounds_format: "min_x_min_y_max_x_max_y";
-            /**
-             * Kind
-             * @constant
-             */
-            kind: "cartesian2d";
-        };
-        /** DefaultViewResponse */
-        DefaultViewResponse: {
-            target: components["schemas"]["Point2"];
-            /** Zoom */
-            zoom: number;
-        };
-        /**
-         * ErrorCode
-         * @enum {string}
-         */
-        ErrorCode: "APPLICATION_API_INPUT_INVALID" | "APPLICATION_INGESTION_PAYLOAD_INVALID" | "APPLICATION_SEMANTIC_MAP_INPUT_INVALID" | "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND" | "DOMAIN_KNOWLEDGE_RULE_VIOLATION" | "DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND" | "APPLICATION_SEARCH_STATE_CONFLICT" | "INFRA_DB_CONNECTION_UNAVAILABLE" | "INFRA_EMBEDDING_SERVICE_UNAVAILABLE" | "INFRA_QUEUE_UNAVAILABLE" | "INTERNAL_API_UNEXPECTED_ERROR";
-        /** ErrorEnvelope */
-        ErrorEnvelope: {
-            error: components["schemas"]["ErrorPayload"];
-        };
-        /** ErrorPayload */
-        ErrorPayload: {
-            code: components["schemas"]["ErrorCode"];
-            /** Details */
-            details?: {
-                [key: string]: unknown;
-            };
-            /** Hint */
-            hint: string;
-            /** Message */
-            message: string;
-            /** Request Id */
-            request_id: string;
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** IngestionAcceptedResponse */
-        IngestionAcceptedResponse: {
-            /**
-             * Accepted
-             * @default true
-             * @constant
-             */
-            accepted: true;
-            /** Ingestion Id */
-            ingestion_id: string;
-        };
-        /** IngestionCreateRequest */
-        IngestionCreateRequest: {
-            /** Content */
-            content: string;
-            /** Title */
-            title: string;
-        };
-        /** LabelResponse */
-        LabelResponse: {
-            /** Font Size */
-            font_size: number;
-            /** Id */
-            id: string;
-            /** Label Rank */
-            label_rank: number;
-            /** Position */
-            position: number[];
-            /** Region Id */
-            region_id: string;
-            /** Text */
-            text: string;
-        };
-        /** MatchedCardResponse */
-        MatchedCardResponse: {
-            /** Content */
-            content: string;
-            /** Title */
-            title: string;
-        };
-        /** MultiPolygonGeometryResponse */
-        MultiPolygonGeometryResponse: {
-            /** Coordinates */
-            coordinates: number[][][];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "multi_polygon";
-        };
-        Point2: [
-            number,
-            number
-        ];
-        /** PolygonGeometryResponse */
-        PolygonGeometryResponse: {
-            /** Coordinates */
-            coordinates: number[][];
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            type: "polygon";
-        };
-        RegionGeometryResponse: components["schemas"]["PolygonGeometryResponse"] | components["schemas"]["MultiPolygonGeometryResponse"];
-        /** RegionResponse */
-        RegionResponse: {
-            /** Bbox */
-            bbox: number[];
-            /** Centroid */
-            centroid: number[];
-            /** Children Available */
-            children_available: boolean;
-            /** Display Rank */
-            display_rank: number;
-            geometry: components["schemas"]["RegionGeometryResponse"];
-            /** Id */
-            id: string;
-            /** Parent Id */
-            parent_id: string | null;
-            /** Region Name */
-            region_name: string;
-        };
-        /** SearchResponse */
-        SearchResponse: {
-            /** Connected Titles */
-            connected_titles: string[];
-            /** Matched Cards */
-            matched_cards: components["schemas"]["MatchedCardResponse"][];
-        };
-        /** SemanticLevelResponse */
-        SemanticLevelResponse: {
-            /** Child Content Role */
-            child_content_role: string;
-            /** Display Name */
-            display_name: string;
-            /** Level */
-            level: number;
-            /** Max Zoom */
-            max_zoom: number;
-            /** Min Zoom */
-            min_zoom: number;
-            /** Region Role */
-            region_role: string;
-            /** Stable Id */
-            stable_id: string;
-        };
-        /** SemanticMapManifestResponse */
-        SemanticMapManifestResponse: {
-            /**
-             * Built At
-             * Format: date-time
-             */
-            built_at: string;
-            coordinate_system: components["schemas"]["CoordinateSystemResponse"];
-            /** Default Semantic Level */
-            default_semantic_level: number;
-            default_view: components["schemas"]["DefaultViewResponse"];
-            /** Max Zoom */
-            max_zoom: number;
-            /** Schema Version */
-            schema_version: string;
-            /** Semantic Levels */
-            semantic_levels: components["schemas"]["SemanticLevelResponse"][];
-            /** Tile Size */
-            tile_size: number;
-            /** Version */
-            version: string;
-            world_bounds: components["schemas"]["Bounds4"];
-        };
-        /** SemanticMapTileMetadataResponse */
-        SemanticMapTileMetadataResponse: {
-            /**
-             * Bounds Format
-             * @constant
-             */
-            bounds_format: "min_x_min_y_max_x_max_y";
-            tile_bounds: components["schemas"]["Bounds4"];
-            /** X */
-            x: number;
-            /** Y */
-            y: number;
-            /** Z */
-            z: number;
-        };
-        /** SemanticMapTileResponse */
-        SemanticMapTileResponse: {
-            /** Labels */
-            labels: components["schemas"]["LabelResponse"][];
-            /** Regions */
-            regions: components["schemas"]["RegionResponse"][];
-            /** Schema Version */
-            schema_version: string;
-            /** Semantic Level */
-            semantic_level: number;
-            stats: components["schemas"]["SemanticMapTileStatsResponse"];
-            tile: components["schemas"]["SemanticMapTileMetadataResponse"];
-            /** Version */
-            version: string;
-        };
-        /** SemanticMapTileStatsResponse */
-        SemanticMapTileStatsResponse: {
-            /** Label Count */
-            label_count: number;
-            /** Region Count */
-            region_count: number;
-        };
-        /** ValidationError */
-        ValidationError: {
-            /** Context */
-            ctx?: Record<string, never>;
-            /** Input */
-            input?: unknown;
-            /** Location */
-            loc: (string | number)[];
-            /** Message */
-            msg: string;
-            /** Error Type */
-            type: string;
-        };
+  schemas: {
+    Bounds4: [number, number, number, number];
+    /** CoordinateSystemResponse */
+    CoordinateSystemResponse: {
+      /**
+       * Axis Direction
+       * @constant
+       */
+      axis_direction: "x-right-y-up";
+      /**
+       * Bounds Format
+       * @constant
+       */
+      bounds_format: "min_x_min_y_max_x_max_y";
+      /**
+       * Kind
+       * @constant
+       */
+      kind: "cartesian2d";
     };
-    responses: never;
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /** DefaultViewResponse */
+    DefaultViewResponse: {
+      target: components["schemas"]["Point2"];
+      /** Zoom */
+      zoom: number;
+    };
+    /**
+     * ErrorCode
+     * @enum {string}
+     */
+    ErrorCode:
+      | "APPLICATION_API_INPUT_INVALID"
+      | "APPLICATION_INGESTION_PAYLOAD_INVALID"
+      | "APPLICATION_SEMANTIC_MAP_INPUT_INVALID"
+      | "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND"
+      | "DOMAIN_KNOWLEDGE_RULE_VIOLATION"
+      | "DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND"
+      | "APPLICATION_SEARCH_STATE_CONFLICT"
+      | "INFRA_DB_CONNECTION_UNAVAILABLE"
+      | "INFRA_EMBEDDING_SERVICE_UNAVAILABLE"
+      | "INFRA_QUEUE_UNAVAILABLE"
+      | "INTERNAL_API_UNEXPECTED_ERROR";
+    /** ErrorEnvelope */
+    ErrorEnvelope: {
+      error: components["schemas"]["ErrorPayload"];
+    };
+    /** ErrorPayload */
+    ErrorPayload: {
+      code: components["schemas"]["ErrorCode"];
+      /** Details */
+      details?: {
+        [key: string]: unknown;
+      };
+      /** Hint */
+      hint: string;
+      /** Message */
+      message: string;
+      /** Request Id */
+      request_id: string;
+    };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
+    /** IngestionAcceptedResponse */
+    IngestionAcceptedResponse: {
+      /**
+       * Accepted
+       * @default true
+       * @constant
+       */
+      accepted: true;
+      /** Ingestion Id */
+      ingestion_id: string;
+    };
+    /** IngestionCreateRequest */
+    IngestionCreateRequest: {
+      /** Content */
+      content: string;
+      /** Title */
+      title: string;
+    };
+    /** LabelResponse */
+    LabelResponse: {
+      /** Font Size */
+      font_size: number;
+      /** Id */
+      id: string;
+      /** Label Rank */
+      label_rank: number;
+      /** Position */
+      position: number[];
+      /** Region Id */
+      region_id: string;
+      /** Text */
+      text: string;
+    };
+    /** MatchedCardResponse */
+    MatchedCardResponse: {
+      /** Content */
+      content: string;
+      /** Title */
+      title: string;
+    };
+    /** MultiPolygonGeometryResponse */
+    MultiPolygonGeometryResponse: {
+      /** Coordinates */
+      coordinates: number[][][];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "multi_polygon";
+    };
+    Point2: [number, number];
+    /** PolygonGeometryResponse */
+    PolygonGeometryResponse: {
+      /** Coordinates */
+      coordinates: number[][];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "polygon";
+    };
+    RegionGeometryResponse:
+      | components["schemas"]["PolygonGeometryResponse"]
+      | components["schemas"]["MultiPolygonGeometryResponse"];
+    /** RegionResponse */
+    RegionResponse: {
+      /** Bbox */
+      bbox: number[];
+      /** Centroid */
+      centroid: number[];
+      /** Children Available */
+      children_available: boolean;
+      /** Display Rank */
+      display_rank: number;
+      geometry: components["schemas"]["RegionGeometryResponse"];
+      /** Id */
+      id: string;
+      /** Parent Id */
+      parent_id: string | null;
+      /** Region Name */
+      region_name: string;
+    };
+    /** SearchResponse */
+    SearchResponse: {
+      /** Connected Titles */
+      connected_titles: string[];
+      /** Matched Cards */
+      matched_cards: components["schemas"]["MatchedCardResponse"][];
+    };
+    /** SemanticLevelResponse */
+    SemanticLevelResponse: {
+      /** Child Content Role */
+      child_content_role: string;
+      /** Display Name */
+      display_name: string;
+      /** Level */
+      level: number;
+      /** Max Zoom */
+      max_zoom: number;
+      /** Min Zoom */
+      min_zoom: number;
+      /** Region Role */
+      region_role: string;
+      /** Stable Id */
+      stable_id: string;
+    };
+    /** SemanticMapManifestResponse */
+    SemanticMapManifestResponse: {
+      /**
+       * Built At
+       * Format: date-time
+       */
+      built_at: string;
+      coordinate_system: components["schemas"]["CoordinateSystemResponse"];
+      /** Default Semantic Level */
+      default_semantic_level: number;
+      default_view: components["schemas"]["DefaultViewResponse"];
+      /** Max Zoom */
+      max_zoom: number;
+      /** Schema Version */
+      schema_version: string;
+      /** Semantic Levels */
+      semantic_levels: components["schemas"]["SemanticLevelResponse"][];
+      /** Tile Size */
+      tile_size: number;
+      /** Version */
+      version: string;
+      world_bounds: components["schemas"]["Bounds4"];
+    };
+    /** SemanticMapTileMetadataResponse */
+    SemanticMapTileMetadataResponse: {
+      /**
+       * Bounds Format
+       * @constant
+       */
+      bounds_format: "min_x_min_y_max_x_max_y";
+      tile_bounds: components["schemas"]["Bounds4"];
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+      /** Z */
+      z: number;
+    };
+    /** SemanticMapTileResponse */
+    SemanticMapTileResponse: {
+      /** Labels */
+      labels: components["schemas"]["LabelResponse"][];
+      /** Regions */
+      regions: components["schemas"]["RegionResponse"][];
+      /** Schema Version */
+      schema_version: string;
+      /** Semantic Level */
+      semantic_level: number;
+      stats: components["schemas"]["SemanticMapTileStatsResponse"];
+      tile: components["schemas"]["SemanticMapTileMetadataResponse"];
+      /** Version */
+      version: string;
+    };
+    /** SemanticMapTileStatsResponse */
+    SemanticMapTileStatsResponse: {
+      /** Label Count */
+      label_count: number;
+      /** Region Count */
+      region_count: number;
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Context */
+      ctx?: Record<string, never>;
+      /** Input */
+      input?: unknown;
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
+    };
+  };
+  responses: never;
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    create_ingestion_cards_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["IngestionCreateRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["IngestionAcceptedResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  create_ingestion_cards_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    search_cards_search_get: {
-        parameters: {
-            query: {
-                query: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SearchResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["IngestionCreateRequest"];
+      };
     };
-    get_current_manifest_semantic_map_manifest_current_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SemanticMapManifestResponse"];
-                };
-            };
-            /** @description Requested semantic-map snapshot was not found. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
+        content: {
+          "application/json": components["schemas"]["IngestionAcceptedResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
     };
-    get_region_tile_semantic_map_versions__version__tiles_regions__semantic_level___z___x___y__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                version: string;
-                semantic_level: number;
-                z: number;
-                x: number;
-                y: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SemanticMapTileResponse"];
-                };
-            };
-            /** @description Semantic-map tile parameters are invalid. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Requested semantic-map snapshot was not found. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
+  };
+  search_cards_search_get: {
+    parameters: {
+      query: {
+        query: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SearchResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_current_manifest_semantic_map_manifest_current_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticMapManifestResponse"];
+        };
+      };
+      /** @description Requested semantic-map snapshot was not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  get_region_tile_semantic_map_versions__version__tiles_regions__semantic_level___z___x___y__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        version: string;
+        semantic_level: number;
+        z: number;
+        x: number;
+        y: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticMapTileResponse"];
+        };
+      };
+      /** @description Semantic-map tile parameters are invalid. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Requested semantic-map snapshot was not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
 }

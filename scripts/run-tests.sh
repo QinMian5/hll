@@ -12,4 +12,4 @@ echo "[test] backend unit (pytest)"
 uv --directory "$API_DIR" run pytest "$API_DIR/tests/unit"
 
 echo "[test] frontend (vitest)"
-pnpm --dir "$WEB_DIR" run test
+pnpm run web:test
