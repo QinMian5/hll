@@ -110,3 +110,13 @@ export function semanticMapRegionTileQueryOptions(
 export function useSemanticMapManifestQuery() {
   return useQuery(semanticMapManifestQueryOptions());
 }
+
+export function useSemanticMapRegionTileQuery(
+  args: SemanticMapRegionTileQueryArgs,
+  options: { readonly enabled?: boolean } = {},
+) {
+  return useQuery({
+    ...semanticMapRegionTileQueryOptions(args),
+    enabled: options.enabled ?? true,
+  });
+}

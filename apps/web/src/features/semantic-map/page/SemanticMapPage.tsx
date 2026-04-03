@@ -1,8 +1,16 @@
 // abstract: Semantic-map landing page with manifest bootstrap and empty-state flow.
 // out_of_scope: deck.gl rendering engine internals and point-level inspection UI.
 
+import { lazy, Suspense } from "react";
+
 import { useSemanticMapManifestQuery } from "../data/semanticMapQueries";
 import { EmptyState } from "../ui/EmptyState";
+
+const LazySemanticMapExplorer = lazy(async () => {
+  const module = await import("../engine/SemanticMapExplorer");
+
+  return { default: module.SemanticMapExplorer };
+});
 
 export function SemanticMapPage() {
   const manifestQuery = useSemanticMapManifestQuery();
@@ -39,36 +47,29 @@ export function SemanticMapPage() {
     );
   }
 
-  const manifest = manifestQuery.data;
-
   return (
-    <main className="semantic-map-page">
+    <main className="semantic-map-page semantic-map-page--engine">
       <p className="page-eyebrow">Semantic Map</p>
-      <h1 className="page-title">Semantic space bootstrap</h1>
+      <h1 className="page-title">Semantic map explorer</h1>
       <p className="page-copy">
-        Phase 1 starts with a contract-driven manifest read. Region and label
-        rendering land in the next slice, but the app shell is already pinned to
-        the latest published semantic-map version.
+        Region and label rendering are now driven by the current semantic-map
+        snapshot. Semantic zoom follows backend-defined levels instead of
+        hard-coded frontend thresholds.
       </p>
-
-      <dl className="semantic-map-summary">
-        <div className="summary-card">
-          <dt>Current version</dt>
-          <dd>{manifest.version}</dd>
-        </div>
-        <div className="summary-card">
-          <dt>Default semantic level</dt>
-          <dd>{manifest.defaultSemanticLevel}</dd>
-        </div>
-        <div className="summary-card">
-          <dt>Levels</dt>
-          <dd>{manifest.levels.length}</dd>
-        </div>
-        <div className="summary-card">
-          <dt>World bounds</dt>
-          <dd>{manifest.worldBounds.join(", ")}</dd>
-        </div>
-      </dl>
+      <Suspense
+        fallback={
+          <section
+            aria-busy="true"
+            aria-live="polite"
+            className="loading-state semantic-map-engine-fallback"
+          >
+            <h2>Loading map engine</h2>
+            <p>Preparing the deck.gl explorer bundle for this snapshot.</p>
+          </section>
+        }
+      >
+        <LazySemanticMapExplorer manifest={manifestQuery.data} />
+      </Suspense>
     </main>
   );
 }

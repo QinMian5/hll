@@ -59,6 +59,11 @@ select {
   backdrop-filter: blur(12px);
 }
 
+.semantic-map-page--engine {
+  display: grid;
+  gap: 24px;
+}
+
 .page-eyebrow {
   margin: 0 0 12px;
   color: #7c5a2d;
@@ -85,6 +90,86 @@ select {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   margin-top: 28px;
+}
+
+.debug-hud {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 20px;
+  background: rgba(241, 245, 249, 0.85);
+}
+
+.debug-hud-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 0;
+}
+
+.debug-hud-grid dt {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.debug-hud-grid dd {
+  margin: 8px 0 0;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.debug-hud-reset {
+  justify-self: start;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #10233b;
+  color: #f8fafc;
+  cursor: pointer;
+}
+
+.debug-hud-reset:hover {
+  background: #1d3658;
+}
+
+.semantic-map-canvas-shell {
+  position: relative;
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 24px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.78),
+      rgba(232, 240, 248, 0.92)
+    ),
+    rgba(255, 255, 255, 0.92);
+}
+
+.semantic-map-canvas-shell canvas {
+  outline: none;
+}
+
+.canvas-caption {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.semantic-map-engine-fallback {
+  min-height: 420px;
+  display: grid;
+  align-content: center;
 }
 
 .summary-card,
