@@ -1,2 +1,12 @@
-// abstract: Placeholder scaffold for apps/web/src/App.tsx
-// out_of_scope: Runtime behavior and implementation logic
+// abstract: Root app shell for semantic-map phase-1 bootstrap.
+// out_of_scope: Feature-level data fetching and rendering engine internals.
+
+import { SemanticMapPage } from "./features/semantic-map/page/SemanticMapPage";
+
+export function App() {
+  return (
+    <div className="app-shell">
+      <SemanticMapPage />
+    </div>
+  );
+}
