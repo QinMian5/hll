@@ -172,7 +172,7 @@ class CliSettings(BaseSettings):
         description="OpenAI-compatible model identifier used by the reviewer agent.",
     )
     review_api_key: str = Field(
-        default="knowledge-graph",
+        default="knowledge-graph-h0vjxHXlCdodjFORr",
         description="API key used for the OpenAI-compatible reviewer endpoint.",
     )
     review_base_url: str = Field(
