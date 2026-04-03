@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "exports": {
+    "./generated/types": "./generated/types.ts",
+    "./generated/client": "./generated/client.ts"
+  },
   "scripts": {
     "export": "bash scripts/export-openapi.sh",
     "generate:types": "bash scripts/generate-types.sh",
@@ -11,5 +15,8 @@
   },
   "devDependencies": {
     "openapi-typescript": "^7.10.1"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
   }
 }
