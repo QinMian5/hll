@@ -6,6 +6,7 @@ Out of scope: SQL statement correctness and FastAPI route wiring.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import pytest
@@ -13,6 +14,7 @@ import pytest
 from modules.knowledge_graph.dto import (
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
+    SemanticMapProjectionNode,
     SimilarNodeCandidate,
 )
 from modules.knowledge_graph.service import KnowledgeGraphService
@@ -42,7 +44,7 @@ class _StubRepo:
     async def fetch_connected_title_candidates(
         self,
         *,
-        matched_node_ids: list[int],
+        matched_node_ids: Sequence[int],
     ) -> list[ConnectedTitleCandidate]:
         assert matched_node_ids == [1, 2]
         return [
@@ -50,6 +52,20 @@ class _StubRepo:
             ConnectedTitleCandidate(node_id=3, title="Card C (duplicate)"),
             ConnectedTitleCandidate(node_id=4, title="Card A"),
             ConnectedTitleCandidate(node_id=5, title="Card D"),
+        ]
+
+    async def fetch_projection_nodes(self) -> list[SemanticMapProjectionNode]:
+        return [
+            SemanticMapProjectionNode(
+                node_id=1,
+                title="Card A",
+                embedding=[0.6, 0.3, 0.1],
+            ),
+            SemanticMapProjectionNode(
+                node_id=2,
+                title="Card B",
+                embedding=[0.2, 0.7, 0.1],
+            ),
         ]
 
     async def create_node(
@@ -67,7 +83,7 @@ class _StubRepo:
         self,
         *,
         query_embedding: list[float],
-        excluded_node_ids: list[int],
+        excluded_node_ids: Sequence[int],
     ) -> list[SimilarNodeCandidate]:
         assert query_embedding == [0.3, 0.2, 0.1]
         assert excluded_node_ids == [99]
@@ -128,6 +144,30 @@ async def test_get_connected_titles_dedups_by_node_id_and_excludes_titles() -> N
     )
 
     assert titles == ["Card C", "Card D"]
+
+
+@pytest.mark.anyio
+async def test_list_projection_nodes_for_semantic_map_returns_repo_records() -> None:
+    service = KnowledgeGraphService(
+        repo=_StubRepo(),
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    records = await service.list_projection_nodes_for_semantic_map()
+
+    assert [record.model_dump() for record in records] == [
+        {
+            "node_id": 1,
+            "title": "Card A",
+            "embedding": [0.6, 0.3, 0.1],
+        },
+        {
+            "node_id": 2,
+            "title": "Card B",
+            "embedding": [0.2, 0.7, 0.1],
+        },
+    ]
 
 
 @pytest.mark.anyio

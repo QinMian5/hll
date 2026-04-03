@@ -20,7 +20,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from modules.semantic_map.types import JsonObject, StoredDefaultViewPayload
+from modules.semantic_map.types import (
+    JsonObject,
+)
 from shared.db.base import Base
 
 
@@ -47,7 +49,7 @@ class SemanticMapSnapshot(Base):
     world_bounds: Mapped[list[float]] = mapped_column(JSON, nullable=False)
     tile_size: Mapped[int] = mapped_column(Integer, nullable=False)
     max_zoom: Mapped[int] = mapped_column(Integer, nullable=False)
-    default_view: Mapped[StoredDefaultViewPayload] = mapped_column(JSON, nullable=False)
+    default_view: Mapped[JsonObject] = mapped_column(JSON, nullable=False)
     default_semantic_level: Mapped[int] = mapped_column(Integer, nullable=False)
 
 

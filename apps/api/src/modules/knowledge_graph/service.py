@@ -12,6 +12,7 @@ from typing import Protocol
 from modules.knowledge_graph.dto import (
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
+    SemanticMapProjectionNode,
     SimilarNodeCandidate,
 )
 
@@ -29,6 +30,8 @@ class KnowledgeGraphRepoProtocol(Protocol):
         *,
         matched_node_ids: Sequence[int],
     ) -> list[ConnectedTitleCandidate]: ...
+
+    async def fetch_projection_nodes(self) -> list[SemanticMapProjectionNode]: ...
 
     async def create_node(
         self,
@@ -113,6 +116,9 @@ class KnowledgeGraphService:
                 break
 
         return connected_titles
+
+    async def list_projection_nodes_for_semantic_map(self) -> list[SemanticMapProjectionNode]:
+        return await self._repo.fetch_projection_nodes()
 
     async def materialize_card_from_ingestion(
         self,

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from pydantic import TypeAdapter
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +24,18 @@ from modules.semantic_map.model import (
 from modules.semantic_map.model import (
     SemanticMapSnapshot,
 )
-from modules.semantic_map.types import Bounds4, Point2, StoredDefaultViewPayload
+from modules.semantic_map.types import (
+    Bounds4,
+    JsonObject,
+    LabelPayload,
+    Point2,
+    RegionPayload,
+    StoredDefaultViewPayload,
+)
+
+_DEFAULT_VIEW_PAYLOAD_ADAPTER = TypeAdapter(StoredDefaultViewPayload)
+_REGION_PAYLOADS_ADAPTER = TypeAdapter(list[RegionPayload])
+_LABEL_PAYLOADS_ADAPTER = TypeAdapter(list[LabelPayload])
 
 
 def _bounds4_from_stored(values: Sequence[float]) -> Bounds4:
@@ -34,10 +46,11 @@ def _point2_from_stored(values: Sequence[float]) -> Point2:
     return (values[0], values[1])
 
 
-def _default_view_from_stored(payload: StoredDefaultViewPayload) -> DefaultView:
+def _default_view_from_stored(payload: JsonObject) -> DefaultView:
+    stored_payload = _DEFAULT_VIEW_PAYLOAD_ADAPTER.validate_python(payload)
     return DefaultView(
-        target=_point2_from_stored(payload["target"]),
-        zoom=payload["zoom"],
+        target=_point2_from_stored(stored_payload.target),
+        zoom=stored_payload.zoom,
     )
 
 
@@ -101,8 +114,8 @@ class SemanticMapRepo:
             tile_bounds=_bounds4_from_stored(tile.tile_bounds),
             region_count=tile.region_count,
             label_count=tile.label_count,
-            regions=tile.regions,
-            labels=tile.labels,
+            regions=_REGION_PAYLOADS_ADAPTER.validate_python(tile.regions),
+            labels=_LABEL_PAYLOADS_ADAPTER.validate_python(tile.labels),
         )
 
     async def publish_snapshot(
@@ -125,10 +138,10 @@ class SemanticMapRepo:
             world_bounds=list(manifest.world_bounds),
             tile_size=manifest.tile_size,
             max_zoom=manifest.max_zoom,
-            default_view={
-                "target": list(manifest.default_view.target),
-                "zoom": manifest.default_view.zoom,
-            },
+            default_view=StoredDefaultViewPayload(
+                target=list(manifest.default_view.target),
+                zoom=manifest.default_view.zoom,
+            ).model_dump(mode="json"),
             default_semantic_level=manifest.default_semantic_level,
         )
         self._session.add(snapshot)
@@ -144,8 +157,8 @@ class SemanticMapRepo:
                 tile_bounds=list(tile.tile_bounds),
                 region_count=tile.region_count,
                 label_count=tile.label_count,
-                regions=tile.regions,
-                labels=tile.labels,
+                regions=[region.model_dump(mode="json") for region in tile.regions],
+                labels=[label.model_dump(mode="json") for label in tile.labels],
             )
             for tile in tiles
         )

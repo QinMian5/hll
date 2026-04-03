@@ -5,20 +5,23 @@ Out of scope: SQLAlchemy table mapping and HTTP transport serialization.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 
-from modules.semantic_map.types import Bounds4, JsonObject, Point2
+from pydantic import BaseModel, ConfigDict
+
+from modules.semantic_map.types import Bounds4, LabelPayload, Point2, RegionPayload
 
 
-@dataclass(frozen=True, slots=True)
-class DefaultView:
+class SemanticMapValueModel(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+
+class DefaultView(SemanticMapValueModel):
     target: Point2
     zoom: float
 
 
-@dataclass(frozen=True, slots=True)
-class SemanticMapManifest:
+class SemanticMapManifest(SemanticMapValueModel):
     version: str
     schema_version: str
     built_at: datetime
@@ -29,8 +32,7 @@ class SemanticMapManifest:
     default_semantic_level: int
 
 
-@dataclass(frozen=True, slots=True)
-class SemanticMapRegionTile:
+class SemanticMapRegionTile(SemanticMapValueModel):
     semantic_level: int
     tile_z: int
     tile_x: int
@@ -38,5 +40,5 @@ class SemanticMapRegionTile:
     tile_bounds: Bounds4
     region_count: int
     label_count: int
-    regions: list[JsonObject]
-    labels: list[JsonObject]
+    regions: list[RegionPayload]
+    labels: list[LabelPayload]

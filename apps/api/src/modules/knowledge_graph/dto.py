@@ -32,3 +32,11 @@ class SimilarNodeCandidate(BaseModel):
 
     node_id: int = Field(gt=0)
     similarity: float = Field(ge=0.0, le=1.0)
+
+
+class SemanticMapProjectionNode(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    node_id: int = Field(gt=0)
+    title: NonEmptyString
+    embedding: list[float] = Field(min_length=1)

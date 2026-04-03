@@ -32,10 +32,12 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Database: `PostgreSQL`
 - Vector extension: `pgvector`
 - Async worker framework: `Dramatiq`
+- Projection/clustering baseline: `scikit-learn`
 
 #### Why selected
 - The stack is aligned with API-first development and deterministic contract export.
 - It provides a stable path for `Node/Edge/Adjacency` relational modeling and `Node.embedding` vector storage.
+- `scikit-learn` provides the approved deterministic Phase 1 PCA + agglomerative-clustering rebuild baseline without introducing a second backend service.
 - Tooling is modern and compatible with monorepo governance and reproducible local/CI workflows.
 
 ### Operator CLI
