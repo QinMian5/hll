@@ -17,7 +17,7 @@ IngestionServiceProvider = Callable[..., IngestionService]
 
 
 def build_router(*, get_ingestion_service: IngestionServiceProvider) -> APIRouter:
-    router = APIRouter(prefix="/ingestions", tags=["ingestions"])
+    router = APIRouter(tags=["ingestions"])
 
     @router.post(
         "/cards",

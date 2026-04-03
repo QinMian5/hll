@@ -52,7 +52,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ## API Contract
 
 ### Ingestion Endpoint
-- Route: `POST /ingestions/cards`
+- Route: `POST /cards`
 - Request body fields:
   - `title`
   - `content`
@@ -112,7 +112,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 
 ## Validation
 - **Checks:**
-  - Contract tests assert `POST /ingestions/cards` returns `4xx` on invalid payload and `202` on valid payload.
+  - Contract tests assert `POST /cards` returns `4xx` on invalid payload and `202` on valid payload.
   - Search contract tests assert `matched_cards` include only `title` and `content`.
   - Architecture checks assert `search` and `ingestion` do not import `knowledge_graph.repo/model`.
   - Architecture checks assert API entrypoint code does not import worker entrypoint modules.

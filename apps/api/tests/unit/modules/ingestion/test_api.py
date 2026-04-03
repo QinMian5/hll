@@ -45,7 +45,7 @@ def dependency_overrides() -> DependencyOverrides:
 @pytest.mark.anyio
 async def test_ingestion_valid_payload_returns_202(async_client: AsyncClient) -> None:
     response = await async_client.post(
-        "/ingestions/cards",
+        "/cards",
         json={"title": "Title", "content": "Content"},
     )
 
@@ -59,7 +59,7 @@ async def test_ingestion_valid_payload_returns_202(async_client: AsyncClient) ->
 @pytest.mark.anyio
 async def test_ingestion_invalid_payload_returns_4xx(async_client: AsyncClient) -> None:
     response = await async_client.post(
-        "/ingestions/cards",
+        "/cards",
         json={"title": "", "content": "Content"},
     )
 
