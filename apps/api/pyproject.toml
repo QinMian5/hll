@@ -89,6 +89,12 @@ source_modules = ["modules"]
 forbidden_modules = ["entrypoints", "core"]
 
 [[tool.importlinter.contracts]]
+name = "api entrypoint must not import worker entrypoint"
+type = "forbidden"
+source_modules = ["entrypoints.api"]
+forbidden_modules = ["entrypoints.worker"]
+
+[[tool.importlinter.contracts]]
 name = "search cannot import knowledge-graph internals"
 type = "forbidden"
 source_modules = ["modules.search"]

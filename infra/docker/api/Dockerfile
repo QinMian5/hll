@@ -10,11 +10,13 @@ COPY apps/api/README.md /app/README.md
 COPY apps/api/src /app/src
 COPY apps/api/alembic.ini /app/alembic.ini
 COPY apps/api/alembic /app/alembic
+COPY infra/docker/api/run-api.sh /app/bin/
+COPY infra/docker/api/run-worker.sh /app/bin/
 
-RUN uv sync --frozen
+RUN chmod +x /app/bin/run-api.sh /app/bin/run-worker.sh && uv sync --frozen
 
 ENV PATH="/app/.venv/bin:${PATH}"
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "main:app", "--app-dir", "src", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/bin/run-api.sh"]

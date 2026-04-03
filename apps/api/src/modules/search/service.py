@@ -5,14 +5,9 @@ Out of scope: FastAPI transport wiring and direct database access.
 
 from __future__ import annotations
 
-from typing import Protocol
-
 from modules.knowledge_graph.ports import KnowledgeGraphReadPort
 from modules.search.schema import MatchedCardResponse, SearchResponse
-
-
-class EmbeddingClientProtocol(Protocol):
-    async def embed_text(self, text: str) -> list[float]: ...
+from shared.integrations import EmbeddingClientPort
 
 
 class SearchService:
@@ -20,7 +15,7 @@ class SearchService:
         self,
         *,
         knowledge_graph_read_port: KnowledgeGraphReadPort,
-        embedding_client: EmbeddingClientProtocol,
+        embedding_client: EmbeddingClientPort,
         max_matched: int,
         max_connected: int,
     ) -> None:

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from fastapi import FastAPI
+
 import entrypoints.worker.actors as worker_actors
 import main as main_module
 
@@ -64,7 +66,7 @@ def test_bootstrap_api_logging_forwards_settings_to_configure() -> None:
 
 def test_build_app_bootstraps_logging_before_app_factory() -> None:
     fake_settings = _settings()
-    sentinel_app = object()
+    sentinel_app = FastAPI()
     call_order: list[str] = []
     configure_calls: list[dict[str, object]] = []
 
@@ -85,7 +87,7 @@ def test_build_app_bootstraps_logging_before_app_factory() -> None:
             }
         )
 
-    def fake_app_factory() -> object:
+    def fake_app_factory() -> FastAPI:
         call_order.append("app_factory")
         return sentinel_app
 

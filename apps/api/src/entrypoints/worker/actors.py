@@ -7,64 +7,55 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from typing import Protocol
 
 import dramatiq
 
 from core.logging import configure_logging, get_logger
+from entrypoints.logging_bootstrap import (
+    ConfigureLogging,
+    LoggingSettings,
+    bootstrap_logging,
+)
 from entrypoints.runtime import get_runtime_dependencies, get_settings
-
-
-class _LoggingSettings(Protocol):
-    log_level: str
-    log_file_path: str
-    log_file_max_bytes: int
-    log_file_backup_count: int
-
-
-class _ConfigureLogging(Protocol):
-    def __call__(
-        self,
-        *,
-        log_level: str,
-        log_file_path: str,
-        log_file_max_bytes: int,
-        log_file_backup_count: int,
-    ) -> None: ...
+from modules.ingestion.queue import (
+    INGESTION_ACTOR_NAME,
+    INGESTION_QUEUE_NAME,
+    IngestionTask,
+    configure_broker,
+)
 
 
 def bootstrap_worker_logging(
     *,
-    settings_loader: Callable[[], _LoggingSettings] = get_settings,
-    configure: _ConfigureLogging = configure_logging,
-) -> _LoggingSettings:
-    settings = settings_loader()
-    configure(
-        log_level=settings.log_level,
-        log_file_path=settings.log_file_path,
-        log_file_max_bytes=settings.log_file_max_bytes,
-        log_file_backup_count=settings.log_file_backup_count,
+    settings_loader: Callable[[], LoggingSettings] = get_settings,
+    configure: ConfigureLogging = configure_logging,
+) -> LoggingSettings:
+    return bootstrap_logging(
+        settings_loader=settings_loader,
+        configure=configure,
     )
-    return settings
 
 
-bootstrap_worker_logging()
+runtime_settings = get_settings()
+bootstrap_worker_logging(settings_loader=lambda: runtime_settings)
+configure_broker(redis_url=runtime_settings.redis_url)
 logger = get_logger(__name__)
 
 
-@dramatiq.actor(queue_name="ingestion")
+@dramatiq.actor(
+    queue_name=INGESTION_QUEUE_NAME,
+    actor_name=INGESTION_ACTOR_NAME,
+)
 def enqueue_ingestion_task(
-    ingestion_id: str,
-    request_id: str,
-    title: str,
-    content: str,
+    task_payload: dict[str, str],
 ) -> None:
+    task = IngestionTask.from_payload(task_payload)
     logger.info(
         "ingestion.worker_received",
         extra={
             "event": "ingestion.worker_received",
-            "ingestion_id": ingestion_id,
-            "request_id": request_id,
+            "ingestion_id": task.ingestion_id,
+            "request_id": task.request_id,
         },
     )
     runtime = get_runtime_dependencies()
@@ -80,8 +71,8 @@ def enqueue_ingestion_task(
                 edge_similarity_min_strength=runtime.settings.edge_similarity_min_strength,
             )
             return await process_ingestion_job(
-                title=title,
-                content=content,
+                title=task.title,
+                content=task.content,
                 embedding_client=runtime.embedding_client,
                 knowledge_graph_write_port=knowledge_graph_service,
             )

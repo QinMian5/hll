@@ -6,7 +6,7 @@ Out of scope: HTTP route declarations and worker actor execution loops.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Annotated, cast
+from typing import Annotated
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -24,14 +24,10 @@ from entrypoints.runtime import (
 from entrypoints.runtime import (
     get_settings as get_runtime_settings,
 )
-from entrypoints.worker.actors import enqueue_ingestion_task
-from modules.ingestion.queue import configure_broker
-from modules.ingestion.service import EnqueueSender, IngestionService
+from modules.ingestion.queue import IngestionTask, publish_ingestion_task
+from modules.ingestion.service import IngestionService
 from modules.knowledge_graph.builders import build_knowledge_graph_service
-from modules.knowledge_graph.ports import (
-    KnowledgeGraphReadPort,
-    KnowledgeGraphWritePort,
-)
+from modules.knowledge_graph.ports import KnowledgeGraphReadPort
 from modules.knowledge_graph.service import KnowledgeGraphService
 from modules.search.service import SearchService
 from shared.integrations import EmbeddingClient
@@ -73,25 +69,9 @@ def get_knowledge_graph_service(
     )
 
 
-def get_knowledge_graph_read_port(
-    knowledge_graph_service: Annotated[
-        KnowledgeGraphService, Depends(get_knowledge_graph_service)
-    ],
-) -> KnowledgeGraphReadPort:
-    return cast(KnowledgeGraphReadPort, knowledge_graph_service)
-
-
-def get_knowledge_graph_write_port(
-    knowledge_graph_service: Annotated[
-        KnowledgeGraphService, Depends(get_knowledge_graph_service)
-    ],
-) -> KnowledgeGraphWritePort:
-    return cast(KnowledgeGraphWritePort, knowledge_graph_service)
-
-
 def get_search_service(
     knowledge_graph_read_port: Annotated[
-        KnowledgeGraphReadPort, Depends(get_knowledge_graph_read_port)
+        KnowledgeGraphReadPort, Depends(get_knowledge_graph_service)
     ],
     embedding_client: Annotated[EmbeddingClient, Depends(get_embedding_client)],
     settings: Annotated[Settings, Depends(get_settings)],
@@ -107,7 +87,12 @@ def get_search_service(
 def get_ingestion_service(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> IngestionService:
-    configure_broker(redis_url=settings.redis_url)
+    def _publish(task: IngestionTask) -> None:
+        publish_ingestion_task(
+            redis_url=settings.redis_url,
+            task=task,
+        )
+
     return IngestionService(
-        enqueue_sender=cast(EnqueueSender, enqueue_ingestion_task),
+        task_publisher=_publish,
     )

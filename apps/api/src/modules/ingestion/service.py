@@ -11,13 +11,14 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import uuid4
 
+from modules.ingestion.queue import IngestionTask
 from modules.ingestion.schema import IngestionAcceptedResponse, IngestionCreateRequest
 
 logger = logging.getLogger(__name__)
 
 
-class EnqueueSender(Protocol):
-    def send(self, *args: object, **kwargs: object) -> object: ...
+class IngestionTaskPublisher(Protocol):
+    def __call__(self, task: IngestionTask) -> None: ...
 
 
 def generate_ingestion_id() -> str:
@@ -26,7 +27,7 @@ def generate_ingestion_id() -> str:
 
 @dataclass(slots=True, kw_only=True)
 class IngestionService:
-    enqueue_sender: EnqueueSender
+    task_publisher: IngestionTaskPublisher
 
     async def accept(
         self,
@@ -35,23 +36,24 @@ class IngestionService:
         request_id: str,
     ) -> IngestionAcceptedResponse:
         ingestion_id = generate_ingestion_id()
+        task = IngestionTask(
+            ingestion_id=ingestion_id,
+            request_id=request_id,
+            title=payload.title,
+            content=payload.content,
+        )
         try:
-            self.enqueue_sender.send(
-                ingestion_id,
-                request_id,
-                payload.title,
-                payload.content,
-            )
+            self.task_publisher(task)
         except Exception as exc:
             logger.exception(
                 "ingestion.enqueue_failed",
                 extra={
                     "event": "ingestion.enqueue_failed",
-                    "request_id": request_id,
-                    "ingestion_id": ingestion_id,
+                    "request_id": task.request_id,
+                    "ingestion_id": task.ingestion_id,
                     "error_class": exc.__class__.__name__,
                     "error_message": str(exc),
                 },
             )
 
-        return IngestionAcceptedResponse(accepted=True, ingestion_id=ingestion_id)
+        return IngestionAcceptedResponse(accepted=True, ingestion_id=task.ingestion_id)

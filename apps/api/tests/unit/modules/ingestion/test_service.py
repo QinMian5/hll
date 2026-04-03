@@ -10,28 +10,29 @@ from dataclasses import dataclass
 
 import pytest
 
+from modules.ingestion.queue import IngestionTask
 from modules.ingestion.schema import IngestionCreateRequest
 from modules.ingestion.service import IngestionService
 
 
 @dataclass(slots=True)
-class _RecorderSender:
-    calls: list[tuple[object, ...]]
+class _RecorderPublisher:
+    calls: list[IngestionTask]
 
-    def send(self, *args: object) -> None:
-        self.calls.append(args)
+    def __call__(self, task: IngestionTask) -> None:
+        self.calls.append(task)
 
 
 @dataclass(slots=True)
-class _FailingSender:
-    def send(self, *args: object) -> None:
+class _FailingPublisher:
+    def __call__(self, task: IngestionTask) -> None:
         raise RuntimeError("broker down")
 
 
 @pytest.mark.anyio
 async def test_accept_enqueues_message_and_returns_accepted_payload() -> None:
-    sender = _RecorderSender(calls=[])
-    service = IngestionService(enqueue_sender=sender)
+    publisher = _RecorderPublisher(calls=[])
+    service = IngestionService(task_publisher=publisher)
 
     response = await service.accept(
         payload=IngestionCreateRequest(title="T", content="C"),
@@ -40,17 +41,18 @@ async def test_accept_enqueues_message_and_returns_accepted_payload() -> None:
 
     assert response.accepted is True
     assert response.ingestion_id.startswith("ing_")
-    assert len(sender.calls) == 1
-    assert sender.calls[0][1] == "req_123"
-    assert sender.calls[0][2] == "T"
-    assert sender.calls[0][3] == "C"
+    assert len(publisher.calls) == 1
+    assert publisher.calls[0].request_id == "req_123"
+    assert publisher.calls[0].title == "T"
+    assert publisher.calls[0].content == "C"
+    assert publisher.calls[0].ingestion_id == response.ingestion_id
 
 
 @pytest.mark.anyio
 async def test_accept_returns_202_semantics_even_when_enqueue_fails(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    service = IngestionService(enqueue_sender=_FailingSender())
+    service = IngestionService(task_publisher=_FailingPublisher())
     caplog.set_level(logging.ERROR)
 
     response = await service.accept(

@@ -5,20 +5,15 @@ Out of scope: Dramatiq actor registration and runtime dependency assembly.
 
 from __future__ import annotations
 
-from typing import Protocol
-
 from modules.knowledge_graph.ports import KnowledgeGraphWritePort
-
-
-class EmbeddingClientProtocol(Protocol):
-    async def embed_text(self, text: str) -> list[float]: ...
+from shared.integrations import EmbeddingClientPort
 
 
 async def process_ingestion_job(
     *,
     title: str,
     content: str,
-    embedding_client: EmbeddingClientProtocol,
+    embedding_client: EmbeddingClientPort,
     knowledge_graph_write_port: KnowledgeGraphWritePort,
 ) -> int:
     embedding = await embedding_client.embed_text(content)

@@ -14,14 +14,15 @@ import pytest
 from httpx import AsyncClient
 
 from entrypoints.api import providers as api_providers
+from modules.ingestion.queue import IngestionTask
 from modules.ingestion.service import IngestionService
 
 DependencyOverrides = dict[Callable[..., Any], Callable[..., Any]]
 
 
 @dataclass(slots=True)
-class _FailingSender:
-    def send(self, *args: object, **kwargs: object) -> None:
+class _FailingPublisher:
+    def __call__(self, task: IngestionTask) -> None:
         raise RuntimeError("queue unavailable")
 
 
@@ -29,7 +30,7 @@ class _FailingSender:
 def dependency_overrides() -> DependencyOverrides:
     return {
         api_providers.get_ingestion_service: lambda: IngestionService(
-            enqueue_sender=_FailingSender()
+            task_publisher=_FailingPublisher()
         )
     }
 

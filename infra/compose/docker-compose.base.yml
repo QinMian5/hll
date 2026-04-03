@@ -74,19 +74,7 @@ services:
       EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api.openai.com/v1/embeddings}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
-    command:
-      [
-        "uv",
-        "run",
-        "uvicorn",
-        "main:app",
-        "--app-dir",
-        "src",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000",
-      ]
+    command: ["/app/bin/run-api.sh"]
     expose:
       - "8000"
     networks:
@@ -109,7 +97,7 @@ services:
       EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api.openai.com/v1/embeddings}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
-    command: ["uv", "run", "dramatiq", "--path", "src", "entrypoints.worker.actors"]
+    command: ["/app/bin/run-worker.sh"]
     networks:
       - backend
     restart: unless-stopped
