@@ -47,6 +47,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Development uses non-external volumes and supports optional volume cleanup through an explicit destroy flag.
 - Production uses external volumes that are managed outside compose lifecycle and are not disposable through routine compose down.
 - PostgreSQL persistent data in production must bind to an external named volume.
+- Redis mounts explicit named volumes in compose baselines to prevent anonymous-volume drift.
 
 ## Container Build Strategy
 - `db` uses a custom PostgreSQL Dockerfile and is the extension package baseline owner.

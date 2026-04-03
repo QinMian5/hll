@@ -44,3 +44,5 @@ services:
 volumes:
   knowledge_postgres_data:
     name: knowledge_postgres_dev_data
+  knowledge_redis_data:
+    name: knowledge_redis_dev_data

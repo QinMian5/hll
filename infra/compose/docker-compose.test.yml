@@ -43,12 +43,15 @@ services:
       start_period: 2s
     ports:
       - "127.0.0.1:${REDIS_PORT:-56379}:6379"
+    volumes:
+      - redis_test_data:/data
     networks:
       - backend
     restart: "no"
 
 volumes:
   postgres_test_data:
+  redis_test_data:
 
 networks:
   backend:

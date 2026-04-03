@@ -37,6 +37,8 @@ services:
       timeout: 5s
       retries: 20
       start_period: 5s
+    volumes:
+      - knowledge_redis_data:/data
     networks:
       - backend
     restart: unless-stopped
@@ -113,6 +115,8 @@ services:
 volumes:
   knowledge_postgres_data:
     name: knowledge_postgres_data
+  knowledge_redis_data:
+    name: knowledge_redis_data
 
 networks:
   backend:
