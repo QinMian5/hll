@@ -9,7 +9,6 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import ceil
-from typing import Protocol
 
 import numpy as np
 from sklearn.cluster import AgglomerativeClustering
@@ -24,53 +23,17 @@ from modules.semantic_map.geometry import (
     compute_bbox,
     compute_centroid,
     point_in_bounds,
+    tile_bounds_for_coordinate,
 )
+from modules.semantic_map.metadata import (
+    DEFAULT_PHASE1_SEMANTIC_LEVELS,
+    DEFAULT_TILE_SIZE,
+    DEFAULT_VIEW_TARGET,
+    WORLD_BOUNDS,
+    SemanticLevelDefinition,
+)
+from modules.semantic_map.ports import SemanticMapSnapshotWritePort
 from modules.semantic_map.types import Bounds4, LabelPayload, Point2, RegionPayload
-
-WORLD_BOUNDS: Bounds4 = (0.0, 0.0, 1_000.0, 1_000.0)
-DEFAULT_TILE_SIZE = 512
-
-
-@dataclass(frozen=True, slots=True)
-class SemanticLevelDefinition:
-    level: int
-    stable_key: str
-    display_name: str
-    min_zoom: int
-    max_zoom: int
-    region_role: str
-    child_content_role: str
-
-
-DEFAULT_PHASE1_SEMANTIC_LEVELS: tuple[SemanticLevelDefinition, ...] = (
-    SemanticLevelDefinition(
-        level=0,
-        stable_key="domains",
-        display_name="Domains",
-        min_zoom=0,
-        max_zoom=1,
-        region_role="domain",
-        child_content_role="theme",
-    ),
-    SemanticLevelDefinition(
-        level=1,
-        stable_key="themes",
-        display_name="Themes",
-        min_zoom=2,
-        max_zoom=3,
-        region_role="theme",
-        child_content_role="topic",
-    ),
-    SemanticLevelDefinition(
-        level=2,
-        stable_key="topics",
-        display_name="Topics",
-        min_zoom=4,
-        max_zoom=6,
-        region_role="topic",
-        child_content_role="point",
-    ),
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,15 +42,6 @@ class _ClusterRecord:
     members: frozenset[int]
     region: RegionPayload
     labels: list[LabelPayload]
-
-
-class SemanticMapSnapshotWritePort(Protocol):
-    async def publish_snapshot(
-        self,
-        *,
-        manifest: SemanticMapManifest,
-        tiles: Sequence[SemanticMapRegionTile],
-    ) -> None: ...
 
 
 def _utc_now() -> datetime:
@@ -252,7 +206,7 @@ def _build_region_levels(
             children_available = any(
                 frozenset(next_members) < member_set for next_members in next_clusters
             )
-            region_id = f"{level_definition.stable_key}:{display_rank}"
+            region_id = f"{level_definition.stable_id}:{display_rank}"
             centroid = compute_centroid(member_points)
             bbox = compute_bbox(member_points)
             region = RegionPayload(
@@ -288,27 +242,6 @@ def _build_region_levels(
         previous_level_records = current_records
 
     return region_levels
-
-
-def _tile_bounds(
-    *,
-    world_bounds: Bounds4,
-    zoom: int,
-    tile_x: int,
-    tile_y: int,
-) -> Bounds4:
-    width = world_bounds[2] - world_bounds[0]
-    height = world_bounds[3] - world_bounds[1]
-    tile_span_x = width / (2**zoom)
-    tile_span_y = height / (2**zoom)
-    min_x = world_bounds[0] + tile_x * tile_span_x
-    min_y = world_bounds[1] + tile_y * tile_span_y
-    return (
-        min_x,
-        min_y,
-        min_x + tile_span_x,
-        min_y + tile_span_y,
-    )
 
 
 def _tile_index_range(
@@ -358,7 +291,7 @@ def _build_tiles(
                 )
                 for tile_x in tile_x_range:
                     for tile_y in tile_y_range:
-                        tile_bounds = _tile_bounds(
+                        tile_bounds = tile_bounds_for_coordinate(
                             world_bounds=world_bounds,
                             zoom=zoom,
                             tile_x=tile_x,
@@ -371,7 +304,7 @@ def _build_tiles(
                     position = (label.position[0], label.position[1])
                     for tile_x in tile_x_range:
                         for tile_y in tile_y_range:
-                            tile_bounds = _tile_bounds(
+                            tile_bounds = tile_bounds_for_coordinate(
                                 world_bounds=world_bounds,
                                 zoom=zoom,
                                 tile_x=tile_x,
@@ -387,7 +320,7 @@ def _build_tiles(
             for tile_x, tile_y in sorted(region_tiles.keys() | label_tiles.keys()):
                 tile_regions = region_tiles.get((tile_x, tile_y), [])
                 tile_labels = label_tiles.get((tile_x, tile_y), [])
-                tile_bounds = _tile_bounds(
+                tile_bounds = tile_bounds_for_coordinate(
                     world_bounds=world_bounds,
                     zoom=zoom,
                     tile_x=tile_x,
@@ -449,7 +382,7 @@ class SemanticMapRebuildService:
             world_bounds=WORLD_BOUNDS,
             tile_size=DEFAULT_TILE_SIZE,
             max_zoom=max(level.max_zoom for level in self._semantic_levels),
-            default_view=DefaultView(target=(500.0, 500.0), zoom=0.0),
+            default_view=DefaultView(target=DEFAULT_VIEW_TARGET, zoom=0.0),
             default_semantic_level=self._semantic_levels[0].level,
         )
         await self._snapshot_repo.publish_snapshot(

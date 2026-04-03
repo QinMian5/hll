@@ -43,6 +43,27 @@ def point_in_bounds(point: Point2, bounds: Bounds4) -> bool:
     return bounds[0] <= point[0] <= bounds[2] and bounds[1] <= point[1] <= bounds[3]
 
 
+def tile_bounds_for_coordinate(
+    *,
+    world_bounds: Bounds4,
+    zoom: int,
+    tile_x: int,
+    tile_y: int,
+) -> Bounds4:
+    width = world_bounds[2] - world_bounds[0]
+    height = world_bounds[3] - world_bounds[1]
+    tile_span_x = width / (2**zoom)
+    tile_span_y = height / (2**zoom)
+    min_x = world_bounds[0] + tile_x * tile_span_x
+    min_y = world_bounds[1] + tile_y * tile_span_y
+    return (
+        min_x,
+        min_y,
+        min_x + tile_span_x,
+        min_y + tile_span_y,
+    )
+
+
 def _build_rectangle(points: Sequence[Point2]) -> list[Point2]:
     min_x, min_y, max_x, max_y = compute_bbox(points)
     padding = max(max_x - min_x, max_y - min_y, 1.0) * 0.1

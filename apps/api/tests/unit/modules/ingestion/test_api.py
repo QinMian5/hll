@@ -57,10 +57,13 @@ async def test_ingestion_valid_payload_returns_202(async_client: AsyncClient) ->
 
 
 @pytest.mark.anyio
-async def test_ingestion_invalid_payload_returns_4xx(async_client: AsyncClient) -> None:
+async def test_ingestion_invalid_payload_returns_422_error_envelope(
+    async_client: AsyncClient,
+) -> None:
     response = await async_client.post(
         "/cards",
         json={"title": "", "content": "Content"},
     )
 
-    assert 400 <= response.status_code < 500
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "APPLICATION_API_INPUT_INVALID"

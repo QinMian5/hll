@@ -65,19 +65,13 @@ class SemanticMapRepo:
             .order_by(SemanticMapSnapshot.built_at.desc())
             .limit(1)
         )
-        if snapshot is None:
-            return None
+        return None if snapshot is None else _manifest_from_snapshot(snapshot)
 
-        return SemanticMapManifest(
-            version=snapshot.version,
-            schema_version=snapshot.schema_version,
-            built_at=snapshot.built_at,
-            world_bounds=_bounds4_from_stored(snapshot.world_bounds),
-            tile_size=snapshot.tile_size,
-            max_zoom=snapshot.max_zoom,
-            default_view=_default_view_from_stored(snapshot.default_view),
-            default_semantic_level=snapshot.default_semantic_level,
+    async def get_manifest_by_version(self, *, version: str) -> SemanticMapManifest | None:
+        snapshot = await self._session.scalar(
+            select(SemanticMapSnapshot).where(SemanticMapSnapshot.version == version).limit(1)
         )
+        return None if snapshot is None else _manifest_from_snapshot(snapshot)
 
     async def get_region_tile(
         self,
@@ -164,3 +158,16 @@ class SemanticMapRepo:
         )
 
         await self._session.commit()
+
+
+def _manifest_from_snapshot(snapshot: SemanticMapSnapshot) -> SemanticMapManifest:
+    return SemanticMapManifest(
+        version=snapshot.version,
+        schema_version=snapshot.schema_version,
+        built_at=snapshot.built_at,
+        world_bounds=_bounds4_from_stored(snapshot.world_bounds),
+        tile_size=snapshot.tile_size,
+        max_zoom=snapshot.max_zoom,
+        default_view=_default_view_from_stored(snapshot.default_view),
+        default_semantic_level=snapshot.default_semantic_level,
+    )

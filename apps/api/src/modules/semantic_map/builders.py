@@ -10,6 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from modules.knowledge_graph.ports import KnowledgeGraphProjectionPort
 from modules.semantic_map.rebuild import SemanticMapRebuildService
 from modules.semantic_map.repo import SemanticMapRepo
+from modules.semantic_map.service import SemanticMapService
+
+
+def build_semantic_map_service(*, session: AsyncSession) -> SemanticMapService:
+    return SemanticMapService(repo=SemanticMapRepo(session=session))
 
 
 def build_semantic_map_rebuild_service(

@@ -58,3 +58,4 @@ async def test_search_route_rejects_empty_query(async_client: AsyncClient) -> No
     response = await async_client.get("/search", params={"query": ""})
 
     assert response.status_code == 422
+    assert response.json()["error"]["code"] == "APPLICATION_API_INPUT_INVALID"

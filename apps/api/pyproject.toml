@@ -85,10 +85,10 @@ source_modules = ["shared"]
 forbidden_modules = ["core", "entrypoints", "modules"]
 
 [[tool.importlinter.contracts]]
-name = "modules must not depend on entrypoints or core"
+name = "modules must not depend on entrypoints"
 type = "forbidden"
 source_modules = ["modules"]
-forbidden_modules = ["entrypoints", "core"]
+forbidden_modules = ["entrypoints"]
 
 [[tool.importlinter.contracts]]
 name = "api entrypoint must not import worker entrypoint"

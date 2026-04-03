@@ -17,8 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 class ErrorCode(StrEnum):
     APPLICATION_API_INPUT_INVALID = "APPLICATION_API_INPUT_INVALID"
     APPLICATION_INGESTION_PAYLOAD_INVALID = "APPLICATION_INGESTION_PAYLOAD_INVALID"
+    APPLICATION_SEMANTIC_MAP_INPUT_INVALID = "APPLICATION_SEMANTIC_MAP_INPUT_INVALID"
     DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND = "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND"
     DOMAIN_KNOWLEDGE_RULE_VIOLATION = "DOMAIN_KNOWLEDGE_RULE_VIOLATION"
+    DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND = "DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND"
     APPLICATION_SEARCH_STATE_CONFLICT = "APPLICATION_SEARCH_STATE_CONFLICT"
     INFRA_DB_CONNECTION_UNAVAILABLE = "INFRA_DB_CONNECTION_UNAVAILABLE"
     INFRA_EMBEDDING_SERVICE_UNAVAILABLE = "INFRA_EMBEDDING_SERVICE_UNAVAILABLE"
@@ -30,13 +32,19 @@ NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_len
 
 
 class ErrorPayload(BaseModel):
-    model_config = ConfigDict(strict=True, use_enum_values=True)
+    model_config = ConfigDict(extra="forbid", strict=True, use_enum_values=True)
 
     code: ErrorCode
     message: NonEmptyString
     details: dict[str, Any] = Field(default_factory=dict)
     hint: NonEmptyString
     request_id: NonEmptyString
+
+
+class ErrorEnvelope(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    error: ErrorPayload
 
 
 @dataclass(slots=True, kw_only=True)
@@ -55,6 +63,9 @@ class AppError(Exception):
             hint=self.hint,
             request_id=request_id,
         )
+
+    def to_response_envelope(self, *, request_id: str) -> ErrorEnvelope:
+        return ErrorEnvelope(error=self.to_response_payload(request_id=request_id))
 
     def __str__(self) -> str:
         return f"{self.code.value}: {self.message}"

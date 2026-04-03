@@ -30,6 +30,8 @@ from modules.knowledge_graph.builders import build_knowledge_graph_service
 from modules.knowledge_graph.ports import KnowledgeGraphReadPort
 from modules.knowledge_graph.service import KnowledgeGraphService
 from modules.search.service import SearchService
+from modules.semantic_map.builders import build_semantic_map_service
+from modules.semantic_map.service import SemanticMapService
 from shared.integrations import EmbeddingClient
 
 
@@ -82,6 +84,12 @@ def get_search_service(
         max_matched=settings.search_max_matched,
         max_connected=settings.search_max_connected,
     )
+
+
+def get_semantic_map_service(
+    session: Annotated[AsyncSession, Depends(get_async_session)],
+) -> SemanticMapService:
+    return build_semantic_map_service(session=session)
 
 
 def get_ingestion_service(
