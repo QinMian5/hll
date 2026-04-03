@@ -14,4 +14,4 @@ docker compose \
   -f "$COMPOSE_BASE" \
   -f "$COMPOSE_PROD" \
   run --rm migrate \
-  uv run alembic -c /app/alembic.ini upgrade head
+  alembic -c /app/alembic.ini upgrade head

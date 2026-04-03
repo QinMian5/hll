@@ -131,9 +131,12 @@ class KnowledgeGraphService:
                 query_embedding=embedding,
                 excluded_node_ids=[node_id],
             )
-            for candidate in candidates[: self._edge_similarity_top_k]:
-                if candidate.similarity < self._edge_similarity_min_strength:
-                    continue
+            threshold_candidates = [
+                candidate
+                for candidate in candidates
+                if candidate.similarity >= self._edge_similarity_min_strength
+            ]
+            for candidate in threshold_candidates[: self._edge_similarity_top_k]:
                 await self._repo.create_edge_with_adjacency(
                     source_node_id=node_id,
                     related_node_id=candidate.node_id,

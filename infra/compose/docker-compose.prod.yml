@@ -1,6 +1,18 @@
 # abstract: Production overrides for the Docker Compose base topology.
 # out_of_scope: Multi-region traffic management and non-Docker deployment targets.
 services:
+  migrate:
+    env_file:
+      - ../../infra/env/.env.prod
+
+  api:
+    env_file:
+      - ../../infra/env/.env.prod
+
+  worker:
+    env_file:
+      - ../../infra/env/.env.prod
+
   nginx:
     image: nginx:1.27.5-alpine
     depends_on:

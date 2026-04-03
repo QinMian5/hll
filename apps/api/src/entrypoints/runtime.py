@@ -42,9 +42,7 @@ def get_async_session_factory(
 ) -> async_sessionmaker[AsyncSession]:
     global _async_session_factory
     if _async_session_factory is None:
-        _async_session_factory = build_async_session_factory(
-            engine=get_engine(settings=settings)
-        )
+        _async_session_factory = build_async_session_factory(engine=get_engine(settings=settings))
     return _async_session_factory
 
 

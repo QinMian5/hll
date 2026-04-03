@@ -83,7 +83,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 4. API returns `202` for valid payloads.
 5. Worker actor registry in `entrypoints/worker/actors.py` receives message and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
 6. Worker calls `knowledge_graph` write service port to persist `Node`.
-7. Worker computes cosine similarity and persists `Edge` and `Adjacency` rows.
+7. Worker computes `dot_product`-mapped edge strength with `strength = (dot_product + 1) / 2`, keeps candidates with `strength >= 0.8`, selects at most the first `10`, and persists `Edge` and `Adjacency` rows.
 8. Search path reads persisted graph data only; no processing-state data is exposed by search.
 
 ## Runtime Dependencies
@@ -95,7 +95,8 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Embedding model is fixed to `text-embedding-3-small` in MVP runtime defaults.
 - PostgreSQL remains the persistent source of truth for graph entities.
 - Runtime configuration values are sourced from `.env` via `pydantic-settings`; YAML is not a runtime source.
-- `load_settings()` usage is restricted to composition entrypoints (`entrypoints/runtime.py` and `alembic/env.py`).
+- `load_settings()` usage is restricted to runtime composition entrypoints.
+- `load_migration_settings()` usage is restricted to migration runtime entrypoints.
 
 ## Failure Handling
 - Invalid ingestion request payloads are client-visible as `4xx` according to global error-governance mapping.

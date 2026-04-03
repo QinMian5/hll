@@ -21,15 +21,14 @@ out_of_scope: Production database hardening, backup strategy, and multi-node top
 - Test runtime configuration is sourced from local-only `infra/env/.env.test`.
 
 ## Configuration Policy
-- Test DB settings continue using component fields (`DB_HOST`, `DB_PORT`, `DB_NAME`, `APP_DB_*`, `MIGRATION_DB_*`).
-- Test execution does not introduce committed full database URLs.
+- Test runtime settings use URL-first fields (`APP_DATABASE_URL`, `MIGRATION_DATABASE_URL`) with no runtime fallback assembly.
 - Test environment safety is governed by dedicated `.env.test` values and isolated test compose topology.
 
 ## Migration Safety Policy
 - Test migration entrypoint is `scripts/alembic-upgrade-test.sh`.
 - Test migration configuration is loaded from `apps/api/alembic.ini`.
 - Test migration runtime settings are loaded from `.env.test` through `pydantic-settings`.
-- Alembic test runs pass `-x env_file=<path-to-.env.test>` to select the settings source explicitly.
+- Alembic test runs execute with `.env.test` values injected into process environment before startup.
 
 ## Test Execution Policy
 - Default fast test gate remains unit-only (`scripts/run-tests.sh`).
@@ -41,7 +40,8 @@ out_of_scope: Production database hardening, backup strategy, and multi-node top
   4. Tear down test stack (unless `KEEP_TEST_DB=1`).
 
 ## Fixture Contract
-- Integration fixtures resolve `.env.test` through `Settings(_env_file=...)`.
+- Integration fixtures inject `.env.test` into process environment and construct `Settings()` from environment only.
+- Migration helpers inject `.env.test` into process environment and construct `MigrationSettings()` from environment only.
 - Session-scoped async engine is used for performance.
 - Function-scoped transaction rollback provides per-test data isolation.
 - Async sessions use `join_transaction_mode="create_savepoint"` and `expire_on_commit=False`.

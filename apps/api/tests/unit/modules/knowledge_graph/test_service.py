@@ -97,9 +97,7 @@ class _StubRepo:
 
 
 @pytest.mark.anyio
-async def test_search_searchable_cards_returns_records_with_node_id_title_content() -> (
-    None
-):
+async def test_search_searchable_cards_returns_records_with_node_id_title_content() -> None:
     service = KnowledgeGraphService(
         repo=_StubRepo(),
         edge_similarity_top_k=10,
@@ -133,9 +131,7 @@ async def test_get_connected_titles_dedups_by_node_id_and_excludes_titles() -> N
 
 
 @pytest.mark.anyio
-async def test_materialize_card_from_ingestion_creates_node_and_threshold_edges() -> (
-    None
-):
+async def test_materialize_card_from_ingestion_creates_node_and_threshold_edges() -> None:
     repo = _StubRepo(created_nodes=[], created_edges=[])
     service = KnowledgeGraphService(
         repo=repo,

@@ -64,9 +64,7 @@ async def test_accept_returns_202_semantics_even_when_enqueue_fails(
     assert response.ingestion_id.startswith("ing_")
     assert "ingestion.enqueue_failed" in caplog.text
     matching_records = [
-        record
-        for record in caplog.records
-        if record.message == "ingestion.enqueue_failed"
+        record for record in caplog.records if record.message == "ingestion.enqueue_failed"
     ]
     assert matching_records
     assert matching_records[0].request_id == "req_abc"

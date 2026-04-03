@@ -9,13 +9,13 @@ services:
       dockerfile: infra/docker/postgres/Dockerfile
     image: knowledge-postgres:18
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-knowledge}
-      POSTGRES_USER: ${POSTGRES_USER:-knowledge_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-knowledge_admin_dev_change_me}
-      APP_DB_USER: ${APP_DB_USER:-knowledge_app}
-      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-knowledge_app_dev_change_me}
-      MIGRATION_DB_USER: ${MIGRATION_DB_USER:-knowledge_migration}
-      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:-knowledge_migration_dev_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      APP_DB_USER: ${APP_DB_USER:?APP_DB_USER is required}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+      MIGRATION_DB_USER: ${MIGRATION_DB_USER:?MIGRATION_DB_USER is required}
+      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:?MIGRATION_DB_PASSWORD is required}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -50,8 +50,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      MIGRATION_DATABASE_URL: postgresql+psycopg://${MIGRATION_DB_USER:-knowledge_migration}:${MIGRATION_DB_PASSWORD:-knowledge_migration_dev_change_me}@postgres:5432/${POSTGRES_DB:-knowledge}
-    command: ["uv", "run", "alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required}
+    command: ["alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
     networks:
       - backend
     restart: "no"
@@ -69,11 +69,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg://${APP_DB_USER:-knowledge_app}:${APP_DB_PASSWORD:-knowledge_app_dev_change_me}@postgres:5432/${POSTGRES_DB:-knowledge}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api.openai.com/v1/embeddings}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
-      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      APP_DATABASE_URL: ${APP_DATABASE_URL:?APP_DATABASE_URL is required}
     command: ["/app/bin/run-api.sh"]
     expose:
       - "8000"
@@ -92,11 +88,7 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg://${APP_DB_USER:-knowledge_app}:${APP_DB_PASSWORD:-knowledge_app_dev_change_me}@postgres:5432/${POSTGRES_DB:-knowledge}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      EMBEDDING_API_URL: ${EMBEDDING_API_URL:-https://api.openai.com/v1/embeddings}
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
-      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      APP_DATABASE_URL: ${APP_DATABASE_URL:?APP_DATABASE_URL is required}
     command: ["/app/bin/run-worker.sh"]
     networks:
       - backend

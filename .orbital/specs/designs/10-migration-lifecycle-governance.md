@@ -27,8 +27,8 @@ out_of_scope: Runtime request-session management, API business orchestration, an
 
 ## Migration Connection Policy
 - Migration execution uses migration-role credentials, separate from runtime app-role credentials.
-- Migration connection settings use component fields and runtime assembly policy.
-- Migration configuration supports role-specific connection assembly without maintaining duplicate independent URL literals.
+- Migration connection configuration is maintained as `MIGRATION_DATABASE_URL`.
+- Migration settings consume the URL value directly and do not assemble URLs from component fields.
 
 ## Revision and Ordering Policy
 - Revisions are linear by default in V1 baseline.

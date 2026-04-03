@@ -26,8 +26,8 @@ def _canonical_edge_pair(node_a_id: int, node_b_id: int) -> tuple[int, int]:
     return (node_b_id, node_a_id)
 
 
-def _distance_to_similarity(distance: float) -> float:
-    return max(0.0, min(1.0, 1.0 - distance))
+def _dot_product_to_similarity(dot_product: float) -> float:
+    return max(0.0, min(1.0, (dot_product + 1.0) / 2.0))
 
 
 class KnowledgeRepo:
@@ -48,8 +48,7 @@ class KnowledgeRepo:
         )
         rows = (await self._session.execute(statement)).all()
         return [
-            KnowledgeCardMatch(node_id=row.id, title=row.title, content=row.content)
-            for row in rows
+            KnowledgeCardMatch(node_id=row.id, title=row.title, content=row.content) for row in rows
         ]
 
     async def fetch_connected_title_candidates(
@@ -75,8 +74,7 @@ class KnowledgeRepo:
         )
         rows = (await self._session.execute(statement)).all()
         return [
-            ConnectedTitleCandidate(node_id=row.neighbor_node_id, title=row.title)
-            for row in rows
+            ConnectedTitleCandidate(node_id=row.neighbor_node_id, title=row.title) for row in rows
         ]
 
     async def create_node(
@@ -97,11 +95,11 @@ class KnowledgeRepo:
         query_embedding: list[float],
         excluded_node_ids: Sequence[int],
     ) -> list[SimilarNodeCandidate]:
-        cosine_distance = Node.embedding.cosine_distance(query_embedding).label(
-            "distance"
+        neg_inner_product = Node.embedding.max_inner_product(query_embedding).label(
+            "neg_inner_product"
         )
-        statement = select(Node.id, cosine_distance).order_by(
-            cosine_distance.asc(),
+        statement = select(Node.id, neg_inner_product).order_by(
+            neg_inner_product.asc(),
             Node.id.asc(),
         )
         if excluded_node_ids:
@@ -110,7 +108,8 @@ class KnowledgeRepo:
         return [
             SimilarNodeCandidate(
                 node_id=row.id,
-                similarity=_distance_to_similarity(float(row.distance)),
+                # pgvector <#> returns negative inner product for index-friendly ASC order.
+                similarity=_dot_product_to_similarity(-float(row.neg_inner_product)),
             )
             for row in rows
         ]

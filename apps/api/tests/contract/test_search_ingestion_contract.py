@@ -6,21 +6,24 @@ Out of scope: Route runtime behavior and worker-side execution semantics.
 from __future__ import annotations
 
 import pytest
-
-from main import app
+from fastapi.testclient import TestClient
 
 
 @pytest.mark.contract
-def test_openapi_contains_search_and_ingestion_paths() -> None:
-    openapi = app.openapi()
+def test_openapi_contains_search_and_ingestion_paths(
+    client: TestClient,
+) -> None:
+    openapi = client.app.openapi()
 
     assert "/search" in openapi["paths"]
     assert "/ingestions/cards" in openapi["paths"]
 
 
 @pytest.mark.contract
-def test_ingestion_openapi_includes_202_and_422_responses() -> None:
-    openapi = app.openapi()
+def test_ingestion_openapi_includes_202_and_422_responses(
+    client: TestClient,
+) -> None:
+    openapi = client.app.openapi()
 
     responses = openapi["paths"]["/ingestions/cards"]["post"]["responses"]
     assert "202" in responses

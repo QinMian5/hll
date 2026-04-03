@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 
 import pytest
+from dotenv import dotenv_values
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -38,8 +39,15 @@ def test_env_file(repo_root: Path) -> Path:
 
 @pytest.fixture(scope="session")
 def test_settings(test_env_file: Path) -> Iterator[Settings]:
-    settings = Settings(_env_file=test_env_file)
-    yield settings
+    monkeypatch = pytest.MonkeyPatch()
+    for key, value in dotenv_values(test_env_file).items():
+        if value is None:
+            continue
+        monkeypatch.setenv(key, value)
+    try:
+        yield Settings()
+    finally:
+        monkeypatch.undo()
 
 
 @pytest.fixture(scope="session")

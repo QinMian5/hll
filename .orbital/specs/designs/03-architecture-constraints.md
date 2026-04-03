@@ -36,14 +36,16 @@ out_of_scope: Module-level exhaustive error-code catalogs, advanced CI matrices,
 
 ## Configuration Constraints
 - Allowed runtime configuration source is `.env` loaded through `pydantic-settings`.
-- Runtime configuration must be loaded through one project entrypoint (`core/config.py`) and composed only from declared `Settings` fields.
+- Runtime configuration must be loaded through the project config entrypoints in `core/config.py` and composed only from declared settings fields.
 - Business and orchestration modules must not read environment variables directly (`os.getenv`, `os.environ`, and equivalent direct environment reads are forbidden).
 - YAML configuration sources are not part of runtime policy.
-- Test overrides must use the same `Settings` construction path (`Settings(..., _env_file=...)`) and must not introduce alternate loaders.
+- Test and script layers may load `.env` files into process environment before application startup.
+- Application runtime must construct settings from process environment only (`Settings()` / `MigrationSettings()`).
 
 ## Dependency Injection Constraints
 - Runtime dependency construction is centralized in `apps/api/src/entrypoints/runtime.py` and consumed by `entrypoints/api/providers.py` and `entrypoints/worker/actors.py`.
-- `load_settings()` is a composition-root API and must be called only from composition entrypoints (`entrypoints/runtime.py`) and migration runtime entrypoint (`alembic/env.py`).
+- `load_settings()` is a composition-root API and must be called only from runtime composition entrypoints.
+- `load_migration_settings()` is a migration composition-root API and must be called only from migration runtime entrypoints.
 - Service and orchestration code must receive dependencies through explicit constructor/function parameters.
 - API ingestion enqueue wiring must depend on ingestion-owned queue publisher abstractions and must not depend on worker actor objects exported from `entrypoints.worker`.
 - Nullable dependency parameters used as runtime fallback (`dependency: T | None = None`) are forbidden in runtime paths.

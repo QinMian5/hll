@@ -21,9 +21,7 @@ def _line_kind(line: str) -> str:
 
 def _parse_env_key(*, path: Path, line_number: int, line: str) -> str:
     if "=" not in line:
-        raise AssertionError(
-            f"{path}:{line_number} must contain '=' for env key-value structure."
-        )
+        raise AssertionError(f"{path}:{line_number} must contain '=' for env key-value structure.")
 
     key, _ = line.split("=", 1)
     key = key.strip()

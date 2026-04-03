@@ -4,4 +4,4 @@
 
 set -eu
 
-exec uv run dramatiq --path src entrypoints.worker.actors
+exec dramatiq --path src entrypoints.worker.actors

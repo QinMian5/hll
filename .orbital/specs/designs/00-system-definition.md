@@ -26,7 +26,7 @@ The core value is to enable open knowledge dissemination and sharing in the agen
 - Ingestion accept HTTP API for platform-official card construction.
 - Search capability in V1 read APIs.
 - Atomic knowledge cards.
-- Relation links with cosine-similarity strength computation in ingestion worker execution.
+- Relation links with dot-product-mapped strength computation in ingestion worker execution.
 - 2D knowledge-card network visualization with zoom support.
 - Platform-official knowledge construction.
 
@@ -35,13 +35,13 @@ The core value is to enable open knowledge dissemination and sharing in the agen
 - User contribution workflow.
 - Authentication, API keys, and token models.
 - Source-verification requirements.
-- Iterative relation-evolution algorithms beyond initial cosine-based strength.
+- Iterative relation-evolution algorithms beyond initial dot-product-based strength.
 
 ## Milestone Acceptance (V1)
 - System baseline is established.
 - Database baseline is established.
 - Card-network visualization is available in the frontend.
-- Ingestion-driven cosine-similarity relation strength is computed and usable in search.
+- Ingestion-driven dot-product-mapped relation strength is computed and usable in search.
 
 ## Future Expansion Directions
 - Community contribution and governance models.

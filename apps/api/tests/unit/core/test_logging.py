@@ -51,9 +51,7 @@ def test_configure_logging_sets_root_handlers_and_applies_config(
     assert len(root_logger.handlers) == 2
 
     file_handler = next(
-        handler
-        for handler in root_logger.handlers
-        if isinstance(handler, RotatingFileHandler)
+        handler for handler in root_logger.handlers if isinstance(handler, RotatingFileHandler)
     )
     assert file_handler.maxBytes == 1234
     assert file_handler.backupCount == 7
@@ -179,9 +177,7 @@ def test_configure_logging_fails_when_parent_directory_not_writable(
     def fake_is_writable_directory(path: Path) -> bool:
         return path != log_directory
 
-    monkeypatch.setattr(
-        logging_module, "_is_writable_directory", fake_is_writable_directory
-    )
+    monkeypatch.setattr(logging_module, "_is_writable_directory", fake_is_writable_directory)
 
     with pytest.raises(PermissionError, match="not writable"):
         logging_module.configure_logging(

@@ -2,12 +2,16 @@
 # out_of_scope: Production runtime hardening and host-level security controls.
 services:
   migrate:
+    env_file:
+      - ../../infra/env/.env.dev
     volumes:
       - ../../apps/api/src:/app/src
       - ../../apps/api/alembic:/app/alembic
       - ../../apps/api/alembic.ini:/app/alembic.ini
 
   api:
+    env_file:
+      - ../../infra/env/.env.dev
     environment:
       API_RELOAD: "1"
     volumes:
@@ -16,6 +20,10 @@ services:
       - ../../apps/api/alembic.ini:/app/alembic.ini
     ports:
       - "8000:8000"
+
+  worker:
+    env_file:
+      - ../../infra/env/.env.dev
 
   web:
     build:

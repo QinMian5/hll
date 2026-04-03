@@ -6,7 +6,6 @@ Out of scope: Real database connectivity and migration lifecycle behavior.
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-from pathlib import Path
 from typing import cast
 
 import pytest
@@ -17,41 +16,28 @@ from core.config import Settings
 
 
 @pytest.fixture
-def runtime_settings(tmp_path: Path) -> Settings:
-    dotenv_file = tmp_path / ".env.runtime"
-    dotenv_file.write_text(
-        "\n".join(
-            [
-                "DB_HOST=postgres",
-                "DB_PORT=5432",
-                "DB_NAME=knowledge",
-                "APP_DB_USER=knowledge_app",
-                "APP_DB_PASSWORD=secret",
-                "MIGRATION_DB_USER=knowledge_migration",
-                "MIGRATION_DB_PASSWORD=secret_m",
-                "REDIS_URL=redis://redis:6379/0",
-                "EMBEDDING_API_URL=https://api.openai.com/v1/embeddings",
-                "EMBEDDING_MODEL=text-embedding-3-small",
-                "EMBEDDING_API_KEY=test-key",
-                "EMBEDDING_TIMEOUT_SECONDS=10",
-                "SEARCH_MAX_MATCHED=5",
-                "SEARCH_MAX_CONNECTED=10",
-                "EDGE_SIMILARITY_TOP_K=10",
-                "EDGE_SIMILARITY_MIN_STRENGTH=0.6",
-                "LOG_FILE_PATH=logs/api/app.log",
-            ]
-        ),
-        encoding="utf-8",
+def runtime_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
+    monkeypatch.setenv(
+        "APP_DATABASE_URL",
+        "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge",
     )
-    return Settings(_env_file=dotenv_file)
+    monkeypatch.setenv("REDIS_URL", "redis://redis:6379/0")
+    monkeypatch.setenv("EMBEDDING_API_URL", "https://api.openai.com/v1/embeddings")
+    monkeypatch.setenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    monkeypatch.setenv("EMBEDDING_API_KEY", "test-key")
+    monkeypatch.setenv("EMBEDDING_TIMEOUT_SECONDS", "10")
+    monkeypatch.setenv("SEARCH_MAX_MATCHED", "5")
+    monkeypatch.setenv("SEARCH_MAX_CONNECTED", "10")
+    monkeypatch.setenv("EDGE_SIMILARITY_TOP_K", "10")
+    monkeypatch.setenv("EDGE_SIMILARITY_MIN_STRENGTH", "0.8")
+    monkeypatch.setenv("LOG_FILE_PATH", "logs/api/app.log")
+    return Settings()
 
 
 def test_build_async_engine_uses_expected_runtime_settings(
     runtime_settings: Settings,
 ) -> None:
-    engine = session_module.build_async_engine(
-        database_url=runtime_settings.app_database_url
-    )
+    engine = session_module.build_async_engine(database_url=runtime_settings.app_database_url)
     assert isinstance(engine, AsyncEngine)
     assert engine.url.drivername == "postgresql+psycopg"
     assert engine.url.username == "knowledge_app"
@@ -64,9 +50,7 @@ def test_build_async_engine_uses_expected_runtime_settings(
 def test_build_async_session_factory_uses_expected_defaults(
     runtime_settings: Settings,
 ) -> None:
-    engine = session_module.build_async_engine(
-        database_url=runtime_settings.app_database_url
-    )
+    engine = session_module.build_async_engine(database_url=runtime_settings.app_database_url)
     session_factory = session_module.build_async_session_factory(engine=engine)
     assert session_factory.kw["bind"] is engine
     assert session_factory.kw["expire_on_commit"] is False
@@ -77,9 +61,7 @@ def test_build_async_session_factory_uses_expected_defaults(
 async def test_open_async_session_yields_asyncsession(
     runtime_settings: Settings,
 ) -> None:
-    engine = session_module.build_async_engine(
-        database_url=runtime_settings.app_database_url
-    )
+    engine = session_module.build_async_engine(database_url=runtime_settings.app_database_url)
     session_factory = session_module.build_async_session_factory(engine=engine)
     session_generator = cast(
         AsyncGenerator[AsyncSession],

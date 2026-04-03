@@ -102,12 +102,15 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Environment files use `.env.example`, `.env.dev`, and `.env.prod` naming.
 - Environment template files (`.env.example`, `.env.dev`, `.env.prod`) are tracked in version control.
 - Sensitive values are provided through runtime environment variables or `.env` and are not committed.
-- Compose injects environment values but does not become an additional business configuration source.
+- Compose injects environment values primarily through service-level `env_file`, with direct `environment` injection reserved for startup-critical keys.
 - Queue and embedding runtime configuration include:
-  - `REDIS_URL` with backend-network address default `redis://redis:6379/0`
-  - `EMBEDDING_API_URL` default `https://api.openai.com/v1/embeddings`
-  - `EMBEDDING_MODEL` default `text-embedding-3-small`
+  - `REDIS_URL` with backend-network address `redis://redis:6379/0`
+  - `EMBEDDING_API_URL` using OpenAI embeddings endpoint
+  - `EMBEDDING_MODEL` set to `text-embedding-3-small`
   - `EMBEDDING_API_KEY` from runtime secret injection
+- Database runtime configuration uses direct URL fields:
+  - `APP_DATABASE_URL` for API and worker runtime database access
+  - `MIGRATION_DATABASE_URL` for migration-role execution paths
 
 ## Failure Policy
 - Known startup failures must fail explicitly and stop rollout progression.

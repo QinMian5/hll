@@ -6,13 +6,12 @@ Out of scope: Migration revision authoring and runtime request handling.
 from __future__ import annotations
 
 from logging.config import fileConfig
-from pathlib import Path
 
 from sqlalchemy import engine_from_config, pool
 
 import modules.knowledge_graph.model  # noqa: F401
 from alembic import context
-from core.config import load_settings
+from core.config import load_migration_settings
 from shared.db.base import Base
 
 config = context.config
@@ -20,11 +19,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-runtime_args = context.get_x_argument(as_dictionary=True)
-env_file_arg = runtime_args.get("env_file")
-settings = load_settings(
-    env_file=None if env_file_arg is None else Path(env_file_arg).expanduser()
-)
+settings = load_migration_settings()
 
 config.set_main_option("sqlalchemy.url", settings.migration_database_url)
 

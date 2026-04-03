@@ -25,7 +25,5 @@ async def test_db_session_can_execute_simple_query(db_session: AsyncSession) -> 
 async def test_alembic_version_table_exists_after_migration(
     db_session: AsyncSession,
 ) -> None:
-    result = await db_session.execute(
-        text("SELECT to_regclass('public.alembic_version')")
-    )
+    result = await db_session.execute(text("SELECT to_regclass('public.alembic_version')"))
     assert result.scalar_one() == "alembic_version"

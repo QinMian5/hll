@@ -52,9 +52,7 @@ async def test_valid_ingestion_payload_returns_202_even_if_enqueue_fails(
     assert response.json()["accepted"] is True
     assert response.json()["ingestion_id"].startswith("ing_")
     matching_records = [
-        record
-        for record in caplog.records
-        if record.message == "ingestion.enqueue_failed"
+        record for record in caplog.records if record.message == "ingestion.enqueue_failed"
     ]
     assert matching_records
     assert matching_records[0].request_id == "req_integration"

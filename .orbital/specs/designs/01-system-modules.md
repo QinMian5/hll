@@ -74,7 +74,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### search Module
 - **Responsibilities:**
   - Own read-side search orchestration.
-  - Build query embedding and request cosine retrieval through `knowledge_graph` read service port.
+  - Build query embedding and request ranked retrieval through `knowledge_graph` read service port.
   - Shape read response with matched cards and connected titles.
 - **Contains:**
   - Search API endpoint transport contract and read-side orchestration service logic.

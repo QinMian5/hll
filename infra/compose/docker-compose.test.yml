@@ -7,13 +7,13 @@ services:
       dockerfile: infra/docker/postgres/Dockerfile
     image: knowledge-postgres:18
     environment:
-      POSTGRES_DB: ${DB_NAME:-knowledge_test}
-      POSTGRES_USER: ${MIGRATION_DB_USER:-knowledge_migration_test}
-      POSTGRES_PASSWORD: ${MIGRATION_DB_PASSWORD:-change_me}
-      APP_DB_USER: ${APP_DB_USER:-knowledge_app_test}
-      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-change_me}
-      MIGRATION_DB_USER: ${MIGRATION_DB_USER:-knowledge_migration_test}
-      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      APP_DB_USER: ${APP_DB_USER:?APP_DB_USER is required}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD is required}
+      MIGRATION_DB_USER: ${MIGRATION_DB_USER:?MIGRATION_DB_USER is required}
+      MIGRATION_DB_PASSWORD: ${MIGRATION_DB_PASSWORD:?MIGRATION_DB_PASSWORD is required}
     healthcheck:
       test:
         [
@@ -25,7 +25,7 @@ services:
       retries: 30
       start_period: 2s
     ports:
-      - "127.0.0.1:${DB_PORT:-55432}:5432"
+      - "127.0.0.1:${DB_PORT:?DB_PORT is required}:5432"
     volumes:
       - postgres_test_data:/var/lib/postgresql
     networks:

@@ -23,13 +23,9 @@ logger = logging.getLogger(__name__)
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Knowledge API", version="0.1.0")
+    app.include_router(build_search_router(get_search_service=api_providers.get_search_service))
     app.include_router(
-        build_search_router(get_search_service=api_providers.get_search_service)
-    )
-    app.include_router(
-        build_ingestion_router(
-            get_ingestion_service=api_providers.get_ingestion_service
-        )
+        build_ingestion_router(get_ingestion_service=api_providers.get_ingestion_service)
     )
 
     @app.middleware("http")
@@ -37,9 +33,7 @@ def create_app() -> FastAPI:
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        request_id = (
-            request.headers.get("x-request-id", "").strip() or f"req_{uuid4().hex}"
-        )
+        request_id = request.headers.get("x-request-id", "").strip() or f"req_{uuid4().hex}"
         request.state.request_id = request_id
 
         response = await call_next(request)
