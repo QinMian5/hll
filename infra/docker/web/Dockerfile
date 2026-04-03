@@ -19,7 +19,7 @@ FROM base AS dev
 
 WORKDIR /workspace/apps/web
 EXPOSE 5173
-CMD ["pnpm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+CMD ["pnpm", "dev", "--host", "0.0.0.0", "--port", "5173"]
 
 FROM base AS prod
 
@@ -28,4 +28,4 @@ RUN pnpm run build
 
 EXPOSE 4173
 
-CMD ["pnpm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
+CMD ["pnpm", "preview", "--host", "0.0.0.0", "--port", "4173"]

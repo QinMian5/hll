@@ -3,8 +3,8 @@
 
 import { queryOptions, useQuery } from "@tanstack/react-query";
 
+import { getContractsClient } from "../../../shared/api/contractsClient";
 import { mapManifestToViewModel, mapRegionTileToViewModel } from "./mappers";
-import { createSemanticMapClient } from "./semanticMapClient";
 
 export interface SemanticMapRegionTileQueryArgs {
   readonly semanticLevel: number;
@@ -37,7 +37,7 @@ const semanticMapQueryKeys = {
 };
 
 async function fetchCurrentManifest() {
-  const result = await createSemanticMapClient().GET(
+  const result = await getContractsClient().GET(
     "/semantic-map/manifest/current",
   );
 
@@ -62,7 +62,7 @@ async function fetchCurrentManifest() {
 }
 
 async function fetchRegionTile(args: SemanticMapRegionTileQueryArgs) {
-  const result = await createSemanticMapClient().GET(
+  const result = await getContractsClient().GET(
     "/semantic-map/versions/{version}/tiles/regions/{semantic_level}/{z}/{x}/{y}",
     {
       params: {

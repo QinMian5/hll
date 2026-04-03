@@ -36,3 +36,32 @@ def test_semantic_map_openapi_includes_manifest_and_tile_success_responses(
 
     assert "200" in manifest_responses
     assert "200" in tile_responses
+
+
+@pytest.mark.contract
+def test_semantic_map_openapi_documents_expected_error_responses(
+    client: TestClient,
+) -> None:
+    assert isinstance(client.app, FastAPI)
+    openapi = client.app.openapi()
+
+    manifest_responses = openapi["paths"]["/semantic-map/manifest/current"]["get"]["responses"]
+    tile_responses = openapi["paths"][
+        "/semantic-map/versions/{version}/tiles/regions/{semantic_level}/{z}/{x}/{y}"
+    ]["get"]["responses"]
+
+    assert "404" in manifest_responses
+    assert (
+        manifest_responses["404"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/ErrorEnvelope"
+    )
+    assert "400" in tile_responses
+    assert "404" in tile_responses
+    assert (
+        tile_responses["400"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/ErrorEnvelope"
+    )
+    assert (
+        tile_responses["404"]["content"]["application/json"]["schema"]["$ref"]
+        == "#/components/schemas/ErrorEnvelope"
+    )

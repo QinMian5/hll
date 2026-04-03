@@ -106,6 +106,29 @@ export interface components {
             /** Zoom */
             zoom: number;
         };
+        /**
+         * ErrorCode
+         * @enum {string}
+         */
+        ErrorCode: "APPLICATION_API_INPUT_INVALID" | "APPLICATION_INGESTION_PAYLOAD_INVALID" | "APPLICATION_SEMANTIC_MAP_INPUT_INVALID" | "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND" | "DOMAIN_KNOWLEDGE_RULE_VIOLATION" | "DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND" | "APPLICATION_SEARCH_STATE_CONFLICT" | "INFRA_DB_CONNECTION_UNAVAILABLE" | "INFRA_EMBEDDING_SERVICE_UNAVAILABLE" | "INFRA_QUEUE_UNAVAILABLE" | "INTERNAL_API_UNEXPECTED_ERROR";
+        /** ErrorEnvelope */
+        ErrorEnvelope: {
+            error: components["schemas"]["ErrorPayload"];
+        };
+        /** ErrorPayload */
+        ErrorPayload: {
+            code: components["schemas"]["ErrorCode"];
+            /** Details */
+            details?: {
+                [key: string]: unknown;
+            };
+            /** Hint */
+            hint: string;
+            /** Message */
+            message: string;
+            /** Request Id */
+            request_id: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -382,6 +405,15 @@ export interface operations {
                     "application/json": components["schemas"]["SemanticMapManifestResponse"];
                 };
             };
+            /** @description Requested semantic-map snapshot was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     get_region_tile_semantic_map_versions__version__tiles_regions__semantic_level___z___x___y__get: {
@@ -406,6 +438,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SemanticMapTileResponse"];
+                };
+            };
+            /** @description Semantic-map tile parameters are invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Requested semantic-map snapshot was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
             /** @description Validation Error */

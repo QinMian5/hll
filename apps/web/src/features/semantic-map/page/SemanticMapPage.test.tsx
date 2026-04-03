@@ -82,14 +82,72 @@ function makeTileResponse() {
   );
 }
 
+function makeNonEmptyTileResponse() {
+  return new Response(
+    JSON.stringify({
+      labels: [
+        {
+          font_size: 16,
+          id: "label-domain-alpha",
+          label_rank: 1,
+          position: [500, 500],
+          region_id: "region-domain-alpha",
+          text: "Alpha Domain",
+        },
+      ],
+      regions: [
+        {
+          bbox: [200, 200, 800, 800],
+          centroid: [500, 500],
+          children_available: true,
+          display_rank: 1,
+          geometry: {
+            coordinates: [
+              [200, 200],
+              [800, 200],
+              [800, 800],
+              [200, 800],
+            ],
+            type: "polygon",
+          },
+          id: "region-domain-alpha",
+          parent_id: null,
+          region_name: "Alpha Domain",
+        },
+      ],
+      schema_version: "20260403_134500_000123",
+      semantic_level: 0,
+      stats: {
+        label_count: 1,
+        region_count: 1,
+      },
+      tile: {
+        bounds_format: "min_x_min_y_max_x_max_y",
+        tile_bounds: [0, 0, 1000, 1000],
+        x: 0,
+        y: 0,
+        z: 0,
+      },
+      version: "20260403_134500_000123",
+    }),
+    {
+      headers: { "Content-Type": "application/json" },
+      status: 200,
+    },
+  );
+}
+
 describe("SemanticMapPage", () => {
   afterEach(() => {
+    vi.doUnmock("../engine/SemanticMapExplorer");
+    vi.unstubAllEnvs();
     vi.resetModules();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
   async function renderSemanticMapPage() {
+    vi.stubEnv("VITE_API_BASE_URL", "http://localhost:3000");
     const module = await import("./SemanticMapPage");
 
     render(
@@ -169,5 +227,28 @@ describe("SemanticMapPage", () => {
     expect(
       await screen.findByText(/semantic map engine ready/i),
     ).toBeInTheDocument();
+  });
+
+  it("pins tile reads to the current snapshot version and shows real region counts", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(makeManifestResponse())
+      .mockResolvedValueOnce(makeNonEmptyTileResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await renderSemanticMapPage();
+
+    expect(await screen.findByText(/1 regions/i)).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const tileRequest = fetchMock.mock.calls[1]?.[0];
+    expect(tileRequest).toBeInstanceOf(Request);
+    if (!(tileRequest instanceof Request)) {
+      throw new Error(
+        "Expected the semantic-map tile read to use a Request object.",
+      );
+    }
+    expect(tileRequest.url).toContain(
+      "/semantic-map/versions/20260403_134500_000123/tiles/regions/0/0/0/0",
+    );
   });
 });
