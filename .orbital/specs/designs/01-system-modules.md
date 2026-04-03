@@ -11,32 +11,49 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
-- **Scope/Boundaries:** Covers module ownership for frontend, backend API, knowledge_graph, search, ingestion, database, and runtime infrastructure dependencies.
+- **Scope/Boundaries:** Covers module ownership for frontend, backend API, knowledge_graph, search, ingestion, semantic_map, database, and runtime infrastructure dependencies.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Module Responsibilities
 
 ### Frontend
 - **Responsibilities:**
-  - Render a 2D knowledge-card network.
-  - Provide viewport zoom and graph browsing interactions.
-  - Render card layout and undirected edge visualization.
+  - Render a 2D semantic map over a non-geospatial coordinate plane.
+  - Provide viewport pan and semantic-zoom interactions.
+  - Render region and label layers as the primary map expression.
+  - Render atomic-card and local relation detail only at lower semantic levels.
   - Provide V1 search interaction and query submission.
-  - Consume search read API responses for visualization.
+  - Consume semantic-map and search read API responses for visualization and detail views.
 - **Non-responsibilities:**
   - Filter interaction logic in V1.
+  - Semantic-map projection, clustering, or snapshot computation.
   - Relation computation logic.
   - Domain truth ownership.
   - Backend persistence or infrastructure policy.
 
+### Operator CLI
+- **Responsibilities:**
+  - Accept local `title` and `content` command parameters for a single card submission attempt.
+  - Run a local agent review over only the current card input.
+  - Emit machine-readable JSON review results and deterministic exit codes.
+  - Call the ingestion accept API only after the local review passes.
+- **Non-responsibilities:**
+  - Graph persistence ownership.
+  - Backend ingestion validation ownership.
+  - Knowledge-base context retrieval for review decisions.
+  - Cross-run memory or reviewer state retention.
+  - Multi-card batch authoring workflows.
+
 ### Backend API
 - **Responsibilities:**
   - Expose V1 search read endpoint.
+  - Expose V1 semantic-map manifest and tile read endpoints.
   - Expose V1 ingestion accept endpoint.
   - Validate request inputs and normalize response outputs.
   - Publish the API contract boundary for consumers.
 - **Non-responsibilities:**
   - Domain relation computation strategy ownership.
+  - Semantic-map rebuild initiation through HTTP.
   - Frontend rendering behavior ownership.
   - Storage-engine implementation ownership.
 
@@ -62,7 +79,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - **Responsibilities:**
   - Own `Node/Edge/Adjacency` domain semantics and graph persistence truth.
   - Own repository and model access for graph persistence.
-  - Provide read/write domain service ports consumed by `search` and `ingestion`.
+  - Provide read/write domain service ports consumed by `search`, `ingestion`, and `semantic_map`.
   - Execute node persistence and edge materialization in worker-triggered write flow.
 - **Contains:**
   - Domain model projection, repository implementation, domain service, and domain DTO/port contracts.
@@ -80,7 +97,25 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Search API endpoint transport contract and read-side orchestration service logic.
 - **Non-responsibilities:**
   - Direct repository or model access in `knowledge_graph`.
+  - Semantic-map snapshot retrieval or publication.
   - Write-path orchestration.
+
+### semantic_map Module
+- **Responsibilities:**
+  - Own semantic-map snapshot read contracts and read-side orchestration.
+  - Own semantic-map snapshot rebuild orchestration for projection, clustering, region geometry, label recommendation, and tile materialization.
+  - Read graph-domain truth through `knowledge_graph` service ports when semantic-map rebuild requires source data.
+  - Publish the current semantic-map snapshot used by frontend browsing.
+  - Execute Phase 1 rebuild flow only when invoked by a dedicated operator command or script.
+- **Contains:**
+  - Semantic-map API transport contracts, snapshot read service logic, snapshot rebuild orchestration, and semantic-map DTO/port contracts.
+- **Non-responsibilities:**
+  - Direct repository or model access in `knowledge_graph`.
+  - Search query orchestration.
+  - Frontend rendering implementation.
+  - Ingestion acceptance transport.
+  - HTTP-triggered rebuild initiation.
+  - Ingestion-coupled automatic snapshot rebuild enqueueing.
 
 ### ingestion Module
 - **Responsibilities:**
@@ -117,10 +152,13 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ## Dependency Direction
 - V1 runtime dependency direction is:
   - `Frontend -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`
+  - `Frontend -> Backend API(semantic_map) -> entrypoints.api -> semantic_map -> knowledge_graph -> Database`
   - `Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
+  - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
+  - `Background semantic-map rebuild execution -> semantic_map -> knowledge_graph -> Database`
   - `core` is inbound-only (`entrypoints` and tooling import `core`; `core` does not import `entrypoints/modules/shared`).
 - Reserved modules do not participate in V1 runtime behavior.
 
 ## V1 Boundary Summary
-- V1 delivers ingestion acceptance API, search read API, card-relation retrieval, and 2D graph browsing with zoom, layout, and edge rendering.
+ - V1 delivers ingestion acceptance API, search read API, semantic-map read API, a local reviewed card-submission CLI, card-relation retrieval, and multi-scale semantic-map browsing.
 - V1 excludes filter interaction and excludes runtime dependency on cache and object storage.

@@ -9,9 +9,10 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
-import modules.knowledge_graph.model  # noqa: F401
 from alembic import context
 from core.config import load_migration_settings
+from modules.knowledge_graph import model as knowledge_graph_model
+from modules.semantic_map import model as semantic_map_model
 from shared.db.base import Base
 
 config = context.config
@@ -24,6 +25,7 @@ settings = load_migration_settings()
 config.set_main_option("sqlalchemy.url", settings.migration_database_url)
 
 target_metadata = Base.metadata
+REGISTERED_MODEL_MODULES = (knowledge_graph_model, semantic_map_model)
 
 
 def run_migrations_offline() -> None:

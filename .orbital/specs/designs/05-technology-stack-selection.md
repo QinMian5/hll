@@ -38,18 +38,35 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - It provides a stable path for `Node/Edge/Adjacency` relational modeling and `Node.embedding` vector storage.
 - Tooling is modern and compatible with monorepo governance and reproducible local/CI workflows.
 
+### Operator CLI
+- Package and environment manager: `uv`
+- Language and runtime: `Python`
+- Agent framework: `Pydantic AI`
+- Agent workflow graph: `Pydantic Graph`
+- Validation and settings: `Pydantic v2` + `pydantic-settings`
+- HTTP client: `httpx`
+
+#### Why selected
+- The stack keeps the review workflow agent-first while preserving typed structured outputs.
+- `Pydantic AI` aligns with the requirement that review judgment comes from an LLM agent rather than rule-coded heuristics.
+- `Pydantic Graph` provides an explicit and testable approval vs. submission branching model without coupling the CLI to backend runtime internals.
+- `httpx` keeps the CLI submission boundary simple and compatible with the authoritative ingestion API contract.
+
 ### Frontend
 - Workspace and package manager: `pnpm`
 - Build tool: `Vite`
 - UI framework: `React` + `TypeScript`
+- Semantic-map rendering engine: `deck.gl`
 - Server-state management: `TanStack Query`
+- Contract consumption: generated TypeScript client from repository OpenAPI artifacts
 - Styling: `Tailwind CSS`
 - Component library baseline: `shadcn/ui`
 
 #### Why selected
 - Fast development loop and low initial boilerplate.
 - Strong compatibility with generated TypeScript API client consumption.
-- Sufficient for phase-1 graph browsing and read-oriented UI.
+- `deck.gl` supports non-geospatial 2D semantic-map rendering, viewport-driven tile loading, and semantic zoom.
+- Sufficient for phase-1 semantic-map browsing and read-oriented UI.
 
 ### Infrastructure
 - Containerization: `Docker`

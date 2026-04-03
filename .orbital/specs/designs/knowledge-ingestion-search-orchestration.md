@@ -1,5 +1,5 @@
 ---
-abstract: Module-level orchestration design for knowledge core ownership, ingestion async write pipeline, and cosine-only search read flow.
+abstract: Module-level orchestration design for knowledge core ownership, ingestion async write pipeline, cosine-only search read flow, and semantic-map snapshot source access.
 out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and distributed multi-region queue reliability.
 ---
 
@@ -11,8 +11,8 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the accepted V1 module orchestration for `knowledge_graph`, `ingestion`, and `search` under async ingestion with Redis and Dramatiq.
-- **Scope/Boundaries:** Covers module ownership, endpoint contracts, asynchronous processing flow, data visibility rules, and runtime observability obligations.
+- **Purpose:** Define the accepted V1 module orchestration for `knowledge_graph`, `ingestion`, `search`, and semantic-map source access under async ingestion with Redis and Dramatiq.
+- **Scope/Boundaries:** Covers module ownership, endpoint contracts, asynchronous processing flow, semantic-map source-read rules, data visibility rules, and runtime observability obligations.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Constraint Projection
@@ -25,7 +25,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ### knowledge_graph
 - Owns persistent domain truth for `Node`, `Edge`, and `Adjacency`.
 - Is the only module allowed to own and access graph persistence models and repositories.
-- Exposes read/write domain service ports consumed by `search` and `ingestion`.
+- Exposes read/write domain service ports consumed by `search`, `ingestion`, and `semantic_map`.
 - Contains domain DTOs used by `knowledge_graph` service ports and repository outputs.
 - Does not contain HTTP route handlers, queue broker configuration, or worker actor declarations.
 
@@ -47,6 +47,13 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Calls `knowledge_graph` read service port for candidate retrieval and connected-title expansion.
 - Contains `api.py`, `schema.py`, and read orchestration `service.py`.
 - Does not contain queue broker setup, worker actor declarations, or write-path orchestration.
+- Must not import `knowledge_graph.repo` or `knowledge_graph.model`.
+
+### semantic_map
+- Owns semantic-map snapshot read orchestration and snapshot rebuild orchestration.
+- Calls `knowledge_graph` service ports for semantic-map source truth required by snapshot rebuilding and semantic-map reads.
+- Does not expose rebuild initiation as an HTTP API in Phase 1.
+- Uses a dedicated operator command or script for rebuild initiation in Phase 1.
 - Must not import `knowledge_graph.repo` or `knowledge_graph.model`.
 
 ## API Contract
