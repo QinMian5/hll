@@ -25,7 +25,7 @@ services:
       retries: 30
       start_period: 2s
     ports:
-      - "127.0.0.1:${DB_PORT:?DB_PORT is required}:5432"
+      - "127.0.0.1:55432:5432"
     volumes:
       - postgres_test_data:/var/lib/postgresql
     networks:

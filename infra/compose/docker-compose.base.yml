@@ -92,6 +92,7 @@ services:
     command: ["/app/bin/run-worker.sh"]
     networks:
       - backend
+      - edge
     restart: unless-stopped
 
   web:

@@ -1,6 +1,13 @@
 # abstract: Development overrides for the Docker Compose base topology.
 # out_of_scope: Production runtime hardening and host-level security controls.
 services:
+  postgres:
+    networks:
+      - backend
+      - edge
+    ports:
+      - "5432:5432"
+
   migrate:
     env_file:
       - ../../infra/env/.env.dev

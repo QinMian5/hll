@@ -17,8 +17,8 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 
 ## Deployment Topology (MVP)
 - Production external exposure is restricted to `80/443` through `Nginx`.
-- Development exposes `web` on `5173` and `api` on `8000` directly for debugging.
-- `db` remains internal-only in both environments.
+- Development exposes `web` on `5173`, `api` on `8000`, and `db` on host `5432` for local debugging and SQL tooling.
+- `db` remains internal-only in production.
 - `redis` remains internal-only in both environments and is provided by a project-managed service definition.
 - Runtime process topology is fixed to two backend process containers: one `api` container and one `worker` container.
 - Horizontal scaling is not an MVP requirement for either `api` or `worker`; deployment baseline keeps one running container per role.
@@ -30,8 +30,10 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 
 ## Network Boundaries
 - `backend` network is internal-only and contains `db`, `redis`, `migrate`, `api`, and `worker`.
-- `edge` network contains `web`, `api`, and `nginx` (production only for `nginx`).
+- `edge` network contains `web`, `api`, `worker`, and `nginx` (production only for `nginx`).
+- Development adds `db` to `edge` for host port publishing while keeping service-to-service database access on `backend`.
 - Cross-service access must follow network boundaries rather than host port access.
+- Development host access to PostgreSQL is for local tooling only; container-to-container database access still uses Docker service DNS (`postgres`) on `backend`.
 - API and worker access Redis through Docker service DNS (`redis`) on `backend`, not host-local `localhost`.
 - API and worker require outbound HTTPS egress for OpenAI Embeddings API access.
 

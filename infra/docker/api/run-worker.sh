@@ -4,4 +4,4 @@
 
 set -eu
 
-exec dramatiq --path src entrypoints.worker.actors
+exec dramatiq entrypoints.worker.actors --path src
