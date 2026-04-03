@@ -32,13 +32,14 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ### ingestion
 - Owns write-side HTTP acceptance endpoint and write orchestration.
 - Accepts valid payloads and returns `202 Accepted`.
-- Owns ingestion-scoped queue broker configuration and publishes async jobs to Redis via Dramatiq.
+- Owns ingestion-scoped queue broker configuration and message publishing adapter for async jobs to Redis via Dramatiq.
 - Uses project-managed Redis service on Docker backend network as queue broker target.
 - Consumes embedding integration in worker execution path.
 - Calls `knowledge_graph` write service port for node creation and edge materialization.
-- Contains `api.py`, `schema.py`, `service.py`, ingestion queue broker wiring, and worker job-processing primitives.
+- Contains `api.py`, `schema.py`, `service.py`, ingestion queue broker wiring, ingestion message-publisher adapter, and worker job-processing primitives.
 - Must not import `knowledge_graph.repo` or `knowledge_graph.model`.
 - Must not resolve runtime settings internally; ingestion runtime dependencies are injected from entrypoint composition providers.
+- Must not import worker entrypoint modules under `entrypoints.worker`; API-side enqueue flow is module-owned and entrypoint-agnostic.
 
 ### search
 - Owns read-side HTTP search endpoint and read orchestration.
@@ -69,16 +70,18 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
   - `connected_titles`: list of titles.
 - Response rules:
   - `matched_cards` returns at most `5` items.
+  - `matched_cards` ordering is stable: cosine distance ascending, tie-break by `node_id` ascending.
   - `connected_titles` returns at most `10` items.
   - `connected_titles` are deduplicated by `node_id` before projecting to titles.
   - `connected_titles` exclude titles already present in `matched_cards`.
+  - `connected_titles` ordering is stable: candidate traversal order is `matched_node_id` ascending, then `neighbor_node_id` ascending, then `neighbor_title` ascending; deduplication keeps the first occurrence per `neighbor_node_id`.
 
 ## Async Processing Flow
 1. API validates ingestion request payload.
 2. API returns `4xx` for invalid payloads according to global error-governance mapping.
-3. API publishes a Dramatiq message for valid payloads.
+3. API publishes a Dramatiq message through ingestion-owned publisher adapter for valid payloads.
 4. API returns `202` for valid payloads.
-5. Dramatiq actor in `entrypoints/worker/actors.py` receives message and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
+5. Worker actor registry in `entrypoints/worker/actors.py` receives message and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
 6. Worker calls `knowledge_graph` write service port to persist `Node`.
 7. Worker computes cosine similarity and persists `Edge` and `Adjacency` rows.
 8. Search path reads persisted graph data only; no processing-state data is exposed by search.
@@ -87,6 +90,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Redis is required as queue broker for ingestion.
 - Queue runtime uses project-managed Redis Docker service (`redis`) and backend-network addressing (`redis://redis:6379/0`).
 - Dramatiq is required for async worker execution.
+- API and worker run as separate process containers that share one application image and role-specific startup commands.
 - OpenAI Embeddings API is required in both ingestion worker flow and search query flow.
 - Embedding model is fixed to `text-embedding-3-small` in MVP runtime defaults.
 - PostgreSQL remains the persistent source of truth for graph entities.
@@ -96,7 +100,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ## Failure Handling
 - Invalid ingestion request payloads are client-visible as `4xx` according to global error-governance mapping.
 - Enqueue, worker, embedding, and graph-materialization failures are internal-only for ingestion endpoint behavior.
-- Internal failures must be recorded in structured logs with correlation identifiers.
+- Internal failures must be recorded in logs with correlation information (`request_id` where available) and debug-usable semantic fields.
 - Search endpoint continues using unified visible error envelope for request/processing errors on the read path.
 
 ## Non-Goals (V1)
@@ -110,7 +114,9 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
   - Contract tests assert `POST /ingestions/cards` returns `4xx` on invalid payload and `202` on valid payload.
   - Search contract tests assert `matched_cards` include only `title` and `content`.
   - Architecture checks assert `search` and `ingestion` do not import `knowledge_graph.repo/model`.
+  - Architecture checks assert API entrypoint code does not import worker entrypoint modules.
+  - Unit tests verify API enqueue composition depends on ingestion-owned publisher adapter instead of worker actor objects.
   - Integration tests verify worker-materialized nodes/edges become searchable.
 - **Evidence:**
   - Passing test suite for API contracts, async worker flow, and architecture constraints.
-  - Logs and metrics demonstrate internal observability for enqueue/worker failures.
+  - Logs demonstrate internal observability for enqueue/worker failures.

@@ -17,10 +17,13 @@ out_of_scope: Module-level exhaustive error-code catalogs, advanced CI matrices,
 
 ## Layering and Dependency Direction
 - Backend runtime layering is fixed to `entrypoints -> modules -> shared`.
-- `core` is foundational and can be imported by `entrypoints` and tooling entrypoints only.
+- `core` is foundational and may be imported by `entrypoints`, `modules`, and `shared` for foundational primitives.
+- `core` must not import `entrypoints`, `modules`, or `shared`.
 - Reverse dependency is forbidden across these layers.
 - Backend cross-module direct access to another module `repo/model` is forbidden.
 - Backend cross-module interaction must go through the target module `service`.
+- Cross-process entrypoint imports are forbidden (`entrypoints.api` must not import `entrypoints.worker`, and `entrypoints.worker` must not import `entrypoints.api`).
+- Inter-process collaboration between API and worker must go through module-owned queue contracts and broker transport, not entrypoint-level direct imports.
 - Frontend flow is fixed to `UI/page -> feature service -> generated contract client`.
 - Frontend UI/component layer direct backend HTTP calls are forbidden.
 
@@ -42,6 +45,7 @@ out_of_scope: Module-level exhaustive error-code catalogs, advanced CI matrices,
 - Runtime dependency construction is centralized in `apps/api/src/entrypoints/runtime.py` and consumed by `entrypoints/api/providers.py` and `entrypoints/worker/actors.py`.
 - `load_settings()` is a composition-root API and must be called only from composition entrypoints (`entrypoints/runtime.py`) and migration runtime entrypoint (`alembic/env.py`).
 - Service and orchestration code must receive dependencies through explicit constructor/function parameters.
+- API ingestion enqueue wiring must depend on ingestion-owned queue publisher abstractions and must not depend on worker actor objects exported from `entrypoints.worker`.
 - Nullable dependency parameters used as runtime fallback (`dependency: T | None = None`) are forbidden in runtime paths.
 - Implicit fallback expressions (`x or provider()`) are forbidden for dependency resolution in runtime paths.
 

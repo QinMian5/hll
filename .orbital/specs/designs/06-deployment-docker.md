@@ -20,10 +20,12 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Development exposes `web` on `5173` and `api` on `8000` directly for debugging.
 - `db` remains internal-only in both environments.
 - `redis` remains internal-only in both environments and is provided by a project-managed service definition.
-- Production search read chain is `nginx -> web -> api -> db`.
-- Production ingestion write chain is `api -> redis -> worker -> db`.
-- Development search read chain is `web -> api -> db`.
-- Development ingestion write chain is `api -> redis -> worker -> db`.
+- Runtime process topology is fixed to two backend process containers: one `api` container and one `worker` container.
+- Horizontal scaling is not an MVP requirement for either `api` or `worker`; deployment baseline keeps one running container per role.
+- Production search read chain is `nginx -> web -> api -> OpenAI Embeddings API + db`.
+- Production ingestion write chain is `api -> redis -> worker -> OpenAI Embeddings API + db`.
+- Development search read chain is `web -> api -> OpenAI Embeddings API + db`.
+- Development ingestion write chain is `api -> redis -> worker -> OpenAI Embeddings API + db`.
 - Migration is a dedicated one-shot job and not part of API startup.
 
 ## Network Boundaries
@@ -31,6 +33,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `edge` network contains `web`, `api`, and `nginx` (production only for `nginx`).
 - Cross-service access must follow network boundaries rather than host port access.
 - API and worker access Redis through Docker service DNS (`redis`) on `backend`, not host-local `localhost`.
+- API and worker require outbound HTTPS egress for OpenAI Embeddings API access.
 
 ## Compose Layering Strategy
 - `compose.base.yml`: shared service definitions and common network/volume baseline, including `redis` and `worker`.
@@ -46,11 +49,18 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 ## Container Build Strategy
 - `db` uses a custom PostgreSQL Dockerfile and is the extension package baseline owner.
 - `api` uses a custom Dockerfile.
-- `worker` reuses the API image with Dramatiq worker command override.
+- `worker` reuses the same API image with role-specific command override.
+- Single-image policy is required for `api` and `worker`; runtime role is selected only by startup command.
 - The API image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - `redis` uses fixed-tag official image `redis:7-bookworm`.
 - `web` uses a custom Dockerfile with separate dev/prod targets.
 - `nginx` uses a fixed-tag official image in production and does not use a custom Dockerfile.
+
+## Process Role Command Contract
+- `api` and `worker` must each have a stable, role-specific startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
+- Compose files must reference role startup commands instead of embedding long inline runtime invocation details per environment.
+- API role command owns API logging bootstrap and then starts FastAPI serving.
+- Worker role command owns worker logging bootstrap and then starts Dramatiq worker serving.
 
 ## Startup and Gating Order
 - Required startup order is fixed:
@@ -58,6 +68,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   2. `migrate` one-shot job runs and exits successfully.
   3. `api` and `worker` start.
   4. `web` starts.
+  5. Production `nginx` starts after `api` and `web` are started.
 - `api` must not auto-run migrations.
 - Startup dependency control must use `healthcheck + depends_on`.
 - `sleep`-based wait logic is forbidden.
