@@ -4,4 +4,4 @@
 
 set -eu
 
-exec dramatiq entrypoints.worker.entrypoint --path src
+exec dramatiq entrypoints.worker.entrypoint --path apps/api/src

@@ -53,7 +53,7 @@ services:
         condition: service_healthy
     environment:
       MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?MIGRATION_DATABASE_URL is required}
-    command: ["alembic", "-c", "/app/alembic.ini", "upgrade", "head"]
+    command: ["alembic", "-c", "/app/apps/api/alembic.ini", "upgrade", "head"]
     networks:
       - backend
     restart: "no"

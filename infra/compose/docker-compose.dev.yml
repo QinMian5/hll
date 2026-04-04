@@ -12,9 +12,9 @@ services:
     env_file:
       - ../../infra/env/.env.dev
     volumes:
-      - ../../apps/api/src:/app/src
-      - ../../apps/api/alembic:/app/alembic
-      - ../../apps/api/alembic.ini:/app/alembic.ini
+      - ../../apps/api/src:/app/apps/api/src
+      - ../../apps/api/alembic:/app/apps/api/alembic
+      - ../../apps/api/alembic.ini:/app/apps/api/alembic.ini
 
   api:
     env_file:
@@ -22,9 +22,9 @@ services:
     environment:
       API_RELOAD: "1"
     volumes:
-      - ../../apps/api/src:/app/src
-      - ../../apps/api/alembic:/app/alembic
-      - ../../apps/api/alembic.ini:/app/alembic.ini
+      - ../../apps/api/src:/app/apps/api/src
+      - ../../apps/api/alembic:/app/apps/api/alembic
+      - ../../apps/api/alembic.ini:/app/apps/api/alembic.ini
     ports:
       - "8000:8000"
 

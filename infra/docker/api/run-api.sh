@@ -5,7 +5,7 @@
 set -eu
 
 if [ "${API_RELOAD:-0}" = "1" ]; then
-  exec uvicorn entrypoints.api.bootstrap:build_app --factory --app-dir src --host 0.0.0.0 --port 8000 --reload
+  exec uvicorn entrypoints.api.bootstrap:build_app --factory --app-dir apps/api/src --host 0.0.0.0 --port 8000 --reload
 fi
 
-exec uvicorn entrypoints.api.bootstrap:build_app --factory --app-dir src --host 0.0.0.0 --port 8000
+exec uvicorn entrypoints.api.bootstrap:build_app --factory --app-dir apps/api/src --host 0.0.0.0 --port 8000
