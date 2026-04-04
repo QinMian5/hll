@@ -69,6 +69,10 @@ def split_stats_path(run_root: str | Path, split_id: str) -> Path:
     return stats_dir(run_root) / f"{split_id}.json"
 
 
+def run_stats_path(run_root: str | Path) -> Path:
+    return stats_dir(run_root) / "run.json"
+
+
 def parse_failures_log_path(run_root: str | Path) -> Path:
     return logs_dir(run_root) / "parse_failures.jsonl"
 
@@ -133,6 +137,9 @@ class StatsTracker:
 
     def record_disambiguation(self) -> None:
         self._record_counts["disambiguation"] += 1
+
+    def record_ignored(self) -> None:
+        self._record_counts["ignored"] += 1
 
     def record_failure(self, error_type: str) -> None:
         self._failure_types[error_type] += 1
@@ -210,6 +217,34 @@ class StatsTracker:
 
 def build_stats_tracker() -> StatsTracker:
     return StatsTracker()
+
+
+def write_split_stats(
+    run_root: str | Path,
+    split_id: str,
+    stats_tracker: StatsTracker,
+) -> Path:
+    return _write_atomic_json(
+        Path(run_root),
+        split_stats_path(".", split_id).relative_to("."),
+        stats_tracker.to_json_dict(),
+    )
+
+
+def load_split_stats(run_root: str | Path, split_id: str) -> dict[str, object]:
+    return json.loads(split_stats_path(run_root, split_id).read_text(encoding="utf-8"))
+
+
+def write_run_stats(run_root: str | Path, stats_tracker: StatsTracker) -> Path:
+    return _write_atomic_json(
+        Path(run_root),
+        run_stats_path(".").relative_to("."),
+        stats_tracker.to_json_dict(),
+    )
+
+
+def load_run_stats(run_root: str | Path) -> dict[str, object]:
+    return json.loads(run_stats_path(run_root).read_text(encoding="utf-8"))
 
 
 class FailureLogger:
