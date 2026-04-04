@@ -1,0 +1,27 @@
+[project]
+name = "wiki-preprocess"
+version = "0.1.0"
+description = "Offline Wikipedia preprocessing utilities"
+requires-python = ">=3.14"
+dependencies = [
+    "click>=8.3.1",
+    "lxml>=5.3.1",
+    "mwparserfromhell>=0.6.6",
+    "zstandard>=0.24.0",
+]
+
+[build-system]
+requires = ["setuptools>=80", "wheel>=0.45"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["wiki_preprocess_types"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --maxfail=1"
+testpaths = ["tests"]
