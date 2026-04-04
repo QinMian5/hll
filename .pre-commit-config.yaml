@@ -36,6 +36,27 @@ repos:
         pass_filenames: false
         files: ^apps/api/
 
+      - id: knowledge-corpus-ruff-format
+        name: knowledge-corpus-ruff-format
+        entry: bash -lc 'cd apps/knowledge_corpus && uv run ruff format src tests alembic'
+        language: system
+        pass_filenames: false
+        files: ^apps/knowledge_corpus/
+
+      - id: knowledge-corpus-ruff-check-fix
+        name: knowledge-corpus-ruff-check-fix
+        entry: bash -lc 'cd apps/knowledge_corpus && uv run ruff check --fix src tests alembic'
+        language: system
+        pass_filenames: false
+        files: ^apps/knowledge_corpus/
+
+      - id: knowledge-corpus-ty-check
+        name: knowledge-corpus-ty-check
+        entry: bash -lc 'cd apps/knowledge_corpus && uv run ty check --project . src'
+        language: system
+        pass_filenames: false
+        files: ^apps/knowledge_corpus/
+
       - id: js-biome-check-write
         name: js-biome-check-write
         entry: pnpm run js:fix

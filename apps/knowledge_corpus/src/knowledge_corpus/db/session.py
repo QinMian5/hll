@@ -5,10 +5,14 @@ Out of scope: Model declarations and repository-level query behavior.
 
 from __future__ import annotations
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from knowledge_corpus.config import Settings
-
 
 SessionFactory = async_sessionmaker[AsyncSession]
 

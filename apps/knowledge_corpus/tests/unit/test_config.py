@@ -8,7 +8,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from knowledge_corpus.config import MigrationSettings, Settings, load_migration_settings, load_settings
+from knowledge_corpus.config import (
+    MigrationSettings,
+    Settings,
+    load_migration_settings,
+    load_settings,
+)
 
 
 def test_settings_type_is_defined() -> None:
