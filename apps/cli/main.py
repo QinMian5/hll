@@ -6,9 +6,12 @@ Out of scope: Multi-file packaging, test coverage, and lint workflow integration
 from __future__ import annotations
 
 import json
+import subprocess
+from tempfile import gettempdir
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Annotated
+from pathlib import Path
+from typing import Annotated, Literal
 
 import click
 import httpx
@@ -31,6 +34,7 @@ NonEmptyText = Annotated[str, StringConstraints(strip_whitespace=True, min_lengt
 NullableReason = (
     Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)] | None
 )
+DEFAULT_CURSOR_WORKSPACE = str(Path(gettempdir()) / "knowledge-cli-cursor-review")
 
 REVIEWER_INSTRUCTIONS = """
 Review the provided title and content as a candidate knowledge card.
@@ -119,6 +123,9 @@ class ReviewResult(StrictModel):
         )
 
 
+Reviewer = Callable[[str, str], ReviewResult]
+
+
 def serialize_review_result(review: ReviewResult) -> str:
     if review.passed():
         return json.dumps({"result": "passed"}, ensure_ascii=False, indent=4)
@@ -167,6 +174,10 @@ class CliSettings(BaseSettings):
         default="http://127.0.0.1:8000/cards",
         description="Absolute URL of the ingestion cards endpoint.",
     )
+    review_backend: Literal["cursor-agent", "openai"] = Field(
+        default="cursor-agent",
+        description="Reviewer backend used to evaluate the card before submission.",
+    )
     review_model: str = Field(
         default="gpt-5.4",
         description="OpenAI-compatible model identifier used by the reviewer agent.",
@@ -184,6 +195,24 @@ class CliSettings(BaseSettings):
         gt=0,
         description="HTTP timeout used when issuing the ingestion submission call.",
     )
+    cursor_agent_command: str = Field(
+        default="cursor-agent",
+        description="Executable used to invoke Cursor Agent in headless mode.",
+    )
+    cursor_agent_workspace: str = Field(
+        default=DEFAULT_CURSOR_WORKSPACE,
+        description="Workspace passed to Cursor Agent while reviewing the card.",
+    )
+    cursor_agent_timeout_seconds: float = Field(
+        default=180.0,
+        gt=0,
+        description="Timeout used for a single Cursor Agent review attempt.",
+    )
+    cursor_agent_max_retries: int = Field(
+        default=3,
+        ge=1,
+        description="Maximum number of Cursor Agent retries before failing the review.",
+    )
 
 
 @dataclass
@@ -195,7 +224,7 @@ class ReviewState:
 
 @dataclass
 class CliDeps:
-    reviewer_agent: Agent
+    reviewer: Reviewer
     submit_card: Callable[[str, str], None]
 
 
@@ -205,10 +234,7 @@ class ReviewCardNode(BaseNode[ReviewState, CliDeps, ReviewResult]):
         self,
         ctx: GraphRunContext[ReviewState, CliDeps],
     ) -> SubmitCardNode | End[ReviewResult]:
-        result = await ctx.deps.reviewer_agent.run(
-            f"Title:\n{ctx.state.title}\n\nContent:\n{ctx.state.content}"
-        )
-        review = result.output
+        review = ctx.deps.reviewer(ctx.state.title, ctx.state.content)
         ctx.state.review = review
         if not review.passed():
             return End(review)
@@ -228,7 +254,7 @@ class SubmitCardNode(BaseNode[ReviewState, CliDeps, ReviewResult]):
         return End(review)
 
 
-def build_reviewer_agent(settings: CliSettings) -> Agent:
+def build_openai_reviewer_agent(settings: CliSettings) -> Agent:
     model = OpenAIChatModel(
         settings.review_model,
         provider=OpenAIProvider(
@@ -241,6 +267,108 @@ def build_reviewer_agent(settings: CliSettings) -> Agent:
         output_type=ReviewResult,
         instructions=REVIEWER_INSTRUCTIONS,
     )
+
+
+def build_card_review_message(title: str, content: str) -> str:
+    return f"Title:\n{title}\n\nContent:\n{content}"
+
+
+def build_cursor_review_prompt(title: str, content: str) -> str:
+    schema = json.dumps(ReviewResult.model_json_schema(), ensure_ascii=False, indent=2)
+    payload = json.dumps(
+        {"title": title, "content": content},
+        ensure_ascii=False,
+        indent=2,
+    )
+    return (
+        "Review the following knowledge card.\n"
+        "Return ONLY a JSON object that matches the provided JSON Schema exactly.\n"
+        "Do not wrap the JSON in markdown.\n"
+        "Do not add explanations before or after the JSON.\n"
+        "If a field passes, set reason to null.\n"
+        "If a field fails, provide a concise reason.\n\n"
+        f"JSON Schema:\n{schema}\n\n"
+        f"Knowledge card:\n{payload}\n"
+    )
+
+
+def extract_cursor_result_text(stdout: str) -> str:
+    if not stdout.strip():
+        raise RuntimeError("cursor-agent returned empty stdout")
+    payload = json.loads(stdout)
+    if not isinstance(payload, dict):
+        raise RuntimeError("cursor-agent outer payload must be a JSON object")
+    result = payload.get("result")
+    if not isinstance(result, str) or not result.strip():
+        raise RuntimeError("cursor-agent payload is missing a non-empty result string")
+    return result
+
+
+def run_cursor_review_once(title: str, content: str, settings: CliSettings) -> ReviewResult:
+    prompt = build_cursor_review_prompt(title, content)
+    workspace = Path(settings.cursor_agent_workspace)
+    workspace.mkdir(parents=True, exist_ok=True)
+    completed = subprocess.run(
+        [
+            settings.cursor_agent_command,
+            "--print",
+            "--output-format",
+            "json",
+            "--mode",
+            "ask",
+            "--sandbox",
+            "enabled",
+            "--trust",
+            "--workspace",
+            str(workspace),
+            prompt,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=settings.cursor_agent_timeout_seconds,
+        check=False,
+    )
+    if completed.returncode != 0:
+        stderr = completed.stderr.strip()
+        raise RuntimeError(
+            f"cursor-agent exited with code {completed.returncode}: {stderr or 'no stderr'}"
+        )
+    return ReviewResult.model_validate_json(extract_cursor_result_text(completed.stdout))
+
+
+def run_cursor_review(title: str, content: str, settings: CliSettings) -> ReviewResult:
+    last_error: Exception | None = None
+    for _ in range(settings.cursor_agent_max_retries):
+        try:
+            return run_cursor_review_once(title, content, settings)
+        except Exception as exc:
+            last_error = exc
+    raise RuntimeError(
+        f"cursor-agent review failed after {settings.cursor_agent_max_retries} attempts"
+    ) from last_error
+
+
+def build_openai_reviewer(settings: CliSettings) -> Reviewer:
+    reviewer_agent = build_openai_reviewer_agent(settings)
+
+    def review(title: str, content: str) -> ReviewResult:
+        result = reviewer_agent.run_sync(build_card_review_message(title, content))
+        return result.output
+
+    return review
+
+
+def build_cursor_reviewer(settings: CliSettings) -> Reviewer:
+    def review(title: str, content: str) -> ReviewResult:
+        return run_cursor_review(title, content, settings)
+
+    return review
+
+
+def build_reviewer(settings: CliSettings) -> Reviewer:
+    if settings.review_backend == "openai":
+        return build_openai_reviewer(settings)
+    return build_cursor_reviewer(settings)
 
 
 def build_submitter(settings: CliSettings) -> Callable[[str, str], None]:
@@ -260,7 +388,7 @@ def run_review_graph(payload: CardInput, settings: CliSettings) -> ReviewResult:
         ReviewCardNode(),
         state=ReviewState(title=payload.title, content=payload.content),
         deps=CliDeps(
-            reviewer_agent=build_reviewer_agent(settings),
+            reviewer=build_reviewer(settings),
             submit_card=build_submitter(settings),
         ),
     )

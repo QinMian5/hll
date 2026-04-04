@@ -5,6 +5,13 @@ description = "Add your description here"
 requires-python = ">=3.14"
 dependencies = [
     "click>=8.3.1",
+    "httpx",
     "pydantic-ai>=1.77.0",
     "pydantic-graph>=1.77.0",
+    "pydantic-settings",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
 ]
