@@ -7,6 +7,7 @@ dependencies = [
     "click>=8.3.1",
     "lxml>=5.3.1",
     "mwparserfromhell>=0.6.6",
+    "rich>=14.2.0",
     "zstandard>=0.24.0",
 ]
 
@@ -19,6 +20,7 @@ py-modules = [
     "wiki_preprocess",
     "wiki_preprocess_classify",
     "wiki_preprocess_clean",
+    "wiki_preprocess_index",
     "wiki_preprocess_types",
     "wiki_preprocess_write",
     "wiki_preprocess_xml",

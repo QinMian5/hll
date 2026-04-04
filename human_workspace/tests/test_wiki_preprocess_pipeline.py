@@ -15,6 +15,7 @@ from wiki_preprocess import (
     ThresholdAbort,
     discover_split_inputs,
     evaluate_thresholds,
+    load_index_page_counts,
     run_pipeline,
 )
 from wiki_preprocess_types import SplitManifest, SplitStatus, ThresholdConfig
@@ -326,3 +327,156 @@ def test_single_page_failure_is_logged_but_run_continues(
             ensure_ascii=False,
         ),
     ]
+
+
+def test_index_pre_scan_counts_pages_for_each_unique_split_id(
+    sample_input_dir_with_indexes_and_repeated_stream_number: Path,
+) -> None:
+    counts = load_index_page_counts(sample_input_dir_with_indexes_and_repeated_stream_number)
+
+    assert counts == {
+        "split-00015-p17324603p17460152": 3,
+        "split-00015-p17460153p17560152": 3,
+    }
+
+
+def test_pipeline_uses_unique_split_ids_when_multistream_number_repeats(
+    sample_input_dir_with_indexes_and_repeated_stream_number: Path,
+    tmp_path: Path,
+) -> None:
+    result = run_pipeline(
+        input_root=sample_input_dir_with_indexes_and_repeated_stream_number,
+        output_root=tmp_path,
+        source_dump="enwiki-20260301",
+    )
+
+    assert result.completed_splits == [
+        "split-00015-p17324603p17460152",
+        "split-00015-p17460153p17560152",
+    ]
+    assert (
+        result.run_root / "articles" / "split-00015-p17324603p17460152"
+    ).exists()
+    assert (
+        result.run_root / "articles" / "split-00015-p17460153p17560152"
+    ).exists()
+
+
+def test_parallel_workers_preserve_outputs_for_multi_split_input(
+    sample_input_dir_with_indexes_and_repeated_stream_number: Path,
+    tmp_path: Path,
+) -> None:
+    serial = run_pipeline(
+        input_root=sample_input_dir_with_indexes_and_repeated_stream_number,
+        output_root=tmp_path / "serial",
+        source_dump="enwiki-20260301",
+        workers=1,
+    )
+    parallel = run_pipeline(
+        input_root=sample_input_dir_with_indexes_and_repeated_stream_number,
+        output_root=tmp_path / "parallel",
+        source_dump="enwiki-20260301",
+        workers=2,
+    )
+
+    assert _read_shard_payloads(serial.run_root) == _read_shard_payloads(parallel.run_root)
+    assert load_run_stats(serial.run_root) == load_run_stats(parallel.run_root)
+    for split_id in (
+        "split-00015-p17324603p17460152",
+        "split-00015-p17460153p17560152",
+    ):
+        serial_manifest = load_split_manifest(serial.run_root, split_id)
+        parallel_manifest = load_split_manifest(parallel.run_root, split_id)
+        assert {
+            "status": serial_manifest.status,
+            "articles_shards": serial_manifest.articles_shards,
+            "redirect_aliases_shards": serial_manifest.redirect_aliases_shards,
+            "disambiguation_shards": serial_manifest.disambiguation_shards,
+            "pages_seen": serial_manifest.pages_seen,
+            "pages_emitted": serial_manifest.pages_emitted,
+            "failures": serial_manifest.failures,
+        } == {
+            "status": parallel_manifest.status,
+            "articles_shards": parallel_manifest.articles_shards,
+            "redirect_aliases_shards": parallel_manifest.redirect_aliases_shards,
+            "disambiguation_shards": parallel_manifest.disambiguation_shards,
+            "pages_seen": parallel_manifest.pages_seen,
+            "pages_emitted": parallel_manifest.pages_emitted,
+            "failures": parallel_manifest.failures,
+        }
+
+
+def test_progress_callback_receives_total_pages_and_final_processed_count(
+    sample_input_dir_with_indexes_and_repeated_stream_number: Path,
+    tmp_path: Path,
+) -> None:
+    snapshots: list[dict[str, object]] = []
+
+    run_pipeline(
+        input_root=sample_input_dir_with_indexes_and_repeated_stream_number,
+        output_root=tmp_path,
+        source_dump="enwiki-20260301",
+        workers=2,
+        progress_callback=lambda snapshot: snapshots.append(dict(snapshot)),
+    )
+
+    assert snapshots[0]["total_pages"] == 6
+    assert snapshots[0]["total_splits"] == 2
+    assert any(int(snapshot["processed_pages"]) > 0 for snapshot in snapshots[1:])
+    assert snapshots[-1]["processed_pages"] == 6
+    assert snapshots[-1]["completed_splits"] == 2
+    assert snapshots[-1]["status"] == "completed"
+
+
+def test_parallel_resume_reuses_latest_run_and_skips_completed_splits(
+    sample_input_dir_with_indexes_and_repeated_stream_number: Path,
+    tmp_path: Path,
+) -> None:
+    first = run_pipeline(
+        input_root=sample_input_dir_with_indexes_and_repeated_stream_number,
+        output_root=tmp_path,
+        source_dump="enwiki-20260301",
+        workers=2,
+    )
+
+    resumed = run_pipeline(
+        input_root=sample_input_dir_with_indexes_and_repeated_stream_number,
+        output_root=tmp_path,
+        source_dump="enwiki-20260301",
+        workers=2,
+        resume=True,
+    )
+
+    assert resumed.run_root == first.run_root
+    assert resumed.completed_splits == [
+        "split-00015-p17324603p17460152",
+        "split-00015-p17460153p17560152",
+    ]
+
+
+def test_parallel_global_failure_threshold_aborts_and_logs_failures(
+    sample_input_dir_with_parallel_broken_pages: Path,
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(ThresholdAbort):
+        run_pipeline(
+            input_root=sample_input_dir_with_parallel_broken_pages,
+            output_root=tmp_path,
+            source_dump="enwiki-20260301",
+            workers=2,
+            thresholds=ThresholdConfig(
+                max_consecutive_failures=100,
+                max_split_failure_ratio=1.0,
+                max_global_failure_ratio=1.0,
+                max_global_failure_count=0,
+            ),
+        )
+
+    run_root = tmp_path / "runs" / "run-00001"
+    diagnostics = _read_threshold_abort(run_root / "logs" / "threshold_abort.json")
+    failure_log = (run_root / "logs" / "parse_failures.jsonl").read_text(
+        encoding="utf-8"
+    )
+
+    assert diagnostics["trigger"] == "max_global_failure_count"
+    assert "Broken Alpha" in failure_log or "Broken Beta" in failure_log

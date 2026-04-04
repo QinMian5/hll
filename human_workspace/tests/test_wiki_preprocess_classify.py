@@ -117,6 +117,28 @@ def test_classify_page_keeps_literal_template_mentions_as_canonical() -> None:
     assert classify_page(page).kind is PageKind.canonical_article
 
 
+def test_classify_page_uses_fast_path_for_plain_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    page = PageExtractionResult(
+        page_id=306,
+        title="Fast Path Article",
+        ns=0,
+        revision_id=3006,
+        revision_timestamp="2026-03-01T00:26:00Z",
+        source_dump="enwiki-20260301",
+        source_url="https://en.wikipedia.org/wiki/Fast_Path_Article",
+        raw_text="Fast path article body without wikicode markup.",
+    )
+
+    def _raise_unexpected_parse(_: str) -> object:
+        raise AssertionError("plain text classification should not parse wikicode")
+
+    monkeypatch.setattr("wiki_preprocess_classify.mwparserfromhell.parse", _raise_unexpected_parse)
+
+    assert classify_page(page).kind is PageKind.canonical_article
+
+
 def test_classify_page_detects_disambiguation_after_leading_comment() -> None:
     page = PageExtractionResult(
         page_id=301,
@@ -129,6 +151,76 @@ def test_classify_page_detects_disambiguation_after_leading_comment() -> None:
         raw_text="<!--leading comment-->\n{{disambiguation}}",
     )
     assert classify_page(page).kind is PageKind.disambiguation
+
+
+def test_classify_page_detects_textual_redirect_without_xml_redirect_flag() -> None:
+    page = PageExtractionResult(
+        page_id=302,
+        title="Semi-decidable",
+        ns=0,
+        revision_id=3002,
+        revision_timestamp="2026-03-01T00:22:00Z",
+        source_dump="enwiki-20260301",
+        source_url="https://en.wikipedia.org/wiki/Semi-decidable",
+        raw_text=(
+            "{{Rfd wrapper|content=\n"
+            "#REDIRECT[[Decidability (logic)#Semidecidability]]\n"
+            "}}"
+        ),
+    )
+
+    classified = classify_page(page)
+
+    assert classified.kind is PageKind.redirect_alias
+    assert classified.redirect_target == "Decidability (logic)#Semidecidability"
+
+
+def test_build_redirect_record_accepts_textual_redirect_without_xml_redirect_flag() -> None:
+    page = PageExtractionResult(
+        page_id=303,
+        title="Beefcake calendars",
+        ns=0,
+        revision_id=3003,
+        revision_timestamp="2026-03-01T00:23:00Z",
+        source_dump="enwiki-20260301",
+        source_url="https://en.wikipedia.org/wiki/Beefcake_calendars",
+        raw_text="#REDIRECT [[Beefcake]]",
+    )
+
+    record = build_redirect_record(page, source_dump="enwiki-20260301")
+
+    assert record.redirect_title == "Beefcake calendars"
+    assert record.canonical_title == "Beefcake"
+
+
+def test_classify_page_ignores_template_only_non_content_pages() -> None:
+    page = PageExtractionResult(
+        page_id=304,
+        title="Scamware",
+        ns=0,
+        revision_id=3004,
+        revision_timestamp="2026-03-01T00:24:00Z",
+        source_dump="enwiki-20260301",
+        source_url="https://en.wikipedia.org/wiki/Scamware",
+        raw_text="{{wiktionary redirect|scamware}}\n{{Short pages monitor}}",
+    )
+
+    assert classify_page(page).kind is PageKind.ignored
+
+
+def test_classify_page_keeps_pages_with_body_text_even_when_templates_are_present() -> None:
+    page = PageExtractionResult(
+        page_id=305,
+        title="Example Topic",
+        ns=0,
+        revision_id=3005,
+        revision_timestamp="2026-03-01T00:25:00Z",
+        source_dump="enwiki-20260301",
+        source_url="https://en.wikipedia.org/wiki/Example_Topic",
+        raw_text="{{Short pages monitor}}\n'''Example Topic''' is a real article.",
+    )
+
+    assert classify_page(page).kind is PageKind.canonical_article
 
 
 def test_build_redirect_record_rejects_source_dump_drift(sample_bz2_split: Path) -> None:
