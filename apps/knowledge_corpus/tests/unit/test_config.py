@@ -6,6 +6,7 @@ Out of scope: SQLAlchemy engine creation and migration execution behavior.
 from __future__ import annotations
 
 import pytest
+from pydantic import ValidationError
 
 from knowledge_corpus.config import MigrationSettings, Settings, load_migration_settings, load_settings
 
@@ -46,3 +47,15 @@ def test_load_migration_settings_reads_database_url(
     settings = load_migration_settings()
 
     assert settings.knowledge_corpus_migration_database_url.startswith("postgresql+psycopg://")
+
+
+def test_settings_validation_forbids_unexpected_keys() -> None:
+    with pytest.raises(ValidationError, match="unexpected_key"):
+        Settings.model_validate(
+            {
+                "knowledge_corpus_database_url": (
+                    "postgresql+psycopg://corpus_app:secret@knowledge_corpus_db:5432/knowledge_corpus"
+                ),
+                "unexpected_key": "boom",
+            }
+        )

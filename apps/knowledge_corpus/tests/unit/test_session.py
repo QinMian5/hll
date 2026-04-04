@@ -6,6 +6,7 @@ Out of scope: Real PostgreSQL connectivity and migration lifecycle behavior.
 from __future__ import annotations
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from knowledge_corpus.config import load_settings
 from knowledge_corpus.db.session import build_session_factory
@@ -21,5 +22,6 @@ def test_session_factory_uses_app_local_settings(
 
     engine, session_factory = build_session_factory(load_settings())
 
+    assert isinstance(engine, AsyncEngine)
     assert engine.url.drivername == "postgresql+psycopg"
-    assert session_factory is not None
+    assert session_factory.class_ is AsyncSession

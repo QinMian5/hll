@@ -7,6 +7,7 @@ members = [
     "api",
     "cli",
     "knowledge",
+    "knowledge-corpus",
 ]
 
 [[package]]
@@ -401,16 +402,28 @@ version = "0.1.0"
 source = { virtual = "apps/cli" }
 dependencies = [
     { name = "click" },
+    { name = "httpx" },
     { name = "pydantic-ai" },
     { name = "pydantic-graph" },
+    { name = "pydantic-settings" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.3.1" },
+    { name = "httpx" },
     { name = "pydantic-ai", specifier = ">=1.77.0" },
     { name = "pydantic-graph", specifier = ">=1.77.0" },
+    { name = "pydantic-settings" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "click"
@@ -1227,6 +1240,33 @@ wheels = [
 name = "knowledge"
 version = "0.1.0"
 source = { virtual = "." }
+
+[[package]]
+name = "knowledge-corpus"
+version = "0.1.0"
+source = { editable = "apps/knowledge_corpus" }
+dependencies = [
+    { name = "psycopg", extra = ["binary"] },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "psycopg", extras = ["binary"], specifier = ">=3.3.3" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pydantic-settings", specifier = ">=2.13.1" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.48" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "logfire"

@@ -10,7 +10,7 @@ from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDic
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        extra="ignore",
+        extra="forbid",
         case_sensitive=False,
     )
 
@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
 class MigrationSettings(BaseSettings):
     model_config = SettingsConfigDict(
-        extra="ignore",
+        extra="forbid",
         case_sensitive=False,
     )
 

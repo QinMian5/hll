@@ -11,7 +11,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
-- **Scope/Boundaries:** Covers module ownership for frontend, backend API, knowledge_graph, search, ingestion, semantic_map, database, and runtime infrastructure dependencies.
+- **Scope/Boundaries:** Covers module ownership for frontend, backend API, operator CLI, knowledge_graph, search, ingestion, semantic_map, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Module Responsibilities
@@ -43,6 +43,22 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Knowledge-base context retrieval for review decisions.
   - Cross-run memory or reviewer state retention.
   - Multi-card batch authoring workflows.
+
+### Knowledge Corpus App
+- **Responsibilities:**
+  - Own local/offline source-document persistence for personal workflows.
+  - Own isolated PostgreSQL full-text retrieval over source documents.
+  - Own processed-document bookkeeping for excluding already handled source rows from later retrieval.
+  - Expose importable Python-library services for record upsert, keyword search, and processed marking.
+- **Contains:**
+  - App-local settings, database session/metadata wiring, Alembic migrations, source-specific persistence models, repositories, and search/services for local source corpora.
+- **Non-responsibilities:**
+  - Online HTTP API exposure.
+  - Operator-facing CLI command contracts in first version.
+  - Knowledge-graph persistence ownership.
+  - Existing CLI review orchestration.
+  - Existing backend search or ingestion runtime behavior.
+  - Import orchestration over filesystem paths or dump directories.
 
 ### Backend API
 - **Responsibilities:**
@@ -157,6 +173,9 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
   - `Background semantic-map rebuild execution -> semantic_map -> knowledge_graph -> Database`
   - `core` is inbound-only (`entrypoints` and tooling import `core`; `core` does not import `entrypoints/modules/shared`).
+- Local/offline auxiliary dependency direction is:
+  - `External local scripts/programs -> Knowledge Corpus App -> Dedicated Knowledge Corpus PostgreSQL Service`
+- Knowledge Corpus App does not participate in online V1 runtime behavior.
 - Reserved modules do not participate in V1 runtime behavior.
 
 ## V1 Boundary Summary

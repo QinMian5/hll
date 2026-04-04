@@ -12,13 +12,15 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 
 ## Context
 - Purpose: define a reproducible Docker deployment model for dev and prod with explicit startup order and migration gating.
-- Scope/Boundaries: compose layering, network exposure, migration workflow, PostgreSQL image strategy, extension enablement, and failure policy.
+- Scope/Boundaries: compose layering, network exposure, migration workflow, PostgreSQL image strategy, extension enablement, repository-managed accepted service provisioning, and failure policy.
 - Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Deployment Topology (MVP)
 - Production external exposure is restricted to `80/443` through `Nginx`.
 - Development exposes `web` on `5173`, `api` on `8000`, and `db` on host `5432` for local debugging and SQL tooling.
 - `db` remains internal-only in production.
+- Knowledge corpus uses its own dedicated PostgreSQL service and does not share the online graph database service.
+- Development may expose the knowledge corpus PostgreSQL service on a separate host port for local tooling; it must not reuse the online database host port.
 - `redis` remains internal-only in both environments and is provided by a project-managed service definition.
 - Runtime process topology is fixed to two backend process containers: one `api` container and one `worker` container.
 - Horizontal scaling is not an MVP requirement for either `api` or `worker`; deployment baseline keeps one running container per role.
@@ -30,6 +32,8 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 
 ## Network Boundaries
 - `backend` network is internal-only and contains `db`, `redis`, `migrate`, `api`, and `worker`.
+- Knowledge corpus PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
+- Accepted first-version service names for the knowledge corpus database path are `knowledge_corpus_db` and `knowledge_corpus_migrate`.
 - `edge` network contains `web`, `api`, `worker`, and `nginx` (production only for `nginx`).
 - Development adds `db` to `edge` for host port publishing while keeping service-to-service database access on `backend`.
 - Cross-service access must follow network boundaries rather than host port access.
@@ -42,6 +46,8 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `compose.dev.yml`: development-only overrides (source mounts, debug commands, direct local port exposure, no `nginx` service).
 - `compose.prod.yml`: production-only overrides (runtime restart policy, `nginx` edge service, `80/443` exposure).
 - Migration autogeneration uses the same base+dev layering and does not use a dedicated compose overlay file.
+- Repository-managed local/offline apps may add dedicated infrastructure services when those services are part of accepted repository app boundaries; knowledge corpus PostgreSQL is one such service.
+- The accepted first-version compose baseline includes `knowledge_corpus_db` as a dedicated PostgreSQL service and `knowledge_corpus_migrate` as a dedicated one-shot migration job for `apps/knowledge_corpus`.
 
 ## Volume Lifecycle Policy
 - Development uses non-external volumes and supports optional volume cleanup through an explicit destroy flag.
@@ -72,7 +78,12 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   3. `api` and `worker` start.
   4. `web` starts.
   5. Production `nginx` starts after `api` and `web` are started.
+- Knowledge corpus startup/migration order is separate from the online stack:
+  1. `knowledge_corpus_db` reaches healthy state.
+  2. `knowledge_corpus_migrate` one-shot job runs and exits successfully.
+  3. External local scripts/programs may use the knowledge corpus library against the migrated database.
 - `api` must not auto-run migrations.
+- `apps/knowledge_corpus` does not own a long-running application container in first version, so its runtime contract ends at migrated database availability plus library usage from external local processes.
 - Startup dependency control must use `healthcheck + depends_on`.
 - `sleep`-based wait logic is forbidden.
 
@@ -114,6 +125,11 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Database runtime configuration uses direct URL fields:
   - `APP_DATABASE_URL` for API and worker runtime database access
   - `MIGRATION_DATABASE_URL` for migration-role execution paths
+  - Separate app-specific URL fields for knowledge corpus runtime and migration execution; knowledge corpus must not reuse the online API/worker database URL names
+- Knowledge corpus database configuration uses:
+  - `KNOWLEDGE_CORPUS_DATABASE_URL` for external local processes that import `apps/knowledge_corpus`
+  - `KNOWLEDGE_CORPUS_MIGRATION_DATABASE_URL` for `knowledge_corpus_migrate`
+- Tracked environment files must carry the knowledge corpus URL fields alongside the online stack URL fields when the repository-managed knowledge corpus service is enabled.
 
 ## Failure Policy
 - Known startup failures must fail explicitly and stop rollout progression.

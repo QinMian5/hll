@@ -21,6 +21,7 @@ repo/
   apps/
     api/
     cli/
+    knowledge_corpus/
     web/
   packages/
     contracts/
@@ -46,6 +47,7 @@ repo/
 - repository root: cross-member workspace configuration, human-facing repository execution entrypoints, shared quality tooling configuration, shared TypeScript base configuration, and git-hook governance.
 - `apps/api`: FastAPI service source, process bootstrap shells, API-side tests, and Alembic migration assets.
 - `apps/cli`: local operator-facing CLI source and CLI-specific dependency declaration.
+- `apps/knowledge_corpus`: local/offline source-corpus app source, app-local database lifecycle assets, and app-scoped tests for isolated corpus persistence and retrieval.
 - `apps/web`: React web client source, web-specific package manifest, and web-specific TypeScript entrypoint configs.
 - `packages/contracts`: authoritative OpenAPI snapshot, generated client artifacts, contracts-specific scripts, and contracts-specific package manifest.
 - `infra`: deployment and environment template assets, not application business logic.
@@ -132,6 +134,32 @@ apps/cli/
 - `apps/cli` owns the local single-card submission command, typed review output models, local agent orchestration, graph branching, and backend submission adapter.
 - `apps/cli` excludes knowledge-graph persistence ownership, backend ingestion internals, and frontend rendering concerns.
 
+### Knowledge Corpus Application (`apps/knowledge_corpus`)
+```text
+apps/knowledge_corpus/
+  alembic/
+    env.py
+    versions/
+  alembic.ini
+  src/
+    knowledge_corpus/
+      config.py
+      db/
+        base.py
+        session.py
+      wikipedia/
+        model.py
+        repo.py
+        search.py
+        service.py
+        types.py
+  tests/
+  pyproject.toml
+```
+- `apps/knowledge_corpus` owns a local/offline source-corpus app with its own PostgreSQL service, migrations, source-specific persistence models, repository/search/service logic, and importable Python-library interfaces.
+- `apps/knowledge_corpus` relies on repository-managed infrastructure and environment assets for its dedicated PostgreSQL service and migration execution flow.
+- `apps/knowledge_corpus` excludes online HTTP APIs, operator CLI contracts, direct imports from other apps, and ownership of the main knowledge-graph persistence model.
+
 ### Contracts Package (`packages/contracts`)
 ```text
 packages/contracts/
@@ -186,11 +214,17 @@ human_workspace/
 23. `apps/cli` SHALL own only local command execution, agent review orchestration, and ingestion API submission behavior.
 24. `apps/cli` SHALL NOT own backend persistence, worker runtime, or direct database access.
 25. `human_workspace` SHALL contain only human-operated or offline data-preparation assets and SHALL NOT become the authority for online API/runtime contracts.
+26. `apps/knowledge_corpus` SHALL own only isolated local/offline source-corpus persistence, PostgreSQL keyword retrieval, and processed-document bookkeeping.
+27. `apps/knowledge_corpus` SHALL own its own settings, SQLAlchemy metadata, Alembic migrations, and dedicated PostgreSQL service configuration.
+28. `apps/knowledge_corpus` SHALL NOT import `apps/api`, `apps/cli`, or `apps/web`, and those apps SHALL NOT import `apps/knowledge_corpus`.
+29. `apps/knowledge_corpus` SHALL expose only importable Python-library interfaces in first version and SHALL NOT define HTTP or CLI contracts.
+30. `infra` and tracked environment assets SHALL provide the repository-managed PostgreSQL service required by `apps/knowledge_corpus` without merging it into the online API database lifecycle.
 
 ## Governance Anchors
 - Detailed architecture constraints are defined in `03-architecture-constraints`.
 - Minimal phase-1 quality gates are `lint/format`, `typecheck`, `test`, and `contract drift`.
 - Dependency-direction enforcement is implemented through `import-linter` contracts in `apps/api/pyproject.toml`.
+- Knowledge corpus app details are defined in `knowledge-corpus`.
 - Wikipedia offline preprocessing details are defined in `wikipedia-offline-preprocessing`.
 - This document defines layout ownership only and does not redefine dependency policy details.
 
