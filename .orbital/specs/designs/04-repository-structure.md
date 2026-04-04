@@ -26,6 +26,7 @@ repo/
     contracts/
   infra/
   scripts/
+  human_workspace/
   .orbital/specs/
   .python-version
   .pre-commit-config.yaml
@@ -49,6 +50,7 @@ repo/
 - `packages/contracts`: authoritative OpenAPI snapshot, generated client artifacts, contracts-specific scripts, and contracts-specific package manifest.
 - `infra`: deployment and environment template assets, not application business logic.
 - `scripts`: repository automation scripts invoked by top-level governance commands.
+- `human_workspace`: human-operated research, data-preparation, and exploratory script assets that are repository-versioned but are not online application/runtime ownership boundaries.
 - `.orbital/specs`: active requirements and design documents.
 
 ## Application Layout
@@ -148,6 +150,16 @@ packages/contracts/
 - Generated artifacts in `packages/contracts/generated` are versioned in repository.
 - Frontend consumes backend APIs only through generated contract artifacts.
 
+## Human Workspace
+```text
+human_workspace/
+  <offline-workflow assets>
+```
+- The topology block is illustrative rather than exhaustive.
+- `human_workspace` may contain operator-run or researcher-run scripts for offline workflows such as dump acquisition, preprocessing, and analysis.
+- `human_workspace` assets do not define authoritative online API contracts, runtime composition roots, or production application module boundaries.
+- Versioned data-preparation scripts under `human_workspace` must still keep clear responsibility boundaries and must not bypass active spec governance for accepted repository behavior.
+
 ## Boundary Rules
 1. Repository-root configuration files SHALL own all cross-member tooling and workspace behavior.
 2. Member directories SHALL retain only member-scoped dependencies, runtime configuration, and source assets.
@@ -173,11 +185,13 @@ packages/contracts/
 22. `apps/web/src/features/semantic-map` SHALL own semantic-map deck.gl rendering, semantic-map API adapters, and feature-specific UI overlays; only genuinely reusable technical primitives may move into `apps/web/src/shared/**`.
 23. `apps/cli` SHALL own only local command execution, agent review orchestration, and ingestion API submission behavior.
 24. `apps/cli` SHALL NOT own backend persistence, worker runtime, or direct database access.
+25. `human_workspace` SHALL contain only human-operated or offline data-preparation assets and SHALL NOT become the authority for online API/runtime contracts.
 
 ## Governance Anchors
 - Detailed architecture constraints are defined in `03-architecture-constraints`.
 - Minimal phase-1 quality gates are `lint/format`, `typecheck`, `test`, and `contract drift`.
 - Dependency-direction enforcement is implemented through `import-linter` contracts in `apps/api/pyproject.toml`.
+- Wikipedia offline preprocessing details are defined in `wikipedia-offline-preprocessing`.
 - This document defines layout ownership only and does not redefine dependency policy details.
 
 ## Deferred to Later Phases
