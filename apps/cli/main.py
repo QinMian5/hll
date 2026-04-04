@@ -304,7 +304,9 @@ def extract_cursor_result_text(stdout: str) -> str:
     return result
 
 
-def run_cursor_review_once(title: str, content: str, settings: CliSettings) -> ReviewResult:
+def run_cursor_review_once(
+    title: str, content: str, settings: CliSettings
+) -> ReviewResult:
     prompt = build_cursor_review_prompt(title, content)
     workspace = Path(settings.cursor_agent_workspace)
     workspace.mkdir(parents=True, exist_ok=True)
@@ -333,7 +335,9 @@ def run_cursor_review_once(title: str, content: str, settings: CliSettings) -> R
         raise RuntimeError(
             f"cursor-agent exited with code {completed.returncode}: {stderr or 'no stderr'}"
         )
-    return ReviewResult.model_validate_json(extract_cursor_result_text(completed.stdout))
+    return ReviewResult.model_validate_json(
+        extract_cursor_result_text(completed.stdout)
+    )
 
 
 def run_cursor_review(title: str, content: str, settings: CliSettings) -> ReviewResult:
