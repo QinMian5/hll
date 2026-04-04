@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-ENV_FILENAMES = (".env.example", ".env.dev", ".env.prod", ".env.test")
+ENV_EXAMPLE = Path(__file__).resolve().parents[5] / "infra" / "env" / ".env.example"
 
 
 def _line_kind(line: str) -> str:
@@ -31,42 +31,16 @@ def _parse_env_key(*, path: Path, line_number: int, line: str) -> str:
     return key
 
 
-def test_tracked_env_files_have_aligned_line_structure_and_keys(
-    repo_root: Path,
-) -> None:
-    env_dir = repo_root / "infra" / "env"
-    env_files = [env_dir / name for name in ENV_FILENAMES]
+def test_tracked_env_example_has_valid_line_structure_and_unique_keys() -> None:
+    lines = ENV_EXAMPLE.read_text(encoding="utf-8").splitlines()
+    assert lines, f"{ENV_EXAMPLE} must not be empty."
 
-    baseline_file = env_files[0]
-    baseline_lines = baseline_file.read_text(encoding="utf-8").splitlines()
-    assert baseline_lines, f"{baseline_file} must not be empty."
+    seen_keys: set[str] = set()
+    for line_number, line in enumerate(lines, start=1):
+        kind = _line_kind(line)
+        if kind != "key_value":
+            continue
 
-    for file_path in env_files[1:]:
-        lines = file_path.read_text(encoding="utf-8").splitlines()
-        assert len(lines) == len(baseline_lines), (
-            f"{file_path} line count must match {baseline_file}: "
-            f"{len(lines)} != {len(baseline_lines)}"
-        )
-
-        for line_number, (baseline_line, line) in enumerate(
-            zip(baseline_lines, lines, strict=True),
-            start=1,
-        ):
-            baseline_kind = _line_kind(baseline_line)
-            kind = _line_kind(line)
-            assert kind == baseline_kind, (
-                f"{file_path}:{line_number} structure mismatch with "
-                f"{baseline_file}:{line_number} ({kind} != {baseline_kind})"
-            )
-
-            if baseline_kind == "key_value":
-                baseline_key = _parse_env_key(
-                    path=baseline_file,
-                    line_number=line_number,
-                    line=baseline_line,
-                )
-                key = _parse_env_key(path=file_path, line_number=line_number, line=line)
-                assert key == baseline_key, (
-                    f"{file_path}:{line_number} key '{key}' must align with "
-                    f"{baseline_file}:{line_number} key '{baseline_key}'."
-                )
+        key = _parse_env_key(path=ENV_EXAMPLE, line_number=line_number, line=line)
+        assert key not in seen_keys, f"{ENV_EXAMPLE}:{line_number} repeats key '{key}'."
+        seen_keys.add(key)

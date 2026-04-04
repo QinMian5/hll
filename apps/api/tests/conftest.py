@@ -7,11 +7,9 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import AsyncIterator, Callable, Iterator
-from pathlib import Path
 from typing import Any
 
 import pytest
-from dotenv import dotenv_values
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from httpx import ASGITransport, AsyncClient
@@ -19,15 +17,19 @@ from httpx import ASGITransport, AsyncClient
 DependencyCallable = Callable[..., Any]
 DependencyOverrides = dict[DependencyCallable, DependencyCallable]
 
-
-@pytest.fixture(scope="session")
-def repo_root() -> Path:
-    current = Path(__file__).resolve()
-    for candidate in (current, *current.parents):
-        if (candidate / ".git").exists() and (candidate / "infra" / "env").exists():
-            return candidate
-
-    raise AssertionError("Unable to locate repository root containing '.git' and 'infra/env'.")
+DEFAULT_APP_ENV = {
+    "APP_DATABASE_URL": "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge",
+    "REDIS_URL": "redis://redis:6379/0",
+    "EMBEDDING_API_URL": "https://api.openai.com/v1/embeddings",
+    "EMBEDDING_MODEL": "text-embedding-3-small",
+    "EMBEDDING_API_KEY": "test-key",
+    "EMBEDDING_TIMEOUT_SECONDS": "10",
+    "SEARCH_MAX_MATCHED": "5",
+    "SEARCH_MAX_CONNECTED": "10",
+    "EDGE_SIMILARITY_TOP_K": "10",
+    "EDGE_SIMILARITY_MIN_STRENGTH": "0.8",
+    "LOG_FILE_PATH": "logs/api/app.log",
+}
 
 
 @pytest.fixture
@@ -43,15 +45,9 @@ def anyio_backend() -> str:
 @pytest.fixture
 def app(
     dependency_overrides: DependencyOverrides,
-    repo_root: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[FastAPI]:
-    env_file = repo_root / "infra" / "env" / ".env.test"
-    if not env_file.exists():
-        raise AssertionError(f"Missing test env file: {env_file}")
-    for key, value in dotenv_values(env_file).items():
-        if value is None:
-            continue
+    for key, value in DEFAULT_APP_ENV.items():
         monkeypatch.setenv(key, value)
 
     import entrypoints.api.bootstrap as api_bootstrap

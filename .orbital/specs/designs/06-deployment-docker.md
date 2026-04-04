@@ -113,10 +113,11 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 
 ## Configuration and Secrets Boundary
 - Configuration model remains `.env`-driven runtime settings through `pydantic-settings`.
-- Environment files use `.env.example`, `.env.dev`, and `.env.prod` naming.
-- Environment template files (`.env.example`, `.env.dev`, `.env.prod`) are tracked in version control.
-- Sensitive values are provided through runtime environment variables or `.env` and are not committed.
-- Compose injects environment values primarily through service-level `env_file`, with direct `environment` injection reserved for startup-critical keys.
+- Environment files use `.env.example`, `.env.dev`, `.env.prod`, and `.env.test` naming.
+- Only `.env.example` is tracked in version control; `.env.dev`, `.env.prod`, and `.env.test` remain local operator files.
+- Sensitive values are provided through runtime environment variables or local `.env` files and are not committed.
+- Compose commands inject environment values through outer `docker compose --env-file ...` invocation; service definitions must not declare `env_file`.
+- Application code, test code, and migration code read only current process environment and must not load `.env` files directly.
 - Queue and embedding runtime configuration include:
   - `REDIS_URL` with backend-network address `redis://redis:6379/0`
   - `EMBEDDING_API_URL` using OpenAI embeddings endpoint

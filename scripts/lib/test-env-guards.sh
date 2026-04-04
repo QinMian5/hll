@@ -14,26 +14,24 @@ assert_test_env_file_exists() {
 
 validate_test_settings() {
   local api_dir="$1"
-  local env_file="$2"
-  (
-    set -a
-    # shellcheck disable=SC1090
-    source "$env_file"
-    set +a
-    uv --directory "$api_dir" run python -c \
-      "from core.config import load_settings, load_migration_settings; load_settings(); load_migration_settings()" >/dev/null
-  )
+  uv --directory "$api_dir" run python -c \
+    "from core.config import load_settings, load_migration_settings; load_settings(); load_migration_settings()" >/dev/null
+}
+
+validate_knowledge_corpus_test_settings() {
+  local corpus_dir="$1"
+  uv --directory "$corpus_dir" run python -c \
+    "from knowledge_corpus.config import load_settings, load_migration_settings; load_settings(); load_migration_settings()" >/dev/null
 }
 
 get_migration_database_url() {
   local api_dir="$1"
-  local env_file="$2"
-  (
-    set -a
-    # shellcheck disable=SC1090
-    source "$env_file"
-    set +a
-    uv --directory "$api_dir" run python -c \
-      "from core.config import load_migration_settings; print(load_migration_settings().migration_database_url)"
-  )
+  uv --directory "$api_dir" run python -c \
+    "from core.config import load_migration_settings; print(load_migration_settings().migration_database_url)"
+}
+
+get_knowledge_corpus_migration_database_url() {
+  local corpus_dir="$1"
+  uv --directory "$corpus_dir" run python -c \
+    "from knowledge_corpus.config import load_migration_settings; print(load_migration_settings().knowledge_corpus_migration_database_url)"
 }

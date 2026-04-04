@@ -11,7 +11,11 @@ ENV_FILE="$ROOT_DIR/infra/env/.env.test"
 source "$ROOT_DIR/scripts/lib/test-env-guards.sh"
 
 assert_test_env_file_exists "$ENV_FILE"
-validate_test_settings "$API_DIR" "$ENV_FILE"
+set -a
+# shellcheck disable=SC1090
+source "$ENV_FILE"
+set +a
+validate_test_settings "$API_DIR"
 
 cleanup() {
   if [[ "${KEEP_TEST_DB:-0}" == "1" ]]; then

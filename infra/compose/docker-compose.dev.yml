@@ -8,17 +8,26 @@ services:
     ports:
       - "5432:5432"
 
+  knowledge_corpus_db:
+    networks:
+      - backend
+      - edge
+    ports:
+      - "5433:5432"
+
   migrate:
-    env_file:
-      - ../../infra/env/.env.dev
     volumes:
       - ../../apps/api/src:/app/apps/api/src
       - ../../apps/api/alembic:/app/apps/api/alembic
       - ../../apps/api/alembic.ini:/app/apps/api/alembic.ini
 
+  knowledge_corpus_migrate:
+    volumes:
+      - ../../apps/knowledge_corpus/src:/app/apps/knowledge_corpus/src
+      - ../../apps/knowledge_corpus/alembic:/app/apps/knowledge_corpus/alembic
+      - ../../apps/knowledge_corpus/alembic.ini:/app/apps/knowledge_corpus/alembic.ini
+
   api:
-    env_file:
-      - ../../infra/env/.env.dev
     environment:
       API_RELOAD: "1"
     volumes:
@@ -29,9 +38,6 @@ services:
       - "8000:8000"
 
   worker:
-    env_file:
-      - ../../infra/env/.env.dev
-
   web:
     build:
       target: dev
@@ -46,5 +52,7 @@ services:
 volumes:
   knowledge_postgres_data:
     name: knowledge_postgres_dev_data
+  knowledge_corpus_postgres_data:
+    name: knowledge_corpus_postgres_dev_data
   knowledge_redis_data:
     name: knowledge_redis_dev_data

@@ -5,11 +5,10 @@ Out of scope: Unit-test-only fixture behavior and API transport assertions.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator
-from pathlib import Path
+from collections.abc import AsyncIterator
 
 import pytest
-from dotenv import dotenv_values
+from pydantic import ValidationError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -27,27 +26,14 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture(scope="session")
-def test_env_file(repo_root: Path) -> Path:
-    env_file = repo_root / "infra" / "env" / ".env.test"
-    if not env_file.exists():
-        raise pytest.UsageError(
-            f"missing integration test dotenv file: {env_file}. "
-            "Create infra/env/.env.test with test-only DB settings."
-        )
-    return env_file
-
-
-@pytest.fixture(scope="session")
-def test_settings(test_env_file: Path) -> Iterator[Settings]:
-    monkeypatch = pytest.MonkeyPatch()
-    for key, value in dotenv_values(test_env_file).items():
-        if value is None:
-            continue
-        monkeypatch.setenv(key, value)
+def test_settings() -> Settings:
     try:
-        yield Settings()
-    finally:
-        monkeypatch.undo()
+        return Settings()
+    except ValidationError as exc:
+        raise pytest.UsageError(
+            "API integration tests require process environment variables to be set "
+            "before pytest startup."
+        ) from exc
 
 
 @pytest.fixture(scope="session")

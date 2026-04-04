@@ -5,10 +5,7 @@ Out of scope: Runtime engine/session lifecycle and migration execution behavior.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-from dotenv import dotenv_values
 from pydantic import ValidationError
 
 import core.config as config_module
@@ -115,18 +112,13 @@ def test_load_settings_applies_logging_defaults_when_optional_keys_absent(
     assert settings.log_file_backup_count == 5
 
 
-def test_load_settings_from_tracked_test_environment_file(
-    repo_root: Path,
+def test_load_settings_from_process_environment_only(
     isolated_env: pytest.MonkeyPatch,
 ) -> None:
-    env_values = dotenv_values(repo_root / "infra" / "env" / ".env.test")
-    _set_env(
-        isolated_env,
-        {key: value for key, value in env_values.items() if isinstance(value, str)},
-    )
+    _set_env(isolated_env, RUNTIME_REQUIRED_ENV | {"LOG_LEVEL": "DEBUG"})
     settings = config_module.Settings()
     assert settings.log_file_path.strip()
-    assert settings.log_level == "INFO"
+    assert settings.log_level == "DEBUG"
     assert settings.log_file_max_bytes == 10_485_760
     assert settings.log_file_backup_count == 5
 

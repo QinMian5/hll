@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# abstract: Start an isolated PostgreSQL + Redis container stack dedicated to tests.
-# out_of_scope: Running migrations and executing pytest suites.
+# abstract: Apply knowledge corpus Alembic migrations to the isolated test database path.
+# out_of_scope: Starting containers and running integration test suites.
 
 set -euo pipefail
 
@@ -16,11 +16,11 @@ set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
-validate_test_settings "$ROOT_DIR/apps/api"
 validate_knowledge_corpus_test_settings "$ROOT_DIR/apps/knowledge_corpus"
 
 docker compose \
   -p "$TEST_COMPOSE_PROJECT" \
   --env-file "$ENV_FILE" \
   -f "$COMPOSE_TEST" \
-  up -d --build --wait
+  run --rm knowledge_corpus_migrate \
+  alembic -c /app/apps/knowledge_corpus/alembic.ini upgrade head

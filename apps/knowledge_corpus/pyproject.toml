@@ -20,6 +20,7 @@ module-name = ["knowledge_corpus"]
 
 [dependency-groups]
 dev = [
+    "pytest-anyio>=0.0.0",
     "pytest>=9.0.2",
     "ruff>=0.15.8",
     "ty>=0.0.27",
@@ -35,6 +36,13 @@ select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF", "ANN", "TID"]
 [tool.pytest.ini_options]
 addopts = "--strict-markers --maxfail=1"
 testpaths = ["tests"]
+markers = [
+    "unit: Fast and deterministic unit tests.",
+    "integration: Tests that cross process, filesystem, or service boundaries.",
+    "db: Tests requiring isolated backend runtime dependencies (PostgreSQL/Redis).",
+    "migration: Tests validating migration bootstrap and schema upgrade behavior.",
+    "anyio: Run async tests with AnyIO backend.",
+]
 
 [tool.ty.src]
 include = ["src"]

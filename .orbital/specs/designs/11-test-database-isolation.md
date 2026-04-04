@@ -18,17 +18,17 @@ out_of_scope: Production database hardening, backup strategy, and multi-node top
 - Integration tests use a dedicated compose file: `infra/compose/docker-compose.test.yml`.
 - Test compose topology includes PostgreSQL and Redis and does not include `api`/`web`.
 - Test compose resources must use a dedicated compose project name and must not reuse dev/prod volumes or networks.
-- Test runtime configuration is sourced from local-only `infra/env/.env.test`.
+- Test runtime configuration is provided through current process environment, with repository scripts conventionally loading local-only `infra/env/.env.test` before invoking compose or pytest.
 
 ## Configuration Policy
 - Test runtime settings use URL-first fields (`APP_DATABASE_URL`, `MIGRATION_DATABASE_URL`) with no runtime fallback assembly.
-- Test environment safety is governed by dedicated `.env.test` values and isolated test compose topology.
+- Test environment safety is governed by dedicated test-only environment values and isolated test compose topology.
 
 ## Migration Safety Policy
 - Test migration entrypoint is `scripts/alembic-upgrade-test.sh`.
 - Test migration configuration is loaded from `apps/api/alembic.ini`.
-- Test migration runtime settings are loaded from `.env.test` through `pydantic-settings`.
-- Alembic test runs execute with `.env.test` values injected into process environment before startup.
+- Test migration runtime settings are loaded from current process environment through `pydantic-settings`.
+- Alembic test runs execute only after test scripts inject the dedicated test environment into the process.
 
 ## Test Execution Policy
 - Default fast test gate remains unit-only (`scripts/run-tests.sh`).
@@ -40,8 +40,8 @@ out_of_scope: Production database hardening, backup strategy, and multi-node top
   4. Tear down test stack (unless `KEEP_TEST_DB=1`).
 
 ## Fixture Contract
-- Integration fixtures inject `.env.test` into process environment and construct `Settings()` from environment only.
-- Migration helpers inject `.env.test` into process environment and construct `MigrationSettings()` from environment only.
+- Integration fixtures construct `Settings()` from current process environment only.
+- Migration helpers construct `MigrationSettings()` from current process environment only.
 - Session-scoped async engine is used for performance.
 - Function-scoped transaction rollback provides per-test data isolation.
 - Async sessions use `join_transaction_mode="create_savepoint"` and `expire_on_commit=False`.
