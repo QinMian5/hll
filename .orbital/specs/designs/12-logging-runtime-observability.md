@@ -67,8 +67,8 @@ out_of_scope: Request correlation identifiers, global error-governance refactor,
 
 ## Entrypoint Ownership
 - Logging initialization is performed only in process entrypoints.
-- API process entrypoint initializes logging once in `apps/api/src/main.py` before serving requests.
-- Worker process entrypoint initializes logging once in `apps/api/src/entrypoints/worker/actors.py` at process bootstrap path before actor execution.
+- API process bootstrap initializes logging once in `apps/api/src/entrypoints/api/bootstrap.py` before serving requests.
+- Worker process bootstrap initializes logging once in `apps/api/src/entrypoints/worker/bootstrap.py` before actor registration and execution.
 - Business modules import `get_logger(__name__)` (or `logging.getLogger(__name__)` where unchanged) and must not configure handlers.
 
 ## Failure Behavior

@@ -6,39 +6,17 @@ Out of scope: HTTP transport behavior and module-level business orchestration ru
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 
 import dramatiq
 
-from core.logging import configure_logging, get_logger
-from entrypoints.logging_bootstrap import (
-    ConfigureLogging,
-    LoggingSettings,
-    bootstrap_logging,
-)
-from entrypoints.runtime import get_runtime_dependencies, get_settings
+from core.logging import get_logger
+from entrypoints.runtime import get_runtime_dependencies
 from modules.ingestion.queue import (
     INGESTION_ACTOR_NAME,
     INGESTION_QUEUE_NAME,
     IngestionTask,
-    configure_broker,
 )
 
-
-def bootstrap_worker_logging(
-    *,
-    settings_loader: Callable[[], LoggingSettings] = get_settings,
-    configure: ConfigureLogging = configure_logging,
-) -> LoggingSettings:
-    return bootstrap_logging(
-        settings_loader=settings_loader,
-        configure=configure,
-    )
-
-
-runtime_settings = get_settings()
-bootstrap_worker_logging(settings_loader=lambda: runtime_settings)
-configure_broker(redis_url=runtime_settings.redis_url)
 logger = get_logger(__name__)
 
 

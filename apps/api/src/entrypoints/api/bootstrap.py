@@ -1,5 +1,5 @@
 """
-Abstract: API process bootstrap that initializes logging and exports the app entrypoint.
+Abstract: API process bootstrap functions that initialize logging and build the FastAPI app.
 Out of scope: Route registration details and request-scoped dependency behavior.
 """
 
@@ -40,6 +40,4 @@ def build_app(
     return app_factory()
 
 
-app = build_app()
-
-__all__ = ["app"]
+__all__ = ["bootstrap_api_logging", "build_app"]

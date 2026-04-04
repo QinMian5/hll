@@ -43,7 +43,7 @@ out_of_scope: Module-level exhaustive error-code catalogs, advanced CI matrices,
 - Application runtime must construct settings from process environment only (`Settings()` / `MigrationSettings()`).
 
 ## Dependency Injection Constraints
-- Runtime dependency construction is centralized in `apps/api/src/entrypoints/runtime.py` and consumed by `entrypoints/api/providers.py` and `entrypoints/worker/actors.py`.
+- Runtime dependency construction is centralized in `apps/api/src/entrypoints/runtime.py` and consumed by `entrypoints/api/providers.py`, `entrypoints/api/bootstrap.py`, `entrypoints/worker/bootstrap.py`, and `entrypoints/worker/actors.py`.
 - `load_settings()` is a composition-root API and must be called only from runtime composition entrypoints.
 - `load_migration_settings()` is a migration composition-root API and must be called only from migration runtime entrypoints.
 - Service and orchestration code must receive dependencies through explicit constructor/function parameters.

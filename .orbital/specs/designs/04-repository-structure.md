@@ -43,7 +43,7 @@ repo/
 
 ## Directory Ownership
 - repository root: cross-member workspace configuration, human-facing repository execution entrypoints, shared quality tooling configuration, shared TypeScript base configuration, and git-hook governance.
-- `apps/api`: FastAPI service source, runtime entrypoint, API-side tests, and Alembic migration assets.
+- `apps/api`: FastAPI service source, process bootstrap shells, API-side tests, and Alembic migration assets.
 - `apps/cli`: local operator-facing CLI source and CLI-specific dependency declaration.
 - `apps/web`: React web client source, web-specific package manifest, and web-specific TypeScript entrypoint configs.
 - `packages/contracts`: authoritative OpenAPI snapshot, generated client artifacts, contracts-specific scripts, and contracts-specific package manifest.
@@ -60,7 +60,6 @@ apps/api/
     versions/
   alembic.ini
   src/
-    main.py
     core/
       config.py
       logging.py
@@ -68,9 +67,12 @@ apps/api/
     entrypoints/
       runtime.py
       api/
+        bootstrap.py
         app.py
         providers.py
       worker/
+        bootstrap.py
+        entrypoint.py
         actors.py
     modules/
       knowledge_graph/

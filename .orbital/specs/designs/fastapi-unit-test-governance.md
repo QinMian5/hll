@@ -27,12 +27,12 @@ out_of_scope: Database topology isolation policy, queue-worker runtime behavior,
   - HTTP endpoint tests SHALL use `@pytest.mark.anyio` and `await` all HTTP calls.
   - Shared fixture infrastructure SHALL be defined in `apps/api/tests/conftest.py` and SHALL expose:
     - `dependency_overrides` for per-module override injection.
-    - `app` fixture that reuses `main.app`.
+    - `app` fixture that reuses `entrypoints.api.bootstrap.build_app`.
     - `async_client` fixture for async HTTP calls.
   - Teardown SHALL reset `app.dependency_overrides` to an empty dictionary after each test.
-  - HTTP endpoint tests SHALL reuse the existing application construction from `main.py`.
+  - HTTP endpoint tests SHALL reuse the existing application construction from `entrypoints.api.bootstrap`.
   - HTTP endpoint tests SHALL NOT instantiate local `FastAPI()` apps in test modules.
-  - HTTP endpoint tests SHALL NOT define ad-hoc middleware in test modules when equivalent middleware exists in `main.py`.
+  - HTTP endpoint tests SHALL NOT define ad-hoc middleware in test modules when equivalent middleware exists in the shared API application factory.
   - New HTTP endpoint tests SHALL follow this design for both `unit` and lightweight `integration` layers.
 - **Update Rule:** Keep top-level quality constraints in requirements stable and update this document for framework-specific FastAPI test-governance details.
 
@@ -59,7 +59,7 @@ out_of_scope: Database topology isolation policy, queue-worker runtime behavior,
   - Endpoint assertions focus on HTTP contract behavior (status code and response shape).
 - **Interactions:**
   - Test modules provide module-local `dependency_overrides`.
-  - Shared `app` fixture applies overrides to `main.app`.
+  - Shared `app` fixture applies overrides to the shared API app built from `entrypoints.api.bootstrap`.
   - Shared teardown clears overrides.
   - `async_client` performs awaited HTTP calls against the shared app instance.
 

@@ -244,8 +244,8 @@ AppError
 | `503` vs `500` split for infrastructure/unknown errors | integration runtime-path tests | `shared/db` + `core/error_handlers.py` | `test` |
 | Accepted-ingestion contract keeps `202` for valid payloads with downstream failures handled internally | integration tests for ingestion endpoint plus worker failure scenarios | `modules/ingestion` + `core/error_handlers.py` | `test` |
 | Runtime request-id propagation to payload/header/logs | middleware + handler integration tests | `core/request_id.py` + `api` | `test` |
-| Startup fail-fast with startup `request_id` logging | startup integration tests | `core/config.py` + `shared/db/session.py` + `main.py` | `test` |
-| Startup sequence S1..S5 behavior and logger-channel guarantees | startup integration tests with controlled failure injection | `main.py` + `core/logging.py` + `core/config.py` | `test` |
+| Startup fail-fast with startup `request_id` logging | startup integration tests | `core/config.py` + `shared/db/session.py` + `entrypoints/api/bootstrap.py` | `test` |
+| Startup sequence S1..S5 behavior and logger-channel guarantees | startup integration tests with controlled failure injection | `entrypoints/api/bootstrap.py` + `core/logging.py` + `core/config.py` | `test` |
 | Error envelope exposure in OpenAPI contract | contract tests against OpenAPI schema | `api` + `packages/contracts` | `contract drift` |
 
 ## Deferred to Later Phases

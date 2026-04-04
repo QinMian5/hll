@@ -54,16 +54,19 @@ def app(
             continue
         monkeypatch.setenv(key, value)
 
-    import main as main_module
+    import entrypoints.api.bootstrap as api_bootstrap
+    from entrypoints.runtime import get_settings
 
-    importlib.reload(main_module)
-    main_app = main_module.app
+    get_settings.cache_clear()
+    importlib.reload(api_bootstrap)
+    main_app = api_bootstrap.build_app()
 
     main_app.dependency_overrides = dict(dependency_overrides)
     try:
         yield main_app
     finally:
         main_app.dependency_overrides = {}
+        get_settings.cache_clear()
 
 
 @pytest.fixture
