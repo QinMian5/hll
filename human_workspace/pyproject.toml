@@ -16,7 +16,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 py-modules = [
+    "wiki_preprocess",
     "wiki_preprocess_classify",
+    "wiki_preprocess_clean",
     "wiki_preprocess_types",
     "wiki_preprocess_write",
     "wiki_preprocess_xml",
