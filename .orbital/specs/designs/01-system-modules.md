@@ -11,7 +11,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
-- **Scope/Boundaries:** Covers module ownership for frontend, backend API, operator CLI, knowledge_graph, search, ingestion, semantic_map, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
+- **Scope/Boundaries:** Covers module ownership for frontend, backend API, operator CLI, knowledge_graph, taxonomy, search, ingestion, semantic_map, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Module Responsibilities
@@ -104,6 +104,21 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Frontend rendering concerns.
   - Queue broker transport configuration.
 
+### taxonomy Module
+- **Responsibilities:**
+  - Own the authoritative persisted LCC taxonomy tree.
+  - Own final knowledge-node to taxonomy-leaf assignment truth.
+  - Own taxonomy import orchestration from operator-supplied YAML input.
+  - Provide read/write service ports consumed by downstream modules that need taxonomy structure or final assignments.
+- **Contains:**
+  - Taxonomy model projection, repository implementation, domain service, and taxonomy DTO/port contracts.
+- **Non-responsibilities:**
+  - Knowledge-node persistence ownership.
+  - LLM classification orchestration and candidate workflow state.
+  - Frontend rendering implementation.
+  - Search query orchestration.
+  - API entrypoint composition.
+
 ### search Module
 - **Responsibilities:**
   - Own read-side search orchestration.
@@ -119,8 +134,9 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### semantic_map Module
 - **Responsibilities:**
   - Own semantic-map snapshot read contracts and read-side orchestration.
-  - Own semantic-map snapshot rebuild orchestration for projection, clustering, region geometry, label recommendation, and tile materialization.
-  - Read graph-domain truth through `knowledge_graph` service ports when semantic-map rebuild requires source data.
+  - Own semantic-map snapshot rebuild orchestration for embedding projection, region geometry, label recommendation, and tile materialization.
+  - Read taxonomy structure and final taxonomy assignments through `taxonomy` service ports when semantic-map rebuild requires top-level semantic structure truth.
+  - Read graph-domain truth through `knowledge_graph` service ports when semantic-map rebuild requires knowledge-node and embedding source data.
   - Publish the current semantic-map snapshot used by frontend browsing.
   - Execute Phase 1 rebuild flow only when invoked by a dedicated operator command or script.
 - **Contains:**
@@ -168,10 +184,11 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ## Dependency Direction
 - V1 runtime dependency direction is:
   - `Frontend -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`
-  - `Frontend -> Backend API(semantic_map) -> entrypoints.api -> semantic_map -> knowledge_graph -> Database`
+  - `Frontend -> Backend API(semantic_map) -> entrypoints.api -> semantic_map -> taxonomy + knowledge_graph -> Database`
   - `Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
   - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
-  - `Background semantic-map rebuild execution -> semantic_map -> knowledge_graph -> Database`
+  - `Background taxonomy bootstrap execution -> taxonomy -> Database`
+  - `Background semantic-map rebuild execution -> semantic_map -> taxonomy + knowledge_graph -> Database`
   - `core` is inbound-only (`entrypoints` and tooling import `core`; `core` does not import `entrypoints/modules/shared`).
 - Local/offline auxiliary dependency direction is:
   - `External local scripts/programs -> Knowledge Corpus App -> Dedicated Knowledge Corpus PostgreSQL Service`
@@ -179,5 +196,5 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - Reserved modules do not participate in V1 runtime behavior.
 
 ## V1 Boundary Summary
- - V1 delivers ingestion acceptance API, search read API, semantic-map read API, a local reviewed card-submission CLI, card-relation retrieval, and multi-scale semantic-map browsing.
+- V1 delivers ingestion acceptance API, search read API, semantic-map read API, taxonomy-backed semantic structure truth, a local reviewed card-submission CLI, card-relation retrieval, and multi-scale semantic-map browsing.
 - V1 excludes filter interaction and excludes runtime dependency on cache and object storage.

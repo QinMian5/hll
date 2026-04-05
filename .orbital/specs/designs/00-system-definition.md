@@ -29,7 +29,7 @@ The core value is to enable open knowledge dissemination and sharing in the agen
 - Search capability in V1 read APIs.
 - Atomic knowledge cards.
 - Relation links with dot-product-mapped strength computation in ingestion worker execution.
-- Snapshot-based semantic-map artifacts derived from persisted knowledge embeddings.
+- Snapshot-based semantic-map artifacts organized by authoritative taxonomy structure and informed by persisted knowledge embeddings.
 - Multi-scale 2D semantic-map visualization with pan and semantic zoom support.
 - Platform-official knowledge construction.
 

@@ -35,6 +35,8 @@ out_of_scope: Runtime request-session management, API business orchestration, an
 - Extension-enabling revisions that provide required types/operators must execute before dependent schema revisions.
 - For `pgvector`, `CREATE EXTENSION IF NOT EXISTS vector` must be established before vector-typed schema operations.
 - Extension downgrade removal is not part of V1 baseline policy unless an explicit future governance decision changes it.
+- Table/column/index constraints that are representable in ORM metadata use governed autogenerate flow as the default.
+- Database constructs that are not reliably derivable from ORM metadata, such as accepted cross-table trigger enforcement, use dedicated hand-authored migrations scoped only to those constructs.
 
 ## Failure and Blocking Policy
 - Migration failure blocks release progression and blocks dependent runtime rollout.

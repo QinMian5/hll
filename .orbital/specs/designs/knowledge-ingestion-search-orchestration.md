@@ -11,8 +11,8 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the accepted V1 module orchestration for `knowledge_graph`, `ingestion`, `search`, and semantic-map source access under async ingestion with Redis and Dramatiq.
-- **Scope/Boundaries:** Covers module ownership, endpoint contracts, asynchronous processing flow, semantic-map source-read rules, data visibility rules, and runtime observability obligations.
+- **Purpose:** Define the accepted V1 module orchestration for `knowledge_graph`, `taxonomy`, `ingestion`, `search`, and semantic-map source access under async ingestion with Redis and Dramatiq.
+- **Scope/Boundaries:** Covers module ownership, endpoint contracts, asynchronous processing flow, taxonomy bootstrap boundaries, semantic-map source-read rules, data visibility rules, and runtime observability obligations.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Constraint Projection
@@ -28,6 +28,12 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Exposes read/write domain service ports consumed by `search`, `ingestion`, and `semantic_map`.
 - Contains domain DTOs used by `knowledge_graph` service ports and repository outputs.
 - Does not contain HTTP route handlers, queue broker configuration, or worker actor declarations.
+
+### taxonomy
+- Owns the persisted LCC taxonomy tree and the final knowledge-node to taxonomy-leaf assignment truth.
+- Owns taxonomy import orchestration from operator-supplied YAML.
+- Exposes read/write service ports consumed by `semantic_map` and later classification workflows.
+- Does not own graph persistence truth, HTTP route handlers, or LLM candidate workflows.
 
 ### ingestion
 - Owns write-side HTTP acceptance endpoint and write orchestration.
@@ -51,10 +57,12 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 
 ### semantic_map
 - Owns semantic-map snapshot read orchestration and snapshot rebuild orchestration.
-- Calls `knowledge_graph` service ports for semantic-map source truth required by snapshot rebuilding and semantic-map reads.
+- Calls `taxonomy` service ports for taxonomy structure and final assignment truth required by snapshot rebuilding and semantic-map reads.
+- Calls `knowledge_graph` service ports for knowledge-node and embedding source truth required by snapshot rebuilding and semantic-map reads.
 - Does not expose rebuild initiation as an HTTP API in Phase 1.
 - Uses a dedicated operator command or script for rebuild initiation in Phase 1.
 - Must not import `knowledge_graph.repo` or `knowledge_graph.model`.
+- Must not import `taxonomy.repo` or `taxonomy.model`.
 
 ## API Contract
 
@@ -92,6 +100,12 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 6. Worker calls `knowledge_graph` write service port to persist `Node`.
 7. Worker computes `dot_product`-mapped edge strength with `strength = (dot_product + 1) / 2`, keeps candidates with `strength >= 0.8`, selects at most the first `10`, and persists `Edge` and `Adjacency` rows.
 8. Search path reads persisted graph data only; no processing-state data is exposed by search.
+
+## Taxonomy Bootstrap Flow
+1. An operator-run import script reads `human_workspace/LCC.yaml`.
+2. The script fails immediately when taxonomy storage already contains rows.
+3. The script computes `depth` and `is_leaf` for every taxonomy node and writes the authoritative taxonomy tree.
+4. Later classification orchestration binds each knowledge node to one final taxonomy leaf through `taxonomy`.
 
 ## Runtime Dependencies
 - Redis is required as queue broker for ingestion.

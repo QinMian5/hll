@@ -11,7 +11,7 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the semantic-map product module that turns persisted knowledge embeddings into snapshot-based semantic-space artifacts and exposes stable read contracts for frontend semantic-map browsing.
+- **Purpose:** Define the semantic-map product module that turns authoritative taxonomy structure plus persisted knowledge embeddings into snapshot-based semantic-space artifacts and exposes stable read contracts for frontend semantic-map browsing.
 - **Scope/Boundaries:** Covers backend semantic-map module ownership, snapshot publication model, semantic-map HTTP contracts, frontend feature boundaries, and staged delivery slices. Excludes storage-engine internals, authentication, and non-semantic-map product surfaces.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
@@ -22,6 +22,7 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
 
 ## Inputs & Outputs
 - **Inputs:**
+  - Persisted taxonomy tree and final taxonomy-leaf assignments.
   - Persisted `knowledge_graph` nodes and embeddings.
   - Persisted relation truth owned by `knowledge_graph`.
   - Frontend viewport requests for semantic-map manifest and region tiles.
@@ -35,7 +36,7 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
   - Generated OpenAPI-derived frontend contract artifacts under `packages/contracts/generated`.
 
 ## Design Approach
-- **Approach:** Build semantic-map browsing as a dedicated product module that reads graph-domain truth through service ports, precomputes semantic-space snapshots asynchronously, and serves snapshot-pinned region and label tiles to a `deck.gl` frontend feature.
+- **Approach:** Build semantic-map browsing as a dedicated product module that reads taxonomy structure and graph-domain truth through service ports, precomputes snapshot artifacts asynchronously, and serves snapshot-pinned region and label tiles to a `deck.gl` frontend feature.
 - **Key Elements:**
   - **Semantic-map module ownership:** `apps/api/src/modules/semantic_map` owns semantic-map read contracts, snapshot read orchestration, and snapshot rebuild orchestration. It does not own graph persistence truth.
   - **Persistence projection source:** `apps/api/src/modules/semantic_map/model.py` defines the accepted snapshot persistence shape on shared SQLAlchemy metadata. Alembic revisions are derived from registered metadata through governed autogenerate flow; migration files are not the schema source of truth.
@@ -45,14 +46,15 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
   - **Phase 1 schema-version token:** Until a separate schema-versioning policy is accepted, `schema_version` mirrors the published snapshot `version` token instead of using a hard-coded static string.
   - **Snapshot publish consistency:** Snapshot publication flips prior `current` rows off and publishes a new `current` snapshot only when the new snapshot manifest and region-tile payload set are written successfully.
   - **Rebuild initiation surface:** Phase 1 rebuild execution is initiated only through a dedicated operator command or script. No HTTP rebuild endpoint is exposed, and ingestion does not auto-enqueue snapshot rebuilds.
-  - **Phase 1 rebuild baseline:** Rebuild execution reads projection nodes from a `knowledge_graph` projection port, projects embeddings into 2D with `sklearn.decomposition.PCA(n_components=2)`, derives a full hierarchy with `AgglomerativeClustering(distance_threshold=0, n_clusters=None, compute_distances=True)`, and computes region hulls in-repo.
-  - **Phase 1 semantic levels:** The accepted baseline defines three explicit levels: `domains` (zoom `0..1`), `themes` (zoom `2..3`), and `topics` (zoom `4..6`).
+  - **High-level structure truth:** Semantic-map top-level structure comes from the persisted taxonomy tree rather than from embedding-only clustering. Semantic-map rebuild consumes taxonomy nodes and final node-to-leaf assignments as the structural truth for region hierarchy.
+  - **Embedding role:** Persisted embeddings support spatial projection, local arrangement inside taxonomy-backed regions, and lower-level neighborhood organization. Embeddings do not define the authoritative top-level class hierarchy.
+  - **Semantic level model:** Semantic levels are taxonomy-depth-driven rather than one fixed hand-authored set of three global semantic bands. Frontend semantic zoom must tolerate varying taxonomy depth.
   - **Phase 1 world normalization:** Rebuild normalizes projected coordinates into one fixed Cartesian world extent `[0.0, 0.0, 1000.0, 1000.0]`, with `default_view.target = [500.0, 500.0]` and `default_view.zoom = 0.0`.
   - **Empty-source behavior:** When no projection nodes are available, rebuild returns without publishing a new snapshot so the frontend continues to see the latest successful version or the explicit no-snapshot empty state.
   - **Semantic-space rendering model:** Frontend semantic-map browsing uses `DeckGL` with `OrthographicView` over a Cartesian 2D world. Region and label layers are the primary Phase 1 rendering outputs. Point and edge detail are deferred to later accepted slices.
   - **Contract generation rule:** FastAPI route and schema definitions are the only transport-contract source. OpenAPI export and generated TypeScript client/types under `packages/contracts` are the only frontend transport types used by `apps/web`.
   - **Frontend feature boundary:** `apps/web/src/features/semantic-map` owns semantic-map page composition, rendering engine code, generated-client API adapters, and feature-specific UI overlays. Reusable primitives move to `shared/**` only after demonstrated cross-feature reuse.
-  - **Semantic level model:** Semantic-map levels are explicit manifest entries with stable `level`, semantic role, and zoom-band ranges. Frontend semantic zoom maps viewport zoom to semantic levels and recommended rendering transitions; it does not infer level boundaries from tile indices alone.
+  - **Manifest role:** Semantic-map manifest remains the read-side bootstrap document for frontend rendering metadata, but accepted level semantics are derived from taxonomy depth rather than from an embedding-defined global hierarchy.
   - **Coordinate system:** Semantic-map contracts use one Cartesian 2D coordinate system with `x-right-y-up` axis semantics and `[min_x, min_y, max_x, max_y]` bounds formatting for world and tile bounds.
   - **Region geometry extensibility:** Region payloads expose `geometry` as a typed structure (`polygon` or `multi_polygon`).
   - **Label semantics:** Region naming truth and tile display recommendations are separate. `region_name` identifies the semantic region; tile `labels[]` contain the recommended text payloads for the current tile and current semantic level.
@@ -63,7 +65,7 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
     - **Phase 3:** local edge rendering, focus-driven graph detail, and advanced performance or visual refinements.
 - **Interactions:**
   - Ingestion persists knowledge truth through the existing async write path.
-  - Background semantic-map rebuild execution reads persisted knowledge truth through `knowledge_graph` service ports and publishes a new snapshot on success.
+  - Background semantic-map rebuild execution reads persisted taxonomy truth through `taxonomy` service ports, reads persisted knowledge truth through `knowledge_graph` service ports, and publishes a new snapshot on success.
   - Frontend requests `GET /semantic-map/manifest/current` to discover the latest successful snapshot and rendering metadata.
   - Frontend requests `GET /semantic-map/versions/{version}/tiles/regions/{semantic_level}/{z}/{x}/{y}` for region and recommended-label payloads.
   - Frontend renders semantic-map content through `deck.gl` and keeps transport-contract handling inside generated-client adapters rather than duplicating schema definitions.
