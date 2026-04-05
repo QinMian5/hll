@@ -21,7 +21,7 @@ out_of_scope: Production database hardening, backup strategy, and multi-node top
 - Test runtime configuration is provided through current process environment, with repository scripts conventionally loading local-only `infra/env/.env.test` before invoking compose or pytest.
 
 ## Configuration Policy
-- Test runtime settings use URL-first fields (`APP_DATABASE_URL`, `MIGRATION_DATABASE_URL`) with no runtime fallback assembly.
+- Test runtime settings use URL-first fields (`KNOWLEDGE_API_DATABASE_URL`, `KNOWLEDGE_API_MIGRATION_DATABASE_URL`) with no runtime fallback assembly.
 - Test environment safety is governed by dedicated test-only environment values and isolated test compose topology.
 
 ## Migration Safety Policy

@@ -18,17 +18,17 @@ DependencyCallable = Callable[..., Any]
 DependencyOverrides = dict[DependencyCallable, DependencyCallable]
 
 DEFAULT_APP_ENV = {
-    "APP_DATABASE_URL": "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge",
-    "REDIS_URL": "redis://redis:6379/0",
-    "EMBEDDING_API_URL": "https://api.openai.com/v1/embeddings",
-    "EMBEDDING_MODEL": "text-embedding-3-small",
-    "EMBEDDING_API_KEY": "test-key",
-    "EMBEDDING_TIMEOUT_SECONDS": "10",
-    "SEARCH_MAX_MATCHED": "5",
-    "SEARCH_MAX_CONNECTED": "10",
-    "EDGE_SIMILARITY_TOP_K": "10",
-    "EDGE_SIMILARITY_MIN_STRENGTH": "0.8",
-    "LOG_FILE_PATH": "logs/api/app.log",
+    "KNOWLEDGE_API_DATABASE_URL": "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge",
+    "KNOWLEDGE_API_REDIS_URL": "redis://redis:6379/0",
+    "KNOWLEDGE_API_EMBEDDING_API_URL": "https://api.openai.com/v1/embeddings",
+    "KNOWLEDGE_API_EMBEDDING_MODEL": "text-embedding-3-small",
+    "KNOWLEDGE_API_EMBEDDING_API_KEY": "test-key",
+    "KNOWLEDGE_API_EMBEDDING_TIMEOUT_SECONDS": "10",
+    "KNOWLEDGE_API_SEARCH_MAX_MATCHED": "5",
+    "KNOWLEDGE_API_SEARCH_MAX_CONNECTED": "10",
+    "KNOWLEDGE_API_EDGE_SIMILARITY_TOP_K": "10",
+    "KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH": "0.8",
+    "KNOWLEDGE_API_LOG_FILE_PATH": "logs/api/app.log",
 }
 
 

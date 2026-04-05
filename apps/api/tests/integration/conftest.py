@@ -39,7 +39,7 @@ def test_settings() -> Settings:
 @pytest.fixture(scope="session")
 async def db_engine(test_settings: Settings) -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(
-        test_settings.app_database_url,
+        test_settings.database_url,
         pool_pre_ping=True,
     )
     try:

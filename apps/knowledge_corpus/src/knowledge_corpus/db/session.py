@@ -25,7 +25,7 @@ def build_engine(*, database_url: str) -> AsyncEngine:
 
 
 def build_session_factory(settings: Settings) -> tuple[AsyncEngine, SessionFactory]:
-    engine = build_engine(database_url=settings.knowledge_corpus_database_url)
+    engine = build_engine(database_url=settings.database_url)
     session_factory: SessionFactory = async_sessionmaker(
         engine,
         expire_on_commit=False,

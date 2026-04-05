@@ -45,23 +45,23 @@ out_of_scope: Request correlation identifiers, global error-governance refactor,
 ## Rotation Policy
 - Rotation strategy is size-based.
 - MVP baseline values:
-  - `LOG_FILE_MAX_BYTES=10485760` (10MB)
-  - `LOG_FILE_BACKUP_COUNT=5`
+  - `KNOWLEDGE_API_LOG_FILE_MAX_BYTES=10485760` (10MB)
+  - `KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT=5`
 - Rotation stays in the same directory as the main log file.
 
 ## Configuration Policy
 - Logging values are configured at process startup through the existing settings entrypoint.
 - MVP supports explicit configuration for:
-  - `LOG_LEVEL`
-  - `LOG_FILE_PATH`
-  - `LOG_FILE_MAX_BYTES`
-  - `LOG_FILE_BACKUP_COUNT`
+  - `KNOWLEDGE_API_LOG_LEVEL`
+  - `KNOWLEDGE_API_LOG_FILE_PATH`
+  - `KNOWLEDGE_API_LOG_FILE_MAX_BYTES`
+  - `KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT`
 - Required key:
-  - `LOG_FILE_PATH`
+  - `KNOWLEDGE_API_LOG_FILE_PATH`
 - Defaulted keys:
-  - `LOG_LEVEL=INFO`
-  - `LOG_FILE_MAX_BYTES=10485760` (10MB)
-  - `LOG_FILE_BACKUP_COUNT=5`
+  - `KNOWLEDGE_API_LOG_LEVEL=INFO`
+  - `KNOWLEDGE_API_LOG_FILE_MAX_BYTES=10485760` (10MB)
+  - `KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT=5`
 - `LOG_NAMESPACE_ROOT` is not required in this round.
 - This round does not add request-correlation-specific configuration.
 
@@ -73,7 +73,7 @@ out_of_scope: Request correlation identifiers, global error-governance refactor,
 
 ## Failure Behavior
 - Known logging setup errors must fail explicitly during entrypoint startup.
-- `LOG_FILE_PATH` parent-directory policy:
+- `KNOWLEDGE_API_LOG_FILE_PATH` parent-directory policy:
   - if parent directory is missing, runtime may create it.
   - if parent path exists but is not a directory, startup must fail.
   - if directory creation fails, startup must fail.

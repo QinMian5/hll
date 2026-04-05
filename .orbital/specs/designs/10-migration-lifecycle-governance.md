@@ -27,7 +27,7 @@ out_of_scope: Runtime request-session management, API business orchestration, an
 
 ## Migration Connection Policy
 - Migration execution uses migration-role credentials, separate from runtime app-role credentials.
-- Migration connection configuration is maintained as `MIGRATION_DATABASE_URL`.
+- Migration connection configuration is maintained as `KNOWLEDGE_API_MIGRATION_DATABASE_URL`.
 - Migration settings consume the URL value directly and do not assemble URLs from component fields.
 
 ## Revision and Ordering Policy

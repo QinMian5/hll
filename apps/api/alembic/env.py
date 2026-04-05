@@ -23,7 +23,7 @@ if config.config_file_name is not None:
 
 settings = load_migration_settings()
 
-config.set_main_option("sqlalchemy.url", settings.migration_database_url)
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 target_metadata = Base.metadata
 REGISTERED_MODEL_MODULES = (knowledge_graph_model, semantic_map_model, taxonomy_model)

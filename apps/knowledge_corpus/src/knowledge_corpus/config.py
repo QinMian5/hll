@@ -10,20 +10,22 @@ from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDic
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
+        env_prefix="KNOWLEDGE_CORPUS_",
         extra="forbid",
         case_sensitive=False,
     )
 
-    knowledge_corpus_database_url: str
+    database_url: str
 
 
 class MigrationSettings(BaseSettings):
     model_config = SettingsConfigDict(
+        env_prefix="KNOWLEDGE_CORPUS_MIGRATION_",
         extra="forbid",
         case_sensitive=False,
     )
 
-    knowledge_corpus_migration_database_url: str
+    database_url: str
 
 
 def load_settings() -> Settings:

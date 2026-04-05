@@ -18,6 +18,4 @@ def test_alembic_env_uses_knowledge_corpus_migration_url(
         "postgresql+psycopg://corpus_migration:secret@knowledge_corpus_db:5432/knowledge_corpus",
     )
 
-    assert load_migration_settings().knowledge_corpus_migration_database_url.startswith(
-        "postgresql+psycopg://"
-    )
+    assert load_migration_settings().database_url.startswith("postgresql+psycopg://")

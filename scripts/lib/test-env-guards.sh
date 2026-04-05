@@ -27,11 +27,11 @@ validate_knowledge_corpus_test_settings() {
 get_migration_database_url() {
   local api_dir="$1"
   uv --directory "$api_dir" run python -c \
-    "from core.config import load_migration_settings; print(load_migration_settings().migration_database_url)"
+    "from core.config import load_migration_settings; print(load_migration_settings().database_url)"
 }
 
 get_knowledge_corpus_migration_database_url() {
   local corpus_dir="$1"
   uv --directory "$corpus_dir" run python -c \
-    "from knowledge_corpus.config import load_migration_settings; print(load_migration_settings().knowledge_corpus_migration_database_url)"
+    "from knowledge_corpus.config import load_migration_settings; print(load_migration_settings().database_url)"
 }

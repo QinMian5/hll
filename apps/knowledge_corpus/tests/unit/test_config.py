@@ -24,7 +24,7 @@ def test_migration_settings_type_is_defined() -> None:
     assert MigrationSettings is not None
 
 
-def test_load_settings_reads_knowledge_corpus_database_url(
+def test_load_settings_reads_database_url(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
@@ -38,7 +38,7 @@ def test_load_settings_reads_knowledge_corpus_database_url(
 
     settings = load_settings()
 
-    assert settings.knowledge_corpus_database_url.startswith("postgresql+psycopg://")
+    assert settings.database_url.startswith("postgresql+psycopg://")
 
 
 def test_load_migration_settings_reads_database_url(
@@ -51,14 +51,14 @@ def test_load_migration_settings_reads_database_url(
 
     settings = load_migration_settings()
 
-    assert settings.knowledge_corpus_migration_database_url.startswith("postgresql+psycopg://")
+    assert settings.database_url.startswith("postgresql+psycopg://")
 
 
 def test_settings_validation_forbids_unexpected_keys() -> None:
     with pytest.raises(ValidationError, match="unexpected_key"):
         Settings.model_validate(
             {
-                "knowledge_corpus_database_url": (
+                "database_url": (
                     "postgresql+psycopg://corpus_app:secret@knowledge_corpus_db:5432/knowledge_corpus"
                 ),
                 "unexpected_key": "boom",

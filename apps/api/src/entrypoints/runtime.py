@@ -32,7 +32,7 @@ def get_settings() -> Settings:
 def get_engine(*, settings: Settings) -> AsyncEngine:
     global _engine
     if _engine is None:
-        _engine = build_async_engine(database_url=settings.app_database_url)
+        _engine = build_async_engine(database_url=settings.database_url)
     return _engine
 
 

@@ -34,7 +34,7 @@ def test_settings() -> Settings:
 
 @pytest.fixture(scope="session")
 async def db_engine(test_settings: Settings) -> AsyncIterator[AsyncEngine]:
-    engine = build_engine(database_url=test_settings.knowledge_corpus_database_url)
+    engine = build_engine(database_url=test_settings.database_url)
     try:
         async with engine.connect() as connection:
             await connection.scalar(text("SELECT current_database()"))

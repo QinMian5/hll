@@ -17,16 +17,16 @@ source "$ENV_FILE"
 set +a
 validate_test_settings "$API_DIR"
 
-MIGRATION_DATABASE_URL="$(get_migration_database_url "$API_DIR")"
+KNOWLEDGE_API_MIGRATION_DATABASE_URL="$(get_migration_database_url "$API_DIR")"
 
-MIGRATION_DATABASE_URL="$MIGRATION_DATABASE_URL" \
+KNOWLEDGE_API_MIGRATION_DATABASE_URL="$KNOWLEDGE_API_MIGRATION_DATABASE_URL" \
   uv --directory "$API_DIR" run python - <<'PY'
 import os
 import time
 
 import psycopg
 
-database_url = os.environ["MIGRATION_DATABASE_URL"]
+database_url = os.environ["KNOWLEDGE_API_MIGRATION_DATABASE_URL"]
 connect_url = database_url.replace("postgresql+psycopg://", "postgresql://", 1)
 deadline = time.time() + 30
 

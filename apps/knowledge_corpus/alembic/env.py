@@ -27,7 +27,7 @@ runtime_settings = load_settings()
 
 config.set_main_option(
     "sqlalchemy.url",
-    settings.knowledge_corpus_migration_database_url,
+    settings.database_url,
 )
 
 target_metadata = Base.metadata
@@ -40,8 +40,8 @@ def _quote_ident(identifier: str) -> str:
 
 
 def _grant_schema_privileges(*, connection: Connection, schema_name: str) -> None:
-    app_username = make_url(runtime_settings.knowledge_corpus_database_url).username
-    migration_username = make_url(settings.knowledge_corpus_migration_database_url).username
+    app_username = make_url(runtime_settings.database_url).username
+    migration_username = make_url(settings.database_url).username
     if app_username is None or migration_username is None:
         raise ValueError("Both knowledge corpus database URLs must include usernames.")
 

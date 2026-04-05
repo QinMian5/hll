@@ -13,11 +13,12 @@ from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDic
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
+        env_prefix="KNOWLEDGE_API_",
         extra="ignore",
         case_sensitive=False,
     )
 
-    app_database_url: str
+    database_url: str
     redis_url: str
     embedding_api_url: str
     embedding_model: str
@@ -35,11 +36,12 @@ class Settings(BaseSettings):
 
 class MigrationSettings(BaseSettings):
     model_config = SettingsConfigDict(
+        env_prefix="KNOWLEDGE_API_MIGRATION_",
         extra="ignore",
         case_sensitive=False,
     )
 
-    migration_database_url: str
+    database_url: str
 
 
 def load_settings() -> Settings:

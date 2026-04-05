@@ -119,13 +119,13 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Compose commands inject environment values through outer `docker compose --env-file ...` invocation; service definitions must not declare `env_file`.
 - Application code, test code, and migration code read only current process environment and must not load `.env` files directly.
 - Queue and embedding runtime configuration include:
-  - `REDIS_URL` with backend-network address `redis://redis:6379/0`
-  - `EMBEDDING_API_URL` using OpenAI embeddings endpoint
-  - `EMBEDDING_MODEL` set to `text-embedding-3-small`
-  - `EMBEDDING_API_KEY` from runtime secret injection
+  - `KNOWLEDGE_API_REDIS_URL` with backend-network address `redis://redis:6379/0`
+  - `KNOWLEDGE_API_EMBEDDING_API_URL` using OpenAI embeddings endpoint
+  - `KNOWLEDGE_API_EMBEDDING_MODEL` set to `text-embedding-3-small`
+  - `KNOWLEDGE_API_EMBEDDING_API_KEY` from runtime secret injection
 - Database runtime configuration uses direct URL fields:
-  - `APP_DATABASE_URL` for API and worker runtime database access
-  - `MIGRATION_DATABASE_URL` for migration-role execution paths
+  - `KNOWLEDGE_API_DATABASE_URL` for API and worker runtime database access
+  - `KNOWLEDGE_API_MIGRATION_DATABASE_URL` for migration-role execution paths
   - Separate app-specific URL fields for knowledge corpus runtime and migration execution; knowledge corpus must not reuse the online API/worker database URL names
 - Knowledge corpus database configuration uses:
   - `KNOWLEDGE_CORPUS_DATABASE_URL` for external local processes that import `apps/knowledge_corpus`

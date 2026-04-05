@@ -21,7 +21,7 @@ out_of_scope: Domain schema definition, Alembic revision lifecycle strategy, and
 - Runtime access APIs expose asynchronous SQLAlchemy primitives and do not expose persistence internals beyond session scope.
 
 ## Connection URL Model
-- Runtime connection configuration is maintained as `APP_DATABASE_URL`.
+- Runtime connection configuration is maintained as `KNOWLEDGE_API_DATABASE_URL`.
 - Runtime settings consume the URL value directly and do not assemble URLs from component fields.
 - Runtime settings do not define fallback composition paths for database URLs.
 
@@ -43,6 +43,6 @@ out_of_scope: Domain schema definition, Alembic revision lifecycle strategy, and
 - This module does not own domain schema constraints or migration sequencing policy.
 
 ## Validation
-- Runtime settings can load a valid `APP_DATABASE_URL` value using `postgresql+psycopg`.
+- Runtime settings can load a valid `KNOWLEDGE_API_DATABASE_URL` value using `postgresql+psycopg`.
 - Engine and session factory can be instantiated without URL component assembly logic.
 - Dependency entrypoint yields `AsyncSession` instances for service/repository usage.
