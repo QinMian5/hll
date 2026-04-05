@@ -6,10 +6,12 @@ Out of scope: Database I/O, transaction management, and SQL runtime integration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import cast
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.semantic_map.repo import SemanticMapRepo
+from modules.semantic_map.persistence.repo import SemanticMapRepo
 
 
 @dataclass(slots=True)
@@ -23,8 +25,8 @@ class _StubSession:
 
 @pytest.mark.anyio
 async def test_repo_returns_none_when_no_current_snapshot() -> None:
-    session = _StubSession()
-    repo = SemanticMapRepo(session=session)
+    stub_session = _StubSession()
+    repo = SemanticMapRepo(session=cast(AsyncSession, stub_session))
 
     assert await repo.get_current_manifest() is None
-    assert len(session.scalar_calls) == 1
+    assert len(stub_session.scalar_calls) == 1

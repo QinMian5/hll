@@ -42,7 +42,7 @@ from core.errors import (
             DomainError(
                 code=ErrorCode.DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND,
                 message="Semantic-map snapshot is unavailable.",
-                hint="Run a semantic-map rebuild and retry.",
+                hint="Run a semantic-map build and retry.",
             ),
             404,
         ),

@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.decomposition import PCA
 
 from modules.knowledge_graph.dto import SemanticMapProjectionNode
-from modules.semantic_map.types import Point2
+from modules.semantic_map.core.types import Point2
 
 
 def _normalize_projected_points(points: Sequence[Point2]) -> list[Point2]:

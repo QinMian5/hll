@@ -1,7 +1,7 @@
 """
 Abstract: FastAPI route contract for semantic-map manifest and region-tile
 reads.
-Out of scope: Dependency construction and snapshot rebuild orchestration.
+Out of scope: Dependency construction and snapshot build orchestration.
 """
 
 from __future__ import annotations
@@ -11,8 +11,8 @@ from collections.abc import Callable
 from fastapi import APIRouter, Depends
 
 from core.errors import ErrorEnvelope
-from modules.semantic_map.schema import SemanticMapManifestResponse, SemanticMapTileResponse
-from modules.semantic_map.service import SemanticMapService
+from modules.semantic_map.read.schema import SemanticMapManifestResponse, SemanticMapTileResponse
+from modules.semantic_map.read.service import SemanticMapService
 
 SemanticMapServiceProvider = Callable[..., SemanticMapService]
 

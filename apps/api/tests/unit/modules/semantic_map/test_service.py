@@ -11,19 +11,19 @@ from datetime import UTC, datetime
 import pytest
 
 from core.errors import ApplicationError, DomainError, ErrorCode
-from modules.semantic_map.dto import DefaultView, SemanticMapManifest, SemanticMapRegionTile
-from modules.semantic_map.metadata import (
-    SemanticLevelDefinition,
-    build_semantic_levels_from_leaf_depths,
-)
-from modules.semantic_map.schema import SemanticMapManifestResponse, SemanticMapTileResponse
-from modules.semantic_map.service import SemanticMapService
-from modules.semantic_map.types import (
+from modules.semantic_map.core.dto import DefaultView, SemanticMapManifest, SemanticMapRegionTile
+from modules.semantic_map.core.types import (
     LabelPayload,
     PointPayload,
     PolygonGeometryPayload,
     RegionPayload,
 )
+from modules.semantic_map.metadata import (
+    SemanticLevelDefinition,
+    build_semantic_levels_from_leaf_depths,
+)
+from modules.semantic_map.read.schema import SemanticMapManifestResponse, SemanticMapTileResponse
+from modules.semantic_map.read.service import SemanticMapService
 
 
 def _build_manifest(

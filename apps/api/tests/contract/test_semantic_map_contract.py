@@ -1,6 +1,6 @@
 """
 Abstract: Contract test for OpenAPI exposure of semantic-map routes.
-Out of scope: Route runtime behavior and rebuild execution semantics.
+Out of scope: Route runtime behavior and build execution semantics.
 """
 
 from __future__ import annotations

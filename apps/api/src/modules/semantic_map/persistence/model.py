@@ -1,6 +1,6 @@
 """
 Abstract: SQLAlchemy persistence projection for semantic-map snapshots and region tiles.
-Out of scope: Rebuild orchestration and HTTP transport contracts.
+Out of scope: Build orchestration and HTTP transport contracts.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from modules.semantic_map.types import (
+from modules.semantic_map.core.types import (
     JsonObject,
 )
 from shared.db.base import Base

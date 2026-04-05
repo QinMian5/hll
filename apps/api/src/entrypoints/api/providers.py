@@ -31,7 +31,7 @@ from modules.knowledge_graph.ports import KnowledgeGraphReadPort
 from modules.knowledge_graph.service import KnowledgeGraphService
 from modules.search.service import SearchService
 from modules.semantic_map.builders import build_semantic_map_service
-from modules.semantic_map.service import SemanticMapService
+from modules.semantic_map.read.service import SemanticMapService
 from shared.integrations import EmbeddingClient
 
 

@@ -11,21 +11,14 @@ from pydantic import TypeAdapter
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.semantic_map.dto import (
+from modules.semantic_map.core.dto import (
     DefaultView,
     SemanticMapManifest,
 )
-from modules.semantic_map.dto import (
+from modules.semantic_map.core.dto import (
     SemanticMapRegionTile as SemanticMapRegionTileValue,
 )
-from modules.semantic_map.metadata import SemanticLevelDefinition
-from modules.semantic_map.model import (
-    SemanticMapRegionTile as SemanticMapRegionTileModel,
-)
-from modules.semantic_map.model import (
-    SemanticMapSnapshot,
-)
-from modules.semantic_map.types import (
+from modules.semantic_map.core.types import (
     Bounds4,
     JsonObject,
     LabelPayload,
@@ -33,6 +26,13 @@ from modules.semantic_map.types import (
     PointPayload,
     RegionPayload,
     StoredDefaultViewPayload,
+)
+from modules.semantic_map.metadata import SemanticLevelDefinition
+from modules.semantic_map.persistence.model import (
+    SemanticMapRegionTile as SemanticMapRegionTileModel,
+)
+from modules.semantic_map.persistence.model import (
+    SemanticMapSnapshot,
 )
 
 _DEFAULT_VIEW_PAYLOAD_ADAPTER = TypeAdapter(StoredDefaultViewPayload)

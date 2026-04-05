@@ -1,6 +1,6 @@
 """
 Abstract: Pydantic transport models for semantic-map HTTP responses.
-Out of scope: Rebuild orchestration and SQLAlchemy persistence behavior.
+Out of scope: Build orchestration and SQLAlchemy persistence behavior.
 """
 
 from __future__ import annotations
@@ -10,9 +10,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from modules.semantic_map.dto import DefaultView
-from modules.semantic_map.metadata import SemanticLevelDefinition
-from modules.semantic_map.types import (
+from modules.semantic_map.core.dto import DefaultView
+from modules.semantic_map.core.types import (
     Bounds4,
     LabelPayload,
     MultiPolygonGeometryPayload,
@@ -21,6 +20,7 @@ from modules.semantic_map.types import (
     RegionGeometryPayload,
     RegionPayload,
 )
+from modules.semantic_map.metadata import SemanticLevelDefinition
 
 
 class SemanticMapResponseModel(BaseModel):

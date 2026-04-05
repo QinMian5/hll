@@ -9,7 +9,7 @@ from typing import cast
 
 from sqlalchemy import PrimaryKeyConstraint, Table, UniqueConstraint
 
-from modules.semantic_map.model import SemanticMapRegionTile, SemanticMapSnapshot
+from modules.semantic_map.persistence.model import SemanticMapRegionTile, SemanticMapSnapshot
 from shared.db.base import Base
 
 

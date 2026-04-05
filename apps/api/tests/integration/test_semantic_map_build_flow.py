@@ -1,5 +1,5 @@
 """
-Abstract: Integration-style rebuild test across knowledge materialization and
+Abstract: Integration-style build test across knowledge materialization and
 semantic-map snapshot generation.
 Out of scope: Real PostgreSQL networking and FastAPI route transport assertions.
 """
@@ -19,8 +19,8 @@ from modules.knowledge_graph.dto import (
     SimilarNodeCandidate,
 )
 from modules.knowledge_graph.service import KnowledgeGraphService
-from modules.semantic_map.dto import SemanticMapManifest, SemanticMapRegionTile
-from modules.semantic_map.rebuild import SemanticMapRebuildService
+from modules.semantic_map.core.dto import SemanticMapManifest, SemanticMapRegionTile
+from modules.semantic_map.snapshot_build.service import SemanticMapBuildService
 from modules.taxonomy.dto import TaxonomyNodeRecord, TaxonomySemanticMapAssignment
 
 
@@ -151,7 +151,7 @@ class _StubTaxonomyPort:
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_rebuild_consumes_knowledge_projection_nodes_and_publishes_snapshot() -> None:
+async def test_build_consumes_knowledge_projection_nodes_and_publishes_snapshot() -> None:
     knowledge_service = KnowledgeGraphService(
         repo=_InMemoryKnowledgeRepo(),
         edge_similarity_top_k=2,
@@ -171,7 +171,7 @@ async def test_rebuild_consumes_knowledge_projection_nodes_and_publishes_snapsho
             TaxonomySemanticMapAssignment(node_id=3, taxonomy_leaf_id=3),
         ],
     )
-    rebuild_service = SemanticMapRebuildService(
+    build_service = SemanticMapBuildService(
         projection_port=knowledge_service,
         taxonomy_port=taxonomy_port,
         snapshot_repo=snapshot_repo,
@@ -194,7 +194,7 @@ async def test_rebuild_consumes_knowledge_projection_nodes_and_publishes_snapsho
         embedding=[0.0, 1.0, 0.0],
     )
 
-    version = await rebuild_service.rebuild_current_snapshot()
+    version = await build_service.build_current_snapshot()
 
     assert version == "20260403_153000_000000"
     assert snapshot_repo.published_manifest is not None

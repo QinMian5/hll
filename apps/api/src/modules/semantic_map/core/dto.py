@@ -9,8 +9,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from modules.semantic_map.core.types import (
+    Bounds4,
+    LabelPayload,
+    Point2,
+    PointPayload,
+    RegionPayload,
+)
 from modules.semantic_map.metadata import SemanticLevelDefinition
-from modules.semantic_map.types import Bounds4, LabelPayload, Point2, PointPayload, RegionPayload
 
 
 class SemanticMapValueModel(BaseModel):

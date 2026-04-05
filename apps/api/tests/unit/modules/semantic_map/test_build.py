@@ -1,5 +1,5 @@
 """
-Abstract: Unit tests for semantic-map rebuild orchestration and geometry helpers.
+Abstract: Unit tests for semantic-map build orchestration and geometry helpers.
 Out of scope: SQLAlchemy persistence queries and FastAPI transport behavior.
 """
 
@@ -12,9 +12,9 @@ from datetime import UTC, datetime
 import pytest
 
 from modules.knowledge_graph.dto import SemanticMapProjectionNode
-from modules.semantic_map.dto import SemanticMapManifest, SemanticMapRegionTile
-from modules.semantic_map.geometry import build_cluster_hull
-from modules.semantic_map.rebuild import SemanticMapRebuildService
+from modules.semantic_map.core.dto import SemanticMapManifest, SemanticMapRegionTile
+from modules.semantic_map.core.geometry import build_cluster_hull
+from modules.semantic_map.snapshot_build.service import SemanticMapBuildService
 from modules.taxonomy.dto import TaxonomyNodeRecord, TaxonomySemanticMapAssignment
 
 
@@ -67,21 +67,21 @@ class _RecordingSnapshotRepo:
 
 
 @pytest.mark.anyio
-async def test_rebuild_skips_publication_when_projection_source_is_empty() -> None:
+async def test_build_skips_publication_when_projection_source_is_empty() -> None:
     repo = _RecordingSnapshotRepo()
     taxonomy_port = _StubTaxonomyPort(
         assigned_leaf_depths=[],
         tree_nodes=[],
         assignments=[],
     )
-    service = SemanticMapRebuildService(
+    service = SemanticMapBuildService(
         projection_port=_StubProjectionPort(nodes=[]),
         taxonomy_port=taxonomy_port,
         snapshot_repo=repo,
         now=lambda: datetime(2026, 4, 3, 12, 0, tzinfo=UTC),
     )
 
-    version = await service.rebuild_current_snapshot()
+    version = await service.build_current_snapshot()
 
     assert version is None
     assert repo.published_manifest is None
@@ -89,7 +89,7 @@ async def test_rebuild_skips_publication_when_projection_source_is_empty() -> No
 
 
 @pytest.mark.anyio
-async def test_rebuild_creates_current_snapshot_with_region_tiles() -> None:
+async def test_build_creates_current_snapshot_with_region_tiles() -> None:
     projection_port = _StubProjectionPort(
         nodes=[
             SemanticMapProjectionNode(
@@ -128,7 +128,7 @@ async def test_rebuild_creates_current_snapshot_with_region_tiles() -> None:
         TaxonomySemanticMapAssignment(node_id=3, taxonomy_leaf_id=4),
         TaxonomySemanticMapAssignment(node_id=4, taxonomy_leaf_id=4),
     ]
-    service = SemanticMapRebuildService(
+    service = SemanticMapBuildService(
         projection_port=projection_port,
         taxonomy_port=_StubTaxonomyPort(
             assigned_leaf_depths=[2],
@@ -139,7 +139,7 @@ async def test_rebuild_creates_current_snapshot_with_region_tiles() -> None:
         now=lambda: datetime(2026, 4, 3, 12, 0, tzinfo=UTC),
     )
 
-    version = await service.rebuild_current_snapshot()
+    version = await service.build_current_snapshot()
 
     assert version == "20260403_120000_000000"
     assert repo.published_manifest is not None
@@ -159,9 +159,9 @@ async def test_rebuild_creates_current_snapshot_with_region_tiles() -> None:
 
 
 @pytest.mark.anyio
-async def test_rebuild_skips_publication_when_leaf_depths_are_unavailable() -> None:
+async def test_build_skips_publication_when_leaf_depths_are_unavailable() -> None:
     repo = _RecordingSnapshotRepo()
-    service = SemanticMapRebuildService(
+    service = SemanticMapBuildService(
         projection_port=_StubProjectionPort(
             nodes=[
                 SemanticMapProjectionNode(
@@ -188,7 +188,7 @@ async def test_rebuild_skips_publication_when_leaf_depths_are_unavailable() -> N
         now=lambda: datetime(2026, 4, 3, 12, 0, tzinfo=UTC),
     )
 
-    version = await service.rebuild_current_snapshot()
+    version = await service.build_current_snapshot()
 
     assert version is None
     assert repo.published_manifest is None

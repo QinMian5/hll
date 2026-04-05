@@ -1,5 +1,5 @@
 """
-Abstract: Semantic-map rebuild orchestration from taxonomy structure and
+Abstract: Semantic-map build orchestration from taxonomy structure and
 knowledge embeddings to snapshot artifacts.
 Out of scope: FastAPI transport wiring and SQLAlchemy query execution details.
 """
@@ -10,7 +10,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 
 from modules.knowledge_graph.ports import KnowledgeGraphProjectionPort
-from modules.semantic_map.dto import DefaultView, SemanticMapManifest
+from modules.semantic_map.core.dto import DefaultView, SemanticMapManifest
 from modules.semantic_map.metadata import (
     DEFAULT_TILE_SIZE,
     DEFAULT_VIEW_TARGET,
@@ -19,9 +19,9 @@ from modules.semantic_map.metadata import (
     build_semantic_levels_from_leaf_depths,
 )
 from modules.semantic_map.ports import SemanticMapSnapshotWritePort, TaxonomySemanticMapPort
-from modules.semantic_map.rebuild_projection import project_points
-from modules.semantic_map.rebuild_tiling import build_tiles
-from modules.semantic_map.rebuild_topology import build_taxonomy_region_levels
+from modules.semantic_map.snapshot_build.projection import project_points
+from modules.semantic_map.snapshot_build.tiling import build_tiles
+from modules.semantic_map.snapshot_build.topology import build_taxonomy_region_levels
 
 
 def _utc_now() -> datetime:
@@ -32,7 +32,7 @@ def _snapshot_version_from_datetime(moment: datetime) -> str:
     return moment.astimezone(UTC).strftime("%Y%m%d_%H%M%S_%f")
 
 
-class SemanticMapRebuildService:
+class SemanticMapBuildService:
     def __init__(
         self,
         *,
@@ -48,7 +48,7 @@ class SemanticMapRebuildService:
         self._now = now
         self._semantic_levels = tuple(semantic_levels) if semantic_levels is not None else None
 
-    async def rebuild_current_snapshot(self) -> str | None:
+    async def build_current_snapshot(self) -> str | None:
         assignments = await self._taxonomy_port.list_semantic_map_assignments()
         if not assignments:
             return None

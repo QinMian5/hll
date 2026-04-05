@@ -10,9 +10,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 from modules.knowledge_graph.dto import SemanticMapProjectionNode
-from modules.semantic_map.geometry import build_cluster_hull, compute_bbox, compute_centroid
+from modules.semantic_map.core.geometry import (
+    build_cluster_hull,
+    compute_bbox,
+    compute_centroid,
+)
+from modules.semantic_map.core.types import Bounds4, LabelPayload, Point2, RegionPayload
 from modules.semantic_map.metadata import SemanticLevelDefinition
-from modules.semantic_map.types import Bounds4, LabelPayload, Point2, RegionPayload
 from modules.taxonomy.dto import TaxonomyNodeRecord, TaxonomySemanticMapAssignment
 
 

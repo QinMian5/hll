@@ -1,7 +1,7 @@
 """
 Abstract: Read-side semantic-map service for manifest and tile HTTP contract
 responses.
-Out of scope: Rebuild orchestration and direct SQLAlchemy query execution.
+Out of scope: Build orchestration and direct SQLAlchemy query execution.
 """
 
 from __future__ import annotations
@@ -9,15 +9,15 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from core.errors import ApplicationError, DomainError, ErrorCode
-from modules.semantic_map.dto import SemanticMapManifest, SemanticMapRegionTile
-from modules.semantic_map.geometry import tile_bounds_for_coordinate
+from modules.semantic_map.core.dto import SemanticMapManifest, SemanticMapRegionTile
+from modules.semantic_map.core.geometry import tile_bounds_for_coordinate
 from modules.semantic_map.metadata import (
     SEMANTIC_MAP_COORDINATE_SYSTEM,
     CoordinateSystemDefinition,
     SemanticLevelDefinition,
 )
 from modules.semantic_map.ports import SemanticMapSnapshotReadPort
-from modules.semantic_map.schema import (
+from modules.semantic_map.read.schema import (
     CoordinateSystemResponse,
     DefaultViewResponse,
     LabelResponse,
@@ -167,7 +167,7 @@ class SemanticMapService:
             raise DomainError(
                 code=ErrorCode.DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND,
                 message="Semantic-map snapshot is unavailable.",
-                hint="Run a semantic-map rebuild and retry.",
+                hint="Run a semantic-map build and retry.",
             )
 
         return _manifest_response(

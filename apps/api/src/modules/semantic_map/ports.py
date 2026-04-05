@@ -1,5 +1,5 @@
 """
-Abstract: Dependency contracts for semantic-map read and rebuild services.
+Abstract: Dependency contracts for semantic-map read and build services.
 Out of scope: SQLAlchemy repository implementation and FastAPI wiring.
 """
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
-from modules.semantic_map.dto import SemanticMapManifest, SemanticMapRegionTile
+from modules.semantic_map.core.dto import SemanticMapManifest, SemanticMapRegionTile
 from modules.taxonomy.dto import TaxonomyNodeRecord, TaxonomySemanticMapAssignment
 
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from modules.semantic_map.types import Bounds4, Point2, PolygonGeometryPayload
+from modules.semantic_map.core.types import Bounds4, Point2, PolygonGeometryPayload
 
 
 def _cross(origin: Point2, point_a: Point2, point_b: Point2) -> float:

@@ -1,5 +1,5 @@
 """
-Abstract: Shared semantic-map metadata definitions used by read and rebuild
+Abstract: Shared semantic-map metadata definitions used by read and build
 flows.
 Out of scope: SQLAlchemy persistence and FastAPI route serialization.
 """
@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from modules.semantic_map.types import Bounds4, Point2
+from modules.semantic_map.core.types import Bounds4, Point2
 
 
 class SemanticMapMetadataModel(BaseModel):

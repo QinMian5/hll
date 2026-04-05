@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# abstract: Run one semantic-map rebuild against the local API runtime environment.
+# abstract: Run one semantic-map build against the local API runtime environment.
 # out_of_scope: HTTP trigger exposure and continuous scheduling.
 
 set -euo pipefail
@@ -14,7 +14,7 @@ import asyncio
 
 from entrypoints.runtime import get_runtime_dependencies
 from modules.knowledge_graph.builders import build_knowledge_graph_service
-from modules.semantic_map.builders import build_semantic_map_rebuild_service
+from modules.semantic_map.builders import build_semantic_map_build_service
 
 
 async def _main() -> None:
@@ -25,15 +25,15 @@ async def _main() -> None:
             edge_similarity_top_k=runtime.settings.edge_similarity_top_k,
             edge_similarity_min_strength=runtime.settings.edge_similarity_min_strength,
         )
-        rebuild_service = build_semantic_map_rebuild_service(
+        build_service = build_semantic_map_build_service(
             session=session,
             projection_port=knowledge_graph_service,
         )
-        version = await rebuild_service.rebuild_current_snapshot()
+        version = await build_service.build_current_snapshot()
         if version is None:
-            print("semantic-map rebuild skipped: no knowledge nodes available")
+            print("semantic-map build skipped: no knowledge nodes available")
             return
-        print(f"semantic-map rebuild published version={version}")
+        print(f"semantic-map build published version={version}")
 
 
 asyncio.run(_main())

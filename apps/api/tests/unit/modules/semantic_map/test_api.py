@@ -1,6 +1,6 @@
 """
 Abstract: Unit tests for the semantic-map HTTP route contract.
-Out of scope: Rebuild orchestration and SQLAlchemy persistence behavior.
+Out of scope: Build orchestration and SQLAlchemy persistence behavior.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from httpx import AsyncClient
 
 from core.errors import ApplicationError, DomainError, ErrorCode
 from entrypoints.api import providers as api_providers
-from modules.semantic_map.schema import (
+from modules.semantic_map.read.schema import (
     CoordinateSystemResponse,
     DefaultViewResponse,
     SemanticLevelResponse,
@@ -105,7 +105,7 @@ class _FakeSemanticMapNotFoundService:
         raise DomainError(
             code=ErrorCode.DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND,
             message="Semantic-map snapshot is unavailable.",
-            hint="Run a semantic-map rebuild and retry.",
+            hint="Run a semantic-map build and retry.",
         )
 
     async def get_region_tile(

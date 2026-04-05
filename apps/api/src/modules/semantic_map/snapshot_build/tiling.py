@@ -7,19 +7,25 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from modules.semantic_map.dto import SemanticMapRegionTile
-from modules.semantic_map.geometry import (
+from modules.semantic_map.core.dto import SemanticMapRegionTile
+from modules.semantic_map.core.geometry import (
     bounds_intersect,
     point_in_bounds,
     tile_bounds_for_coordinate,
 )
+from modules.semantic_map.core.types import (
+    Bounds4,
+    LabelPayload,
+    Point2,
+    PointPayload,
+    RegionPayload,
+)
 from modules.semantic_map.metadata import SemanticLevelDefinition
-from modules.semantic_map.rebuild_topology import (
+from modules.semantic_map.snapshot_build.topology import (
     CardPointRecord,
     TaxonomyRegionRecord,
     region_id_for_taxonomy_node,
 )
-from modules.semantic_map.types import Bounds4, LabelPayload, Point2, PointPayload, RegionPayload
 
 
 def _point_to_json(point: Point2) -> list[float]:
