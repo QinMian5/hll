@@ -9,7 +9,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from modules.semantic_map.types import Bounds4, LabelPayload, Point2, RegionPayload
+from modules.semantic_map.types import Bounds4, LabelPayload, Point2, PointPayload, RegionPayload
 
 
 class SemanticMapValueModel(BaseModel):
@@ -42,3 +42,4 @@ class SemanticMapRegionTile(SemanticMapValueModel):
     label_count: int
     regions: list[RegionPayload]
     labels: list[LabelPayload]
+    points: list[PointPayload]

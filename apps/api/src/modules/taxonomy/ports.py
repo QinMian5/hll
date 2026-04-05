@@ -7,7 +7,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from modules.taxonomy.dto import TaxonomyAssignmentRecord, TaxonomyNodeRecord
+from modules.taxonomy.dto import (
+    TaxonomyAssignmentRecord,
+    TaxonomyNodeRecord,
+    TaxonomySemanticMapAssignment,
+)
 
 
 class TaxonomyImportPort(Protocol):
@@ -37,3 +41,5 @@ class TaxonomyReadPort(Protocol):
     async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]: ...
 
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]: ...
+
+    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]: ...

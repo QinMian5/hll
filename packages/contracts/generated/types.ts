@@ -191,6 +191,19 @@ export interface components {
       type: "multi_polygon";
     };
     Point2: [number, number];
+    /** PointResponse */
+    PointResponse: {
+      /** Id */
+      id: string;
+      /** Leaf Region Id */
+      leaf_region_id: string;
+      /** Node Id */
+      node_id: number;
+      /** Position */
+      position: number[];
+      /** Title */
+      title: string;
+    };
     /** PolygonGeometryResponse */
     PolygonGeometryResponse: {
       /** Coordinates */
@@ -288,6 +301,8 @@ export interface components {
     SemanticMapTileResponse: {
       /** Labels */
       labels: components["schemas"]["LabelResponse"][];
+      /** Points */
+      points: components["schemas"]["PointResponse"][];
       /** Regions */
       regions: components["schemas"]["RegionResponse"][];
       /** Schema Version */

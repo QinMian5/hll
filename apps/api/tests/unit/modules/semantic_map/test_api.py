@@ -73,6 +73,7 @@ def _empty_tile_response() -> SemanticMapTileResponse:
         stats=SemanticMapTileStatsResponse(region_count=0, label_count=0),
         regions=[],
         labels=[],
+        points=[],
     )
 
 
@@ -191,6 +192,7 @@ async def test_region_tile_returns_empty_payload_for_empty_tile(
     payload = response.json()
     assert payload["regions"] == []
     assert payload["labels"] == []
+    assert payload["points"] == []
     assert payload["stats"] == {"region_count": 0, "label_count": 0}
 
 

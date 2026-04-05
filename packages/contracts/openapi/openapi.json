@@ -289,6 +289,43 @@
         ],
         "type": "array"
       },
+      "PointResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "leaf_region_id": {
+            "title": "Leaf Region Id",
+            "type": "string"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "integer"
+          },
+          "position": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Position",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "leaf_region_id",
+          "title",
+          "position"
+        ],
+        "title": "PointResponse",
+        "type": "object"
+      },
       "PolygonGeometryResponse": {
         "additionalProperties": false,
         "properties": {
@@ -566,6 +603,13 @@
             "title": "Labels",
             "type": "array"
           },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PointResponse"
+            },
+            "title": "Points",
+            "type": "array"
+          },
           "regions": {
             "items": {
               "$ref": "#/components/schemas/RegionResponse"
@@ -599,7 +643,8 @@
           "tile",
           "stats",
           "regions",
-          "labels"
+          "labels",
+          "points"
         ],
         "title": "SemanticMapTileResponse",
         "type": "object"

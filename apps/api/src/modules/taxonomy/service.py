@@ -8,7 +8,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol
 
-from modules.taxonomy.dto import TaxonomyAssignmentRecord, TaxonomyNodeRecord, TaxonomyTreeNode
+from modules.taxonomy.dto import (
+    TaxonomyAssignmentRecord,
+    TaxonomyNodeRecord,
+    TaxonomySemanticMapAssignment,
+    TaxonomyTreeNode,
+)
 
 
 class TaxonomyRepoProtocol(Protocol):
@@ -21,6 +26,8 @@ class TaxonomyRepoProtocol(Protocol):
     async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]: ...
 
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]: ...
+
+    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]: ...
 
     async def set_final_assignment(
         self,
@@ -63,6 +70,9 @@ class TaxonomyService:
     async def list_children(self, *, parent_id: int | None) -> list[TaxonomyNodeRecord]:
         return await self._repo.list_children(parent_id=parent_id)
 
+    async def list_tree_nodes_for_semantic_map(self) -> list[TaxonomyNodeRecord]:
+        return await self._repo.list_tree_nodes()
+
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None:
         return await self._repo.get_assignment_for_node(node_id=node_id)
 
@@ -71,6 +81,9 @@ class TaxonomyService:
 
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
         return await self._repo.list_assigned_node_ids_for_semantic_map()
+
+    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]:
+        return await self._repo.list_semantic_map_assignments()
 
     async def set_final_assignment(
         self,

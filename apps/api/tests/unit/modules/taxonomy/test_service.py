@@ -10,7 +10,11 @@ from datetime import UTC, datetime
 
 import pytest
 
-from modules.taxonomy.dto import TaxonomyAssignmentRecord, TaxonomyNodeRecord
+from modules.taxonomy.dto import (
+    TaxonomyAssignmentRecord,
+    TaxonomyNodeRecord,
+    TaxonomySemanticMapAssignment,
+)
 from modules.taxonomy.service import TaxonomyService
 
 
@@ -21,6 +25,9 @@ class _StubRepo:
     assignment: TaxonomyAssignmentRecord | None = None
     assigned_leaf_depths_for_map: list[int] = field(default_factory=list)
     assigned_node_ids_for_map: list[int] = field(default_factory=list)
+    assigned_semantic_map_assignments: list[TaxonomySemanticMapAssignment] = field(
+        default_factory=list
+    )
     set_result: TaxonomyAssignmentRecord | None = None
     committed: bool = False
     rolled_back: bool = False
@@ -42,6 +49,9 @@ class _StubRepo:
 
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
         return list(self.assigned_node_ids_for_map)
+
+    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]:
+        return list(self.assigned_semantic_map_assignments)
 
     async def set_final_assignment(
         self,
@@ -117,6 +127,22 @@ async def test_list_children_returns_repo_ordered_children() -> None:
 
 
 @pytest.mark.anyio
+async def test_list_tree_nodes_for_semantic_map_returns_flat_tree_records() -> None:
+    records = [
+        TaxonomyNodeRecord(id=1, parent_id=None, name="Science", depth=0, is_leaf=False),
+        TaxonomyNodeRecord(id=2, parent_id=1, name="Mathematics", depth=1, is_leaf=True),
+    ]
+    service = TaxonomyService(repo=_StubRepo(tree_nodes=records))
+
+    returned = await service.list_tree_nodes_for_semantic_map()
+
+    assert [record.model_dump() for record in returned] == [
+        {"id": 1, "parent_id": None, "name": "Science", "depth": 0, "is_leaf": False},
+        {"id": 2, "parent_id": 1, "name": "Mathematics", "depth": 1, "is_leaf": True},
+    ]
+
+
+@pytest.mark.anyio
 async def test_get_assignment_for_node_returns_leaf_assignment() -> None:
     service = TaxonomyService(repo=_StubRepo(assignment=_leaf_assignment()))
 
@@ -140,6 +166,24 @@ async def test_list_assigned_node_ids_for_semantic_map_returns_service_ids() -> 
     service = TaxonomyService(repo=repo)
 
     assert await service.list_assigned_node_ids_for_semantic_map() == [12, 3, 9]
+
+
+@pytest.mark.anyio
+async def test_list_semantic_map_assignments_returns_service_assignments() -> None:
+    repo = _StubRepo(
+        assigned_semantic_map_assignments=[
+            TaxonomySemanticMapAssignment(node_id=12, taxonomy_leaf_id=4),
+            TaxonomySemanticMapAssignment(node_id=18, taxonomy_leaf_id=7),
+        ]
+    )
+    service = TaxonomyService(repo=repo)
+
+    assignments = await service.list_semantic_map_assignments()
+
+    assert [assignment.model_dump() for assignment in assignments] == [
+        {"node_id": 12, "taxonomy_leaf_id": 4},
+        {"node_id": 18, "taxonomy_leaf_id": 7},
+    ]
 
 
 @pytest.mark.anyio

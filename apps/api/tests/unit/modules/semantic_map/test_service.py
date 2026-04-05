@@ -15,7 +15,12 @@ from modules.semantic_map.dto import DefaultView, SemanticMapManifest, SemanticM
 from modules.semantic_map.metadata import build_semantic_levels_from_leaf_depths
 from modules.semantic_map.schema import SemanticMapManifestResponse, SemanticMapTileResponse
 from modules.semantic_map.service import SemanticMapService
-from modules.semantic_map.types import LabelPayload, PolygonGeometryPayload, RegionPayload
+from modules.semantic_map.types import (
+    LabelPayload,
+    PointPayload,
+    PolygonGeometryPayload,
+    RegionPayload,
+)
 
 
 def _build_manifest(*, version: str = "20260403_120000_000000") -> SemanticMapManifest:
@@ -61,6 +66,16 @@ def _build_label_payload() -> LabelPayload:
         position=[500.0, 500.0],
         label_rank=1,
         font_size=22,
+    )
+
+
+def _build_point_payload() -> PointPayload:
+    return PointPayload(
+        id="card:1",
+        node_id=1,
+        leaf_region_id="taxonomy:9",
+        title="Alpha",
+        position=[500.0, 500.0],
     )
 
 
@@ -149,6 +164,7 @@ async def test_get_region_tile_returns_empty_payload_for_known_snapshot_without_
     assert response.version == "20260403_153000_000000"
     assert response.regions == []
     assert response.labels == []
+    assert response.points == []
     assert response.stats.region_count == 0
     assert response.stats.label_count == 0
 
@@ -205,6 +221,7 @@ async def test_get_region_tile_returns_transport_payload_for_materialized_tile()
         label_count=1,
         regions=[_build_region_payload()],
         labels=[_build_label_payload()],
+        points=[_build_point_payload()],
     )
     service = SemanticMapService(
         repo=_StubRepo(version_manifest=manifest, tile=tile),
@@ -221,6 +238,7 @@ async def test_get_region_tile_returns_transport_payload_for_materialized_tile()
 
     assert response.regions[0].region_name == "Alpha · Beta"
     assert response.labels[0].text == "Alpha"
+    assert response.points[0].title == "Alpha"
 
 
 @pytest.mark.anyio

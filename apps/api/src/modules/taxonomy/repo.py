@@ -11,7 +11,11 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from modules.taxonomy.dto import TaxonomyAssignmentRecord, TaxonomyNodeRecord
+from modules.taxonomy.dto import (
+    TaxonomyAssignmentRecord,
+    TaxonomyNodeRecord,
+    TaxonomySemanticMapAssignment,
+)
 from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
 
 
@@ -125,6 +129,26 @@ class TaxonomyRepo:
             )
         ).all()
         return [row.depth for row in rows]
+
+    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]:
+        rows = (
+            await self._session.execute(
+                select(
+                    NodeTaxonomyAssignment.node_id,
+                    NodeTaxonomyAssignment.taxonomy_node_id.label("taxonomy_leaf_id"),
+                )
+                .join(TaxonomyNode, NodeTaxonomyAssignment.taxonomy_node_id == TaxonomyNode.id)
+                .where(TaxonomyNode.is_leaf.is_(True))
+                .order_by(NodeTaxonomyAssignment.node_id.asc())
+            )
+        ).all()
+        return [
+            TaxonomySemanticMapAssignment(
+                node_id=row.node_id,
+                taxonomy_leaf_id=row.taxonomy_leaf_id,
+            )
+            for row in rows
+        ]
 
     async def set_final_assignment(
         self,

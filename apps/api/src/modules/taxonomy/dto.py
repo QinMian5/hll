@@ -52,3 +52,10 @@ class TaxonomyAssignmentRecord(BaseModel):
     node_id: int = Field(gt=0)
     taxonomy_node: TaxonomyNodeRecord
     assigned_at: datetime
+
+
+class TaxonomySemanticMapAssignment(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    node_id: int = Field(gt=0)
+    taxonomy_leaf_id: int = Field(gt=0)

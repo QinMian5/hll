@@ -74,6 +74,14 @@ class LabelResponse(SemanticMapResponseModel):
     font_size: int
 
 
+class PointResponse(SemanticMapResponseModel):
+    id: str
+    node_id: int
+    leaf_region_id: str
+    title: str
+    position: list[float]
+
+
 class SemanticMapManifestResponse(SemanticMapResponseModel):
     version: str
     schema_version: str
@@ -108,3 +116,4 @@ class SemanticMapTileResponse(SemanticMapResponseModel):
     stats: SemanticMapTileStatsResponse
     regions: list[RegionResponse]
     labels: list[LabelResponse]
+    points: list[PointResponse]

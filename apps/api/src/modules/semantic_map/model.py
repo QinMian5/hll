@@ -80,3 +80,8 @@ class SemanticMapRegionTile(Base):
     label_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     regions: Mapped[list[JsonObject]] = mapped_column(JSON, nullable=False)
     labels: Mapped[list[JsonObject]] = mapped_column(JSON, nullable=False)
+    points: Mapped[list[JsonObject]] = mapped_column(
+        JSON,
+        nullable=False,
+        server_default=text("'[]'::json"),
+    )

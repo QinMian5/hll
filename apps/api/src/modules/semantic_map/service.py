@@ -23,6 +23,7 @@ from modules.semantic_map.schema import (
     DefaultViewResponse,
     LabelResponse,
     MultiPolygonGeometryResponse,
+    PointResponse,
     PolygonGeometryResponse,
     RegionGeometryResponse,
     RegionResponse,
@@ -118,6 +119,7 @@ def _tile_response(
     )
     regions = [] if tile is None else tile.regions
     labels = [] if tile is None else tile.labels
+    points = [] if tile is None else tile.points
 
     return SemanticMapTileResponse(
         schema_version=manifest.schema_version,
@@ -157,6 +159,16 @@ def _tile_response(
                 font_size=label.font_size,
             )
             for label in labels
+        ],
+        points=[
+            PointResponse(
+                id=point.id,
+                node_id=point.node_id,
+                leaf_region_id=point.leaf_region_id,
+                title=point.title,
+                position=point.position,
+            )
+            for point in points
         ],
     )
 

@@ -60,3 +60,11 @@ class LabelPayload(SemanticMapPayloadModel):
     position: list[float]
     label_rank: int
     font_size: int
+
+
+class PointPayload(SemanticMapPayloadModel):
+    id: str
+    node_id: int
+    leaf_region_id: str
+    title: str
+    position: list[float]

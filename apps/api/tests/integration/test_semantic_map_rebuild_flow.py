@@ -21,6 +21,7 @@ from modules.knowledge_graph.dto import (
 from modules.knowledge_graph.service import KnowledgeGraphService
 from modules.semantic_map.dto import SemanticMapManifest, SemanticMapRegionTile
 from modules.semantic_map.rebuild import SemanticMapRebuildService
+from modules.taxonomy.dto import TaxonomyNodeRecord, TaxonomySemanticMapAssignment
 
 
 @dataclass(slots=True)
@@ -134,14 +135,21 @@ class _RecordingSnapshotRepo:
 
 @dataclass(slots=True)
 class _StubTaxonomyPort:
-    assigned_node_ids: list[int]
     assigned_leaf_depths: list[int]
+    tree_nodes: list[TaxonomyNodeRecord]
+    assignments: list[TaxonomySemanticMapAssignment]
 
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
-        return list(self.assigned_node_ids)
+        return [assignment.node_id for assignment in self.assignments]
 
     async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
         return list(self.assigned_leaf_depths)
+
+    async def list_tree_nodes_for_semantic_map(self) -> list[TaxonomyNodeRecord]:
+        return list(self.tree_nodes)
+
+    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]:
+        return list(self.assignments)
 
 
 @pytest.mark.integration
@@ -153,7 +161,19 @@ async def test_rebuild_consumes_knowledge_projection_nodes_and_publishes_snapsho
         edge_similarity_min_strength=0.8,
     )
     snapshot_repo = _RecordingSnapshotRepo()
-    taxonomy_port = _StubTaxonomyPort(assigned_node_ids=[1, 2, 3], assigned_leaf_depths=[2])
+    taxonomy_port = _StubTaxonomyPort(
+        assigned_leaf_depths=[2],
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Science", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Math", depth=1, is_leaf=False),
+            TaxonomyNodeRecord(id=3, parent_id=2, name="Algebra", depth=2, is_leaf=True),
+        ],
+        assignments=[
+            TaxonomySemanticMapAssignment(node_id=1, taxonomy_leaf_id=3),
+            TaxonomySemanticMapAssignment(node_id=2, taxonomy_leaf_id=3),
+            TaxonomySemanticMapAssignment(node_id=3, taxonomy_leaf_id=3),
+        ],
+    )
     rebuild_service = SemanticMapRebuildService(
         projection_port=knowledge_service,
         taxonomy_port=taxonomy_port,
@@ -184,3 +204,4 @@ async def test_rebuild_consumes_knowledge_projection_nodes_and_publishes_snapsho
     assert snapshot_repo.published_manifest.schema_version == "20260403_153000_000000"
     assert snapshot_repo.published_tiles is not None
     assert any(tile.region_count > 0 for tile in snapshot_repo.published_tiles)
+    assert any(tile.points for tile in snapshot_repo.published_tiles)

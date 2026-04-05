@@ -9,6 +9,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from modules.semantic_map.dto import SemanticMapManifest, SemanticMapRegionTile
+from modules.taxonomy.dto import TaxonomyNodeRecord, TaxonomySemanticMapAssignment
 
 
 class SemanticMapSnapshotReadPort(Protocol):
@@ -44,3 +45,7 @@ class TaxonomyAssignedNodesPort(Protocol):
     async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]: ...
 
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]: ...
+
+    async def list_tree_nodes_for_semantic_map(self) -> list[TaxonomyNodeRecord]: ...
+
+    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]: ...

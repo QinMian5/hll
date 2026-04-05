@@ -48,9 +48,11 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
   - **Rebuild initiation surface:** Phase 1 rebuild execution is initiated only through a dedicated operator command or script. No HTTP rebuild endpoint is exposed, and ingestion does not auto-enqueue snapshot rebuilds.
   - **High-level structure truth:** Semantic-map top-level structure comes from the persisted taxonomy tree rather than from embedding-only clustering. Semantic-map rebuild consumes taxonomy nodes and final node-to-leaf assignments as the structural truth for region hierarchy.
   - **Embedding role:** Persisted embeddings support spatial projection, local arrangement inside taxonomy-backed regions, and lower-level neighborhood organization. Embeddings do not define the authoritative top-level class hierarchy.
+  - **Region emission rule:** Rebuild emits taxonomy regions only for non-empty taxonomy nodes (nodes with at least one assigned card in descendants). Empty taxonomy branches are excluded from all semantic-map tiles.
   - **Semantic level model:** Semantic levels are taxonomy-depth-driven rather than one fixed hand-authored set of three global semantic bands. Frontend semantic zoom must tolerate varying taxonomy depth.
   - **Semantic level derivation rule:** For each rebuild/read cycle, semantic levels are derived from assigned taxonomy leaves: include every occupied taxonomy depth band from root to deepest assigned leaf, then append one terminal card layer at `deepest_leaf_depth + 1`.
   - **Mixed-depth branch rule:** Branches stop emitting region hierarchy when branch depth ends; deeper semantic levels are still globally valid, and terminal branches transition into card-layer semantics instead of synthetic deeper taxonomy regions.
+  - **Card-point visibility rule:** Card points are emitted from `leaf_depth + 1` onward for each card's assigned leaf branch, so shallower branches expose concrete cards earlier while deeper branches can still emit taxonomy regions.
   - **Phase 1 world normalization:** Rebuild normalizes projected coordinates into one fixed Cartesian world extent `[0.0, 0.0, 1000.0, 1000.0]`, with `default_view.target = [500.0, 500.0]` and `default_view.zoom = 0.0`.
   - **Empty-source behavior:** When no projection nodes are available, rebuild returns without publishing a new snapshot so the frontend continues to see the latest successful version or the explicit no-snapshot empty state.
   - **Semantic-space rendering model:** Frontend semantic-map browsing uses `DeckGL` with `OrthographicView` over a Cartesian 2D world. Region and label layers are the primary Phase 1 rendering outputs. Point and edge detail are deferred to later accepted slices.
@@ -76,7 +78,7 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
 
 ### Manifest Endpoint
 - Route: `GET /semantic-map/manifest/current`
-- Success response includes:
+  - Success response includes:
   - `version`
   - `schema_version`
   - `built_at`
@@ -122,6 +124,12 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
     - `position`
     - `label_rank`
     - `font_size`
+  - `points[]` entries with:
+    - stable point `id`
+    - `node_id`
+    - `leaf_region_id`
+    - full card `title`
+    - projected `position`
 - Failure behavior:
   - Returns `404` for unknown snapshot `version`.
   - Returns `400` for invalid semantic-level or tile-path arguments.

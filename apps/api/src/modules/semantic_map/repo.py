@@ -29,6 +29,7 @@ from modules.semantic_map.types import (
     JsonObject,
     LabelPayload,
     Point2,
+    PointPayload,
     RegionPayload,
     StoredDefaultViewPayload,
 )
@@ -36,6 +37,7 @@ from modules.semantic_map.types import (
 _DEFAULT_VIEW_PAYLOAD_ADAPTER = TypeAdapter(StoredDefaultViewPayload)
 _REGION_PAYLOADS_ADAPTER = TypeAdapter(list[RegionPayload])
 _LABEL_PAYLOADS_ADAPTER = TypeAdapter(list[LabelPayload])
+_POINT_PAYLOADS_ADAPTER = TypeAdapter(list[PointPayload])
 
 
 def _bounds4_from_stored(values: Sequence[float]) -> Bounds4:
@@ -110,6 +112,7 @@ class SemanticMapRepo:
             label_count=tile.label_count,
             regions=_REGION_PAYLOADS_ADAPTER.validate_python(tile.regions),
             labels=_LABEL_PAYLOADS_ADAPTER.validate_python(tile.labels),
+            points=_POINT_PAYLOADS_ADAPTER.validate_python(tile.points),
         )
 
     async def publish_snapshot(
@@ -153,6 +156,7 @@ class SemanticMapRepo:
                 label_count=tile.label_count,
                 regions=[region.model_dump(mode="json") for region in tile.regions],
                 labels=[label.model_dump(mode="json") for label in tile.labels],
+                points=[point.model_dump(mode="json") for point in tile.points],
             )
             for tile in tiles
         )
