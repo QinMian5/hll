@@ -32,7 +32,7 @@ from modules.semantic_map.metadata import (
     WORLD_BOUNDS,
     SemanticLevelDefinition,
 )
-from modules.semantic_map.ports import SemanticMapSnapshotWritePort
+from modules.semantic_map.ports import SemanticMapSnapshotWritePort, TaxonomyAssignedNodesPort
 from modules.semantic_map.types import Bounds4, LabelPayload, Point2, RegionPayload
 
 
@@ -348,17 +348,25 @@ class SemanticMapRebuildService:
         self,
         *,
         projection_port: KnowledgeGraphProjectionPort,
+        taxonomy_port: TaxonomyAssignedNodesPort,
         snapshot_repo: SemanticMapSnapshotWritePort,
         now: Callable[[], datetime] = _utc_now,
         semantic_levels: Sequence[SemanticLevelDefinition] = DEFAULT_PHASE1_SEMANTIC_LEVELS,
     ) -> None:
         self._projection_port = projection_port
+        self._taxonomy_port = taxonomy_port
         self._snapshot_repo = snapshot_repo
         self._now = now
         self._semantic_levels = tuple(semantic_levels)
 
     async def rebuild_current_snapshot(self) -> str | None:
-        nodes = await self._projection_port.list_projection_nodes_for_semantic_map()
+        assigned_node_ids = await self._taxonomy_port.list_assigned_node_ids_for_semantic_map()
+        if not assigned_node_ids:
+            return None
+
+        nodes = await self._projection_port.list_projection_nodes_for_node_ids(
+            node_ids=assigned_node_ids,
+        )
         if not nodes:
             return None
 

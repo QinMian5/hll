@@ -11,6 +11,8 @@ from modules.knowledge_graph.ports import KnowledgeGraphProjectionPort
 from modules.semantic_map.rebuild import SemanticMapRebuildService
 from modules.semantic_map.repo import SemanticMapRepo
 from modules.semantic_map.service import SemanticMapService
+from modules.taxonomy.repo import TaxonomyRepo
+from modules.taxonomy.service import TaxonomyService
 
 
 def build_semantic_map_service(*, session: AsyncSession) -> SemanticMapService:
@@ -24,5 +26,6 @@ def build_semantic_map_rebuild_service(
 ) -> SemanticMapRebuildService:
     return SemanticMapRebuildService(
         projection_port=projection_port,
+        taxonomy_port=TaxonomyService(repo=TaxonomyRepo(session=session)),
         snapshot_repo=SemanticMapRepo(session=session),
     )

@@ -93,6 +93,30 @@ class KnowledgeRepo:
             for row in rows
         ]
 
+    async def fetch_projection_nodes_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[SemanticMapProjectionNode]:
+        if not node_ids:
+            return []
+
+        rows = (
+            await self._session.execute(
+                select(Node.id, Node.title, Node.embedding)
+                .where(Node.id.in_(node_ids))
+                .order_by(Node.id.asc())
+            )
+        ).all()
+        return [
+            SemanticMapProjectionNode(
+                node_id=row.id,
+                title=row.title,
+                embedding=row.embedding,
+            )
+            for row in rows
+        ]
+
     async def create_node(
         self,
         *,

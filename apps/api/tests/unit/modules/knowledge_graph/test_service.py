@@ -68,6 +68,20 @@ class _StubRepo:
             ),
         ]
 
+    async def fetch_projection_nodes_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[SemanticMapProjectionNode]:
+        return [
+            SemanticMapProjectionNode(
+                node_id=node_id,
+                title=f"Card {node_id}",
+                embedding=[0.1, 0.2, 0.3],
+            )
+            for node_id in node_ids
+        ]
+
     async def create_node(
         self,
         *,
@@ -167,6 +181,23 @@ async def test_list_projection_nodes_for_semantic_map_returns_repo_records() -> 
             "title": "Card B",
             "embedding": [0.2, 0.7, 0.1],
         },
+    ]
+
+
+@pytest.mark.anyio
+async def test_list_projection_nodes_for_node_ids() -> None:
+    service = KnowledgeGraphService(
+        repo=_StubRepo(),
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    records = await service.list_projection_nodes_for_node_ids(node_ids=[3, 1, 2])
+
+    assert [record.model_dump() for record in records] == [
+        {"node_id": 3, "title": "Card 3", "embedding": [0.1, 0.2, 0.3]},
+        {"node_id": 1, "title": "Card 1", "embedding": [0.1, 0.2, 0.3]},
+        {"node_id": 2, "title": "Card 2", "embedding": [0.1, 0.2, 0.3]},
     ]
 
 

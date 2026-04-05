@@ -19,6 +19,7 @@ class _StubRepo:
     tree_nodes: list[TaxonomyNodeRecord] = field(default_factory=list)
     children: list[TaxonomyNodeRecord] = field(default_factory=list)
     assignment: TaxonomyAssignmentRecord | None = None
+    assigned_node_ids_for_map: list[int] = field(default_factory=list)
     set_result: TaxonomyAssignmentRecord | None = None
     committed: bool = False
     rolled_back: bool = False
@@ -34,6 +35,9 @@ class _StubRepo:
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None:
         assert node_id == 41
         return self.assignment
+
+    async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
+        return list(self.assigned_node_ids_for_map)
 
     async def set_final_assignment(
         self,
@@ -116,6 +120,14 @@ async def test_get_assignment_for_node_returns_leaf_assignment() -> None:
 
     assert assignment is not None
     assert assignment.taxonomy_node.name == "General"
+
+
+@pytest.mark.anyio
+async def test_list_assigned_node_ids_for_semantic_map_returns_service_ids() -> None:
+    repo = _StubRepo(assigned_node_ids_for_map=[12, 3, 9])
+    service = TaxonomyService(repo=repo)
+
+    assert await service.list_assigned_node_ids_for_semantic_map() == [12, 3, 9]
 
 
 @pytest.mark.anyio

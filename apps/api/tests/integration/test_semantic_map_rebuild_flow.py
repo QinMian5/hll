@@ -95,6 +95,21 @@ class _InMemoryKnowledgeRepo:
             for node in self.nodes
         ]
 
+    async def fetch_projection_nodes_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[SemanticMapProjectionNode]:
+        return [
+            SemanticMapProjectionNode(
+                node_id=node.node_id,
+                title=node.title,
+                embedding=node.embedding,
+            )
+            for node in self.nodes
+            if node.node_id in node_ids
+        ]
+
     async def commit(self) -> None:
         return None
 
@@ -117,6 +132,14 @@ class _RecordingSnapshotRepo:
         self.published_tiles = list(tiles)
 
 
+@dataclass(slots=True)
+class _StubTaxonomyPort:
+    assigned_node_ids: list[int]
+
+    async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
+        return list(self.assigned_node_ids)
+
+
 @pytest.mark.integration
 @pytest.mark.anyio
 async def test_rebuild_consumes_knowledge_projection_nodes_and_publishes_snapshot() -> None:
@@ -126,8 +149,10 @@ async def test_rebuild_consumes_knowledge_projection_nodes_and_publishes_snapsho
         edge_similarity_min_strength=0.8,
     )
     snapshot_repo = _RecordingSnapshotRepo()
+    taxonomy_port = _StubTaxonomyPort(assigned_node_ids=[1, 2, 3])
     rebuild_service = SemanticMapRebuildService(
         projection_port=knowledge_service,
+        taxonomy_port=taxonomy_port,
         snapshot_repo=snapshot_repo,
         now=lambda: datetime(2026, 4, 3, 15, 30, tzinfo=UTC),
     )

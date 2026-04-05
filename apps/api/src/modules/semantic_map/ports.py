@@ -34,3 +34,7 @@ class SemanticMapSnapshotWritePort(Protocol):
         manifest: SemanticMapManifest,
         tiles: Sequence[SemanticMapRegionTile],
     ) -> None: ...
+
+
+class TaxonomyAssignedNodesPort(Protocol):
+    async def list_assigned_node_ids_for_semantic_map(self) -> list[int]: ...

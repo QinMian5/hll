@@ -15,7 +15,7 @@ for artifact in "$OPENAPI_FILE" "$TYPES_FILE" "$CLIENT_FILE"; do
   fi
 done
 
-temp_dir="$(mktemp -d)"
+temp_dir="$(mktemp -d "$CONTRACTS_DIR/.tmp.verify.XXXXXX")"
 trap 'rm -rf "$temp_dir"' EXIT
 
 expected_openapi="$temp_dir/openapi.json"

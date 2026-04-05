@@ -28,6 +28,12 @@ class KnowledgeGraphReadPort(Protocol):
 
 
 class KnowledgeGraphProjectionPort(Protocol):
+    async def list_projection_nodes_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[SemanticMapProjectionNode]: ...
+
     async def list_projection_nodes_for_semantic_map(self) -> list[SemanticMapProjectionNode]: ...
 
 

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+CONTRACTS_DIR="$ROOT_DIR/packages/contracts"
 OPENAPI_INPUT_PATH="${OPENAPI_INPUT_PATH:-$ROOT_DIR/packages/contracts/openapi/openapi.json}"
 OUTPUT_PATH="${GENERATED_TYPES_OUTPUT_PATH:-$ROOT_DIR/packages/contracts/generated/types.ts}"
 
@@ -13,5 +14,6 @@ fi
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
-pnpm exec openapi-typescript "$OPENAPI_INPUT_PATH" --output "$OUTPUT_PATH"
+pnpm --dir "$CONTRACTS_DIR" exec openapi-typescript "$OPENAPI_INPUT_PATH" --output "$OUTPUT_PATH"
+pnpm --dir "$ROOT_DIR" exec biome format --write "$OUTPUT_PATH"
 echo "Wrote generated TypeScript types to $OUTPUT_PATH"
