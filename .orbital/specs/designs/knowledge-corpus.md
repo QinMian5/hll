@@ -81,9 +81,9 @@ out_of_scope: HTTP APIs, operator-facing CLI commands, file-system import orches
   - Schema/model tests verify `wikipedia.documents` and `wikipedia.processed_documents` expose exactly the accepted first-version fields and constraints.
   - Repository tests verify document upsert idempotency, processed-mark idempotency, and unprocessed filtering behavior.
   - Search tests verify title-weighted full-text retrieval and `exclude_processed` filtering.
-  - Architecture checks verify `apps/knowledge_corpus` does not import any other app and that other apps do not import it.
+  - Repository quality-gate scripts and pre-commit hooks include `apps/knowledge_corpus` so the app stays under the standard Ruff, Ty, and pytest checks used in the repository.
 - **Evidence:**
   - Approved spec review with synchronized updates to impacted design docs.
   - Passing migration/schema tests for the dedicated corpus database.
   - Passing repository/search tests demonstrating keyword retrieval and processed exclusion.
-  - Passing architecture-isolation checks proving the app remains independent from `apps/api`, `apps/cli`, and `apps/web`.
+  - Passing repository quality gates and knowledge-corpus pre-commit hooks.

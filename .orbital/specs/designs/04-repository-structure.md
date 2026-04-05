@@ -224,6 +224,7 @@ human_workspace/
 - Detailed architecture constraints are defined in `03-architecture-constraints`.
 - Minimal phase-1 quality gates are `lint/format`, `typecheck`, `test`, and `contract drift`.
 - Dependency-direction enforcement is implemented through `import-linter` contracts in `apps/api/pyproject.toml`.
+- Repository-root quality-gate scripts and pre-commit hooks include `apps/knowledge_corpus` under the same Ruff, Ty, and pytest gate family used for repository members.
 - Knowledge corpus app details are defined in `knowledge-corpus`.
 - Wikipedia offline preprocessing details are defined in `wikipedia-offline-preprocessing`.
 - This document defines layout ownership only and does not redefine dependency policy details.

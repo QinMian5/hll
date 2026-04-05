@@ -6,10 +6,14 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
+CORPUS_DIR="$ROOT_DIR/apps/knowledge_corpus"
 WEB_DIR="$ROOT_DIR/apps/web"
 
 echo "[test] backend unit (pytest)"
 uv --directory "$API_DIR" run pytest "$API_DIR/tests/unit"
+
+echo "[test] knowledge corpus unit (pytest)"
+uv --directory "$CORPUS_DIR" run pytest "$CORPUS_DIR/tests/unit"
 
 echo "[test] frontend (vitest)"
 pnpm run web:test

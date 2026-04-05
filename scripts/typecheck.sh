@@ -6,9 +6,13 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
+CORPUS_DIR="$ROOT_DIR/apps/knowledge_corpus"
 
 echo "[typecheck] backend (ty)"
 uv run --project "$API_DIR" ty check --project "$API_DIR" "$API_DIR/src"
+
+echo "[typecheck] knowledge corpus (ty)"
+uv run --project "$CORPUS_DIR" ty check --project "$CORPUS_DIR" "$CORPUS_DIR/src"
 
 echo "[typecheck] js/ts (tsc)"
 pnpm run js:typecheck

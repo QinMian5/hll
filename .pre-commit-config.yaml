@@ -38,21 +38,21 @@ repos:
 
       - id: knowledge-corpus-ruff-format
         name: knowledge-corpus-ruff-format
-        entry: bash -lc 'cd apps/knowledge_corpus && uv run ruff format src tests alembic'
+        entry: uv run --project apps/knowledge_corpus ruff format apps/knowledge_corpus/src apps/knowledge_corpus/tests apps/knowledge_corpus/alembic
         language: system
         pass_filenames: false
         files: ^apps/knowledge_corpus/
 
       - id: knowledge-corpus-ruff-check-fix
         name: knowledge-corpus-ruff-check-fix
-        entry: bash -lc 'cd apps/knowledge_corpus && uv run ruff check --fix src tests alembic'
+        entry: uv run --project apps/knowledge_corpus ruff check --fix apps/knowledge_corpus/src apps/knowledge_corpus/tests apps/knowledge_corpus/alembic
         language: system
         pass_filenames: false
         files: ^apps/knowledge_corpus/
 
       - id: knowledge-corpus-ty-check
         name: knowledge-corpus-ty-check
-        entry: bash -lc 'cd apps/knowledge_corpus && uv run ty check --project . src'
+        entry: uv run --project apps/knowledge_corpus ty check --project apps/knowledge_corpus apps/knowledge_corpus/src
         language: system
         pass_filenames: false
         files: ^apps/knowledge_corpus/
