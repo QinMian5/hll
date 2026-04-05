@@ -13,7 +13,7 @@ COPY apps/api/alembic /app/apps/api/alembic
 COPY infra/docker/api/run-api.sh /app/bin/
 COPY infra/docker/api/run-worker.sh /app/bin/
 
-RUN chmod +x /app/bin/run-api.sh /app/bin/run-worker.sh && uv sync --frozen --no-dev --package api
+RUN chmod +x /app/bin/run-api.sh /app/bin/run-worker.sh && uv sync --frozen --package api --group dev
 
 ENV PATH="/app/.venv/bin:${PATH}"
 

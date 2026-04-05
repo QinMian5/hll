@@ -12,7 +12,7 @@ COPY apps/knowledge_corpus/src /app/apps/knowledge_corpus/src
 COPY apps/knowledge_corpus/alembic.ini /app/apps/knowledge_corpus/alembic.ini
 COPY apps/knowledge_corpus/alembic /app/apps/knowledge_corpus/alembic
 
-RUN uv sync --frozen --no-dev --package knowledge-corpus
+RUN uv sync --frozen --package knowledge-corpus --group dev
 
 ENV PATH="/app/.venv/bin:${PATH}"
 
