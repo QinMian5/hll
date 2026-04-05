@@ -23,11 +23,19 @@ class _StubScalarResult:
 
 
 class _StubExecuteResult:
-    def __init__(self, row: tuple[object, object] | None) -> None:
+    def __init__(
+        self,
+        row: tuple[object, object] | None = None,
+        rows: list[object] | None = None,
+    ) -> None:
         self._row = row
+        self._rows = rows if rows is not None else []
 
     def one_or_none(self) -> tuple[object, object] | None:
         return self._row
+
+    def all(self) -> list[object]:
+        return list(self._rows)
 
 
 @dataclass(slots=True)
@@ -151,3 +159,19 @@ async def test_set_final_assignment_updates_existing_assignment() -> None:
     assert existing_assignment.assigned_at == updated_at
     assert assignment.taxonomy_node.id == 8
     assert session.flushed is True
+
+
+@pytest.mark.anyio
+async def test_list_assigned_leaf_depths_for_semantic_map_returns_depth_rows() -> None:
+    class _DepthRow:
+        def __init__(self, depth: int) -> None:
+            self.depth = depth
+
+    session = _StubSession(
+        execute_results=[_StubExecuteResult(rows=[_DepthRow(1), _DepthRow(2), _DepthRow(3)])]
+    )
+    repo = TaxonomyRepo(session=session)
+
+    depths = await repo.list_assigned_leaf_depths_for_semantic_map()
+
+    assert depths == [1, 2, 3]

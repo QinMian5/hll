@@ -37,9 +37,13 @@ class _StubProjectionPort:
 @dataclass(slots=True)
 class _StubTaxonomyPort:
     assigned_node_ids: list[int]
+    assigned_leaf_depths: list[int]
 
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
         return list(self.assigned_node_ids)
+
+    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
+        return list(self.assigned_leaf_depths)
 
 
 @dataclass(slots=True)
@@ -60,7 +64,7 @@ class _RecordingSnapshotRepo:
 @pytest.mark.anyio
 async def test_rebuild_skips_publication_when_projection_source_is_empty() -> None:
     repo = _RecordingSnapshotRepo()
-    taxonomy_port = _StubTaxonomyPort(assigned_node_ids=[])
+    taxonomy_port = _StubTaxonomyPort(assigned_node_ids=[], assigned_leaf_depths=[])
     service = SemanticMapRebuildService(
         projection_port=_StubProjectionPort(nodes=[]),
         taxonomy_port=taxonomy_port,
@@ -104,7 +108,7 @@ async def test_rebuild_creates_current_snapshot_with_region_tiles() -> None:
     repo = _RecordingSnapshotRepo()
     service = SemanticMapRebuildService(
         projection_port=projection_port,
-        taxonomy_port=_StubTaxonomyPort(assigned_node_ids=[1, 2, 3, 4]),
+        taxonomy_port=_StubTaxonomyPort(assigned_node_ids=[1, 2, 3, 4], assigned_leaf_depths=[2]),
         snapshot_repo=repo,
         now=lambda: datetime(2026, 4, 3, 12, 0, tzinfo=UTC),
     )
@@ -122,6 +126,30 @@ async def test_rebuild_creates_current_snapshot_with_region_tiles() -> None:
     assert any(tile.region_count > 0 for tile in repo.published_tiles)
     assert any(tile.label_count > 0 for tile in repo.published_tiles)
     assert projection_port.requested_node_ids == [[1, 2, 3, 4]]
+
+
+@pytest.mark.anyio
+async def test_rebuild_skips_publication_when_leaf_depths_are_unavailable() -> None:
+    repo = _RecordingSnapshotRepo()
+    service = SemanticMapRebuildService(
+        projection_port=_StubProjectionPort(
+            nodes=[
+                SemanticMapProjectionNode(
+                    node_id=1,
+                    title="Alpha",
+                    embedding=[1.0, 0.0, 0.0],
+                )
+            ]
+        ),
+        taxonomy_port=_StubTaxonomyPort(assigned_node_ids=[1], assigned_leaf_depths=[]),
+        snapshot_repo=repo,
+        now=lambda: datetime(2026, 4, 3, 12, 0, tzinfo=UTC),
+    )
+
+    version = await service.rebuild_current_snapshot()
+
+    assert version is None
+    assert repo.published_manifest is None
 
 
 def test_convex_hull_returns_polygon_for_cluster_points() -> None:

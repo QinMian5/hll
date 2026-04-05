@@ -18,6 +18,8 @@ class TaxonomyRepoProtocol(Protocol):
 
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None: ...
 
+    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]: ...
+
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]: ...
 
     async def set_final_assignment(
@@ -63,6 +65,9 @@ class TaxonomyService:
 
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None:
         return await self._repo.get_assignment_for_node(node_id=node_id)
+
+    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
+        return await self._repo.list_assigned_leaf_depths_for_semantic_map()
 
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
         return await self._repo.list_assigned_node_ids_for_semantic_map()

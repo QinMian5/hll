@@ -111,6 +111,21 @@ class TaxonomyRepo:
         ).all()
         return [row.node_id for row in rows]
 
+    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
+        rows = (
+            await self._session.execute(
+                select(TaxonomyNode.depth)
+                .join(
+                    NodeTaxonomyAssignment,
+                    NodeTaxonomyAssignment.taxonomy_node_id == TaxonomyNode.id,
+                )
+                .where(TaxonomyNode.is_leaf.is_(True))
+                .distinct()
+                .order_by(TaxonomyNode.depth.asc())
+            )
+        ).all()
+        return [row.depth for row in rows]
+
     async def set_final_assignment(
         self,
         *,

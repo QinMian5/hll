@@ -26,11 +26,11 @@ from modules.semantic_map.geometry import (
     tile_bounds_for_coordinate,
 )
 from modules.semantic_map.metadata import (
-    DEFAULT_PHASE1_SEMANTIC_LEVELS,
     DEFAULT_TILE_SIZE,
     DEFAULT_VIEW_TARGET,
     WORLD_BOUNDS,
     SemanticLevelDefinition,
+    build_semantic_levels_from_leaf_depths,
 )
 from modules.semantic_map.ports import SemanticMapSnapshotWritePort, TaxonomyAssignedNodesPort
 from modules.semantic_map.types import Bounds4, LabelPayload, Point2, RegionPayload
@@ -351,17 +351,21 @@ class SemanticMapRebuildService:
         taxonomy_port: TaxonomyAssignedNodesPort,
         snapshot_repo: SemanticMapSnapshotWritePort,
         now: Callable[[], datetime] = _utc_now,
-        semantic_levels: Sequence[SemanticLevelDefinition] = DEFAULT_PHASE1_SEMANTIC_LEVELS,
+        semantic_levels: Sequence[SemanticLevelDefinition] | None = None,
     ) -> None:
         self._projection_port = projection_port
         self._taxonomy_port = taxonomy_port
         self._snapshot_repo = snapshot_repo
         self._now = now
-        self._semantic_levels = tuple(semantic_levels)
+        self._semantic_levels = tuple(semantic_levels) if semantic_levels is not None else None
 
     async def rebuild_current_snapshot(self) -> str | None:
         assigned_node_ids = await self._taxonomy_port.list_assigned_node_ids_for_semantic_map()
         if not assigned_node_ids:
+            return None
+
+        semantic_levels = await self._resolve_semantic_levels()
+        if not semantic_levels:
             return None
 
         nodes = await self._projection_port.list_projection_nodes_for_node_ids(
@@ -376,11 +380,11 @@ class SemanticMapRebuildService:
         region_levels = _build_region_levels(
             nodes=nodes,
             projected_points=projected_points,
-            semantic_levels=self._semantic_levels,
+            semantic_levels=semantic_levels,
         )
         tiles = _build_tiles(
             region_levels=region_levels,
-            semantic_levels=self._semantic_levels,
+            semantic_levels=semantic_levels,
             world_bounds=WORLD_BOUNDS,
         )
         manifest = SemanticMapManifest(
@@ -389,12 +393,19 @@ class SemanticMapRebuildService:
             built_at=built_at,
             world_bounds=WORLD_BOUNDS,
             tile_size=DEFAULT_TILE_SIZE,
-            max_zoom=max(level.max_zoom for level in self._semantic_levels),
+            max_zoom=max(level.max_zoom for level in semantic_levels),
             default_view=DefaultView(target=DEFAULT_VIEW_TARGET, zoom=0.0),
-            default_semantic_level=self._semantic_levels[0].level,
+            default_semantic_level=semantic_levels[0].level,
         )
         await self._snapshot_repo.publish_snapshot(
             manifest=manifest,
             tiles=tiles,
         )
         return version
+
+    async def _resolve_semantic_levels(self) -> tuple[SemanticLevelDefinition, ...]:
+        if self._semantic_levels is not None:
+            return self._semantic_levels
+
+        leaf_depths = await self._taxonomy_port.list_assigned_leaf_depths_for_semantic_map()
+        return build_semantic_levels_from_leaf_depths(leaf_depths=leaf_depths)

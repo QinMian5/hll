@@ -135,9 +135,13 @@ class _RecordingSnapshotRepo:
 @dataclass(slots=True)
 class _StubTaxonomyPort:
     assigned_node_ids: list[int]
+    assigned_leaf_depths: list[int]
 
     async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
         return list(self.assigned_node_ids)
+
+    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
+        return list(self.assigned_leaf_depths)
 
 
 @pytest.mark.integration
@@ -149,7 +153,7 @@ async def test_rebuild_consumes_knowledge_projection_nodes_and_publishes_snapsho
         edge_similarity_min_strength=0.8,
     )
     snapshot_repo = _RecordingSnapshotRepo()
-    taxonomy_port = _StubTaxonomyPort(assigned_node_ids=[1, 2, 3])
+    taxonomy_port = _StubTaxonomyPort(assigned_node_ids=[1, 2, 3], assigned_leaf_depths=[2])
     rebuild_service = SemanticMapRebuildService(
         projection_port=knowledge_service,
         taxonomy_port=taxonomy_port,

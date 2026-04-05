@@ -12,12 +12,12 @@ from core.errors import ApplicationError, DomainError, ErrorCode
 from modules.semantic_map.dto import SemanticMapManifest, SemanticMapRegionTile
 from modules.semantic_map.geometry import tile_bounds_for_coordinate
 from modules.semantic_map.metadata import (
-    DEFAULT_PHASE1_SEMANTIC_LEVELS,
     SEMANTIC_MAP_COORDINATE_SYSTEM,
     CoordinateSystemDefinition,
     SemanticLevelDefinition,
+    build_semantic_levels_from_leaf_depths,
 )
-from modules.semantic_map.ports import SemanticMapSnapshotReadPort
+from modules.semantic_map.ports import SemanticMapSnapshotReadPort, TaxonomyLeafDepthsPort
 from modules.semantic_map.schema import (
     CoordinateSystemResponse,
     DefaultViewResponse,
@@ -166,13 +166,14 @@ class SemanticMapService:
         self,
         *,
         repo: SemanticMapSnapshotReadPort,
+        taxonomy_port: TaxonomyLeafDepthsPort | None = None,
         coordinate_system: CoordinateSystemDefinition = SEMANTIC_MAP_COORDINATE_SYSTEM,
-        semantic_levels: Sequence[SemanticLevelDefinition] = DEFAULT_PHASE1_SEMANTIC_LEVELS,
+        semantic_levels: Sequence[SemanticLevelDefinition] | None = None,
     ) -> None:
         self._repo = repo
+        self._taxonomy_port = taxonomy_port
         self._coordinate_system = coordinate_system
-        self._semantic_levels = tuple(semantic_levels)
-        self._semantic_levels_by_level = {level.level: level for level in self._semantic_levels}
+        self._semantic_levels = tuple(semantic_levels) if semantic_levels is not None else None
 
     async def get_current_manifest(self) -> SemanticMapManifestResponse:
         manifest = await self._repo.get_current_manifest()
@@ -183,10 +184,11 @@ class SemanticMapService:
                 hint="Run a semantic-map rebuild and retry.",
             )
 
+        semantic_levels = await self._resolve_semantic_levels()
         return _manifest_response(
             manifest,
             coordinate_system=self._coordinate_system,
-            semantic_levels=self._semantic_levels,
+            semantic_levels=semantic_levels,
         )
 
     async def get_region_tile(
@@ -198,11 +200,13 @@ class SemanticMapService:
         tile_x: int,
         tile_y: int,
     ) -> SemanticMapTileResponse:
+        semantic_levels = await self._resolve_semantic_levels()
         self._validate_tile_request(
             semantic_level=semantic_level,
             tile_z=tile_z,
             tile_x=tile_x,
             tile_y=tile_y,
+            semantic_levels=semantic_levels,
         )
 
         manifest = await self._repo.get_manifest_by_version(version=version)
@@ -230,6 +234,24 @@ class SemanticMapService:
             coordinate_system=self._coordinate_system,
         )
 
+    async def _resolve_semantic_levels(self) -> tuple[SemanticLevelDefinition, ...]:
+        if self._semantic_levels is not None:
+            return self._semantic_levels
+
+        if self._taxonomy_port is None:
+            raise RuntimeError("SemanticMapService requires taxonomy_port or semantic_levels.")
+
+        leaf_depths = await self._taxonomy_port.list_assigned_leaf_depths_for_semantic_map()
+        semantic_levels = build_semantic_levels_from_leaf_depths(leaf_depths=leaf_depths)
+        if semantic_levels:
+            return semantic_levels
+
+        raise DomainError(
+            code=ErrorCode.DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND,
+            message="Semantic-map semantic levels are unavailable.",
+            hint="Run a semantic-map rebuild and retry.",
+        )
+
     def _validate_tile_request(
         self,
         *,
@@ -237,8 +259,10 @@ class SemanticMapService:
         tile_z: int,
         tile_x: int,
         tile_y: int,
+        semantic_levels: Sequence[SemanticLevelDefinition],
     ) -> None:
-        if semantic_level not in self._semantic_levels_by_level:
+        semantic_levels_by_level = {level.level: level for level in semantic_levels}
+        if semantic_level not in semantic_levels_by_level:
             raise ApplicationError(
                 code=ErrorCode.APPLICATION_SEMANTIC_MAP_INPUT_INVALID,
                 message="Semantic-map tile request is invalid.",

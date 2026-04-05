@@ -16,7 +16,11 @@ from modules.taxonomy.service import TaxonomyService
 
 
 def build_semantic_map_service(*, session: AsyncSession) -> SemanticMapService:
-    return SemanticMapService(repo=SemanticMapRepo(session=session))
+    taxonomy_service = TaxonomyService(repo=TaxonomyRepo(session=session))
+    return SemanticMapService(
+        repo=SemanticMapRepo(session=session),
+        taxonomy_port=taxonomy_service,
+    )
 
 
 def build_semantic_map_rebuild_service(
