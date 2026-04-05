@@ -17,7 +17,7 @@ out_of_scope: Internal review-agent implementation, internal graph orchestration
 
 ## Constraint Projection
 - **Governing Constraints:** Repository governance stays unified, authoritative service interfaces remain single-sourced, module boundaries stay explicit, runtime behavior remains reproducible, and spec truth remains synchronized with accepted behavior.
-- **Detail Commitments:** The repository contains a dedicated app at `apps/cli`. The CLI accepts `--title` and `--content`, emits a minimal English JSON result to stdout, uses `0/1` exit codes, and issues the existing `POST /cards` ingestion call only after a full local review pass. Internal orchestration details are defined in `cli-review-orchestration.md`.
+- **Detail Commitments:** The repository contains a dedicated app at `apps/cli`. The app exposes one importable Python entrypoint for reviewed single-card submission and one CLI wrapper that accepts `--title` and `--content`, emits a minimal English JSON result to stdout, uses `0/1` exit codes, and issues the existing `POST /cards` ingestion call only after a full local review pass. Internal orchestration details are defined in `cli-review-orchestration.md`.
 - **Update Rule:** Requirement-level constraints remain stable while this design document captures external command shape, operator contract, output schema, and app-local runtime boundaries. Internal workflow changes are projected into `cli-review-orchestration.md`.
 
 ## Inputs & Outputs
@@ -27,7 +27,7 @@ out_of_scope: Internal review-agent implementation, internal graph orchestration
     - `--content`
   - Runtime configuration loaded through app-local `pydantic-settings`.
 - **Outputs:**
-  - A minimal English JSON result written to stdout when the reviewer agent returns a valid review result.
+  - A minimal English JSON result written to stdout when the shared reviewed-submission flow returns a valid review result.
   - A process exit code that distinguishes only success vs. non-success from the local CLI responsibility boundary.
 - **Artifacts:**
   - A typed review result containing the fixed review dimensions:
@@ -38,9 +38,10 @@ out_of_scope: Internal review-agent implementation, internal graph orchestration
     - `content_latex_validity`
 
 ## Design Approach
-- **Approach:** Use a dedicated local CLI app as an operator-facing boundary. The app owns command parsing, operator-facing validation, runtime configuration, output formatting, and submission initiation. Internal review and state transitions are delegated to the separate orchestration design.
+- **Approach:** Use a dedicated local CLI app as both an importable reviewed-submission library boundary and an operator-facing command boundary. The app owns the shared single-card submission function, while the CLI itself remains only a thin wrapper that parses arguments and serializes the shared function result into terminal output.
 - **Key Elements:**
-  - **CLI entrypoint:** Accepts `--title` and `--content` as required parameters and normalizes all terminal states into JSON stdout plus deterministic exit codes.
+  - **Shared Python entrypoint:** Accepts `title` and `content`, runs the same review-and-submit flow that the CLI uses, returns the structured local review result, and raises on local runtime failure.
+  - **CLI entrypoint:** Accepts `--title` and `--content` as required parameters and wraps the shared Python entrypoint to normalize all terminal states into JSON stdout plus deterministic exit codes.
   - **Review result contract:** The CLI emits only an English `result` marker on success, and on failure emits only the failed review dimensions with their `reason` and fixed `hint`.
   - **Submission initiation:** The CLI issues the authoritative `POST /cards` call only after local review passes.
   - **JSON formatter:** Produces one stable minimal review JSON shape without wrapper metadata.
@@ -68,10 +69,12 @@ out_of_scope: Internal review-agent implementation, internal graph orchestration
 - Runtime configuration is owned by the CLI app and loaded through `pydantic-settings`.
 - The app configuration includes:
   - ingestion API base URL or absolute cards endpoint URL
-  - reviewer OpenAI-compatible model identifier
-  - reviewer OpenAI-compatible API key
-  - reviewer OpenAI-compatible base URL
-  - request timeout
+  - selected reviewer backend identifier
+  - reviewer request timeout
+  - backend-specific reviewer settings for the selected backend
+- The accepted first-version reviewer backends are:
+  - a Cursor Agent backend that runs headless review through the local `cursor-agent` command with app-owned command, workspace, timeout, and retry settings
+  - an OpenAI-compatible backend with model identifier, API key, and base URL settings
 - Runtime modules inside the CLI app must not read environment variables directly outside the app-local config entrypoint.
 
 ## Failure Handling

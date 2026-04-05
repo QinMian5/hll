@@ -90,7 +90,6 @@ apps/api/
       utils/
   tests/
   pyproject.toml
-  Dockerfile
 ```
 - `apps/api/src/core/config.py` is the single `pydantic-settings` entrypoint.
 
@@ -125,7 +124,6 @@ apps/web/
   package.json
   tsconfig.app.json
   tsconfig.node.json
-  Dockerfile
 ```
 
 ### Operator CLI Application (`apps/cli`)
@@ -135,6 +133,7 @@ apps/cli/
   pyproject.toml
 ```
 - `apps/cli` owns the local single-card submission command, typed review output models, local agent orchestration, graph branching, and backend submission adapter.
+- `apps/cli` also owns the importable shared reviewed-submission Python entrypoint reused by local orchestrators.
 - `apps/cli` excludes knowledge-graph persistence ownership, backend ingestion internals, and frontend rendering concerns.
 
 ### Knowledge Corpus Application (`apps/knowledge_corpus`)
@@ -189,6 +188,7 @@ human_workspace/
 - The topology block is illustrative rather than exhaustive.
 - `human_workspace` may contain operator-run or researcher-run scripts for offline workflows such as dump acquisition, preprocessing, and analysis.
 - `human_workspace` may contain recoverable external import orchestrators that stream preprocessed offline assets into isolated local databases without expanding online app boundaries.
+- `human_workspace` may contain external page-to-card orchestration libraries that consume local corpus page records, run page-scoped LLM sessions, and route reviewed card writes through the existing operator-facing CLI command backed by the shared reviewed-submission boundary owned by `apps/cli`.
 - `human_workspace` assets do not define authoritative online API contracts, runtime composition roots, or production application module boundaries.
 - `human_workspace` may contain operator-maintained taxonomy source files used by explicit bootstrap scripts, but those files are not the runtime truth after import.
 - Versioned data-preparation scripts under `human_workspace` must still keep clear responsibility boundaries and must not bypass active spec governance for accepted repository behavior.
