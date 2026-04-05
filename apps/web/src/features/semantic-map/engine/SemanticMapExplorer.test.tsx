@@ -190,5 +190,49 @@ describe("SemanticMapExplorer point inspection", () => {
 
     expect(screen.getByText(/Connected cards/i)).toBeInTheDocument();
     expect(screen.getByText("Card Beta")).toBeInTheDocument();
+    expect(screen.getByText("0.91")).toBeInTheDocument();
+  });
+
+  it("allows selecting a connected card from the inspector list", () => {
+    mockedSemanticMapRegionTileQuery.mockReturnValue({
+      data: makeTile(
+        [
+          {
+            id: "card:7",
+            leafRegionId: "taxonomy:12",
+            nodeId: 7,
+            position: [510, 500],
+            title: "Card Alpha",
+          },
+          {
+            id: "card:11",
+            leafRegionId: "taxonomy:12",
+            nodeId: 11,
+            position: [540, 500],
+            title: "Card Beta",
+          },
+        ],
+        [
+          {
+            id: "edge:7:11",
+            sourceNodeId: 7,
+            sourcePosition: [510, 500],
+            strength: 0.91,
+            targetNodeId: 11,
+            targetPosition: [540, 500],
+          },
+        ],
+      ),
+      error: null,
+      isError: false,
+      isPending: false,
+    });
+
+    render(<SemanticMapExplorer manifest={makeManifest()} />);
+    fireEvent.click(screen.getByRole("button", { name: "select-first-point" }));
+    fireEvent.click(screen.getByRole("button", { name: "Card Beta" }));
+
+    expect(screen.getByText("Card Beta")).toBeInTheDocument();
+    expect(screen.getByText("11")).toBeInTheDocument();
   });
 });

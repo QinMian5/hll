@@ -1,8 +1,8 @@
-"""initial wikipedia schema
+"""initial_wikipedia_schema
 
-Revision ID: 318b8f896437
+Revision ID: 7819fd803075
 Revises:
-Create Date: 2026-04-04 22:32:38.736482
+Create Date: 2026-04-05 02:28:08.113714
 
 """
 
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "318b8f896437"
+revision: str = "7819fd803075"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -32,7 +32,7 @@ def upgrade() -> None:
         "documents",
         sa.Column("page_id", sa.BigInteger(), nullable=False),
         sa.Column("url", sa.Text(), nullable=False),
-        sa.Column("title", sa.String(), nullable=False),
+        sa.Column("title", sa.Text(), nullable=False),
         sa.Column("clean_text", sa.Text(), nullable=False),
         sa.Column(
             "search_vector",

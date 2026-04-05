@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import Table
+from sqlalchemy import Table, Text
 
 from knowledge_corpus.wikipedia.model import (
     WikipediaDocument,
@@ -19,6 +19,12 @@ def test_wikipedia_documents_projection_contains_expected_columns() -> None:
     table = cast(Table, WikipediaDocument.__table__)
 
     assert list(table.c.keys()) == ["page_id", "url", "title", "clean_text", "search_vector"]
+
+
+def test_wikipedia_documents_title_column_uses_text() -> None:
+    table = cast(Table, WikipediaDocument.__table__)
+
+    assert isinstance(table.c.title.type, Text)
 
 
 def test_wikipedia_processed_documents_projection_contains_expected_columns() -> None:

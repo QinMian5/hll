@@ -24,6 +24,11 @@ interface SemanticMapExplorerProps {
   readonly manifest: SemanticMapManifestViewModel;
 }
 
+interface ConnectedPointViewModel {
+  readonly point: SemanticMapPointViewModel;
+  readonly strength: number;
+}
+
 export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
   const [selectedPoint, setSelectedPoint] =
     useState<SemanticMapPointViewModel | null>(null);
@@ -85,23 +90,54 @@ export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
 
   const selectedNodeId = selectedPoint?.nodeId ?? null;
   const highlightedNodeIds = new Set<number>();
-  const connectedPointTitles: string[] = [];
+  const connectedPoints: ConnectedPointViewModel[] = [];
   if (selectedNodeId !== null && tileQuery.data) {
+    const connectedStrengthByNodeId = new Map<number, number>();
     for (const edge of tileQuery.data.edges) {
       if (edge.sourceNodeId === selectedNodeId) {
-        highlightedNodeIds.add(edge.targetNodeId);
+        const previousStrength =
+          connectedStrengthByNodeId.get(edge.targetNodeId) ?? 0;
+        connectedStrengthByNodeId.set(
+          edge.targetNodeId,
+          Math.max(previousStrength, edge.strength),
+        );
       } else if (edge.targetNodeId === selectedNodeId) {
-        highlightedNodeIds.add(edge.sourceNodeId);
+        const previousStrength =
+          connectedStrengthByNodeId.get(edge.sourceNodeId) ?? 0;
+        connectedStrengthByNodeId.set(
+          edge.sourceNodeId,
+          Math.max(previousStrength, edge.strength),
+        );
       }
     }
 
-    const connectedPoints = tileQuery.data.points
-      .filter((point) => highlightedNodeIds.has(point.nodeId))
-      .sort((left, right) => left.title.localeCompare(right.title));
-    for (const point of connectedPoints) {
-      connectedPointTitles.push(point.title);
+    for (const nodeId of connectedStrengthByNodeId.keys()) {
+      highlightedNodeIds.add(nodeId);
     }
+
+    for (const point of tileQuery.data.points) {
+      const strength = connectedStrengthByNodeId.get(point.nodeId);
+      if (strength !== undefined) {
+        connectedPoints.push({ point, strength });
+      }
+    }
+
+    connectedPoints.sort(
+      (left, right) =>
+        right.strength - left.strength ||
+        left.point.title.localeCompare(right.point.title),
+    );
   }
+
+  const handleConnectedPointSelect = (nodeId: number) => {
+    if (!tileQuery.data) {
+      return;
+    }
+    const point =
+      tileQuery.data.points.find((candidate) => candidate.nodeId === nodeId) ??
+      null;
+    handlePointSelect(point);
+  };
 
   return (
     <>
@@ -150,13 +186,29 @@ export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
                   </div>
                   <div>
                     <dt>Connected cards</dt>
-                    <dd>{connectedPointTitles.length}</dd>
+                    <dd>{connectedPoints.length}</dd>
                   </div>
                 </dl>
-                {connectedPointTitles.length > 0 ? (
+                {connectedPoints.length > 0 ? (
                   <ul className="semantic-map-inspector-list">
-                    {connectedPointTitles.map((title) => (
-                      <li key={title}>{title}</li>
+                    {connectedPoints.map((connected) => (
+                      <li
+                        key={connected.point.nodeId}
+                        className="semantic-map-inspector-list-item"
+                      >
+                        <button
+                          className="semantic-map-inspector-link"
+                          onClick={() =>
+                            handleConnectedPointSelect(connected.point.nodeId)
+                          }
+                          type="button"
+                        >
+                          {connected.point.title}
+                        </button>
+                        <span className="semantic-map-inspector-strength">
+                          {connected.strength.toFixed(2)}
+                        </span>
+                      </li>
                     ))}
                   </ul>
                 ) : (

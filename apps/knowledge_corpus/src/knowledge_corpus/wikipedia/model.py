@@ -37,7 +37,7 @@ class WikipediaDocument(Base):
 
     page_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     url: Mapped[str] = mapped_column(Text, nullable=False)
-    title: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
     clean_text: Mapped[str] = mapped_column(Text, nullable=False)
     search_vector: Mapped[str] = mapped_column(
         TSVECTOR,

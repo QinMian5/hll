@@ -206,12 +206,41 @@ select {
 
 .semantic-map-inspector-list {
   margin: 12px 0 0;
-  padding-left: 18px;
+  padding-left: 0;
   color: #1e293b;
+  list-style: none;
 }
 
 .semantic-map-inspector-list li + li {
   margin-top: 6px;
+}
+
+.semantic-map-inspector-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.semantic-map-inspector-link {
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.semantic-map-inspector-link:hover {
+  color: #1d4ed8;
+}
+
+.semantic-map-inspector-strength {
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
 }
 
 .semantic-map-engine-fallback {

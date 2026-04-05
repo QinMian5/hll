@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
 CLI_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CLI_ROOT))
@@ -126,3 +127,55 @@ def test_run_cursor_review_raises_after_three_invalid_attempts(
             content="The discriminant is defined as \\(b^2 - 4ac\\).",
             settings=settings,
         )
+
+
+def test_submit_reviewed_card_returns_review_result_when_review_passes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = main.ReviewResult(
+        title_validity=main.ReviewItem(passed=True, reason=None),
+        title_content_alignment=main.ReviewItem(passed=True, reason=None),
+        content_coherence=main.ReviewItem(passed=True, reason=None),
+        content_atomicity=main.ReviewItem(passed=True, reason=None),
+        content_latex_validity=main.ReviewItem(passed=True, reason=None),
+    )
+
+    monkeypatch.setattr(main, "run_review_graph", lambda payload, settings: expected)
+
+    review = main.submit_reviewed_card(
+        title="Quadratic Equation Standard Form",
+        content="A quadratic equation has the form \\(ax^2 + bx + c = 0\\).",
+    )
+
+    assert review == expected
+
+
+def test_cli_projects_shared_function_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    failed_review = main.ReviewResult(
+        title_validity=main.ReviewItem(passed=False, reason="too broad"),
+        title_content_alignment=main.ReviewItem(passed=True, reason=None),
+        content_coherence=main.ReviewItem(passed=True, reason=None),
+        content_atomicity=main.ReviewItem(passed=True, reason=None),
+        content_latex_validity=main.ReviewItem(passed=True, reason=None),
+    )
+    monkeypatch.setattr(
+        main,
+        "submit_reviewed_card",
+        lambda title, content: failed_review,
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main.cli,
+        [
+            "--title",
+            "Math",
+            "--content",
+            "A quadratic equation has the form \\(ax^2 + bx + c = 0\\).",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert json.loads(result.output)["result"] == "failed"

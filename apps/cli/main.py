@@ -399,14 +399,20 @@ def run_review_graph(payload: CardInput, settings: CliSettings) -> ReviewResult:
     return result.output
 
 
+def submit_reviewed_card(
+    *, title: str, content: str, settings: CliSettings | None = None
+) -> ReviewResult:
+    payload = CardInput(title=title, content=content)
+    resolved_settings = settings or CliSettings()
+    return run_review_graph(payload, resolved_settings)
+
+
 @click.command()
 @click.option("--title", required=True, type=str, help="Knowledge card title.")
 @click.option("--content", required=True, type=str, help="Knowledge card content.")
 def cli(title: str, content: str) -> None:
     try:
-        payload = CardInput(title=title, content=content)
-        settings = CliSettings()
-        review = run_review_graph(payload, settings)
+        review = submit_reviewed_card(title=title, content=content)
     except ValidationError as exc:
         raise click.ClickException(str(exc)) from exc
     except Exception as exc:

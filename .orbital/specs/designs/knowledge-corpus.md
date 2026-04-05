@@ -54,6 +54,7 @@ out_of_scope: HTTP APIs, operator-facing CLI commands, file-system import orches
     - `title`
     - `clean_text`
     - `search_vector`
+    - `title` uses PostgreSQL `TEXT`, matching the repository convention already used for primary title-bearing knowledge records.
   - **`wikipedia.processed_documents` contract:** Holds processing-state truth only. Required fields are:
     - `page_id`
     - `processed_at`
@@ -63,8 +64,9 @@ out_of_scope: HTTP APIs, operator-facing CLI commands, file-system import orches
   - **App-local configuration contract:** The app owns its own database runtime and migration URL settings and must not reuse the online API/worker database settings or config loaders. Accepted first-version setting names are `KNOWLEDGE_CORPUS_DATABASE_URL` and `KNOWLEDGE_CORPUS_MIGRATION_DATABASE_URL`.
   - **Async database runtime:** The app uses async SQLAlchemy engine and session boundaries for its database runtime and library services.
   - **Environment-loading rule:** The app, its tests, and its Alembic environment read only current process environment through `pydantic-settings`. Local `.env` files, compose `env_file`, and repository-root discovery are outside the app boundary and remain caller concerns.
-  - **Record-level interface boundary:** The app accepts record-level write/search/mark operations, not file-path or directory-path orchestration commands. External scripts or other local programs are responsible for reading Wikipedia preprocessing outputs and calling the library with normalized records.
-  - **External importer separation:** Recoverable Wikipedia shard import orchestration is defined outside this app boundary and is documented in `wikipedia-corpus-import`.
+- **Record-level interface boundary:** The app accepts record-level write/search/mark operations, not file-path or directory-path orchestration commands. External scripts or other local programs are responsible for reading Wikipedia preprocessing outputs and calling the library with normalized records.
+- **External importer separation:** Recoverable Wikipedia shard import orchestration is defined outside this app boundary and is documented in `wikipedia-corpus-import`.
+- **External page-to-card separation:** LLM-assisted page-to-card extraction orchestration remains outside this app boundary and may consume complete page records plus the processed-mark library interface without moving agent/session logic into `apps/knowledge_corpus`.
   - **Search semantics:** Retrieval uses PostgreSQL full-text search with the English configuration. Search must weight `title` above `clean_text` and support filtering out rows that already appear in `wikipedia.processed_documents`.
   - **Write semantics:** Source-document writes are idempotent by `page_id`. Processed-document marking is also idempotent by `page_id`.
   - **No source-coupled importer contract:** The app does not define `import-wikipedia-from-path` or any directory-scanning/file-parsing API. Source-file orchestration remains outside the app boundary.
