@@ -1,0 +1,57 @@
+"""
+Abstract: SQLAlchemy persistence projection for taxonomy tree nodes and final assignments.
+Out of scope: Import orchestration and HTTP transport contracts.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import Mapped, mapped_column
+
+from shared.db.base import Base
+
+
+class TaxonomyNode(Base):
+    __tablename__ = "taxonomy_nodes"
+    __table_args__ = (
+        CheckConstraint("depth >= 0", name="depth_non_negative"),
+        UniqueConstraint("parent_id", "name", name="uq_taxonomy_nodes_parent_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("taxonomy_nodes.id"),
+        nullable=True,
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    depth: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_leaf: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+
+class NodeTaxonomyAssignment(Base):
+    __tablename__ = "node_taxonomy_assignments"
+    __table_args__ = (UniqueConstraint("node_id", name="uq_node_taxonomy_assignments_node_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    node_id: Mapped[int] = mapped_column(
+        ForeignKey("nodes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    taxonomy_node_id: Mapped[int] = mapped_column(
+        ForeignKey("taxonomy_nodes.id"),
+        nullable=False,
+    )
+    assigned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )

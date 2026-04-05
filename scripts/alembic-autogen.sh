@@ -20,4 +20,4 @@ docker compose \
   -f "$COMPOSE_BASE" \
   -f "$COMPOSE_DEV" \
   run --rm migrate \
-  alembic -c /app/alembic.ini revision --autogenerate -m "$MSG"
+  alembic -c /app/apps/api/alembic.ini revision --autogenerate -m "$MSG"
