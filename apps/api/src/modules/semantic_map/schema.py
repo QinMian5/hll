@@ -6,11 +6,21 @@ Out of scope: Rebuild orchestration and SQLAlchemy persistence behavior.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
-from modules.semantic_map.types import Bounds4, Point2
+from modules.semantic_map.dto import DefaultView
+from modules.semantic_map.metadata import SemanticLevelDefinition
+from modules.semantic_map.types import (
+    Bounds4,
+    LabelPayload,
+    MultiPolygonGeometryPayload,
+    PointPayload,
+    PolygonGeometryPayload,
+    RegionGeometryPayload,
+    RegionPayload,
+)
 
 
 class SemanticMapResponseModel(BaseModel):
@@ -23,63 +33,35 @@ class CoordinateSystemResponse(SemanticMapResponseModel):
     bounds_format: Literal["min_x_min_y_max_x_max_y"]
 
 
-class DefaultViewResponse(SemanticMapResponseModel):
-    target: Point2
-    zoom: float
+class DefaultViewResponse(DefaultView):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
-class SemanticLevelResponse(SemanticMapResponseModel):
-    level: int
-    stable_id: str
-    display_name: str
-    min_zoom: int
-    max_zoom: int
-    region_role: str
-    child_content_role: str
+class SemanticLevelResponse(SemanticLevelDefinition):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
-class PolygonGeometryResponse(SemanticMapResponseModel):
-    type: Literal["polygon"]
-    coordinates: list[list[float]]
+class PolygonGeometryResponse(PolygonGeometryPayload):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
-class MultiPolygonGeometryResponse(SemanticMapResponseModel):
-    type: Literal["multi_polygon"]
-    coordinates: list[list[list[float]]]
+class MultiPolygonGeometryResponse(MultiPolygonGeometryPayload):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
-type RegionGeometryResponse = Annotated[
-    PolygonGeometryResponse | MultiPolygonGeometryResponse,
-    Field(discriminator="type"),
-]
+type RegionGeometryResponse = RegionGeometryPayload
 
 
-class RegionResponse(SemanticMapResponseModel):
-    id: str
-    parent_id: str | None
-    region_name: str
-    centroid: list[float]
-    bbox: list[float]
-    geometry: RegionGeometryResponse
-    display_rank: int
-    children_available: bool
+class RegionResponse(RegionPayload):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
-class LabelResponse(SemanticMapResponseModel):
-    id: str
-    region_id: str
-    text: str
-    position: list[float]
-    label_rank: int
-    font_size: int
+class LabelResponse(LabelPayload):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
-class PointResponse(SemanticMapResponseModel):
-    id: str
-    node_id: int
-    leaf_region_id: str
-    title: str
-    position: list[float]
+class PointResponse(PointPayload):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
 class SemanticMapManifestResponse(SemanticMapResponseModel):

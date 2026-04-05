@@ -180,8 +180,8 @@ export interface components {
       /** Title */
       title: string;
     };
-    /** MultiPolygonGeometryResponse */
-    MultiPolygonGeometryResponse: {
+    /** MultiPolygonGeometryPayload */
+    MultiPolygonGeometryPayload: {
       /** Coordinates */
       coordinates: number[][][];
       /**
@@ -204,8 +204,8 @@ export interface components {
       /** Title */
       title: string;
     };
-    /** PolygonGeometryResponse */
-    PolygonGeometryResponse: {
+    /** PolygonGeometryPayload */
+    PolygonGeometryPayload: {
       /** Coordinates */
       coordinates: number[][];
       /**
@@ -214,9 +214,9 @@ export interface components {
        */
       type: "polygon";
     };
-    RegionGeometryResponse:
-      | components["schemas"]["PolygonGeometryResponse"]
-      | components["schemas"]["MultiPolygonGeometryResponse"];
+    RegionGeometryPayload:
+      | components["schemas"]["PolygonGeometryPayload"]
+      | components["schemas"]["MultiPolygonGeometryPayload"];
     /** RegionResponse */
     RegionResponse: {
       /** Bbox */
@@ -227,7 +227,7 @@ export interface components {
       children_available: boolean;
       /** Display Rank */
       display_rank: number;
-      geometry: components["schemas"]["RegionGeometryResponse"];
+      geometry: components["schemas"]["RegionGeometryPayload"];
       /** Id */
       id: string;
       /** Parent Id */

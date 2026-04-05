@@ -104,17 +104,6 @@ class TaxonomyRepo:
         assignment, taxonomy_node = row
         return _assignment_record_from_row(assignment, taxonomy_node)
 
-    async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
-        rows = (
-            await self._session.execute(
-                select(NodeTaxonomyAssignment.node_id)
-                .join(TaxonomyNode, NodeTaxonomyAssignment.taxonomy_node_id == TaxonomyNode.id)
-                .where(TaxonomyNode.is_leaf.is_(True))
-                .order_by(NodeTaxonomyAssignment.node_id.asc())
-            )
-        ).all()
-        return [row.node_id for row in rows]
-
     async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
         rows = (
             await self._session.execute(

@@ -25,8 +25,6 @@ class TaxonomyRepoProtocol(Protocol):
 
     async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]: ...
 
-    async def list_assigned_node_ids_for_semantic_map(self) -> list[int]: ...
-
     async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]: ...
 
     async def set_final_assignment(
@@ -78,9 +76,6 @@ class TaxonomyService:
 
     async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
         return await self._repo.list_assigned_leaf_depths_for_semantic_map()
-
-    async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
-        return await self._repo.list_assigned_node_ids_for_semantic_map()
 
     async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]:
         return await self._repo.list_semantic_map_assignments()

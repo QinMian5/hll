@@ -15,27 +15,19 @@ from modules.semantic_map.metadata import (
     SEMANTIC_MAP_COORDINATE_SYSTEM,
     CoordinateSystemDefinition,
     SemanticLevelDefinition,
-    build_semantic_levels_from_leaf_depths,
 )
-from modules.semantic_map.ports import SemanticMapSnapshotReadPort, TaxonomyLeafDepthsPort
+from modules.semantic_map.ports import SemanticMapSnapshotReadPort
 from modules.semantic_map.schema import (
     CoordinateSystemResponse,
     DefaultViewResponse,
     LabelResponse,
-    MultiPolygonGeometryResponse,
     PointResponse,
-    PolygonGeometryResponse,
-    RegionGeometryResponse,
     RegionResponse,
     SemanticLevelResponse,
     SemanticMapManifestResponse,
     SemanticMapTileMetadataResponse,
     SemanticMapTileResponse,
     SemanticMapTileStatsResponse,
-)
-from modules.semantic_map.types import (
-    PolygonGeometryPayload,
-    RegionGeometryPayload,
 )
 
 
@@ -61,24 +53,10 @@ def _semantic_level_response(level: SemanticLevelDefinition) -> SemanticLevelRes
     )
 
 
-def _region_geometry_response(geometry: RegionGeometryPayload) -> RegionGeometryResponse:
-    if isinstance(geometry, PolygonGeometryPayload):
-        return PolygonGeometryResponse(
-            type=geometry.type,
-            coordinates=geometry.coordinates,
-        )
-
-    return MultiPolygonGeometryResponse(
-        type=geometry.type,
-        coordinates=geometry.coordinates,
-    )
-
-
 def _manifest_response(
     manifest: SemanticMapManifest,
     *,
     coordinate_system: CoordinateSystemDefinition,
-    semantic_levels: Sequence[SemanticLevelDefinition],
 ) -> SemanticMapManifestResponse:
     return SemanticMapManifestResponse(
         version=manifest.version,
@@ -93,7 +71,7 @@ def _manifest_response(
             zoom=manifest.default_view.zoom,
         ),
         default_semantic_level=manifest.default_semantic_level,
-        semantic_levels=[_semantic_level_response(level) for level in semantic_levels],
+        semantic_levels=[_semantic_level_response(level) for level in manifest.semantic_levels],
     )
 
 
@@ -143,7 +121,7 @@ def _tile_response(
                 region_name=region.region_name,
                 centroid=region.centroid,
                 bbox=region.bbox,
-                geometry=_region_geometry_response(region.geometry),
+                geometry=region.geometry,
                 display_rank=region.display_rank,
                 children_available=region.children_available,
             )
@@ -178,14 +156,10 @@ class SemanticMapService:
         self,
         *,
         repo: SemanticMapSnapshotReadPort,
-        taxonomy_port: TaxonomyLeafDepthsPort | None = None,
         coordinate_system: CoordinateSystemDefinition = SEMANTIC_MAP_COORDINATE_SYSTEM,
-        semantic_levels: Sequence[SemanticLevelDefinition] | None = None,
     ) -> None:
         self._repo = repo
-        self._taxonomy_port = taxonomy_port
         self._coordinate_system = coordinate_system
-        self._semantic_levels = tuple(semantic_levels) if semantic_levels is not None else None
 
     async def get_current_manifest(self) -> SemanticMapManifestResponse:
         manifest = await self._repo.get_current_manifest()
@@ -196,11 +170,9 @@ class SemanticMapService:
                 hint="Run a semantic-map rebuild and retry.",
             )
 
-        semantic_levels = await self._resolve_semantic_levels()
         return _manifest_response(
             manifest,
             coordinate_system=self._coordinate_system,
-            semantic_levels=semantic_levels,
         )
 
     async def get_region_tile(
@@ -212,15 +184,6 @@ class SemanticMapService:
         tile_x: int,
         tile_y: int,
     ) -> SemanticMapTileResponse:
-        semantic_levels = await self._resolve_semantic_levels()
-        self._validate_tile_request(
-            semantic_level=semantic_level,
-            tile_z=tile_z,
-            tile_x=tile_x,
-            tile_y=tile_y,
-            semantic_levels=semantic_levels,
-        )
-
         manifest = await self._repo.get_manifest_by_version(version=version)
         if manifest is None:
             raise DomainError(
@@ -228,6 +191,14 @@ class SemanticMapService:
                 message="Semantic-map snapshot version was not found.",
                 hint="Refresh manifest/current and retry with an available version.",
             )
+
+        self._validate_tile_request(
+            semantic_level=semantic_level,
+            tile_z=tile_z,
+            tile_x=tile_x,
+            tile_y=tile_y,
+            semantic_levels=manifest.semantic_levels,
+        )
 
         tile = await self._repo.get_region_tile(
             version=version,
@@ -244,24 +215,6 @@ class SemanticMapService:
             tile_y=tile_y,
             tile=tile,
             coordinate_system=self._coordinate_system,
-        )
-
-    async def _resolve_semantic_levels(self) -> tuple[SemanticLevelDefinition, ...]:
-        if self._semantic_levels is not None:
-            return self._semantic_levels
-
-        if self._taxonomy_port is None:
-            raise RuntimeError("SemanticMapService requires taxonomy_port or semantic_levels.")
-
-        leaf_depths = await self._taxonomy_port.list_assigned_leaf_depths_for_semantic_map()
-        semantic_levels = build_semantic_levels_from_leaf_depths(leaf_depths=leaf_depths)
-        if semantic_levels:
-            return semantic_levels
-
-        raise DomainError(
-            code=ErrorCode.DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND,
-            message="Semantic-map semantic levels are unavailable.",
-            hint="Run a semantic-map rebuild and retry.",
         )
 
     def _validate_tile_request(

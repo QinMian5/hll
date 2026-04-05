@@ -139,9 +139,6 @@ class _StubTaxonomyPort:
     tree_nodes: list[TaxonomyNodeRecord]
     assignments: list[TaxonomySemanticMapAssignment]
 
-    async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
-        return [assignment.node_id for assignment in self.assignments]
-
     async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
         return list(self.assigned_leaf_depths)
 

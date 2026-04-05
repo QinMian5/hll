@@ -10,7 +10,7 @@ type ManifestTransport = Readable<
 type TileTransport = Readable<components["schemas"]["SemanticMapTileResponse"]>;
 type Bounds4 = Readable<components["schemas"]["Bounds4"]>;
 type Point2 = Readable<components["schemas"]["Point2"]>;
-type RegionGeometry = Readable<components["schemas"]["RegionGeometryResponse"]>;
+type RegionGeometry = Readable<components["schemas"]["RegionGeometryPayload"]>;
 
 export interface SemanticMapLevelViewModel {
   readonly childContentRole: string;

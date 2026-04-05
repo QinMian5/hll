@@ -29,6 +29,7 @@ def test_snapshot_manifest_model_contains_id_and_bounds() -> None:
     assert table.c.max_zoom.nullable is False
     assert table.c.default_view.nullable is False
     assert table.c.default_semantic_level.nullable is False
+    assert table.c.semantic_levels.nullable is False
     assert table.c.current.nullable is False
 
 

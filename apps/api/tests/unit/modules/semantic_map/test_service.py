@@ -12,7 +12,10 @@ import pytest
 
 from core.errors import ApplicationError, DomainError, ErrorCode
 from modules.semantic_map.dto import DefaultView, SemanticMapManifest, SemanticMapRegionTile
-from modules.semantic_map.metadata import build_semantic_levels_from_leaf_depths
+from modules.semantic_map.metadata import (
+    SemanticLevelDefinition,
+    build_semantic_levels_from_leaf_depths,
+)
 from modules.semantic_map.schema import SemanticMapManifestResponse, SemanticMapTileResponse
 from modules.semantic_map.service import SemanticMapService
 from modules.semantic_map.types import (
@@ -23,7 +26,11 @@ from modules.semantic_map.types import (
 )
 
 
-def _build_manifest(*, version: str = "20260403_120000_000000") -> SemanticMapManifest:
+def _build_manifest(
+    *,
+    version: str = "20260403_120000_000000",
+    semantic_levels: list[SemanticLevelDefinition] | None = None,
+) -> SemanticMapManifest:
     return SemanticMapManifest(
         version=version,
         schema_version=version,
@@ -33,6 +40,11 @@ def _build_manifest(*, version: str = "20260403_120000_000000") -> SemanticMapMa
         max_zoom=6,
         default_view=DefaultView(target=(500.0, 500.0), zoom=0.0),
         default_semantic_level=0,
+        semantic_levels=(
+            semantic_levels
+            if semantic_levels is not None
+            else list(build_semantic_levels_from_leaf_depths(leaf_depths=[2]))
+        ),
     )
 
 
@@ -106,20 +118,9 @@ class _StubRepo:
         return self.tile
 
 
-@dataclass(slots=True)
-class _StubTaxonomyPort:
-    assigned_leaf_depths: list[int]
-
-    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
-        return list(self.assigned_leaf_depths)
-
-
 @pytest.mark.anyio
 async def test_get_current_manifest_returns_transport_response() -> None:
-    service = SemanticMapService(
-        repo=_StubRepo(current_manifest=_build_manifest()),
-        taxonomy_port=_StubTaxonomyPort(assigned_leaf_depths=[2]),
-    )
+    service = SemanticMapService(repo=_StubRepo(current_manifest=_build_manifest()))
 
     response = await service.get_current_manifest()
 
@@ -133,10 +134,7 @@ async def test_get_current_manifest_returns_transport_response() -> None:
 
 @pytest.mark.anyio
 async def test_get_current_manifest_raises_not_found_when_snapshot_missing() -> None:
-    service = SemanticMapService(
-        repo=_StubRepo(),
-        taxonomy_port=_StubTaxonomyPort(assigned_leaf_depths=[2]),
-    )
+    service = SemanticMapService(repo=_StubRepo())
 
     with pytest.raises(DomainError) as exc_info:
         await service.get_current_manifest()
@@ -147,10 +145,7 @@ async def test_get_current_manifest_raises_not_found_when_snapshot_missing() -> 
 @pytest.mark.anyio
 async def test_get_region_tile_returns_empty_payload_for_known_snapshot_without_tile() -> None:
     manifest = _build_manifest(version="20260403_153000_000000")
-    service = SemanticMapService(
-        repo=_StubRepo(version_manifest=manifest),
-        taxonomy_port=_StubTaxonomyPort(assigned_leaf_depths=[2]),
-    )
+    service = SemanticMapService(repo=_StubRepo(version_manifest=manifest))
 
     response = await service.get_region_tile(
         version="20260403_153000_000000",
@@ -171,10 +166,7 @@ async def test_get_region_tile_returns_empty_payload_for_known_snapshot_without_
 
 @pytest.mark.anyio
 async def test_get_region_tile_raises_not_found_for_unknown_version() -> None:
-    service = SemanticMapService(
-        repo=_StubRepo(),
-        taxonomy_port=_StubTaxonomyPort(assigned_leaf_depths=[2]),
-    )
+    service = SemanticMapService(repo=_StubRepo())
 
     with pytest.raises(DomainError) as exc_info:
         await service.get_region_tile(
@@ -191,10 +183,7 @@ async def test_get_region_tile_raises_not_found_for_unknown_version() -> None:
 @pytest.mark.anyio
 async def test_get_region_tile_raises_input_invalid_for_unknown_semantic_level() -> None:
     manifest = _build_manifest()
-    service = SemanticMapService(
-        repo=_StubRepo(version_manifest=manifest),
-        taxonomy_port=_StubTaxonomyPort(assigned_leaf_depths=[2]),
-    )
+    service = SemanticMapService(repo=_StubRepo(version_manifest=manifest))
 
     with pytest.raises(ApplicationError) as exc_info:
         await service.get_region_tile(
@@ -223,10 +212,7 @@ async def test_get_region_tile_returns_transport_payload_for_materialized_tile()
         labels=[_build_label_payload()],
         points=[_build_point_payload()],
     )
-    service = SemanticMapService(
-        repo=_StubRepo(version_manifest=manifest, tile=tile),
-        taxonomy_port=_StubTaxonomyPort(assigned_leaf_depths=[2]),
-    )
+    service = SemanticMapService(repo=_StubRepo(version_manifest=manifest, tile=tile))
 
     response = await service.get_region_tile(
         version=manifest.version,
@@ -242,10 +228,10 @@ async def test_get_region_tile_returns_transport_payload_for_materialized_tile()
 
 
 @pytest.mark.anyio
-async def test_get_current_manifest_builds_levels_for_mixed_depth_taxonomy() -> None:
+async def test_get_current_manifest_uses_snapshot_semantic_levels() -> None:
+    semantic_levels = list(build_semantic_levels_from_leaf_depths(leaf_depths=[1, 3]))
     service = SemanticMapService(
-        repo=_StubRepo(current_manifest=_build_manifest()),
-        taxonomy_port=_StubTaxonomyPort(assigned_leaf_depths=[1, 3]),
+        repo=_StubRepo(current_manifest=_build_manifest(semantic_levels=semantic_levels))
     )
 
     response = await service.get_current_manifest()
@@ -256,12 +242,10 @@ async def test_get_current_manifest_builds_levels_for_mixed_depth_taxonomy() -> 
 
 
 @pytest.mark.anyio
-async def test_get_region_tile_accepts_terminal_card_layer_level_for_mixed_depth() -> None:
-    manifest = _build_manifest()
-    service = SemanticMapService(
-        repo=_StubRepo(version_manifest=manifest),
-        taxonomy_port=_StubTaxonomyPort(assigned_leaf_depths=[1, 3]),
-    )
+async def test_get_region_tile_accepts_terminal_card_layer_level_from_snapshot() -> None:
+    semantic_levels = list(build_semantic_levels_from_leaf_depths(leaf_depths=[1, 3]))
+    manifest = _build_manifest(semantic_levels=semantic_levels)
+    service = SemanticMapService(repo=_StubRepo(version_manifest=manifest))
 
     response = await service.get_region_tile(
         version=manifest.version,
@@ -273,7 +257,3 @@ async def test_get_region_tile_accepts_terminal_card_layer_level_for_mixed_depth
 
     assert isinstance(response, SemanticMapTileResponse)
     assert response.semantic_level == 4
-
-
-def test_build_semantic_levels_from_leaf_depths_returns_empty_for_no_depths() -> None:
-    assert build_semantic_levels_from_leaf_depths(leaf_depths=[]) == ()

@@ -18,6 +18,7 @@ from modules.semantic_map.dto import (
 from modules.semantic_map.dto import (
     SemanticMapRegionTile as SemanticMapRegionTileValue,
 )
+from modules.semantic_map.metadata import SemanticLevelDefinition
 from modules.semantic_map.model import (
     SemanticMapRegionTile as SemanticMapRegionTileModel,
 )
@@ -35,6 +36,7 @@ from modules.semantic_map.types import (
 )
 
 _DEFAULT_VIEW_PAYLOAD_ADAPTER = TypeAdapter(StoredDefaultViewPayload)
+_SEMANTIC_LEVELS_ADAPTER = TypeAdapter(list[SemanticLevelDefinition])
 _REGION_PAYLOADS_ADAPTER = TypeAdapter(list[RegionPayload])
 _LABEL_PAYLOADS_ADAPTER = TypeAdapter(list[LabelPayload])
 _POINT_PAYLOADS_ADAPTER = TypeAdapter(list[PointPayload])
@@ -140,6 +142,7 @@ class SemanticMapRepo:
                 zoom=manifest.default_view.zoom,
             ).model_dump(mode="json"),
             default_semantic_level=manifest.default_semantic_level,
+            semantic_levels=[level.model_dump(mode="json") for level in manifest.semantic_levels],
         )
         self._session.add(snapshot)
         await self._session.flush()
@@ -174,4 +177,5 @@ def _manifest_from_snapshot(snapshot: SemanticMapSnapshot) -> SemanticMapManifes
         max_zoom=snapshot.max_zoom,
         default_view=_default_view_from_stored(snapshot.default_view),
         default_semantic_level=snapshot.default_semantic_level,
+        semantic_levels=_SEMANTIC_LEVELS_ADAPTER.validate_python(snapshot.semantic_levels),
     )

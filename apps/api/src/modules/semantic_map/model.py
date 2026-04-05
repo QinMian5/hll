@@ -51,6 +51,11 @@ class SemanticMapSnapshot(Base):
     max_zoom: Mapped[int] = mapped_column(Integer, nullable=False)
     default_view: Mapped[JsonObject] = mapped_column(JSON, nullable=False)
     default_semantic_level: Mapped[int] = mapped_column(Integer, nullable=False)
+    semantic_levels: Mapped[list[JsonObject]] = mapped_column(
+        JSON,
+        nullable=False,
+        server_default=text("'[]'::json"),
+    )
 
 
 class SemanticMapRegionTile(Base):

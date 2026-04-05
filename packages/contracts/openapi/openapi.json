@@ -247,8 +247,7 @@
         "title": "MatchedCardResponse",
         "type": "object"
       },
-      "MultiPolygonGeometryResponse": {
-        "additionalProperties": false,
+      "MultiPolygonGeometryPayload": {
         "properties": {
           "coordinates": {
             "items": {
@@ -273,7 +272,7 @@
           "type",
           "coordinates"
         ],
-        "title": "MultiPolygonGeometryResponse",
+        "title": "MultiPolygonGeometryPayload",
         "type": "object"
       },
       "Point2": {
@@ -326,8 +325,7 @@
         "title": "PointResponse",
         "type": "object"
       },
-      "PolygonGeometryResponse": {
-        "additionalProperties": false,
+      "PolygonGeometryPayload": {
         "properties": {
           "coordinates": {
             "items": {
@@ -349,23 +347,23 @@
           "type",
           "coordinates"
         ],
-        "title": "PolygonGeometryResponse",
+        "title": "PolygonGeometryPayload",
         "type": "object"
       },
-      "RegionGeometryResponse": {
+      "RegionGeometryPayload": {
         "discriminator": {
           "mapping": {
-            "multi_polygon": "#/components/schemas/MultiPolygonGeometryResponse",
-            "polygon": "#/components/schemas/PolygonGeometryResponse"
+            "multi_polygon": "#/components/schemas/MultiPolygonGeometryPayload",
+            "polygon": "#/components/schemas/PolygonGeometryPayload"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
-            "$ref": "#/components/schemas/PolygonGeometryResponse"
+            "$ref": "#/components/schemas/PolygonGeometryPayload"
           },
           {
-            "$ref": "#/components/schemas/MultiPolygonGeometryResponse"
+            "$ref": "#/components/schemas/MultiPolygonGeometryPayload"
           }
         ]
       },
@@ -395,7 +393,7 @@
             "type": "integer"
           },
           "geometry": {
-            "$ref": "#/components/schemas/RegionGeometryResponse"
+            "$ref": "#/components/schemas/RegionGeometryPayload"
           },
           "id": {
             "title": "Id",

@@ -9,6 +9,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
+from modules.semantic_map.metadata import SemanticLevelDefinition
 from modules.semantic_map.types import Bounds4, LabelPayload, Point2, PointPayload, RegionPayload
 
 
@@ -30,6 +31,7 @@ class SemanticMapManifest(SemanticMapValueModel):
     max_zoom: int
     default_view: DefaultView
     default_semantic_level: int
+    semantic_levels: list[SemanticLevelDefinition]
 
 
 class SemanticMapRegionTile(SemanticMapValueModel):

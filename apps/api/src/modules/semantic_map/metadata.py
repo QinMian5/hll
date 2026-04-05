@@ -45,36 +45,6 @@ DEFAULT_VIEW_TARGET: Point2 = (500.0, 500.0)
 DEFAULT_TILE_SIZE = 512
 DEFAULT_ZOOMS_PER_SEMANTIC_LEVEL = 2
 
-DEFAULT_PHASE1_SEMANTIC_LEVELS: tuple[SemanticLevelDefinition, ...] = (
-    SemanticLevelDefinition(
-        level=0,
-        stable_id="domains",
-        display_name="Domains",
-        min_zoom=0,
-        max_zoom=1,
-        region_role="domain",
-        child_content_role="theme",
-    ),
-    SemanticLevelDefinition(
-        level=1,
-        stable_id="themes",
-        display_name="Themes",
-        min_zoom=2,
-        max_zoom=3,
-        region_role="theme",
-        child_content_role="topic",
-    ),
-    SemanticLevelDefinition(
-        level=2,
-        stable_id="topics",
-        display_name="Topics",
-        min_zoom=4,
-        max_zoom=6,
-        region_role="topic",
-        child_content_role="point",
-    ),
-)
-
 
 def build_semantic_levels_from_leaf_depths(
     *,

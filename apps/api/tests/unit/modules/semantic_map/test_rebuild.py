@@ -41,9 +41,6 @@ class _StubTaxonomyPort:
     tree_nodes: list[TaxonomyNodeRecord]
     assignments: list[TaxonomySemanticMapAssignment]
 
-    async def list_assigned_node_ids_for_semantic_map(self) -> list[int]:
-        return [assignment.node_id for assignment in self.assignments]
-
     async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
         return list(self.assigned_leaf_depths)
 
@@ -149,6 +146,7 @@ async def test_rebuild_creates_current_snapshot_with_region_tiles() -> None:
     assert repo.published_manifest.version == "20260403_120000_000000"
     assert repo.published_manifest.schema_version == "20260403_120000_000000"
     assert repo.published_manifest.default_semantic_level == 0
+    assert [level.level for level in repo.published_manifest.semantic_levels] == [0, 1, 2, 3]
     assert repo.published_tiles is not None
     assert len(repo.published_tiles) > 0
     assert any(tile.semantic_level == 0 for tile in repo.published_tiles)
