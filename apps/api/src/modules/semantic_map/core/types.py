@@ -68,3 +68,12 @@ class PointPayload(SemanticMapPayloadModel):
     leaf_region_id: str
     title: str
     position: list[float]
+
+
+class EdgePayload(SemanticMapPayloadModel):
+    id: str
+    source_node_id: int
+    target_node_id: int
+    strength: float
+    source_position: list[float]
+    target_position: list[float]

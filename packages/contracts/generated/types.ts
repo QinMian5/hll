@@ -101,6 +101,21 @@ export interface components {
       /** Zoom */
       zoom: number;
     };
+    /** EdgeResponse */
+    EdgeResponse: {
+      /** Id */
+      id: string;
+      /** Source Node Id */
+      source_node_id: number;
+      /** Source Position */
+      source_position: number[];
+      /** Strength */
+      strength: number;
+      /** Target Node Id */
+      target_node_id: number;
+      /** Target Position */
+      target_position: number[];
+    };
     /**
      * ErrorCode
      * @enum {string}
@@ -299,6 +314,8 @@ export interface components {
     };
     /** SemanticMapTileResponse */
     SemanticMapTileResponse: {
+      /** Edges */
+      edges: components["schemas"]["EdgeResponse"][];
       /** Labels */
       labels: components["schemas"]["LabelResponse"][];
       /** Points */
@@ -316,6 +333,8 @@ export interface components {
     };
     /** SemanticMapTileStatsResponse */
     SemanticMapTileStatsResponse: {
+      /** Edge Count */
+      edge_count: number;
       /** Label Count */
       label_count: number;
       /** Region Count */

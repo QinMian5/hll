@@ -20,6 +20,7 @@ from modules.semantic_map.ports import SemanticMapSnapshotReadPort
 from modules.semantic_map.read.schema import (
     CoordinateSystemResponse,
     DefaultViewResponse,
+    EdgeResponse,
     LabelResponse,
     PointResponse,
     RegionResponse,
@@ -98,6 +99,7 @@ def _tile_response(
     regions = [] if tile is None else tile.regions
     labels = [] if tile is None else tile.labels
     points = [] if tile is None else tile.points
+    edges = [] if tile is None else tile.edges
 
     return SemanticMapTileResponse(
         schema_version=manifest.schema_version,
@@ -113,6 +115,7 @@ def _tile_response(
         stats=SemanticMapTileStatsResponse(
             region_count=0 if tile is None else tile.region_count,
             label_count=0 if tile is None else tile.label_count,
+            edge_count=0 if tile is None else tile.edge_count,
         ),
         regions=[
             RegionResponse(
@@ -147,6 +150,17 @@ def _tile_response(
                 position=point.position,
             )
             for point in points
+        ],
+        edges=[
+            EdgeResponse(
+                id=edge.id,
+                source_node_id=edge.source_node_id,
+                target_node_id=edge.target_node_id,
+                strength=edge.strength,
+                source_position=edge.source_position,
+                target_position=edge.target_position,
+            )
+            for edge in edges
         ],
     )
 

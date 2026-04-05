@@ -12,7 +12,7 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 from core.config import load_migration_settings
 from modules.knowledge_graph import model as knowledge_graph_model
-from modules.semantic_map import model as semantic_map_model
+from modules.semantic_map.persistence import model as semantic_map_model
 from modules.taxonomy import model as taxonomy_model
 from shared.db.base import Base
 

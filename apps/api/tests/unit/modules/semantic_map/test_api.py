@@ -70,10 +70,11 @@ def _empty_tile_response() -> SemanticMapTileResponse:
             tile_bounds=(0.0, 0.0, 1000.0, 1000.0),
             bounds_format="min_x_min_y_max_x_max_y",
         ),
-        stats=SemanticMapTileStatsResponse(region_count=0, label_count=0),
+        stats=SemanticMapTileStatsResponse(region_count=0, label_count=0, edge_count=0),
         regions=[],
         labels=[],
         points=[],
+        edges=[],
     )
 
 
@@ -193,7 +194,8 @@ async def test_region_tile_returns_empty_payload_for_empty_tile(
     assert payload["regions"] == []
     assert payload["labels"] == []
     assert payload["points"] == []
-    assert payload["stats"] == {"region_count": 0, "label_count": 0}
+    assert payload["edges"] == []
+    assert payload["stats"] == {"region_count": 0, "label_count": 0, "edge_count": 0}
 
 
 @pytest.mark.anyio

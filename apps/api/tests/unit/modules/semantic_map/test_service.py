@@ -13,6 +13,7 @@ import pytest
 from core.errors import ApplicationError, DomainError, ErrorCode
 from modules.semantic_map.core.dto import DefaultView, SemanticMapManifest, SemanticMapRegionTile
 from modules.semantic_map.core.types import (
+    EdgePayload,
     LabelPayload,
     PointPayload,
     PolygonGeometryPayload,
@@ -91,6 +92,17 @@ def _build_point_payload() -> PointPayload:
     )
 
 
+def _build_edge_payload() -> EdgePayload:
+    return EdgePayload(
+        id="edge:1:2",
+        source_node_id=1,
+        target_node_id=2,
+        strength=0.87,
+        source_position=[500.0, 500.0],
+        target_position=[540.0, 500.0],
+    )
+
+
 @dataclass(slots=True)
 class _StubRepo:
     current_manifest: SemanticMapManifest | None = None
@@ -162,6 +174,7 @@ async def test_get_region_tile_returns_empty_payload_for_known_snapshot_without_
     assert response.points == []
     assert response.stats.region_count == 0
     assert response.stats.label_count == 0
+    assert response.stats.edge_count == 0
 
 
 @pytest.mark.anyio
@@ -208,9 +221,11 @@ async def test_get_region_tile_returns_transport_payload_for_materialized_tile()
         tile_bounds=(0.0, 0.0, 1000.0, 1000.0),
         region_count=1,
         label_count=1,
+        edge_count=1,
         regions=[_build_region_payload()],
         labels=[_build_label_payload()],
         points=[_build_point_payload()],
+        edges=[_build_edge_payload()],
     )
     service = SemanticMapService(repo=_StubRepo(version_manifest=manifest, tile=tile))
 
@@ -225,6 +240,7 @@ async def test_get_region_tile_returns_transport_payload_for_materialized_tile()
     assert response.regions[0].region_name == "Alpha · Beta"
     assert response.labels[0].text == "Alpha"
     assert response.points[0].title == "Alpha"
+    assert response.edges[0].id == "edge:1:2"
 
 
 @pytest.mark.anyio

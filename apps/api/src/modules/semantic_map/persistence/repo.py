@@ -20,6 +20,7 @@ from modules.semantic_map.core.dto import (
 )
 from modules.semantic_map.core.types import (
     Bounds4,
+    EdgePayload,
     JsonObject,
     LabelPayload,
     Point2,
@@ -40,6 +41,7 @@ _SEMANTIC_LEVELS_ADAPTER = TypeAdapter(list[SemanticLevelDefinition])
 _REGION_PAYLOADS_ADAPTER = TypeAdapter(list[RegionPayload])
 _LABEL_PAYLOADS_ADAPTER = TypeAdapter(list[LabelPayload])
 _POINT_PAYLOADS_ADAPTER = TypeAdapter(list[PointPayload])
+_EDGE_PAYLOADS_ADAPTER = TypeAdapter(list[EdgePayload])
 
 
 def _bounds4_from_stored(values: Sequence[float]) -> Bounds4:
@@ -112,9 +114,11 @@ class SemanticMapRepo:
             tile_bounds=_bounds4_from_stored(tile.tile_bounds),
             region_count=tile.region_count,
             label_count=tile.label_count,
+            edge_count=tile.edge_count,
             regions=_REGION_PAYLOADS_ADAPTER.validate_python(tile.regions),
             labels=_LABEL_PAYLOADS_ADAPTER.validate_python(tile.labels),
             points=_POINT_PAYLOADS_ADAPTER.validate_python(tile.points),
+            edges=_EDGE_PAYLOADS_ADAPTER.validate_python(tile.edges),
         )
 
     async def publish_snapshot(
@@ -157,9 +161,11 @@ class SemanticMapRepo:
                 tile_bounds=list(tile.tile_bounds),
                 region_count=tile.region_count,
                 label_count=tile.label_count,
+                edge_count=tile.edge_count,
                 regions=[region.model_dump(mode="json") for region in tile.regions],
                 labels=[label.model_dump(mode="json") for label in tile.labels],
                 points=[point.model_dump(mode="json") for point in tile.points],
+                edges=[edge.model_dump(mode="json") for edge in tile.edges],
             )
             for tile in tiles
         )

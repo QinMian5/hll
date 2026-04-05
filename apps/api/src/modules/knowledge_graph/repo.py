@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from modules.knowledge_graph.dto import (
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
+    SemanticMapProjectionEdge,
     SemanticMapProjectionNode,
     SimilarNodeCandidate,
 )
@@ -113,6 +114,30 @@ class KnowledgeRepo:
                 node_id=row.id,
                 title=row.title,
                 embedding=row.embedding,
+            )
+            for row in rows
+        ]
+
+    async def fetch_projection_edges_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[SemanticMapProjectionEdge]:
+        if not node_ids:
+            return []
+
+        rows = (
+            await self._session.execute(
+                select(Edge.node_a_id, Edge.node_b_id, Edge.strength)
+                .where(Edge.node_a_id.in_(node_ids), Edge.node_b_id.in_(node_ids))
+                .order_by(Edge.id.asc())
+            )
+        ).all()
+        return [
+            SemanticMapProjectionEdge(
+                node_a_id=row.node_a_id,
+                node_b_id=row.node_b_id,
+                strength=row.strength,
             )
             for row in rows
         ]

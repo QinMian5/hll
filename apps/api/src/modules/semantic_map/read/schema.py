@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict
 from modules.semantic_map.core.dto import DefaultView
 from modules.semantic_map.core.types import (
     Bounds4,
+    EdgePayload,
     LabelPayload,
     MultiPolygonGeometryPayload,
     PointPayload,
@@ -64,6 +65,10 @@ class PointResponse(PointPayload):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
+class EdgeResponse(EdgePayload):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+
 class SemanticMapManifestResponse(SemanticMapResponseModel):
     version: str
     schema_version: str
@@ -88,6 +93,7 @@ class SemanticMapTileMetadataResponse(SemanticMapResponseModel):
 class SemanticMapTileStatsResponse(SemanticMapResponseModel):
     region_count: int
     label_count: int
+    edge_count: int
 
 
 class SemanticMapTileResponse(SemanticMapResponseModel):
@@ -99,3 +105,4 @@ class SemanticMapTileResponse(SemanticMapResponseModel):
     regions: list[RegionResponse]
     labels: list[LabelResponse]
     points: list[PointResponse]
+    edges: list[EdgeResponse]

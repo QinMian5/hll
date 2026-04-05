@@ -58,11 +58,14 @@ function makeManifestResponse() {
 function makeTileResponse() {
   return new Response(
     JSON.stringify({
+      edges: [],
       labels: [],
+      points: [],
       regions: [],
       schema_version: "20260403_134500_000123",
       semantic_level: 0,
       stats: {
+        edge_count: 0,
         label_count: 0,
         region_count: 0,
       },
@@ -85,6 +88,16 @@ function makeTileResponse() {
 function makeNonEmptyTileResponse() {
   return new Response(
     JSON.stringify({
+      edges: [
+        {
+          id: "edge:1:2",
+          source_node_id: 1,
+          source_position: [520, 510],
+          strength: 0.87,
+          target_node_id: 2,
+          target_position: [560, 530],
+        },
+      ],
       labels: [
         {
           font_size: 16,
@@ -93,6 +106,15 @@ function makeNonEmptyTileResponse() {
           position: [500, 500],
           region_id: "region-domain-alpha",
           text: "Alpha Domain",
+        },
+      ],
+      points: [
+        {
+          id: "card-1",
+          leaf_region_id: "region-domain-alpha",
+          node_id: 1,
+          position: [520, 510],
+          title: "Alpha card",
         },
       ],
       regions: [
@@ -118,6 +140,7 @@ function makeNonEmptyTileResponse() {
       schema_version: "20260403_134500_000123",
       semantic_level: 0,
       stats: {
+        edge_count: 1,
         label_count: 1,
         region_count: 1,
       },

@@ -7,7 +7,11 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from modules.knowledge_graph.dto import KnowledgeCardMatch, SemanticMapProjectionNode
+from modules.knowledge_graph.dto import (
+    KnowledgeCardMatch,
+    SemanticMapProjectionEdge,
+    SemanticMapProjectionNode,
+)
 
 
 class KnowledgeGraphReadPort(Protocol):
@@ -35,6 +39,12 @@ class KnowledgeGraphProjectionPort(Protocol):
     ) -> list[SemanticMapProjectionNode]: ...
 
     async def list_projection_nodes_for_semantic_map(self) -> list[SemanticMapProjectionNode]: ...
+
+    async def list_projection_edges_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[SemanticMapProjectionEdge]: ...
 
 
 class KnowledgeGraphWritePort(Protocol):

@@ -9,7 +9,7 @@ type ManifestTransport = Readable<
 >;
 type TileTransport = Readable<components["schemas"]["SemanticMapTileResponse"]>;
 type Bounds4 = Readable<components["schemas"]["Bounds4"]>;
-type Point2 = Readable<components["schemas"]["Point2"]>;
+type Point2 = components["schemas"]["Point2"];
 type RegionGeometry = Readable<components["schemas"]["RegionGeometryPayload"]>;
 
 export interface SemanticMapLevelViewModel {
@@ -43,6 +43,14 @@ export interface SemanticMapManifestViewModel {
 }
 
 export interface SemanticMapTileViewModel {
+  readonly edges: readonly {
+    readonly id: string;
+    readonly sourceNodeId: number;
+    readonly sourcePosition: Point2;
+    readonly strength: number;
+    readonly targetNodeId: number;
+    readonly targetPosition: Point2;
+  }[];
   readonly labels: readonly {
     readonly fontSize: number;
     readonly id: string;
@@ -50,6 +58,13 @@ export interface SemanticMapTileViewModel {
     readonly position: readonly number[];
     readonly regionId: string;
     readonly text: string;
+  }[];
+  readonly points: readonly {
+    readonly id: string;
+    readonly leafRegionId: string;
+    readonly nodeId: number;
+    readonly position: Point2;
+    readonly title: string;
   }[];
   readonly regions: readonly {
     readonly bbox: readonly number[];
@@ -64,6 +79,7 @@ export interface SemanticMapTileViewModel {
   readonly schemaVersion: string;
   readonly semanticLevel: number;
   readonly stats: {
+    readonly edgeCount: number;
     readonly labelCount: number;
     readonly regionCount: number;
   };
@@ -77,6 +93,9 @@ export interface SemanticMapTileViewModel {
   readonly version: string;
 }
 
+export type SemanticMapPointViewModel =
+  SemanticMapTileViewModel["points"][number];
+
 export function mapManifestToViewModel(
   manifest: ManifestTransport,
 ): SemanticMapManifestViewModel {
@@ -89,7 +108,7 @@ export function mapManifestToViewModel(
     },
     defaultSemanticLevel: manifest.default_semantic_level,
     defaultView: {
-      target: manifest.default_view.target,
+      target: toPoint2(manifest.default_view.target, "default_view.target"),
       zoom: manifest.default_view.zoom,
     },
     levels: manifest.semantic_levels.map((level) => ({
@@ -113,6 +132,14 @@ export function mapRegionTileToViewModel(
   tile: TileTransport,
 ): SemanticMapTileViewModel {
   return {
+    edges: tile.edges.map((edge) => ({
+      id: edge.id,
+      sourceNodeId: edge.source_node_id,
+      sourcePosition: toPoint2(edge.source_position, "edges.source_position"),
+      strength: edge.strength,
+      targetNodeId: edge.target_node_id,
+      targetPosition: toPoint2(edge.target_position, "edges.target_position"),
+    })),
     labels: tile.labels.map((label) => ({
       fontSize: label.font_size,
       id: label.id,
@@ -120,6 +147,13 @@ export function mapRegionTileToViewModel(
       position: label.position,
       regionId: label.region_id,
       text: label.text,
+    })),
+    points: tile.points.map((point) => ({
+      id: point.id,
+      leafRegionId: point.leaf_region_id,
+      nodeId: point.node_id,
+      position: toPoint2(point.position, "points.position"),
+      title: point.title,
     })),
     regions: tile.regions.map((region) => ({
       bbox: region.bbox,
@@ -134,6 +168,7 @@ export function mapRegionTileToViewModel(
     schemaVersion: tile.schema_version,
     semanticLevel: tile.semantic_level,
     stats: {
+      edgeCount: tile.stats.edge_count,
       labelCount: tile.stats.label_count,
       regionCount: tile.stats.region_count,
     },
@@ -146,4 +181,12 @@ export function mapRegionTileToViewModel(
     },
     version: tile.version,
   };
+}
+
+function toPoint2(value: readonly number[], fieldName: string): Point2 {
+  const [x, y] = value;
+  if (x === undefined || y === undefined) {
+    throw new Error(`${fieldName} must contain exactly two numeric values.`);
+  }
+  return [x, y];
 }

@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from modules.knowledge_graph.dto import SemanticMapProjectionNode
+from modules.knowledge_graph.dto import SemanticMapProjectionEdge, SemanticMapProjectionNode
 from modules.semantic_map.core.dto import SemanticMapManifest, SemanticMapRegionTile
 from modules.semantic_map.core.geometry import build_cluster_hull
 from modules.semantic_map.snapshot_build.service import SemanticMapBuildService
@@ -21,7 +21,9 @@ from modules.taxonomy.dto import TaxonomyNodeRecord, TaxonomySemanticMapAssignme
 @dataclass(slots=True)
 class _StubProjectionPort:
     nodes: list[SemanticMapProjectionNode]
+    edges: list[SemanticMapProjectionEdge] = field(default_factory=list)
     requested_node_ids: list[list[int]] = field(default_factory=list)
+    requested_edge_node_ids: list[list[int]] = field(default_factory=list)
 
     async def list_projection_nodes_for_semantic_map(self) -> list[SemanticMapProjectionNode]:
         return self.nodes
@@ -33,6 +35,19 @@ class _StubProjectionPort:
     ) -> list[SemanticMapProjectionNode]:
         self.requested_node_ids.append(list(node_ids))
         return [node for node in self.nodes if node.node_id in node_ids]
+
+    async def list_projection_edges_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[SemanticMapProjectionEdge]:
+        self.requested_edge_node_ids.append(list(node_ids))
+        node_id_set = set(node_ids)
+        return [
+            edge
+            for edge in self.edges
+            if edge.node_a_id in node_id_set and edge.node_b_id in node_id_set
+        ]
 
 
 @dataclass(slots=True)
@@ -112,7 +127,11 @@ async def test_build_creates_current_snapshot_with_region_tiles() -> None:
                 title="Delta",
                 embedding=[0.0, 0.9, 0.1],
             ),
-        ]
+        ],
+        edges=[
+            SemanticMapProjectionEdge(node_a_id=1, node_b_id=2, strength=0.85),
+            SemanticMapProjectionEdge(node_a_id=3, node_b_id=4, strength=0.8),
+        ],
     )
     repo = _RecordingSnapshotRepo()
 
@@ -156,6 +175,7 @@ async def test_build_creates_current_snapshot_with_region_tiles() -> None:
     region_names = {region.region_name for tile in repo.published_tiles for region in tile.regions}
     assert "Science" in region_names
     assert projection_port.requested_node_ids == [[1, 2, 3, 4]]
+    assert projection_port.requested_edge_node_ids == [[1, 2, 3, 4]]
 
 
 @pytest.mark.anyio

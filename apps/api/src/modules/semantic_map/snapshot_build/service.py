@@ -63,6 +63,9 @@ class SemanticMapBuildService:
         )
         if not nodes:
             return None
+        projection_edges = await self._projection_port.list_projection_edges_for_node_ids(
+            node_ids=assigned_node_ids,
+        )
         ordered_nodes = sorted(nodes, key=lambda node: node.node_id)
 
         taxonomy_nodes = await self._taxonomy_port.list_tree_nodes_for_semantic_map()
@@ -84,6 +87,7 @@ class SemanticMapBuildService:
         tiles = build_tiles(
             region_levels=region_levels,
             card_points=card_points,
+            projection_edges=projection_edges,
             semantic_levels=semantic_levels,
             world_bounds=WORLD_BOUNDS,
         )

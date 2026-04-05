@@ -3,7 +3,10 @@
 
 import { startTransition, useDeferredValue, useEffect, useState } from "react";
 
-import type { SemanticMapManifestViewModel } from "../data/mappers";
+import type {
+  SemanticMapManifestViewModel,
+  SemanticMapPointViewModel,
+} from "../data/mappers";
 import { useSemanticMapRegionTileQuery } from "../data/semanticMapQueries";
 import { getSemanticZoomState } from "../model/semanticLod";
 import {
@@ -22,6 +25,8 @@ interface SemanticMapExplorerProps {
 }
 
 export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
+  const [selectedPoint, setSelectedPoint] =
+    useState<SemanticMapPointViewModel | null>(null);
   const [viewState, setViewState] = useState<SemanticMapViewState | null>(null);
   const currentViewState = viewState ?? createDefaultViewState(manifest);
   const deferredViewState = useDeferredValue(currentViewState);
@@ -46,6 +51,16 @@ export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
     setViewState(createDefaultViewState(manifest));
   }, [manifest]);
 
+  useEffect(() => {
+    if (!selectedPoint || !tileQuery.data) {
+      return;
+    }
+
+    if (!tileQuery.data.points.some((point) => point.id === selectedPoint.id)) {
+      setSelectedPoint(null);
+    }
+  }, [selectedPoint, tileQuery.data]);
+
   const handleResetView = () => {
     startTransition(() => {
       setViewState(createDefaultViewState(manifest));
@@ -59,6 +74,12 @@ export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
       setViewState(
         clampViewState(fromDeckViewState(nextViewState, manifest), manifest),
       );
+    });
+  };
+
+  const handlePointSelect = (point: SemanticMapPointViewModel | null) => {
+    startTransition(() => {
+      setSelectedPoint(point);
     });
   };
 
@@ -78,12 +99,40 @@ export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
           <p>{tileQuery.error.message}</p>
         </section>
       ) : (
-        <SemanticMapCanvas
-          manifest={manifest}
-          onViewStateChange={handleViewStateChange}
-          tile={tileQuery.data ?? null}
-          viewState={toDeckViewState(currentViewState, manifest)}
-        />
+        <>
+          <SemanticMapCanvas
+            manifest={manifest}
+            onPointSelect={handlePointSelect}
+            onViewStateChange={handleViewStateChange}
+            tile={tileQuery.data ?? null}
+            viewState={toDeckViewState(currentViewState, manifest)}
+          />
+          <section className="semantic-map-inspector" aria-live="polite">
+            <h2>Point inspection</h2>
+            {tileQuery.isPending ? (
+              <p>Loading tile points.</p>
+            ) : selectedPoint ? (
+              <dl className="semantic-map-inspector-grid">
+                <div>
+                  <dt>Title</dt>
+                  <dd>{selectedPoint.title}</dd>
+                </div>
+                <div>
+                  <dt>Node ID</dt>
+                  <dd>{selectedPoint.nodeId}</dd>
+                </div>
+                <div>
+                  <dt>Leaf region</dt>
+                  <dd>{selectedPoint.leafRegionId}</dd>
+                </div>
+              </dl>
+            ) : (tileQuery.data?.points.length ?? 0) > 0 ? (
+              <p>Click a point to inspect card details.</p>
+            ) : (
+              <p>No points are available in the current tile.</p>
+            )}
+          </section>
+        </>
       )}
     </>
   );

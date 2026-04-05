@@ -14,6 +14,7 @@ import pytest
 from modules.knowledge_graph.dto import (
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
+    SemanticMapProjectionEdge,
     SemanticMapProjectionNode,
     SimilarNodeCandidate,
 )
@@ -80,6 +81,23 @@ class _StubRepo:
                 embedding=[0.1, 0.2, 0.3],
             )
             for node_id in node_ids
+        ]
+
+    async def fetch_projection_edges_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[SemanticMapProjectionEdge]:
+        sorted_node_ids = sorted(set(node_ids))
+        if len(sorted_node_ids) < 2:
+            return []
+
+        return [
+            SemanticMapProjectionEdge(
+                node_a_id=sorted_node_ids[0],
+                node_b_id=sorted_node_ids[1],
+                strength=0.88,
+            )
         ]
 
     async def create_node(
@@ -198,6 +216,21 @@ async def test_list_projection_nodes_for_node_ids() -> None:
         {"node_id": 3, "title": "Card 3", "embedding": [0.1, 0.2, 0.3]},
         {"node_id": 1, "title": "Card 1", "embedding": [0.1, 0.2, 0.3]},
         {"node_id": 2, "title": "Card 2", "embedding": [0.1, 0.2, 0.3]},
+    ]
+
+
+@pytest.mark.anyio
+async def test_list_projection_edges_for_node_ids() -> None:
+    service = KnowledgeGraphService(
+        repo=_StubRepo(),
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    records = await service.list_projection_edges_for_node_ids(node_ids=[3, 1, 2])
+
+    assert [record.model_dump() for record in records] == [
+        {"node_a_id": 1, "node_b_id": 2, "strength": 0.88}
     ]
 
 

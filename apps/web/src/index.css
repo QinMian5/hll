@@ -166,6 +166,44 @@ select {
   font-size: 0.85rem;
 }
 
+.semantic-map-inspector {
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 20px;
+  background: rgba(241, 245, 249, 0.78);
+}
+
+.semantic-map-inspector h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.semantic-map-inspector p {
+  margin: 12px 0 0;
+  color: #475569;
+}
+
+.semantic-map-inspector-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin: 12px 0 0;
+}
+
+.semantic-map-inspector-grid dt {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.semantic-map-inspector-grid dd {
+  margin: 8px 0 0;
+  color: #0f172a;
+  font-weight: 600;
+}
+
 .semantic-map-engine-fallback {
   min-height: 420px;
   display: grid;

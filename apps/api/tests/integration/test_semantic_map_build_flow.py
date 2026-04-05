@@ -15,6 +15,7 @@ import pytest
 from modules.knowledge_graph.dto import (
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
+    SemanticMapProjectionEdge,
     SemanticMapProjectionNode,
     SimilarNodeCandidate,
 )
@@ -110,6 +111,13 @@ class _InMemoryKnowledgeRepo:
             for node in self.nodes
             if node.node_id in node_ids
         ]
+
+    async def fetch_projection_edges_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[SemanticMapProjectionEdge]:
+        return []
 
     async def commit(self) -> None:
         return None

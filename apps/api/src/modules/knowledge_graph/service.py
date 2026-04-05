@@ -12,6 +12,7 @@ from typing import Protocol
 from modules.knowledge_graph.dto import (
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
+    SemanticMapProjectionEdge,
     SemanticMapProjectionNode,
     SimilarNodeCandidate,
 )
@@ -38,6 +39,12 @@ class KnowledgeGraphRepoProtocol(Protocol):
         *,
         node_ids: Sequence[int],
     ) -> list[SemanticMapProjectionNode]: ...
+
+    async def fetch_projection_edges_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[SemanticMapProjectionEdge]: ...
 
     async def create_node(
         self,
@@ -132,6 +139,13 @@ class KnowledgeGraphService:
         node_ids: list[int],
     ) -> list[SemanticMapProjectionNode]:
         return await self._repo.fetch_projection_nodes_for_node_ids(node_ids=node_ids)
+
+    async def list_projection_edges_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[SemanticMapProjectionEdge]:
+        return await self._repo.fetch_projection_edges_for_node_ids(node_ids=node_ids)
 
     async def materialize_card_from_ingestion(
         self,

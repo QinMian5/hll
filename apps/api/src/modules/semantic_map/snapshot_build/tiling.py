@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from modules.knowledge_graph.dto import SemanticMapProjectionEdge
 from modules.semantic_map.core.dto import SemanticMapRegionTile
 from modules.semantic_map.core.geometry import (
     bounds_intersect,
@@ -15,6 +16,7 @@ from modules.semantic_map.core.geometry import (
 )
 from modules.semantic_map.core.types import (
     Bounds4,
+    EdgePayload,
     LabelPayload,
     Point2,
     PointPayload,
@@ -64,14 +66,22 @@ def _tile_index_for_point(*, zoom: int, world_bounds: Bounds4, point: Point2) ->
     return (tile_x, tile_y)
 
 
+def _edge_payload_id(*, source_node_id: int, target_node_id: int) -> str:
+    return f"edge:{source_node_id}:{target_node_id}"
+
+
 def build_tiles(
     *,
     region_levels: dict[int, list[TaxonomyRegionRecord]],
     card_points: Sequence[CardPointRecord],
+    projection_edges: Sequence[SemanticMapProjectionEdge],
     semantic_levels: Sequence[SemanticLevelDefinition],
     world_bounds: Bounds4,
 ) -> list[SemanticMapRegionTile]:
     tiles: list[SemanticMapRegionTile] = []
+    card_points_by_node_id: dict[int, CardPointRecord] = {
+        point.node_id: point for point in card_points
+    }
 
     for level_definition in semantic_levels:
         records = region_levels.get(level_definition.level, [])
@@ -79,6 +89,8 @@ def build_tiles(
             region_tiles: dict[tuple[int, int], list[RegionPayload]] = {}
             label_tiles: dict[tuple[int, int], list[LabelPayload]] = {}
             point_tiles: dict[tuple[int, int], list[PointPayload]] = {}
+            edge_tiles: dict[tuple[int, int], list[EdgePayload]] = {}
+            visible_node_tile_by_id: dict[int, tuple[int, int]] = {}
 
             for record in records:
                 region_bbox = (
@@ -128,6 +140,7 @@ def build_tiles(
                     world_bounds=world_bounds,
                     point=point.position,
                 )
+                visible_node_tile_by_id[point.node_id] = (tile_x, tile_y)
                 point_tiles.setdefault((tile_x, tile_y), []).append(
                     PointPayload(
                         id=f"card:{point.node_id}",
@@ -138,14 +151,43 @@ def build_tiles(
                     )
                 )
 
+            for edge in projection_edges:
+                source_tile = visible_node_tile_by_id.get(edge.node_a_id)
+                target_tile = visible_node_tile_by_id.get(edge.node_b_id)
+                if source_tile is None or target_tile is None or source_tile != target_tile:
+                    continue
+
+                source_point = card_points_by_node_id.get(edge.node_a_id)
+                target_point = card_points_by_node_id.get(edge.node_b_id)
+                if source_point is None or target_point is None:
+                    continue
+
+                edge_tiles.setdefault(source_tile, []).append(
+                    EdgePayload(
+                        id=_edge_payload_id(
+                            source_node_id=edge.node_a_id,
+                            target_node_id=edge.node_b_id,
+                        ),
+                        source_node_id=edge.node_a_id,
+                        target_node_id=edge.node_b_id,
+                        strength=edge.strength,
+                        source_position=_point_to_json(source_point.position),
+                        target_position=_point_to_json(target_point.position),
+                    )
+                )
+
             for tile_x, tile_y in sorted(
-                region_tiles.keys() | label_tiles.keys() | point_tiles.keys()
+                region_tiles.keys() | label_tiles.keys() | point_tiles.keys() | edge_tiles.keys()
             ):
                 tile_regions = region_tiles.get((tile_x, tile_y), [])
                 tile_labels = label_tiles.get((tile_x, tile_y), [])
                 tile_points = sorted(
                     point_tiles.get((tile_x, tile_y), []),
                     key=lambda payload: payload.node_id,
+                )
+                tile_edges = sorted(
+                    edge_tiles.get((tile_x, tile_y), []),
+                    key=lambda payload: (payload.source_node_id, payload.target_node_id),
                 )
                 tile_bounds = tile_bounds_for_coordinate(
                     world_bounds=world_bounds,
@@ -162,9 +204,11 @@ def build_tiles(
                         tile_bounds=tile_bounds,
                         region_count=len(tile_regions),
                         label_count=len(tile_labels),
+                        edge_count=len(tile_edges),
                         regions=tile_regions,
                         labels=tile_labels,
                         points=tile_points,
+                        edges=tile_edges,
                     )
                 )
 

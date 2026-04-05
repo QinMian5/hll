@@ -65,6 +65,51 @@
         "title": "DefaultViewResponse",
         "type": "object"
       },
+      "EdgeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "source_node_id": {
+            "title": "Source Node Id",
+            "type": "integer"
+          },
+          "source_position": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Source Position",
+            "type": "array"
+          },
+          "strength": {
+            "title": "Strength",
+            "type": "number"
+          },
+          "target_node_id": {
+            "title": "Target Node Id",
+            "type": "integer"
+          },
+          "target_position": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Target Position",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "source_node_id",
+          "target_node_id",
+          "strength",
+          "source_position",
+          "target_position"
+        ],
+        "title": "EdgeResponse",
+        "type": "object"
+      },
       "ErrorCode": {
         "enum": [
           "APPLICATION_API_INPUT_INVALID",
@@ -594,6 +639,13 @@
       "SemanticMapTileResponse": {
         "additionalProperties": false,
         "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/EdgeResponse"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
           "labels": {
             "items": {
               "$ref": "#/components/schemas/LabelResponse"
@@ -642,7 +694,8 @@
           "stats",
           "regions",
           "labels",
-          "points"
+          "points",
+          "edges"
         ],
         "title": "SemanticMapTileResponse",
         "type": "object"
@@ -650,6 +703,10 @@
       "SemanticMapTileStatsResponse": {
         "additionalProperties": false,
         "properties": {
+          "edge_count": {
+            "title": "Edge Count",
+            "type": "integer"
+          },
           "label_count": {
             "title": "Label Count",
             "type": "integer"
@@ -661,7 +718,8 @@
         },
         "required": [
           "region_count",
-          "label_count"
+          "label_count",
+          "edge_count"
         ],
         "title": "SemanticMapTileStatsResponse",
         "type": "object"

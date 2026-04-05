@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 from modules.semantic_map.core.types import (
     Bounds4,
+    EdgePayload,
     LabelPayload,
     Point2,
     PointPayload,
@@ -48,6 +49,8 @@ class SemanticMapRegionTile(SemanticMapValueModel):
     tile_bounds: Bounds4
     region_count: int
     label_count: int
+    edge_count: int
     regions: list[RegionPayload]
     labels: list[LabelPayload]
     points: list[PointPayload]
+    edges: list[EdgePayload]

@@ -108,6 +108,7 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
   - `tile.bounds_format`
   - Optional lightweight `stats.region_count`
   - Optional lightweight `stats.label_count`
+  - Optional lightweight `stats.edge_count`
   - `regions[]` entries with:
     - stable `id`
     - `parent_id`
@@ -130,6 +131,13 @@ out_of_scope: Point-level rendering details beyond accepted phase slices, storag
     - `leaf_region_id`
     - full card `title`
     - projected `position`
+  - `edges[]` entries with:
+    - stable edge `id`
+    - `source_node_id`
+    - `target_node_id`
+    - `strength`
+    - `source_position`
+    - `target_position`
 - Failure behavior:
   - Returns `404` for unknown snapshot `version`.
   - Returns `400` for invalid semantic-level or tile-path arguments.

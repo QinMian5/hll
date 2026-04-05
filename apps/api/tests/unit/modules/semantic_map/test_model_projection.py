@@ -82,6 +82,8 @@ def test_region_tile_payload_columns_are_required() -> None:
     assert table.c.tile_bounds.nullable is False
     assert table.c.region_count.nullable is False
     assert table.c.label_count.nullable is False
+    assert table.c.edge_count.nullable is False
     assert table.c.regions.nullable is False
     assert table.c.labels.nullable is False
     assert table.c.points.nullable is False
+    assert table.c.edges.nullable is False
