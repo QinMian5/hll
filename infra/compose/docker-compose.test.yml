@@ -25,11 +25,12 @@ services:
       retries: 30
       start_period: 2s
     ports:
-      - "127.0.0.1:55432:5432"
+      - "55432:5432"
     volumes:
       - postgres_test_data:/var/lib/postgresql
     networks:
       - backend
+      - edge
     restart: "no"
 
   knowledge_corpus_db:
@@ -56,11 +57,12 @@ services:
       retries: 30
       start_period: 2s
     ports:
-      - "127.0.0.1:55433:5432"
+      - "55433:5432"
     volumes:
       - knowledge_corpus_postgres_test_data:/var/lib/postgresql
     networks:
       - backend
+      - edge
     restart: "no"
 
   knowledge_corpus_migrate:
@@ -92,11 +94,12 @@ services:
       retries: 30
       start_period: 2s
     ports:
-      - "127.0.0.1:${REDIS_PORT:-56379}:6379"
+      - "${REDIS_PORT:-56379}:6379"
     volumes:
       - redis_test_data:/data
     networks:
       - backend
+      - edge
     restart: "no"
 
 volumes:
@@ -107,3 +110,4 @@ volumes:
 networks:
   backend:
     internal: true
+  edge:
