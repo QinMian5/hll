@@ -72,16 +72,17 @@ function makeManifest(): SemanticMapManifestViewModel {
 
 function makeTile(
   points: SemanticMapTileViewModel["points"],
+  edges: SemanticMapTileViewModel["edges"] = [],
 ): SemanticMapTileViewModel {
   return {
-    edges: [],
+    edges,
     labels: [],
     points,
     regions: [],
     schemaVersion: "20260403_134500_000123",
     semanticLevel: 0,
     stats: {
-      edgeCount: 0,
+      edgeCount: edges.length,
       labelCount: 0,
       regionCount: 0,
     },
@@ -144,5 +145,50 @@ describe("SemanticMapExplorer point inspection", () => {
     expect(screen.getByText("Card Alpha")).toBeInTheDocument();
     expect(screen.getByText("7")).toBeInTheDocument();
     expect(screen.getByText("taxonomy:12")).toBeInTheDocument();
+    expect(
+      screen.getByText(/No connected cards in the current tile./i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows connected-card details for the selected point", () => {
+    mockedSemanticMapRegionTileQuery.mockReturnValue({
+      data: makeTile(
+        [
+          {
+            id: "card:7",
+            leafRegionId: "taxonomy:12",
+            nodeId: 7,
+            position: [510, 500],
+            title: "Card Alpha",
+          },
+          {
+            id: "card:11",
+            leafRegionId: "taxonomy:12",
+            nodeId: 11,
+            position: [540, 500],
+            title: "Card Beta",
+          },
+        ],
+        [
+          {
+            id: "edge:7:11",
+            sourceNodeId: 7,
+            sourcePosition: [510, 500],
+            strength: 0.91,
+            targetNodeId: 11,
+            targetPosition: [540, 500],
+          },
+        ],
+      ),
+      error: null,
+      isError: false,
+      isPending: false,
+    });
+
+    render(<SemanticMapExplorer manifest={makeManifest()} />);
+    fireEvent.click(screen.getByRole("button", { name: "select-first-point" }));
+
+    expect(screen.getByText(/Connected cards/i)).toBeInTheDocument();
+    expect(screen.getByText("Card Beta")).toBeInTheDocument();
   });
 });

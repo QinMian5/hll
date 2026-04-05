@@ -83,6 +83,26 @@ export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
     });
   };
 
+  const selectedNodeId = selectedPoint?.nodeId ?? null;
+  const highlightedNodeIds = new Set<number>();
+  const connectedPointTitles: string[] = [];
+  if (selectedNodeId !== null && tileQuery.data) {
+    for (const edge of tileQuery.data.edges) {
+      if (edge.sourceNodeId === selectedNodeId) {
+        highlightedNodeIds.add(edge.targetNodeId);
+      } else if (edge.targetNodeId === selectedNodeId) {
+        highlightedNodeIds.add(edge.sourceNodeId);
+      }
+    }
+
+    const connectedPoints = tileQuery.data.points
+      .filter((point) => highlightedNodeIds.has(point.nodeId))
+      .sort((left, right) => left.title.localeCompare(right.title));
+    for (const point of connectedPoints) {
+      connectedPointTitles.push(point.title);
+    }
+  }
+
   return (
     <>
       <DebugHud
@@ -101,9 +121,11 @@ export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
       ) : (
         <>
           <SemanticMapCanvas
+            highlightedNodeIds={highlightedNodeIds}
             manifest={manifest}
             onPointSelect={handlePointSelect}
             onViewStateChange={handleViewStateChange}
+            selectedNodeId={selectedNodeId}
             tile={tileQuery.data ?? null}
             viewState={toDeckViewState(currentViewState, manifest)}
           />
@@ -112,20 +134,35 @@ export function SemanticMapExplorer({ manifest }: SemanticMapExplorerProps) {
             {tileQuery.isPending ? (
               <p>Loading tile points.</p>
             ) : selectedPoint ? (
-              <dl className="semantic-map-inspector-grid">
-                <div>
-                  <dt>Title</dt>
-                  <dd>{selectedPoint.title}</dd>
-                </div>
-                <div>
-                  <dt>Node ID</dt>
-                  <dd>{selectedPoint.nodeId}</dd>
-                </div>
-                <div>
-                  <dt>Leaf region</dt>
-                  <dd>{selectedPoint.leafRegionId}</dd>
-                </div>
-              </dl>
+              <>
+                <dl className="semantic-map-inspector-grid">
+                  <div>
+                    <dt>Title</dt>
+                    <dd>{selectedPoint.title}</dd>
+                  </div>
+                  <div>
+                    <dt>Node ID</dt>
+                    <dd>{selectedPoint.nodeId}</dd>
+                  </div>
+                  <div>
+                    <dt>Leaf region</dt>
+                    <dd>{selectedPoint.leafRegionId}</dd>
+                  </div>
+                  <div>
+                    <dt>Connected cards</dt>
+                    <dd>{connectedPointTitles.length}</dd>
+                  </div>
+                </dl>
+                {connectedPointTitles.length > 0 ? (
+                  <ul className="semantic-map-inspector-list">
+                    {connectedPointTitles.map((title) => (
+                      <li key={title}>{title}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p>No connected cards in the current tile.</p>
+                )}
+              </>
             ) : (tileQuery.data?.points.length ?? 0) > 0 ? (
               <p>Click a point to inspect card details.</p>
             ) : (

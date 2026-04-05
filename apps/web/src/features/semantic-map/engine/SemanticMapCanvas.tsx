@@ -28,19 +28,23 @@ const ORTHOGRAPHIC_VIEW = new OrthographicView({
 });
 
 interface SemanticMapCanvasProps {
+  readonly highlightedNodeIds: ReadonlySet<number>;
   readonly manifest: SemanticMapManifestViewModel;
   readonly onPointSelect: (point: SemanticMapPointViewModel | null) => void;
   readonly onViewStateChange: (
     viewState: ViewStateChangeParameters<OrthographicViewState>["viewState"],
   ) => void;
+  readonly selectedNodeId: number | null;
   readonly tile: SemanticMapTileViewModel | null;
   readonly viewState: OrthographicViewState;
 }
 
 export function SemanticMapCanvas({
+  highlightedNodeIds,
   manifest,
   onPointSelect,
   onViewStateChange,
+  selectedNodeId,
   tile,
   viewState,
 }: SemanticMapCanvasProps) {
@@ -74,8 +78,11 @@ export function SemanticMapCanvas({
         height="100%"
         layers={[
           createRegionTileLayer(tile),
-          createEdgeTileLayer(tile),
-          createPointTileLayer(tile),
+          createEdgeTileLayer(tile, { selectedNodeId }),
+          createPointTileLayer(tile, {
+            highlightedNodeIds,
+            selectedNodeId,
+          }),
           createLabelTileLayer(tile),
         ]}
         onClick={handleClick}

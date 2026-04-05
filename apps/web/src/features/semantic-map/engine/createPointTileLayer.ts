@@ -26,15 +26,40 @@ export function isSemanticMapPointDatum(
 
 export function createPointTileLayer(
   tile: SemanticMapTileViewModel | null,
+  options: {
+    readonly highlightedNodeIds: ReadonlySet<number>;
+    readonly selectedNodeId: number | null;
+  },
 ): ScatterplotLayer<SemanticMapPointViewModel> {
+  const { highlightedNodeIds, selectedNodeId } = options;
+
   return new ScatterplotLayer<SemanticMapPointViewModel>({
     data: tile?.points ?? [],
     filled: true,
-    getFillColor: [17, 94, 166, 240],
-    getLineColor: [255, 255, 255, 220],
+    getFillColor: (point) => {
+      if (point.nodeId === selectedNodeId) {
+        return [208, 94, 31, 245];
+      }
+      if (highlightedNodeIds.has(point.nodeId)) {
+        return [46, 127, 201, 240];
+      }
+      return [17, 94, 166, 230];
+    },
+    getLineColor: (point) =>
+      point.nodeId === selectedNodeId
+        ? [255, 255, 255, 255]
+        : [255, 255, 255, 210],
     getLineWidth: 1,
     getPosition: (point) => point.position,
-    getRadius: 5,
+    getRadius: (point) => {
+      if (point.nodeId === selectedNodeId) {
+        return 8;
+      }
+      if (highlightedNodeIds.has(point.nodeId)) {
+        return 6;
+      }
+      return 5;
+    },
     id: tile
       ? `semantic-map-points-${tile.version}-${tile.semanticLevel}-${tile.tile.z}-${tile.tile.x}-${tile.tile.y}`
       : "semantic-map-points-empty",

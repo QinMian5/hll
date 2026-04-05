@@ -204,6 +204,16 @@ select {
   font-weight: 600;
 }
 
+.semantic-map-inspector-list {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: #1e293b;
+}
+
+.semantic-map-inspector-list li + li {
+  margin-top: 6px;
+}
+
 .semantic-map-engine-fallback {
   min-height: 420px;
   display: grid;
