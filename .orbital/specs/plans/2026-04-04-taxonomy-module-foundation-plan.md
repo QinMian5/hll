@@ -49,6 +49,7 @@ out_of_scope: LLM classification orchestration, candidate/confidence workflows, 
 ### Taxonomy module
 - Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/__init__.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/dto.py`
+- Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/errors.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/model.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/repo.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/service.py`
@@ -60,7 +61,7 @@ out_of_scope: LLM classification orchestration, candidate/confidence workflows, 
 - Modify: `/Users/mianqin/Code/knowledge/apps/api/pyproject.toml`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/alembic/versions/<timestamp>_add_taxonomy_tables.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/alembic/versions/<timestamp>_add_taxonomy_leaf_assignment_trigger.py`
-- Create: `/Users/mianqin/Code/knowledge/scripts/taxonomy-import-lcc.sh`
+- Create: `/Users/mianqin/Code/knowledge/scripts/taxonomy-import-lcc.py`
 
 ### Tests
 - Create: `/Users/mianqin/Code/knowledge/apps/api/tests/unit/modules/taxonomy/__init__.py`
@@ -240,9 +241,11 @@ Confirm:
 
 **Files:**
 - Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/dto.py`
+- Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/errors.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/importer.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/ports.py`
-- Create: `/Users/mianqin/Code/knowledge/scripts/taxonomy-import-lcc.sh`
+- Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/repo.py`
+- Create: `/Users/mianqin/Code/knowledge/scripts/taxonomy-import-lcc.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/tests/unit/modules/taxonomy/test_importer.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/tests/integration/test_taxonomy_import_flow.py`
 - Spec: `/Users/mianqin/Code/knowledge/.orbital/specs/designs/taxonomy.md`
@@ -321,7 +324,7 @@ Confirm:
 **Task Finalization Ownership:** Controller at task end (single finalization step)
 
 **Files:**
-- Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/repo.py`
+- Modify: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/repo.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/src/modules/taxonomy/service.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/tests/unit/modules/taxonomy/test_repo.py`
 - Create: `/Users/mianqin/Code/knowledge/apps/api/tests/unit/modules/taxonomy/test_service.py`
