@@ -1,6 +1,27 @@
 # abstract: Production overrides for the Docker Compose base topology.
 # out_of_scope: Multi-region traffic management and non-Docker deployment targets.
 services:
+  postgres:
+    image: knowledge-postgres:prod
+
+  knowledge_corpus_db:
+    image: knowledge-corpus-postgres:prod
+
+  migrate:
+    image: knowledge-api:prod
+
+  knowledge_corpus_migrate:
+    image: knowledge-corpus-migrate:prod
+
+  api:
+    image: knowledge-api:prod
+
+  worker:
+    image: knowledge-api:prod
+
+  web:
+    image: knowledge-web:prod
+
   nginx:
     image: nginx:1.27.5-alpine
     depends_on:

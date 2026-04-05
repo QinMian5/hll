@@ -7,7 +7,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
-    image: knowledge-postgres:18
+    image: knowledge-postgres:dev
     environment:
       POSTGRES_DB: ${KNOWLEDGE_API_POSTGRES_DB:?KNOWLEDGE_API_POSTGRES_DB is required}
       POSTGRES_USER: ${KNOWLEDGE_API_POSTGRES_USER:?KNOWLEDGE_API_POSTGRES_USER is required}
@@ -32,7 +32,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
-    image: knowledge-corpus-postgres:18
+    image: knowledge-corpus-postgres:dev
     environment:
       POSTGRES_DB: ${KNOWLEDGE_CORPUS_POSTGRES_DB:?KNOWLEDGE_CORPUS_POSTGRES_DB is required}
       POSTGRES_USER: ${KNOWLEDGE_CORPUS_POSTGRES_USER:?KNOWLEDGE_CORPUS_POSTGRES_USER is required}
@@ -72,7 +72,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/api/Dockerfile
-    image: knowledge-api:local
+    image: knowledge-api:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,7 +87,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/knowledge_corpus/Dockerfile
-    image: knowledge-corpus-migrate:local
+    image: knowledge-corpus-migrate:dev
     depends_on:
       knowledge_corpus_db:
         condition: service_healthy
@@ -103,7 +103,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/api/Dockerfile
-    image: knowledge-api:local
+    image: knowledge-api:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -135,7 +135,7 @@ services:
     restart: unless-stopped
 
   worker:
-    image: knowledge-api:local
+    image: knowledge-api:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -169,7 +169,7 @@ services:
       context: ../..
       dockerfile: infra/docker/web/Dockerfile
       target: prod
-    image: knowledge-web:local
+    image: knowledge-web:dev
     depends_on:
       api:
         condition: service_started

@@ -5,7 +5,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
-    image: knowledge-postgres:18
+    image: knowledge-postgres:test
     environment:
       POSTGRES_DB: ${KNOWLEDGE_API_POSTGRES_DB:?KNOWLEDGE_API_POSTGRES_DB is required}
       POSTGRES_USER: ${KNOWLEDGE_API_POSTGRES_USER:?KNOWLEDGE_API_POSTGRES_USER is required}
@@ -37,7 +37,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
-    image: knowledge-corpus-postgres:18
+    image: knowledge-corpus-postgres:test
     environment:
       POSTGRES_DB: ${KNOWLEDGE_CORPUS_POSTGRES_DB:?KNOWLEDGE_CORPUS_POSTGRES_DB is required}
       POSTGRES_USER: ${KNOWLEDGE_CORPUS_POSTGRES_USER:?KNOWLEDGE_CORPUS_POSTGRES_USER is required}
@@ -69,7 +69,7 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/knowledge_corpus/Dockerfile
-    image: knowledge-corpus-migrate:local
+    image: knowledge-corpus-migrate:test
     depends_on:
       knowledge_corpus_db:
         condition: service_healthy
