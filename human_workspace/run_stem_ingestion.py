@@ -11,11 +11,11 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import (
     BarColumn,
+    MofNCompleteColumn,
     Progress,
     SpinnerColumn,
-    TaskProgressColumn,
     TextColumn,
-    TimeElapsedColumn,
+    TimeRemainingColumn,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -46,21 +46,20 @@ def main() -> None:
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-        TextColumn("last: {task.fields[last_title]}"),
+        MofNCompleteColumn(),
+        TextColumn("ETA"),
+        TimeRemainingColumn(),
         console=console,
         transient=False,
     )
 
     def on_page_finished(page: PageRecord, result: PageResult) -> None:
-        progress.update(task_id, advance=1, last_title=page.title)
+        progress.update(task_id, advance=1)
 
     with progress:
         task_id = progress.add_task(
             "Running STEM page ingestion",
             total=total,
-            last_title="",
         )
         run_pages(
             pages,
