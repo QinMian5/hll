@@ -86,6 +86,15 @@ class ReviewResult(StrictModel):
             "too narrow to indicate what the content is actually about."
         ),
     )
+    title_style_validity: ReviewItem = Field(
+        description=(
+            "Whether the title follows the required naming style. A valid title must use one of these "
+            "patterns: <subject> or <subject> (<domain>). Prefer <subject> by default. Use the "
+            "parenthesized <domain> only when minimal domain disambiguation is genuinely necessary. "
+            "Reject titles that are full sentences, definition-like phrases, colon-separated explanatory "
+            "labels, or titles with unnecessary qualifiers beyond minimal disambiguation."
+        ),
+    )
     content_coherence: ReviewItem = Field(
         description=(
             "Whether the content is self-contained and self-explanatory given standard domain "
@@ -116,6 +125,7 @@ class ReviewResult(StrictModel):
             for item in (
                 self.title_validity,
                 self.title_content_alignment,
+                self.title_style_validity,
                 self.content_coherence,
                 self.content_atomicity,
                 self.content_latex_validity,

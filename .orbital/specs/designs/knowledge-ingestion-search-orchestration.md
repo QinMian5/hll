@@ -98,7 +98,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 4. API returns `202` for valid payloads.
 5. Worker actor registry in `entrypoints/worker/actors.py` receives message and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
 6. Worker calls `knowledge_graph` write service port to persist `Node`.
-7. Worker computes `dot_product`-mapped edge strength with `strength = (dot_product + 1) / 2`, keeps candidates with `strength >= 0.8`, selects at most the first `10`, and persists `Edge` and `Adjacency` rows.
+7. Worker computes `dot_product`-mapped edge strength with `strength = (dot_product + 1) / 2`, keeps candidates with `strength >= 0.75`, selects at most the first `10`, and persists `Edge` and `Adjacency` rows.
 8. Search path reads persisted graph data only; no processing-state data is exposed by search.
 
 ## Taxonomy Bootstrap Flow

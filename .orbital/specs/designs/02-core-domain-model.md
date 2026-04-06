@@ -90,7 +90,7 @@ class Adjacency(Base):
 - V1 stores one canonical edge per unordered node pair.
 - `Edge.strength` uses normalized range `[0, 1]`.
 - V1 initialization rule is `strength = (dot_product + 1) / 2`.
-- V1 edge materialization threshold default is `0.8`.
+- V1 edge materialization threshold default is `0.75`.
 - Threshold is a business rule and is not persisted as a transport field.
 
 ## Read Model

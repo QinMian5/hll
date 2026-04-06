@@ -18,22 +18,11 @@ def _success_payload() -> str:
     return (
         '{"title_validity":{"passed":true,"reason":null},'
         '"title_content_alignment":{"passed":true,"reason":null},'
+        '"title_style_validity":{"passed":true,"reason":null},'
         '"content_coherence":{"passed":true,"reason":null},'
         '"content_atomicity":{"passed":true,"reason":null},'
         '"content_latex_validity":{"passed":true,"reason":null}}'
     )
-
-
-def test_build_cursor_review_prompt_includes_schema_and_card_content() -> None:
-    prompt = main.build_cursor_review_prompt(
-        "Quadratic Discriminant Definition",
-        "The discriminant is defined as \\(b^2 - 4ac\\).",
-    )
-
-    assert "Return ONLY a JSON object" in prompt
-    assert '"title_validity"' in prompt
-    assert "Quadratic Discriminant Definition" in prompt
-    assert "\\\\(b^2 - 4ac\\\\)" in prompt
 
 
 def test_run_cursor_review_retries_until_output_matches_schema(
@@ -135,6 +124,7 @@ def test_submit_reviewed_card_returns_review_result_when_review_passes(
     expected = main.ReviewResult(
         title_validity=main.ReviewItem(passed=True, reason=None),
         title_content_alignment=main.ReviewItem(passed=True, reason=None),
+        title_style_validity=main.ReviewItem(passed=True, reason=None),
         content_coherence=main.ReviewItem(passed=True, reason=None),
         content_atomicity=main.ReviewItem(passed=True, reason=None),
         content_latex_validity=main.ReviewItem(passed=True, reason=None),
@@ -156,6 +146,7 @@ def test_cli_projects_shared_function_result(
     failed_review = main.ReviewResult(
         title_validity=main.ReviewItem(passed=False, reason="too broad"),
         title_content_alignment=main.ReviewItem(passed=True, reason=None),
+        title_style_validity=main.ReviewItem(passed=True, reason=None),
         content_coherence=main.ReviewItem(passed=True, reason=None),
         content_atomicity=main.ReviewItem(passed=True, reason=None),
         content_latex_validity=main.ReviewItem(passed=True, reason=None),

@@ -17,7 +17,7 @@ out_of_scope: External CLI command syntax, operator-facing usage text, backend i
 
 ## Constraint Projection
 - **Governing Constraints:** Repository governance stays unified, authoritative service interfaces remain single-sourced, module boundaries stay explicit, runtime behavior remains reproducible, and spec truth remains synchronized with accepted behavior.
-- **Detail Commitments:** Internal review uses one reviewer backend selected behind a shared Python submission function and one thin `Pydantic Graph` workflow with explicit state and dependency injection. Review evaluates only the current `title` and `content`, uses no memory, no retrieval, and no rewrite generation, and returns a fixed five-dimension result.
+- **Detail Commitments:** Internal review uses one reviewer backend selected behind a shared Python submission function and one thin `Pydantic Graph` workflow with explicit state and dependency injection. Review evaluates only the current `title` and `content`, uses no memory, no retrieval, and no rewrite generation, and returns a fixed six-dimension result.
 - **Update Rule:** Requirement-level constraints remain stable while this design document captures internal orchestration, model structure, graph topology, and agent constraints. External command-surface changes are projected into `cli.md`.
 
 ## Inputs & Outputs
@@ -57,6 +57,7 @@ out_of_scope: External CLI command syntax, operator-facing usage text, backend i
   - **`ReviewResult`:** Contains exactly:
     - `title_validity`
     - `title_content_alignment`
+    - `title_style_validity`
     - `content_coherence`
     - `content_atomicity`
     - `content_latex_validity`
@@ -102,7 +103,7 @@ out_of_scope: External CLI command syntax, operator-facing usage text, backend i
 flowchart TD
     start["CLI receives title and content"]
     review["ReviewCardNode runs reviewer backend"]
-    decision{"All five review dimensions passed"}
+    decision{"All six review dimensions passed"}
     reject["End graph with ReviewResult"]
     submit["SubmitCardNode issues POST /cards"]
     finish["End graph with ReviewResult"]
@@ -116,9 +117,10 @@ flowchart TD
 
 ## Review Semantics
 - Review is `all-or-nothing`.
-- The five dimensions mean:
+- The six dimensions mean:
   - **`title_validity`:** the title is unambiguous, precisely scoped, and independently understandable without requiring additional context.
   - **`title_content_alignment`:** the title provides an accurate and sufficient indication of the content's topic.
+  - **`title_style_validity`:** the title follows the required naming style. Valid titles use either `<subject>` or `<subject> (<domain>)`; the parenthesized domain is used only for minimal disambiguation. Full sentences, definition-like phrases, colon-separated explanatory labels, and unnecessary qualifiers are rejected.
   - **`content_coherence`:** the content is self-contained and self-explanatory given standard domain terminology, without implicit assumptions, missing context, or hidden dependencies.
   - **`content_atomicity`:** the content represents exactly one indivisible knowledge unit and cannot be meaningfully decomposed into smaller independent units.
   - **`content_latex_validity`:** LaTeX expressions in the content, if any, use standard and syntactically correct LaTeX math delimiters and notation. Inline math must use `\(` and `\)`, and display math must use `\[` and `\]`; `$` and `$$` delimiters are rejected.

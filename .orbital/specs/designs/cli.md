@@ -29,13 +29,14 @@ out_of_scope: Internal review-agent implementation, internal graph orchestration
 - **Outputs:**
   - A minimal English JSON result written to stdout when the shared reviewed-submission flow returns a valid review result.
   - A process exit code that distinguishes only success vs. non-success from the local CLI responsibility boundary.
-- **Artifacts:**
-  - A typed review result containing the fixed review dimensions:
-    - `title_validity`
-    - `title_content_alignment`
-    - `content_coherence`
-    - `content_atomicity`
-    - `content_latex_validity`
+  - **Artifacts:**
+    - A typed review result containing the fixed review dimensions:
+      - `title_validity`
+      - `title_content_alignment`
+      - `title_style_validity`
+      - `content_coherence`
+      - `content_atomicity`
+      - `content_latex_validity`
 
 ## Design Approach
 - **Approach:** Use a dedicated local CLI app as both an importable reviewed-submission library boundary and an operator-facing command boundary. The app owns the shared single-card submission function, while the CLI itself remains only a thin wrapper that parses arguments and serializes the shared function result into terminal output.

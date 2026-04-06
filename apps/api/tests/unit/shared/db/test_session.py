@@ -29,7 +29,7 @@ def runtime_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("KNOWLEDGE_API_SEARCH_MAX_MATCHED", "5")
     monkeypatch.setenv("KNOWLEDGE_API_SEARCH_MAX_CONNECTED", "10")
     monkeypatch.setenv("KNOWLEDGE_API_EDGE_SIMILARITY_TOP_K", "10")
-    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH", "0.8")
+    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH", "0.75")
     monkeypatch.setenv("KNOWLEDGE_API_LOG_FILE_PATH", "logs/api/app.log")
     return Settings()
 
