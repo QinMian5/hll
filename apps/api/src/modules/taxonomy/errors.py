@@ -8,3 +8,7 @@ from __future__ import annotations
 
 class TaxonomyImportError(RuntimeError):
     pass
+
+
+class TaxonomyAssignmentAlreadyExistsError(RuntimeError):
+    pass

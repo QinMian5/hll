@@ -5,7 +5,6 @@ Out of scope: HTTP endpoint wiring and LLM classification orchestration.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Protocol
 
 from modules.taxonomy.dto import (
@@ -32,7 +31,6 @@ class TaxonomyRepoProtocol(Protocol):
         *,
         node_id: int,
         taxonomy_node_id: int,
-        assigned_at: datetime,
     ) -> TaxonomyAssignmentRecord: ...
 
     async def commit(self) -> None: ...
@@ -85,13 +83,11 @@ class TaxonomyService:
         *,
         node_id: int,
         taxonomy_node_id: int,
-        assigned_at: datetime,
     ) -> TaxonomyAssignmentRecord:
         try:
             assignment = await self._repo.set_final_assignment(
                 node_id=node_id,
                 taxonomy_node_id=taxonomy_node_id,
-                assigned_at=assigned_at,
             )
             await self._repo.commit()
             return assignment

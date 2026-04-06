@@ -15,6 +15,7 @@ from modules.knowledge_graph.dto import (
     SemanticMapProjectionEdge,
     SemanticMapProjectionNode,
     SimilarNodeCandidate,
+    TaxonomyClassificationNodeInput,
 )
 
 
@@ -45,6 +46,12 @@ class KnowledgeGraphRepoProtocol(Protocol):
         *,
         node_ids: Sequence[int],
     ) -> list[SemanticMapProjectionEdge]: ...
+
+    async def fetch_unassigned_nodes_for_taxonomy_classification(
+        self,
+        *,
+        limit: int | None,
+    ) -> list[TaxonomyClassificationNodeInput]: ...
 
     async def create_node(
         self,
@@ -146,6 +153,17 @@ class KnowledgeGraphService:
         node_ids: list[int],
     ) -> list[SemanticMapProjectionEdge]:
         return await self._repo.fetch_projection_edges_for_node_ids(node_ids=node_ids)
+
+    async def list_unassigned_nodes_for_taxonomy_classification(
+        self,
+        *,
+        limit: int | None,
+    ) -> list[TaxonomyClassificationNodeInput]:
+        if limit is not None and limit < 1:
+            return []
+        return await self._repo.fetch_unassigned_nodes_for_taxonomy_classification(
+            limit=limit,
+        )
 
     async def materialize_card_from_ingestion(
         self,

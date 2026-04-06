@@ -11,6 +11,7 @@ from modules.knowledge_graph.dto import (
     KnowledgeCardMatch,
     SemanticMapProjectionEdge,
     SemanticMapProjectionNode,
+    TaxonomyClassificationNodeInput,
 )
 
 
@@ -45,6 +46,12 @@ class KnowledgeGraphProjectionPort(Protocol):
         *,
         node_ids: list[int],
     ) -> list[SemanticMapProjectionEdge]: ...
+
+    async def list_unassigned_nodes_for_taxonomy_classification(
+        self,
+        *,
+        limit: int | None,
+    ) -> list[TaxonomyClassificationNodeInput]: ...
 
 
 class KnowledgeGraphWritePort(Protocol):

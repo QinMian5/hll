@@ -15,6 +15,7 @@ from sqlalchemy import (
     Integer,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -53,5 +54,6 @@ class NodeTaxonomyAssignment(Base):
     )
     assigned_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )

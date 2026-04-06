@@ -12,12 +12,17 @@ from functools import lru_cache
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from core.config import Settings, load_settings
+from modules.knowledge_graph import model as knowledge_graph_model
+from modules.semantic_map.persistence import model as semantic_map_model
+from modules.taxonomy import model as taxonomy_model
 from shared.db.session import (
     build_async_engine,
     build_async_session_factory,
     open_async_session,
 )
 from shared.integrations import EmbeddingClient, build_embedding_client
+
+REGISTERED_MODEL_MODULES = (knowledge_graph_model, semantic_map_model, taxonomy_model)
 
 _engine: AsyncEngine | None = None
 _async_session_factory: async_sessionmaker[AsyncSession] | None = None

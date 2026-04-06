@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import case, select
+from sqlalchemy import case, column, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.dto import (
@@ -16,8 +16,14 @@ from modules.knowledge_graph.dto import (
     SemanticMapProjectionEdge,
     SemanticMapProjectionNode,
     SimilarNodeCandidate,
+    TaxonomyClassificationNodeInput,
 )
 from modules.knowledge_graph.model import Adjacency, Edge, Node
+
+_NODE_TAXONOMY_ASSIGNMENTS = table(
+    "node_taxonomy_assignments",
+    column("node_id"),
+)
 
 
 def _canonical_edge_pair(node_a_id: int, node_b_id: int) -> tuple[int, int]:
@@ -138,6 +144,33 @@ class KnowledgeRepo:
                 node_a_id=row.node_a_id,
                 node_b_id=row.node_b_id,
                 strength=row.strength,
+            )
+            for row in rows
+        ]
+
+    async def fetch_unassigned_nodes_for_taxonomy_classification(
+        self,
+        *,
+        limit: int | None,
+    ) -> list[TaxonomyClassificationNodeInput]:
+        statement = (
+            select(Node.id, Node.title, Node.content)
+            .outerjoin(
+                _NODE_TAXONOMY_ASSIGNMENTS,
+                _NODE_TAXONOMY_ASSIGNMENTS.c.node_id == Node.id,
+            )
+            .where(_NODE_TAXONOMY_ASSIGNMENTS.c.node_id.is_(None))
+            .order_by(Node.id.asc())
+        )
+        if limit is not None:
+            statement = statement.limit(limit)
+
+        rows = (await self._session.execute(statement)).all()
+        return [
+            TaxonomyClassificationNodeInput(
+                node_id=row.id,
+                title=row.title,
+                content=row.content,
             )
             for row in rows
         ]

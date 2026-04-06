@@ -15,6 +15,7 @@ from modules.taxonomy.dto import (
     TaxonomyNodeRecord,
     TaxonomySemanticMapAssignment,
 )
+from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
 from modules.taxonomy.service import TaxonomyService
 
 
@@ -31,6 +32,7 @@ class _StubRepo:
     committed: bool = False
     rolled_back: bool = False
     fail_on_set: bool = False
+    fail_on_assignment_exists: bool = False
 
     async def list_tree_nodes(self) -> list[TaxonomyNodeRecord]:
         return list(self.tree_nodes)
@@ -54,11 +56,11 @@ class _StubRepo:
         *,
         node_id: int,
         taxonomy_node_id: int,
-        assigned_at: datetime,
     ) -> TaxonomyAssignmentRecord:
         assert node_id == 41
         assert taxonomy_node_id == 9
-        assert assigned_at == datetime(2026, 4, 5, 3, 0, tzinfo=UTC)
+        if self.fail_on_assignment_exists:
+            raise TaxonomyAssignmentAlreadyExistsError("node already has final taxonomy assignment")
         if self.fail_on_set:
             raise RuntimeError("assignment write failed")
         assert self.set_result is not None
@@ -182,7 +184,6 @@ async def test_set_final_assignment_commits_written_assignment() -> None:
     assignment = await service.set_final_assignment(
         node_id=41,
         taxonomy_node_id=9,
-        assigned_at=datetime(2026, 4, 5, 3, 0, tzinfo=UTC),
     )
 
     assert assignment.taxonomy_node.id == 9
@@ -199,7 +200,24 @@ async def test_set_final_assignment_rolls_back_and_reraises() -> None:
         await service.set_final_assignment(
             node_id=41,
             taxonomy_node_id=9,
-            assigned_at=datetime(2026, 4, 5, 3, 0, tzinfo=UTC),
+        )
+
+    assert repo.committed is False
+    assert repo.rolled_back is True
+
+
+@pytest.mark.anyio
+async def test_set_final_assignment_rolls_back_and_reraises_assignment_exists() -> None:
+    repo = _StubRepo(fail_on_assignment_exists=True)
+    service = TaxonomyService(repo=repo)
+
+    with pytest.raises(
+        TaxonomyAssignmentAlreadyExistsError,
+        match="already has final taxonomy assignment",
+    ):
+        await service.set_final_assignment(
+            node_id=41,
+            taxonomy_node_id=9,
         )
 
     assert repo.committed is False

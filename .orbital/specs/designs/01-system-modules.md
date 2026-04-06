@@ -11,7 +11,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
-- **Scope/Boundaries:** Covers module ownership for frontend, backend API, operator CLI, knowledge_graph, taxonomy, search, ingestion, semantic_map, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
+- **Scope/Boundaries:** Covers module ownership for frontend, backend API, operator CLI, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, semantic_map, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Module Responsibilities
@@ -119,6 +119,22 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Search query orchestration.
   - API entrypoint composition.
 
+### taxonomy_classification Module
+- **Responsibilities:**
+  - Own operator-triggered incremental classification orchestration for unassigned knowledge nodes.
+  - Run one Cursor session per selected node and keep one-session-per-node processing boundaries.
+  - Consume `knowledge_graph` service ports to fetch node `title` and `content` inputs.
+  - Consume `taxonomy` service ports for progressive child traversal and final leaf assignment writes.
+  - Enforce first-write assignment semantics at orchestration boundary for in-session `assign_leaf` calls.
+- **Contains:**
+  - Classification orchestration service, Cursor session runner, and session tool-call adapters.
+- **Non-responsibilities:**
+  - Taxonomy tree persistence model ownership.
+  - Knowledge-node persistence ownership.
+  - Semantic-map snapshot build or read orchestration.
+  - HTTP-triggered classification job APIs.
+  - API entrypoint composition.
+
 ### search Module
 - **Responsibilities:**
   - Own read-side search orchestration.
@@ -188,6 +204,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - `Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
   - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
   - `Background taxonomy bootstrap execution -> taxonomy -> Database`
+  - `Background taxonomy classification execution -> taxonomy_classification -> taxonomy + knowledge_graph -> Database`
   - `Background semantic-map rebuild execution -> semantic_map -> taxonomy + knowledge_graph -> Database`
   - `core` is inbound-only (`entrypoints` and tooling import `core`; `core` does not import `entrypoints/modules/shared`).
 - Local/offline auxiliary dependency direction is:

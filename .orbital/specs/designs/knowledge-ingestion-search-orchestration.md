@@ -11,8 +11,8 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the accepted V1 module orchestration for `knowledge_graph`, `taxonomy`, `ingestion`, `search`, and semantic-map source access under async ingestion with Redis and Dramatiq.
-- **Scope/Boundaries:** Covers module ownership, endpoint contracts, asynchronous processing flow, taxonomy bootstrap boundaries, semantic-map source-read rules, data visibility rules, and runtime observability obligations.
+- **Purpose:** Define the accepted V1 module orchestration for `knowledge_graph`, `taxonomy`, `taxonomy_classification`, `ingestion`, `search`, and semantic-map source access under async ingestion with Redis and Dramatiq.
+- **Scope/Boundaries:** Covers module ownership, endpoint contracts, asynchronous processing flow, taxonomy bootstrap/classification boundaries, semantic-map source-read rules, data visibility rules, and runtime observability obligations.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Constraint Projection
@@ -34,6 +34,13 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Owns taxonomy import orchestration from operator-supplied YAML.
 - Exposes read/write service ports consumed by `semantic_map` and later classification workflows.
 - Does not own graph persistence truth, HTTP route handlers, or LLM candidate workflows.
+
+### taxonomy_classification
+- Owns operator-triggered incremental classification orchestration for unassigned nodes.
+- Runs one Cursor session per selected node and uses session-local progressive taxonomy traversal.
+- Consumes `knowledge_graph` and `taxonomy` service ports and does not own persistence truth.
+- Writes final classification through taxonomy first-write assignment boundary.
+- Does not expose HTTP-triggered job submission APIs in Phase 1.
 
 ### ingestion
 - Owns write-side HTTP acceptance endpoint and write orchestration.
@@ -98,7 +105,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 4. API returns `202` for valid payloads.
 5. Worker actor registry in `entrypoints/worker/actors.py` receives message and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
 6. Worker calls `knowledge_graph` write service port to persist `Node`.
-7. Worker computes `dot_product`-mapped edge strength with `strength = (dot_product + 1) / 2`, keeps candidates with `strength >= 0.75`, selects at most the first `10`, and persists `Edge` and `Adjacency` rows.
+7. Worker computes `dot_product`-mapped edge strength with `strength = (dot_product + 1) / 2`, keeps candidates with `strength >= KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH`, selects at most the first `10`, and persists `Edge` and `Adjacency` rows.
 8. Search path reads persisted graph data only; no processing-state data is exposed by search.
 
 ## Taxonomy Bootstrap Flow
@@ -106,6 +113,14 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 2. The script fails immediately when taxonomy storage already contains rows.
 3. The script computes `depth` and `is_leaf` for every taxonomy node and writes the authoritative taxonomy tree.
 4. Later classification orchestration binds each knowledge node to one final taxonomy leaf through `taxonomy`.
+
+## Taxonomy Classification Flow
+1. An operator-run classification script selects nodes without final taxonomy assignments.
+2. Selection order is deterministic (`nodes.id ASC`) and may be limited by operator-provided `--limit`.
+3. The classifier runs one Cursor session per selected node with node `title` and `content` context only.
+4. The Cursor session traverses taxonomy progressively through tool calls until a leaf is selected.
+5. The Cursor session persists the assignment through `assign_leaf(node_id, leaf_id)` with first-write-only semantics.
+6. Failed node attempts keep persistent classification truth unchanged and remain eligible in later runs.
 
 ## Runtime Dependencies
 - Redis is required as queue broker for ingestion.

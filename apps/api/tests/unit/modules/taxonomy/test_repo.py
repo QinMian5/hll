@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
 from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
 from modules.taxonomy.repo import TaxonomyRepo
 
@@ -122,20 +123,43 @@ async def test_get_assignment_for_node_returns_leaf_assignment_details() -> None
 
 
 @pytest.mark.anyio
-async def test_set_final_assignment_updates_existing_assignment() -> None:
+async def test_set_final_assignment_raises_when_assignment_already_exists() -> None:
     existing_assignment = NodeTaxonomyAssignment(
         id=7,
         node_id=99,
         taxonomy_node_id=3,
         assigned_at=datetime(2026, 4, 5, 1, 0, tzinfo=UTC),
     )
-    updated_at = datetime(2026, 4, 5, 2, 30, tzinfo=UTC)
     session = _StubSession(
         scalar_results=[existing_assignment],
+    )
+    repo = TaxonomyRepo(session=session)
+
+    with pytest.raises(TaxonomyAssignmentAlreadyExistsError):
+        await repo.set_final_assignment(
+            node_id=99,
+            taxonomy_node_id=8,
+        )
+
+    assert existing_assignment.taxonomy_node_id == 3
+    assert session.flushed is False
+
+
+@pytest.mark.anyio
+async def test_set_final_assignment_creates_when_assignment_missing() -> None:
+    assigned_at = datetime(2026, 4, 5, 2, 30, tzinfo=UTC)
+    persisted_assignment = NodeTaxonomyAssignment(
+        id=17,
+        node_id=99,
+        taxonomy_node_id=8,
+        assigned_at=assigned_at,
+    )
+    session = _StubSession(
+        scalar_results=[None],
         execute_results=[
             _StubExecuteResult(
                 (
-                    existing_assignment,
+                    persisted_assignment,
                     TaxonomyNode(
                         id=8,
                         parent_id=3,
@@ -152,11 +176,11 @@ async def test_set_final_assignment_updates_existing_assignment() -> None:
     assignment = await repo.set_final_assignment(
         node_id=99,
         taxonomy_node_id=8,
-        assigned_at=updated_at,
     )
 
-    assert existing_assignment.taxonomy_node_id == 8
-    assert existing_assignment.assigned_at == updated_at
+    created_assignment = session.added[0]
+    assert isinstance(created_assignment, NodeTaxonomyAssignment)
+    assert created_assignment.assigned_at is None
     assert assignment.taxonomy_node.id == 8
     assert session.flushed is True
 

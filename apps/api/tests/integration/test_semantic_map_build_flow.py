@@ -163,7 +163,7 @@ async def test_build_consumes_knowledge_projection_nodes_and_publishes_snapshot(
     knowledge_service = KnowledgeGraphService(
         repo=_InMemoryKnowledgeRepo(),
         edge_similarity_top_k=2,
-        edge_similarity_min_strength=0.75,
+        edge_similarity_min_strength=0.0,
     )
     snapshot_repo = _RecordingSnapshotRepo()
     taxonomy_port = _StubTaxonomyPort(

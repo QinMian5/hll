@@ -81,6 +81,7 @@ apps/api/
     modules/
       knowledge_graph/
       taxonomy/
+      taxonomy_classification/
       search/
       ingestion/
       semantic_map/
@@ -98,6 +99,8 @@ apps/api/
 - `modules/knowledge_graph` excludes HTTP endpoint files and queue transport wiring.
 - `modules/taxonomy` contains taxonomy persistence ownership, import orchestration, and taxonomy DTO/port contracts.
 - `modules/taxonomy` excludes graph persistence ownership, semantic-map rendering implementation, and LLM classification workflow state.
+- `modules/taxonomy_classification` contains operator-triggered classification orchestration, Cursor session runner logic, and taxonomy-classification DTO/port contracts.
+- `modules/taxonomy_classification` excludes taxonomy persistence model ownership, knowledge-graph persistence model ownership, semantic-map rendering implementation, and HTTP route files.
 - `modules/search` contains read-side HTTP contract files (`api.py`, `schema.py`) and read orchestration service logic.
 - `modules/search` excludes direct persistence access and worker/queue concerns.
 - `modules/ingestion` contains write-side HTTP contract files (`api.py`, `schema.py`), ingestion orchestration (`service.py`), ingestion-owned queue broker (`queue.py`), and worker job-processing primitives (`workers.py`).
@@ -228,6 +231,9 @@ human_workspace/
 32. `apps/knowledge_corpus` SHALL NOT import `apps/api`, `apps/cli`, or `apps/web`, and those apps SHALL NOT import `apps/knowledge_corpus`.
 33. `apps/knowledge_corpus` SHALL expose only importable Python-library interfaces in first version and SHALL NOT define HTTP or CLI contracts.
 34. `infra` and tracked environment assets SHALL provide the repository-managed PostgreSQL service required by `apps/knowledge_corpus` without merging it into the online API database lifecycle.
+35. `apps/api/src/modules/taxonomy_classification` SHALL own incremental node-classification orchestration and SHALL NOT own taxonomy or knowledge-graph persistence model/repository projection.
+36. `apps/api/src/modules/taxonomy_classification` SHALL access taxonomy and knowledge-node truth only through module service ports and SHALL NOT import `modules/taxonomy/model.py`, `modules/taxonomy/repo.py`, `modules/knowledge_graph/model.py`, or `modules/knowledge_graph/repo.py`.
+37. `apps/api/src/modules/taxonomy_classification` SHALL expose only operator-triggered script execution boundaries in first version and SHALL NOT define HTTP route contracts.
 
 ## Governance Anchors
 - Detailed architecture constraints are defined in `03-architecture-constraints`.

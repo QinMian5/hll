@@ -7,8 +7,15 @@ lifecycle wiring.
 
 from __future__ import annotations
 
+from pathlib import Path
+from tempfile import gettempdir
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
+
+_DEFAULT_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE = str(
+    Path(gettempdir()) / "knowledge-api-taxonomy-classification"
+)
 
 
 class Settings(BaseSettings):
@@ -32,6 +39,17 @@ class Settings(BaseSettings):
     log_file_path: str
     log_file_max_bytes: int = Field(default=10_485_760, gt=0)
     log_file_backup_count: int = Field(default=5, ge=1)
+    taxonomy_classification_cursor_command: str = Field(
+        default="cursor-agent",
+        min_length=1,
+    )
+    taxonomy_classification_cursor_workspace_root: str = Field(
+        default=_DEFAULT_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE,
+        min_length=1,
+    )
+    taxonomy_classification_cursor_timeout_seconds: float = Field(default=180.0, gt=0)
+    taxonomy_classification_cursor_max_retries: int = Field(default=3, ge=1)
+    taxonomy_classification_max_workers: int = Field(default=8, ge=1)
 
 
 class MigrationSettings(BaseSettings):

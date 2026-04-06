@@ -27,6 +27,7 @@ out_of_scope: LLM classification orchestration, candidate ranking workflows, and
   - **Authoritative taxonomy source:** The persisted taxonomy tree is the runtime/system truth. `human_workspace/LCC.yaml` is only the operator-maintained import input for bootstrap.
   - **Tree stability model:** The taxonomy is treated as one single, effectively stable tree. Active behavior does not include versioning, merge/update import, or repeatable synchronization against YAML.
   - **Classification result model:** Each knowledge node binds to exactly one final taxonomy leaf. Workflow state, candidate classes, confidence scores, and review status are not part of the accepted persistence shape.
+  - **Assignment mutability rule:** Final taxonomy assignment uses first-write semantics. Existing node assignments are not overwritten by later classification attempts.
   - **Map-structure role:** Taxonomy provides the high-level structural truth for semantic-map browsing. Semantic-map rendering may consume embeddings for local layout, but it does not define top-level class hierarchy independently of taxonomy.
 
 ## Persistence Projection
@@ -49,6 +50,8 @@ out_of_scope: LLM classification orchestration, candidate ranking workflows, and
 - `assigned_at`: non-null timestamp.
 - Required constraints:
   - uniqueness over `node_id`.
+- Write-path rule:
+  - classification workflow uses insert-only assignment creation and rejects writes when `node_id` already has an assignment.
 
 ### Trigger Rule
 - Inserts and updates on `node_taxonomy_assignments` must be rejected unless `taxonomy_node_id` points to a row where `taxonomy_nodes.is_leaf = true`.

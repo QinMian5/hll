@@ -20,7 +20,7 @@ RUNTIME_REQUIRED_ENV = {
     "KNOWLEDGE_API_SEARCH_MAX_MATCHED": "5",
     "KNOWLEDGE_API_SEARCH_MAX_CONNECTED": "10",
     "KNOWLEDGE_API_EDGE_SIMILARITY_TOP_K": "10",
-    "KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH": "0.75",
+    "KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH": "0.37",
     "KNOWLEDGE_API_LOG_FILE_PATH": "logs/api/app.log",
 }
 
@@ -35,6 +35,11 @@ ALL_SETTINGS_KEYS = (
         "KNOWLEDGE_API_LOG_LEVEL",
         "KNOWLEDGE_API_LOG_FILE_MAX_BYTES",
         "KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_COMMAND",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE_ROOT",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_TIMEOUT_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_MAX_RETRIES",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_MAX_WORKERS",
         "AN_UNRELATED_KEY",
     }
 )
@@ -71,6 +76,17 @@ def test_load_settings_reads_database_url_from_environment(
     assert (
         settings.database_url == "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge"
     )
+
+
+def test_load_settings_reads_edge_similarity_threshold_from_environment(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        RUNTIME_REQUIRED_ENV | {"KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH": "0.83"},
+    )
+    settings = config_module.Settings()
+    assert settings.edge_similarity_min_strength == 0.83
 
 
 def test_load_settings_requires_database_url(

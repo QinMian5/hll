@@ -48,3 +48,11 @@ class SemanticMapProjectionEdge(BaseModel):
     node_a_id: int = Field(gt=0)
     node_b_id: int = Field(gt=0)
     strength: float = Field(ge=0.0, le=1.0)
+
+
+class TaxonomyClassificationNodeInput(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    node_id: int = Field(gt=0)
+    title: NonEmptyString
+    content: NonEmptyString

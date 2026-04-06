@@ -6,8 +6,6 @@ Out of scope: YAML parsing and HTTP transport wiring.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,6 +14,7 @@ from modules.taxonomy.dto import (
     TaxonomyNodeRecord,
     TaxonomySemanticMapAssignment,
 )
+from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
 from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
 
 
@@ -144,21 +143,18 @@ class TaxonomyRepo:
         *,
         node_id: int,
         taxonomy_node_id: int,
-        assigned_at: datetime,
     ) -> TaxonomyAssignmentRecord:
         assignment = await self._session.scalar(
             select(NodeTaxonomyAssignment).where(NodeTaxonomyAssignment.node_id == node_id).limit(1)
         )
-        if assignment is None:
-            assignment = NodeTaxonomyAssignment(
-                node_id=node_id,
-                taxonomy_node_id=taxonomy_node_id,
-                assigned_at=assigned_at,
-            )
-            self._session.add(assignment)
-        else:
-            assignment.taxonomy_node_id = taxonomy_node_id
-            assignment.assigned_at = assigned_at
+        if assignment is not None:
+            raise TaxonomyAssignmentAlreadyExistsError("node already has final taxonomy assignment")
+
+        assignment = NodeTaxonomyAssignment(
+            node_id=node_id,
+            taxonomy_node_id=taxonomy_node_id,
+        )
+        self._session.add(assignment)
 
         await self._session.flush()
         stored_assignment = await self.get_assignment_for_node(node_id=node_id)
