@@ -9,9 +9,15 @@ COMPOSE_BASE="$ROOT_DIR/infra/compose/docker-compose.base.yml"
 COMPOSE_ENV="$ROOT_DIR/infra/env/.env.prod"
 COMPOSE_PROD="$ROOT_DIR/infra/compose/docker-compose.prod.yml"
 
-docker compose \
-  --env-file "$COMPOSE_ENV" \
-  -f "$COMPOSE_BASE" \
-  -f "$COMPOSE_PROD" \
+compose_args=(
+  --env-file "$COMPOSE_ENV"
+  -f "$COMPOSE_BASE"
+  -f "$COMPOSE_PROD"
+)
+
+docker compose "${compose_args[@]}" \
+  build api
+
+docker compose "${compose_args[@]}" \
   run --rm migrate \
   alembic -c /app/apps/api/alembic.ini upgrade head
