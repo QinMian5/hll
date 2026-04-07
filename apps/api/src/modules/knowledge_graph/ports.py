@@ -11,7 +11,6 @@ from modules.knowledge_graph.dto import (
     KnowledgeCardMatch,
     ProjectionCardNode,
     ProjectionEdge,
-    ProjectionNode,
     TaxonomyClassificationNodeInput,
 )
 
@@ -39,14 +38,6 @@ class KnowledgeGraphProjectionPort(Protocol):
         *,
         node_ids: list[int],
     ) -> list[ProjectionCardNode]: ...
-
-    async def list_projection_nodes_for_node_ids(
-        self,
-        *,
-        node_ids: list[int],
-    ) -> list[ProjectionNode]: ...
-
-    async def list_projection_nodes(self) -> list[ProjectionNode]: ...
 
     async def list_projection_edges_for_node_ids(
         self,

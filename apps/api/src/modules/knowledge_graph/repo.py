@@ -15,7 +15,6 @@ from modules.knowledge_graph.dto import (
     KnowledgeCardMatch,
     ProjectionCardNode,
     ProjectionEdge,
-    ProjectionNode,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
 )
@@ -86,18 +85,6 @@ class KnowledgeRepo:
             ConnectedTitleCandidate(node_id=row.neighbor_node_id, title=row.title) for row in rows
         ]
 
-    async def fetch_projection_nodes(self) -> list[ProjectionNode]:
-        rows = (await self._session.scalars(select(Node).order_by(Node.id.asc()))).all()
-        return [
-            ProjectionNode(
-                node_id=row.id,
-                title=row.title,
-                content=row.content,
-                embedding=row.embedding,
-            )
-            for row in rows
-        ]
-
     async def fetch_projection_cards_for_node_ids(
         self,
         *,
@@ -118,29 +105,6 @@ class KnowledgeRepo:
                 node_id=row.id,
                 title=row.title,
                 content=row.content,
-            )
-            for row in rows
-        ]
-
-    async def fetch_projection_nodes_for_node_ids(
-        self,
-        *,
-        node_ids: Sequence[int],
-    ) -> list[ProjectionNode]:
-        if not node_ids:
-            return []
-
-        rows = (
-            await self._session.scalars(
-                select(Node).where(Node.id.in_(node_ids)).order_by(Node.id.asc())
-            )
-        ).all()
-        return [
-            ProjectionNode(
-                node_id=row.id,
-                title=row.title,
-                content=row.content,
-                embedding=row.embedding,
             )
             for row in rows
         ]

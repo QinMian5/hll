@@ -14,7 +14,6 @@ from modules.knowledge_graph.dto import (
     KnowledgeCardMatch,
     ProjectionCardNode,
     ProjectionEdge,
-    ProjectionNode,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
 )
@@ -39,14 +38,6 @@ class KnowledgeGraphRepoProtocol(Protocol):
         *,
         node_ids: Sequence[int],
     ) -> list[ProjectionCardNode]: ...
-
-    async def fetch_projection_nodes(self) -> list[ProjectionNode]: ...
-
-    async def fetch_projection_nodes_for_node_ids(
-        self,
-        *,
-        node_ids: Sequence[int],
-    ) -> list[ProjectionNode]: ...
 
     async def fetch_projection_edges_for_node_ids(
         self,
@@ -156,16 +147,6 @@ class KnowledgeGraphService:
         node_ids: list[int],
     ) -> list[ProjectionCardNode]:
         return await self._repo.fetch_projection_cards_for_node_ids(node_ids=node_ids)
-
-    async def list_projection_nodes(self) -> list[ProjectionNode]:
-        return await self._repo.fetch_projection_nodes()
-
-    async def list_projection_nodes_for_node_ids(
-        self,
-        *,
-        node_ids: list[int],
-    ) -> list[ProjectionNode]:
-        return await self._repo.fetch_projection_nodes_for_node_ids(node_ids=node_ids)
 
     async def list_projection_edges_for_node_ids(
         self,
