@@ -163,103 +163,104 @@ export function TaxonomyViewPage() {
 
   const rootMode = activeNodeId === null;
   const activeQuery = rootMode ? rootQuery : nodeQuery;
-
-  if (activeQuery.isPending) {
-    return (
-      <main className="taxonomy-view-page">
-        <section className="loading-state" aria-busy="true" aria-live="polite">
-          <p className="page-eyebrow">Taxonomy View</p>
-          <h2>Loading taxonomy view</h2>
-          <p>Fetching the latest taxonomy hierarchy snapshot from API.</p>
-        </section>
-      </main>
-    );
-  }
-
-  if (activeQuery.isError) {
-    return (
-      <main className="taxonomy-view-page">
-        <section className="error-state" role="alert">
-          <p className="page-eyebrow">Taxonomy View</p>
-          <h2>Taxonomy view unavailable</h2>
-          <p>{activeQuery.error.message}</p>
-        </section>
-      </main>
-    );
-  }
-
   const breadcrumbs = rootMode ? [] : (nodeQuery.data?.breadcrumb ?? []);
-  const currentLabel = rootMode
-    ? "Root"
-    : (nodeQuery.data?.current_node.name ?? `Node ${activeNodeId}`);
-  const flowNodes = rootMode
-    ? buildBranchNodes(rootQuery.data?.children ?? [])
-    : nodeQuery.data?.node_kind === "leaf"
-      ? buildLeafNodes(nodeQuery.data.nodes)
-      : buildBranchNodes(nodeQuery.data?.children ?? []);
+  const flowNodes = activeQuery.isPending
+    ? []
+    : rootMode
+      ? buildBranchNodes(rootQuery.data?.children ?? [])
+      : nodeQuery.data?.node_kind === "leaf"
+        ? buildLeafNodes(nodeQuery.data.nodes)
+        : buildBranchNodes(nodeQuery.data?.children ?? []);
 
   return (
-    <main className="taxonomy-view-page taxonomy-view-page--engine">
-      <p className="page-eyebrow">Taxonomy View</p>
-      <h1 className="page-title">Taxonomy drill-down</h1>
-      <p className="page-copy">
-        Click branch bubbles to enter child taxonomy. Leaf view shows all inner
-        cards and one-hop outer cards in one scene.
-      </p>
-      <nav className="taxonomy-breadcrumb" aria-label="taxonomy breadcrumb">
-        <button
-          className="taxonomy-breadcrumb__item"
-          onClick={() => {
-            startTransition(() => setActiveNodeId(null));
-          }}
-          type="button"
+    <main className="taxonomy-view-shell">
+      <header className="taxonomy-header" data-testid="taxonomy-header-shell">
+        <div className="taxonomy-header__brand">
+          <div aria-hidden="true" className="taxonomy-header__brand-mark" />
+          <span className="taxonomy-header__brand-name">Knowledge Graph</span>
+        </div>
+        <div aria-hidden="true" className="taxonomy-header__spacer" />
+        <div className="taxonomy-header__actions">
+          <button className="taxonomy-header__action" disabled type="button">
+            GitHub
+          </button>
+          <button className="taxonomy-header__action" disabled type="button">
+            Login
+          </button>
+        </div>
+      </header>
+      <section
+        aria-label="taxonomy flow canvas"
+        className="taxonomy-canvas-shell"
+        data-testid="taxonomy-canvas-shell"
+      >
+        <nav
+          aria-label="taxonomy breadcrumb"
+          className="taxonomy-breadcrumb taxonomy-canvas-overlay"
+          data-testid="taxonomy-breadcrumb-overlay"
         >
-          Root
-        </button>
-        {breadcrumbs.map((item) => (
           <button
             className="taxonomy-breadcrumb__item"
-            key={item.id}
             onClick={() => {
-              startTransition(() => setActiveNodeId(item.id));
+              startTransition(() => setActiveNodeId(null));
             }}
             type="button"
           >
-            {item.name}
+            Root
           </button>
-        ))}
-      </nav>
-      <section className="taxonomy-current">
-        <h2>{currentLabel}</h2>
-        <p>
-          {rootMode
-            ? `${rootQuery.data?.children.length ?? 0} top-level branches with content`
-            : nodeQuery.data?.node_kind === "leaf"
-              ? `${nodeQuery.data.nodes.length} cards`
-              : `${nodeQuery.data?.children.length ?? 0} direct child branches`}
-        </p>
-      </section>
-      <section
-        className="taxonomy-flow-shell"
-        aria-label="taxonomy flow canvas"
-      >
-        <ReactFlow
-          edges={[]}
-          fitView
-          minZoom={0.2}
-          nodeTypes={nodeTypes}
-          nodes={flowNodes}
-          onNodeClick={(_, node) => {
-            const targetNodeId = node.data.targetNodeId;
-            if (typeof targetNodeId !== "number") {
-              return;
-            }
-            startTransition(() => setActiveNodeId(targetNodeId));
-          }}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background />
-        </ReactFlow>
+          {breadcrumbs.map((item) => (
+            <button
+              className="taxonomy-breadcrumb__item"
+              key={item.id}
+              onClick={() => {
+                startTransition(() => setActiveNodeId(item.id));
+              }}
+              type="button"
+            >
+              {item.name}
+            </button>
+          ))}
+        </nav>
+        {activeQuery.isPending ? (
+          <section
+            aria-busy="true"
+            aria-live="polite"
+            className="taxonomy-status-overlay taxonomy-canvas-overlay"
+            data-testid="taxonomy-loading-overlay"
+          >
+            <h2>Loading taxonomy view</h2>
+            <p>Fetching the latest taxonomy hierarchy snapshot from API.</p>
+          </section>
+        ) : null}
+        {activeQuery.isError ? (
+          <section
+            className="taxonomy-status-overlay taxonomy-canvas-overlay"
+            data-testid="taxonomy-error-overlay"
+            role="alert"
+          >
+            <h2>Taxonomy view unavailable</h2>
+            <p>{activeQuery.error.message}</p>
+          </section>
+        ) : null}
+        <div className="taxonomy-flow-shell">
+          <ReactFlow
+            edges={[]}
+            fitView
+            minZoom={0.2}
+            nodeTypes={nodeTypes}
+            nodes={flowNodes}
+            onNodeClick={(_, node) => {
+              const targetNodeId = node.data.targetNodeId;
+              if (typeof targetNodeId !== "number") {
+                return;
+              }
+              startTransition(() => setActiveNodeId(targetNodeId));
+            }}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background />
+          </ReactFlow>
+        </div>
       </section>
     </main>
   );
