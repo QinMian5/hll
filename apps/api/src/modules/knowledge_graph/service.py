@@ -12,8 +12,9 @@ from typing import Protocol
 from modules.knowledge_graph.dto import (
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
-    SemanticMapProjectionEdge,
-    SemanticMapProjectionNode,
+    ProjectionCardNode,
+    ProjectionEdge,
+    ProjectionNode,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
 )
@@ -33,19 +34,31 @@ class KnowledgeGraphRepoProtocol(Protocol):
         matched_node_ids: Sequence[int],
     ) -> list[ConnectedTitleCandidate]: ...
 
-    async def fetch_projection_nodes(self) -> list[SemanticMapProjectionNode]: ...
+    async def fetch_projection_cards_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[ProjectionCardNode]: ...
+
+    async def fetch_projection_nodes(self) -> list[ProjectionNode]: ...
 
     async def fetch_projection_nodes_for_node_ids(
         self,
         *,
         node_ids: Sequence[int],
-    ) -> list[SemanticMapProjectionNode]: ...
+    ) -> list[ProjectionNode]: ...
 
     async def fetch_projection_edges_for_node_ids(
         self,
         *,
         node_ids: Sequence[int],
-    ) -> list[SemanticMapProjectionEdge]: ...
+    ) -> list[ProjectionEdge]: ...
+
+    async def fetch_projection_edges_touching_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[ProjectionEdge]: ...
 
     async def fetch_unassigned_nodes_for_taxonomy_classification(
         self,
@@ -137,22 +150,36 @@ class KnowledgeGraphService:
 
         return connected_titles
 
-    async def list_projection_nodes_for_semantic_map(self) -> list[SemanticMapProjectionNode]:
+    async def list_projection_cards_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionCardNode]:
+        return await self._repo.fetch_projection_cards_for_node_ids(node_ids=node_ids)
+
+    async def list_projection_nodes(self) -> list[ProjectionNode]:
         return await self._repo.fetch_projection_nodes()
 
     async def list_projection_nodes_for_node_ids(
         self,
         *,
         node_ids: list[int],
-    ) -> list[SemanticMapProjectionNode]:
+    ) -> list[ProjectionNode]:
         return await self._repo.fetch_projection_nodes_for_node_ids(node_ids=node_ids)
 
     async def list_projection_edges_for_node_ids(
         self,
         *,
         node_ids: list[int],
-    ) -> list[SemanticMapProjectionEdge]:
+    ) -> list[ProjectionEdge]:
         return await self._repo.fetch_projection_edges_for_node_ids(node_ids=node_ids)
+
+    async def list_projection_edges_touching_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionEdge]:
+        return await self._repo.fetch_projection_edges_touching_node_ids(node_ids=node_ids)
 
     async def list_unassigned_nodes_for_taxonomy_classification(
         self,

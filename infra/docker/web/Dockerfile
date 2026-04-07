@@ -7,6 +7,7 @@ WORKDIR /workspace
 RUN corepack enable && corepack use pnpm@10.33.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /workspace/
+COPY tsconfig.base.json /workspace/tsconfig.base.json
 COPY apps/web/package.json /workspace/apps/web/package.json
 COPY packages/contracts/package.json /workspace/packages/contracts/package.json
 

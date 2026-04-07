@@ -69,6 +69,7 @@ out_of_scope: HTTP APIs, operator-facing CLI commands, file-system import orches
 - **External page-to-card separation:** LLM-assisted page-to-card extraction orchestration remains outside this app boundary and may consume complete page records plus the processed-mark library interface without moving agent/session logic into `apps/knowledge_corpus`.
   - **Search semantics:** Retrieval uses PostgreSQL full-text search with the English configuration. Search must weight `title` above `clean_text` and support filtering out rows that already appear in `wikipedia.processed_documents`.
   - **Write semantics:** Source-document writes are idempotent by `page_id`. Processed-document marking is also idempotent by `page_id`.
+  - **Replay-write minimization:** Document upsert updates existing rows only when source fields actually change, so replaying identical shards avoids unnecessary heap/index churn.
   - **No source-coupled importer contract:** The app does not define `import-wikipedia-from-path` or any directory-scanning/file-parsing API. Source-file orchestration remains outside the app boundary.
 - **Interactions:**
   1. An external script/program reads normalized source records from an upstream workflow such as Wikipedia preprocessing.

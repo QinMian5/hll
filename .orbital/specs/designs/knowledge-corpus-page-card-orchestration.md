@@ -49,7 +49,7 @@ out_of_scope: Page discovery strategy, topic filtering policy, online API runtim
     - `title`
     - `clean_text`
   - **Library-first entrypoint:** The primary interface is an importable Python function rather than a first-version CLI wrapper.
-  - **Fixed STEM runtime entrypoint:** A dedicated external runtime script under `human_workspace/` provides the default operator-facing command for fixed STEM ingestion. It uses the curated STEM seed titles, loads full `PageRecord` values, runs the orchestrator with `max_workers=8`, and displays page-count progress with `rich`.
+  - **Fixed runtime entrypoints:** Dedicated external runtime scripts under `human_workspace/` provide operator-facing commands for both curated STEM-title ingestion and science query-batch ingestion. The query-batch mode loads YAML-configured full-text searches, selects unprocessed pages through `knowledge_corpus.wikipedia.search.search_documents(...)`, deduplicates by `page_id`, runs the orchestrator with `max_workers=8`, and displays page-count progress with `rich`.
   - **Page-scoped agent contract:** Each page is handled by exactly one Cursor session. The session owns page-local reasoning and decides when no more worthwhile atomic cards remain.
   - **Autonomous in-session extraction:** The orchestrator does not drive a card-by-card outer loop. The Cursor page session first plans which cards should be extracted from the page, then submits them sequentially within that same session.
   - **Soft card-count target:** The page session aims to extract about 10 of the most important atomic knowledge cards from a page. This is a soft target rather than a hard cap: shorter pages may yield fewer cards, and longer pages should prioritize the most important and most foundational knowledge instead of trying to exhaustively cover every detail.
@@ -101,6 +101,8 @@ out_of_scope: Page discovery strategy, topic filtering policy, online API runtim
   - `human_workspace/wiki_page_to_cards_cursor.py` for one-page Cursor session execution plus write-card CLI integration
   - `human_workspace/wiki_page_to_cards_orchestrator.py` for top-level `run_pages(...)` orchestration plus processed marking
   - `human_workspace/run_stem_ingestion.py` for fixed STEM candidate selection plus operator-facing ingestion progress UI
+  - `human_workspace/science-query-batches.yaml` for ordered science-oriented search batches
+  - `human_workspace/run_science_ingestion.py` for YAML-driven science query-batch ingestion plus operator-facing ingestion progress UI
 
 ## Validation
 - **Checks:**

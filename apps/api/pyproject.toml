@@ -123,13 +123,3 @@ name = "knowledge-graph must not depend on orchestration modules"
 type = "forbidden"
 source_modules = ["modules.knowledge_graph"]
 forbidden_modules = ["modules.search", "modules.ingestion"]
-
-[[tool.importlinter.contracts]]
-name = "semantic-map cannot import knowledge-graph internals"
-type = "forbidden"
-source_modules = ["modules.semantic_map"]
-allow_indirect_imports = true
-forbidden_modules = [
-    "modules.knowledge_graph.model",
-    "modules.knowledge_graph.repo",
-]

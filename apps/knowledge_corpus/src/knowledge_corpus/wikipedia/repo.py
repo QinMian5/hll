@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,6 +45,11 @@ async def upsert_documents(
             "title": statement.excluded.title,
             "clean_text": statement.excluded.clean_text,
         },
+        where=or_(
+            WikipediaDocument.url.is_distinct_from(statement.excluded.url),
+            WikipediaDocument.title.is_distinct_from(statement.excluded.title),
+            WikipediaDocument.clean_text.is_distinct_from(statement.excluded.clean_text),
+        ),
     )
     await session.execute(statement)
 

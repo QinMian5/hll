@@ -1,6 +1,6 @@
 """
 Abstract: Bootstrap-only taxonomy import orchestration from YAML into persisted tree rows.
-Out of scope: Final assignment workflows and semantic-map rendering behavior.
+Out of scope: Final assignment workflows and taxonomy view rendering behavior.
 """
 
 from __future__ import annotations

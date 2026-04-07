@@ -1,0 +1,266 @@
+// abstract: Taxonomy-query-driven React Flow page with click drill-down interactions.
+// out_of_scope: Backend taxonomy read orchestration and graph-edge rendering behaviors.
+
+import "@xyflow/react/dist/style.css";
+
+import {
+  Background,
+  type Node,
+  type NodeProps,
+  ReactFlow,
+} from "@xyflow/react";
+import { startTransition, useState } from "react";
+
+import {
+  useTaxonomyNodeViewQuery,
+  useTaxonomyRootViewQuery,
+} from "../data/taxonomyViewQueries";
+
+interface BranchChildItem {
+  readonly depth: number;
+  readonly descendant_card_count: number;
+  readonly id: number;
+  readonly name: string;
+}
+
+interface LeafNodeItem {
+  readonly id: number;
+  readonly scope: "inner" | "outer";
+  readonly title: string;
+}
+
+type BubbleNodeData = Record<string, unknown> & {
+  readonly depth: number;
+  readonly label: string;
+  readonly scope: "branch" | "inner" | "outer";
+  readonly targetNodeId: number | null;
+  readonly tooltip: string;
+};
+
+type BubbleNode = Node<BubbleNodeData, "bubble">;
+
+function TaxonomyBubbleNode({ data }: NodeProps<BubbleNode>) {
+  const isBranch = data.scope === "branch";
+
+  return (
+    <div
+      className={`taxonomy-bubble taxonomy-bubble--${data.scope}`}
+      data-depth={data.depth}
+      title={data.tooltip}
+    >
+      <span className="taxonomy-bubble__label">{data.label}</span>
+      {isBranch ? <span className="taxonomy-bubble__hint">Open</span> : null}
+    </div>
+  );
+}
+
+const nodeTypes = {
+  bubble: TaxonomyBubbleNode,
+};
+
+function bubbleDiameterFromDescendantCount(
+  descendantCardCount: number,
+): number {
+  const scaled = 44 + Math.log(Math.max(descendantCardCount, 1) + 1) * 28;
+  return Math.max(44, Math.min(Math.round(scaled), 120));
+}
+
+function layoutAsRadialGrid(options: {
+  readonly diameterForIndex: (index: number) => number;
+  readonly items: number;
+}): Array<{ readonly x: number; readonly y: number }> {
+  if (options.items <= 0) {
+    return [];
+  }
+
+  const points: Array<{ readonly x: number; readonly y: number }> = [];
+  const step = (2 * Math.PI) / options.items;
+  for (let index = 0; index < options.items; index += 1) {
+    const angle = step * index;
+    const radius = 160 + options.diameterForIndex(index) * 0.8;
+    points.push({
+      x: Math.cos(angle) * radius,
+      y: Math.sin(angle) * radius,
+    });
+  }
+  return points;
+}
+
+function buildBranchNodes(children: readonly BranchChildItem[]): BubbleNode[] {
+  const positions = layoutAsRadialGrid({
+    diameterForIndex: (index) =>
+      bubbleDiameterFromDescendantCount(
+        children[index]?.descendant_card_count ?? 1,
+      ),
+    items: children.length,
+  });
+
+  return children.map((child, index) => {
+    const diameter = bubbleDiameterFromDescendantCount(
+      child.descendant_card_count,
+    );
+    return {
+      data: {
+        depth: child.depth,
+        label: child.name,
+        scope: "branch",
+        targetNodeId: child.id,
+        tooltip: `${child.name} · ${child.descendant_card_count} cards`,
+      },
+      draggable: false,
+      id: `taxonomy-${child.id}`,
+      position: positions[index] ?? { x: 0, y: 0 },
+      selectable: false,
+      style: {
+        borderRadius: `${diameter}px`,
+        height: diameter,
+        width: diameter,
+      },
+      type: "bubble",
+    };
+  });
+}
+
+function buildLeafNodes(nodes: readonly LeafNodeItem[]): BubbleNode[] {
+  const positions = layoutAsRadialGrid({
+    diameterForIndex: () => 64,
+    items: nodes.length,
+  });
+
+  return nodes.map((node, index) => {
+    const diameter = node.scope === "inner" ? 68 : 52;
+    return {
+      data: {
+        depth: 0,
+        label: node.title,
+        scope: node.scope,
+        targetNodeId: null,
+        tooltip: node.title,
+      },
+      draggable: false,
+      id: `card-${node.id}`,
+      position: positions[index] ?? { x: 0, y: 0 },
+      selectable: false,
+      style: {
+        borderRadius: `${diameter}px`,
+        height: diameter,
+        width: diameter,
+      },
+      type: "bubble",
+    };
+  });
+}
+
+export function TaxonomyViewPage() {
+  const [activeNodeId, setActiveNodeId] = useState<number | null>(null);
+
+  const rootQuery = useTaxonomyRootViewQuery({
+    enabled: activeNodeId === null,
+  });
+  const nodeQuery = useTaxonomyNodeViewQuery(activeNodeId ?? 0, {
+    enabled: activeNodeId !== null,
+  });
+
+  const rootMode = activeNodeId === null;
+  const activeQuery = rootMode ? rootQuery : nodeQuery;
+
+  if (activeQuery.isPending) {
+    return (
+      <main className="taxonomy-view-page">
+        <section className="loading-state" aria-busy="true" aria-live="polite">
+          <p className="page-eyebrow">Taxonomy View</p>
+          <h2>Loading taxonomy view</h2>
+          <p>Fetching the latest taxonomy hierarchy snapshot from API.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (activeQuery.isError) {
+    return (
+      <main className="taxonomy-view-page">
+        <section className="error-state" role="alert">
+          <p className="page-eyebrow">Taxonomy View</p>
+          <h2>Taxonomy view unavailable</h2>
+          <p>{activeQuery.error.message}</p>
+        </section>
+      </main>
+    );
+  }
+
+  const breadcrumbs = rootMode ? [] : (nodeQuery.data?.breadcrumb ?? []);
+  const currentLabel = rootMode
+    ? "Root"
+    : (nodeQuery.data?.current_node.name ?? `Node ${activeNodeId}`);
+  const flowNodes = rootMode
+    ? buildBranchNodes(rootQuery.data?.children ?? [])
+    : nodeQuery.data?.node_kind === "leaf"
+      ? buildLeafNodes(nodeQuery.data.nodes)
+      : buildBranchNodes(nodeQuery.data?.children ?? []);
+
+  return (
+    <main className="taxonomy-view-page taxonomy-view-page--engine">
+      <p className="page-eyebrow">Taxonomy View</p>
+      <h1 className="page-title">Taxonomy drill-down</h1>
+      <p className="page-copy">
+        Click branch bubbles to enter child taxonomy. Leaf view shows all inner
+        cards and one-hop outer cards in one scene.
+      </p>
+      <nav className="taxonomy-breadcrumb" aria-label="taxonomy breadcrumb">
+        <button
+          className="taxonomy-breadcrumb__item"
+          onClick={() => {
+            startTransition(() => setActiveNodeId(null));
+          }}
+          type="button"
+        >
+          Root
+        </button>
+        {breadcrumbs.map((item) => (
+          <button
+            className="taxonomy-breadcrumb__item"
+            key={item.id}
+            onClick={() => {
+              startTransition(() => setActiveNodeId(item.id));
+            }}
+            type="button"
+          >
+            {item.name}
+          </button>
+        ))}
+      </nav>
+      <section className="taxonomy-current">
+        <h2>{currentLabel}</h2>
+        <p>
+          {rootMode
+            ? `${rootQuery.data?.children.length ?? 0} top-level branches with content`
+            : nodeQuery.data?.node_kind === "leaf"
+              ? `${nodeQuery.data.nodes.length} cards`
+              : `${nodeQuery.data?.children.length ?? 0} direct child branches`}
+        </p>
+      </section>
+      <section
+        className="taxonomy-flow-shell"
+        aria-label="taxonomy flow canvas"
+      >
+        <ReactFlow
+          edges={[]}
+          fitView
+          minZoom={0.2}
+          nodeTypes={nodeTypes}
+          nodes={flowNodes}
+          onNodeClick={(_, node) => {
+            const targetNodeId = node.data.targetNodeId;
+            if (typeof targetNodeId !== "number") {
+              return;
+            }
+            startTransition(() => setActiveNodeId(targetNodeId));
+          }}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background />
+        </ReactFlow>
+      </section>
+    </main>
+  );
+}

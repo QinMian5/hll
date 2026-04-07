@@ -186,23 +186,7 @@ async def test_set_final_assignment_creates_when_assignment_missing() -> None:
 
 
 @pytest.mark.anyio
-async def test_list_assigned_leaf_depths_for_semantic_map_returns_depth_rows() -> None:
-    class _DepthRow:
-        def __init__(self, depth: int) -> None:
-            self.depth = depth
-
-    session = _StubSession(
-        execute_results=[_StubExecuteResult(rows=[_DepthRow(1), _DepthRow(2), _DepthRow(3)])]
-    )
-    repo = TaxonomyRepo(session=session)
-
-    depths = await repo.list_assigned_leaf_depths_for_semantic_map()
-
-    assert depths == [1, 2, 3]
-
-
-@pytest.mark.anyio
-async def test_list_semantic_map_assignments_returns_leaf_assignments() -> None:
+async def test_list_final_assignments_returns_leaf_assignments() -> None:
     class _AssignmentRow:
         def __init__(self, node_id: int, taxonomy_leaf_id: int) -> None:
             self.node_id = node_id
@@ -213,7 +197,7 @@ async def test_list_semantic_map_assignments_returns_leaf_assignments() -> None:
     )
     repo = TaxonomyRepo(session=session)
 
-    assignments = await repo.list_semantic_map_assignments()
+    assignments = await repo.list_final_assignments()
 
     assert [assignment.model_dump() for assignment in assignments] == [
         {"node_id": 3, "taxonomy_leaf_id": 11},

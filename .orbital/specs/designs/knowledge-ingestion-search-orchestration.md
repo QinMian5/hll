@@ -1,5 +1,5 @@
 ---
-abstract: Module-level orchestration design for knowledge core ownership, ingestion async write pipeline, cosine-only search read flow, and semantic-map snapshot source access.
+abstract: Module-level orchestration design for knowledge core ownership, ingestion async write pipeline, cosine-only search read flow, and taxonomy drill-down reads.
 out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and distributed multi-region queue reliability.
 ---
 
@@ -8,152 +8,144 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ## Active Truth Policy
 - Keep only currently accepted decisions in this active document.
 - Remove superseded decisions instead of keeping deprecation narratives.
-- If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the accepted V1 module orchestration for `knowledge_graph`, `taxonomy`, `taxonomy_classification`, `ingestion`, `search`, and semantic-map source access under async ingestion with Redis and Dramatiq.
-- **Scope/Boundaries:** Covers module ownership, endpoint contracts, asynchronous processing flow, taxonomy bootstrap/classification boundaries, semantic-map source-read rules, data visibility rules, and runtime observability obligations.
+- **Purpose:** Define accepted V1 orchestration for `knowledge_graph`, `taxonomy`, `taxonomy_classification`, `ingestion`, and `search` under async ingestion with Redis/Dramatiq.
+- **Scope/Boundaries:** Covers module ownership, endpoint contracts, async processing flow, taxonomy bootstrap/classification boundaries, taxonomy drill-down read rules, and runtime observability obligations.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
-
-## Constraint Projection
-- **Governing Constraints:** Module boundaries remain explicit, API contracts are authoritative and versioned, and behavior-changing details live in design documents.
-- **Detail Commitments:** V1 runtime uses `FastAPI -> Redis -> Dramatiq worker -> PostgreSQL` for ingestion writes and cosine-only retrieval for search.
-- **Update Rule:** Requirement-level constraints remain stable while this design captures all accepted runtime and contract details.
 
 ## Module Ownership
 
 ### knowledge_graph
 - Owns persistent domain truth for `Node`, `Edge`, and `Adjacency`.
-- Is the only module allowed to own and access graph persistence models and repositories.
-- Exposes read/write domain service ports consumed by `search`, `ingestion`, and `semantic_map`.
-- Contains domain DTOs used by `knowledge_graph` service ports and repository outputs.
-- Does not contain HTTP route handlers, queue broker configuration, or worker actor declarations.
+- Is the only module allowed to own/access graph persistence models and repositories.
+- Exposes read/write service ports consumed by `search`, `ingestion`, and `taxonomy`.
 
 ### taxonomy
-- Owns the persisted LCC taxonomy tree and the final knowledge-node to taxonomy-leaf assignment truth.
+- Owns persisted LCC taxonomy tree and final node-to-leaf assignment truth.
 - Owns taxonomy import orchestration from operator-supplied YAML.
-- Exposes read/write service ports consumed by `semantic_map` and later classification workflows.
-- Does not own graph persistence truth, HTTP route handlers, or LLM candidate workflows.
+- Owns taxonomy drill-down read orchestration:
+  - `GET /taxonomy/view/root`
+  - `GET /taxonomy/view/nodes/{node_id}`
+- Consumes `knowledge_graph` read ports for leaf-level one-hop graph payload shaping.
 
 ### taxonomy_classification
 - Owns operator-triggered incremental classification orchestration for unassigned nodes.
-- Runs one Cursor session per selected node and uses session-local progressive taxonomy traversal.
-- Consumes `knowledge_graph` and `taxonomy` service ports and does not own persistence truth.
-- Writes final classification through taxonomy first-write assignment boundary.
-- Does not expose HTTP-triggered job submission APIs in Phase 1.
+- Runs one Cursor session per selected node.
+- Consumes `knowledge_graph` and `taxonomy` service ports only.
+- Persists final assignment through taxonomy first-write boundary.
 
 ### ingestion
-- Owns write-side HTTP acceptance endpoint and write orchestration.
+- Owns write-side HTTP acceptance endpoint and async dispatch orchestration.
 - Accepts valid payloads and returns `202 Accepted`.
-- Owns ingestion-scoped queue broker configuration and message publishing adapter for async jobs to Redis via Dramatiq.
-- Uses project-managed Redis service on Docker backend network as queue broker target.
-- Consumes embedding integration in worker execution path.
-- Calls `knowledge_graph` write service port for node creation and edge materialization.
-- Contains `api.py`, `schema.py`, `service.py`, ingestion queue broker wiring, ingestion message-publisher adapter, and worker job-processing primitives.
-- Must not import `knowledge_graph.repo` or `knowledge_graph.model`.
-- Must not resolve runtime settings internally; ingestion runtime dependencies are injected from entrypoint composition providers.
-- Must not import worker entrypoint modules under `entrypoints.worker`; API-side enqueue flow is module-owned and entrypoint-agnostic.
+- Owns ingestion-scoped queue broker configuration and publish adapter (Redis + Dramatiq).
+- Worker path persists node/edge truth through `knowledge_graph` write service.
 
 ### search
-- Owns read-side HTTP search endpoint and read orchestration.
-- Uses cosine-only query retrieval.
-- Calls `knowledge_graph` read service port for candidate retrieval and connected-title expansion.
-- Contains `api.py`, `schema.py`, and read orchestration `service.py`.
-- Does not contain queue broker setup, worker actor declarations, or write-path orchestration.
-- Must not import `knowledge_graph.repo` or `knowledge_graph.model`.
-
-### semantic_map
-- Owns semantic-map snapshot read orchestration and snapshot rebuild orchestration.
-- Calls `taxonomy` service ports for taxonomy structure and final assignment truth required by snapshot rebuilding and semantic-map reads.
-- Calls `knowledge_graph` service ports for knowledge-node and embedding source truth required by snapshot rebuilding and semantic-map reads.
-- Does not expose rebuild initiation as an HTTP API in Phase 1.
-- Uses a dedicated operator command or script for rebuild initiation in Phase 1.
-- Must not import `knowledge_graph.repo` or `knowledge_graph.model`.
-- Must not import `taxonomy.repo` or `taxonomy.model`.
+- Owns read-side search endpoint and orchestration.
+- Uses cosine-only retrieval via `knowledge_graph` read service.
 
 ## API Contract
 
 ### Ingestion Endpoint
 - Route: `POST /cards`
-- Request body fields:
-  - `title`
-  - `content`
-- Response contract:
-  - Invalid request payload: `4xx` based on global error-governance mapping (`422` for request-shape invalidity, `400` for request-side use-case input invalidity).
-  - Valid payload: `202 Accepted`.
-  - Redis enqueue failures are internal-only and do not change the `202` contract.
+- Request fields: `title`, `content`
+- Response:
+  - invalid payload: `4xx` via global error-governance mapping
+  - valid payload: `202 Accepted`
 
 ### Search Endpoint
 - Route: `GET /search?query=<string>`
-- Request parameters:
-  - `query`: required non-empty string.
-- Success response:
-  - `matched_cards`: list of objects containing only `title` and `content`.
-  - `connected_titles`: list of titles.
-- Response rules:
-  - `matched_cards` returns at most `5` items.
-  - `matched_cards` ordering is stable: cosine distance ascending, tie-break by `node_id` ascending.
-  - `connected_titles` returns at most `10` items.
-  - `connected_titles` are deduplicated by `node_id` before projecting to titles.
-  - `connected_titles` exclude titles already present in `matched_cards`.
-  - `connected_titles` ordering is stable: candidate traversal order is `matched_node_id` ascending, then `neighbor_node_id` ascending, then `neighbor_title` ascending; deduplication keeps the first occurrence per `neighbor_node_id`.
+- Response:
+  - `matched_cards` with `title`, `content` only
+  - `connected_titles`
+- Limits:
+  - `matched_cards <= 5`
+  - `connected_titles <= 10`
+
+### Taxonomy Root View Endpoint
+- Route: `GET /taxonomy/view/root`
+- Response:
+  - no `current_node` field
+  - `breadcrumb=[]`
+  - `children[]` top-level taxonomy nodes (`parent_id is null`) filtered to `descendant_card_count > 0`
+  - child item shape: `{id, parent_id, name, depth, is_leaf, descendant_card_count}`
+  - children ordering: `name ASC`, tie-break `id ASC`
+- Failure:
+  - `404` when taxonomy has no root node.
+
+### Taxonomy Node View Endpoint
+- Route: `GET /taxonomy/view/nodes/{node_id}`
+- Response:
+  - common envelope:
+    - `node_kind`
+    - `current_node` `{id, parent_id, name, depth, is_leaf}`
+    - `breadcrumb[]` ordered root-to-current with item shape `{id, parent_id, name, depth, is_leaf}`
+  - branch payload (`children`) when node is non-leaf
+  - leaf payload (`nodes`, `edges`) when node is leaf
+- Leaf payload rules:
+  - nodes include all leaf inner cards and all one-hop pulled outer cards
+  - node fields are `id`, `title`, `content`, `scope`
+  - edges fields are `id`, `source_node_id`, `target_node_id`, `strength`
+  - canonical endpoint ordering is required for every edge: `source_node_id < target_node_id`
+  - edges include only `inner-inner` and `inner-outer`
+  - `outer-outer` edges are excluded
+  - nodes are ordered `id ASC`
+  - edges are deduplicated by undirected pair and ordered `(source_node_id ASC, target_node_id ASC)`
+  - response is full payload, no pagination
+- Failure:
+  - `404` when taxonomy node id is unknown.
+  - `404` when taxonomy store is empty.
 
 ## Async Processing Flow
 1. API validates ingestion request payload.
-2. API returns `4xx` for invalid payloads according to global error-governance mapping.
-3. API publishes a Dramatiq message through ingestion-owned publisher adapter for valid payloads.
-4. API returns `202` for valid payloads.
-5. Worker actor registry in `entrypoints/worker/actors.py` receives message and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
-6. Worker calls `knowledge_graph` write service port to persist `Node`.
-7. Worker computes `dot_product`-mapped edge strength with `strength = (dot_product + 1) / 2`, keeps candidates with `strength >= KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH`, selects at most the first `10`, and persists `Edge` and `Adjacency` rows.
-8. Search path reads persisted graph data only; no processing-state data is exposed by search.
+2. API returns `4xx` for invalid payload.
+3. API publishes Dramatiq message through ingestion-owned publisher adapter.
+4. API returns `202` for valid payload.
+5. Worker actor receives task and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
+6. Worker persists node and edges through `knowledge_graph` write service.
+7. Worker computes edge strength as `(dot_product + 1) / 2`, applies configured threshold/top-k, then persists `Edge` and `Adjacency`.
 
 ## Taxonomy Bootstrap Flow
-1. An operator-run import script reads `human_workspace/LCC.yaml`.
-2. The script fails immediately when taxonomy storage already contains rows.
-3. The script computes `depth` and `is_leaf` for every taxonomy node and writes the authoritative taxonomy tree.
-4. Later classification orchestration binds each knowledge node to one final taxonomy leaf through `taxonomy`.
+1. Operator script reads `human_workspace/LCC.yaml`.
+2. Script fails immediately when taxonomy storage already contains rows.
+3. Script computes `depth` and `is_leaf`, then writes authoritative taxonomy tree.
+4. Classification workflow later binds each knowledge node to one final taxonomy leaf.
 
 ## Taxonomy Classification Flow
-1. An operator-run classification script selects nodes without final taxonomy assignments.
-2. Selection order is deterministic (`nodes.id ASC`) and may be limited by operator-provided `--limit`.
-3. The classifier runs one Cursor session per selected node with node `title` and `content` context only.
-4. The Cursor session traverses taxonomy progressively through tool calls until a leaf is selected.
-5. The Cursor session persists the assignment through `assign_leaf(node_id, leaf_id)` with first-write-only semantics.
-6. Failed node attempts keep persistent classification truth unchanged and remain eligible in later runs.
+1. Operator script selects unassigned nodes in deterministic order (`nodes.id ASC`).
+2. Classifier runs one Cursor session per selected node.
+3. Session traverses taxonomy progressively until a leaf is selected.
+4. Session persists assignment via first-write `assign_leaf`.
+5. Failed node attempts keep persistent truth unchanged.
 
 ## Runtime Dependencies
-- Redis is required as queue broker for ingestion.
-- Queue runtime uses project-managed Redis Docker service (`redis`) and backend-network addressing (`redis://redis:6379/0`).
+- Redis is required for ingestion queue broker transport.
 - Dramatiq is required for async worker execution.
-- API and worker run as separate process containers that share one application image and role-specific startup commands.
-- OpenAI Embeddings API is required in both ingestion worker flow and search query flow.
-- Embedding model is fixed to `text-embedding-3-small` in MVP runtime defaults.
-- PostgreSQL remains the persistent source of truth for graph entities.
-- Runtime configuration values are sourced from `.env` via `pydantic-settings`; YAML is not a runtime source.
-- `load_settings()` usage is restricted to runtime composition entrypoints.
-- `load_migration_settings()` usage is restricted to migration runtime entrypoints.
+- API and worker run in separate process containers from one shared app image.
+- OpenAI Embeddings API is required for worker ingestion and search query embedding.
+- PostgreSQL remains persistent source of truth.
+- Runtime configuration values are sourced from `.env` via `pydantic-settings`.
 
 ## Failure Handling
-- Invalid ingestion request payloads are client-visible as `4xx` according to global error-governance mapping.
-- Enqueue, worker, embedding, and graph-materialization failures are internal-only for ingestion endpoint behavior.
-- Internal failures must be recorded in logs with correlation information (`request_id` where available) and debug-usable semantic fields.
-- Search endpoint continues using unified visible error envelope for request/processing errors on the read path.
+- Invalid request payloads are client-visible as `4xx`.
+- Enqueue/worker/embedding/materialization failures for ingestion remain internal-only for endpoint behavior.
+- Internal failures must be logged with correlation/debug-friendly fields.
+- Taxonomy view endpoints do not return graph layout coordinates; frontend layout is client-owned.
 
 ## Non-Goals (V1)
+- Semantic-map snapshot/tile APIs.
 - Keyword retrieval or hybrid retrieval.
-- Exposure of ingestion processing state to external clients.
-- Dead-letter queue policy, retry policy matrix, and queue durability optimization.
-- External callback/webhook for ingestion completion.
+- Ingestion processing-status exposure.
+- Dead-letter queue policy matrix and queue durability optimization.
 
 ## Validation
 - **Checks:**
-  - Contract tests assert `POST /cards` returns `4xx` on invalid payload and `202` on valid payload.
-  - Search contract tests assert `matched_cards` include only `title` and `content`.
-  - Architecture checks assert `search` and `ingestion` do not import `knowledge_graph.repo/model`.
-  - Architecture checks assert API entrypoint code does not import worker entrypoint modules.
-  - Unit tests verify API enqueue composition depends on ingestion-owned publisher adapter instead of worker actor objects.
-  - Integration tests verify worker-materialized nodes/edges become searchable.
+  - `POST /cards` contract checks (`4xx` invalid, `202` valid)
+  - `GET /search` contract checks
+  - `GET /taxonomy/view/root` and `GET /taxonomy/view/nodes/{id}` contract checks
+  - architecture checks that `search`/`ingestion` do not import `knowledge_graph.repo/model`
+  - architecture checks that runtime API entrypoint does not import worker entrypoint
 - **Evidence:**
-  - Passing test suite for API contracts, async worker flow, and architecture constraints.
-  - Logs demonstrate internal observability for enqueue/worker failures.
+  - passing API/worker integration tests and boundary checks
+  - logs showing internal observability for async failure paths

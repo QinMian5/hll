@@ -38,15 +38,15 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/semantic-map/manifest/current": {
+  "/taxonomy/view/nodes/{node_id}": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    /** Get Current Manifest */
-    get: operations["get_current_manifest_semantic_map_manifest_current_get"];
+    /** Get Node View */
+    get: operations["get_node_view_taxonomy_view_nodes__node_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -55,15 +55,15 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/semantic-map/versions/{version}/tiles/regions/{semantic_level}/{z}/{x}/{y}": {
+  "/taxonomy/view/root": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    /** Get Region Tile */
-    get: operations["get_region_tile_semantic_map_versions__version__tiles_regions__semantic_level___z___x___y__get"];
+    /** Get Root View */
+    get: operations["get_root_view_taxonomy_view_root_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -76,80 +76,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
-    Bounds4: [number, number, number, number];
-    /** CoordinateSystemResponse */
-    CoordinateSystemResponse: {
-      /**
-       * Axis Direction
-       * @constant
-       */
-      axis_direction: "x-right-y-up";
-      /**
-       * Bounds Format
-       * @constant
-       */
-      bounds_format: "min_x_min_y_max_x_max_y";
-      /**
-       * Kind
-       * @constant
-       */
-      kind: "cartesian2d";
-    };
-    /** DefaultViewResponse */
-    DefaultViewResponse: {
-      target: components["schemas"]["Point2"];
-      /** Zoom */
-      zoom: number;
-    };
-    /** EdgeResponse */
-    EdgeResponse: {
-      /** Id */
-      id: string;
-      /** Source Node Id */
-      source_node_id: number;
-      /** Source Position */
-      source_position: number[];
-      /** Strength */
-      strength: number;
-      /** Target Node Id */
-      target_node_id: number;
-      /** Target Position */
-      target_position: number[];
-    };
-    /**
-     * ErrorCode
-     * @enum {string}
-     */
-    ErrorCode:
-      | "APPLICATION_API_INPUT_INVALID"
-      | "APPLICATION_INGESTION_PAYLOAD_INVALID"
-      | "APPLICATION_SEMANTIC_MAP_INPUT_INVALID"
-      | "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND"
-      | "DOMAIN_KNOWLEDGE_RULE_VIOLATION"
-      | "DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND"
-      | "APPLICATION_SEARCH_STATE_CONFLICT"
-      | "INFRA_DB_CONNECTION_UNAVAILABLE"
-      | "INFRA_EMBEDDING_SERVICE_UNAVAILABLE"
-      | "INFRA_QUEUE_UNAVAILABLE"
-      | "INTERNAL_API_UNEXPECTED_ERROR";
-    /** ErrorEnvelope */
-    ErrorEnvelope: {
-      error: components["schemas"]["ErrorPayload"];
-    };
-    /** ErrorPayload */
-    ErrorPayload: {
-      code: components["schemas"]["ErrorCode"];
-      /** Details */
-      details?: {
-        [key: string]: unknown;
-      };
-      /** Hint */
-      hint: string;
-      /** Message */
-      message: string;
-      /** Request Id */
-      request_id: string;
-    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -173,82 +99,12 @@ export interface components {
       /** Title */
       title: string;
     };
-    /** LabelResponse */
-    LabelResponse: {
-      /** Font Size */
-      font_size: number;
-      /** Id */
-      id: string;
-      /** Label Rank */
-      label_rank: number;
-      /** Position */
-      position: number[];
-      /** Region Id */
-      region_id: string;
-      /** Text */
-      text: string;
-    };
     /** MatchedCardResponse */
     MatchedCardResponse: {
       /** Content */
       content: string;
       /** Title */
       title: string;
-    };
-    /** MultiPolygonGeometryPayload */
-    MultiPolygonGeometryPayload: {
-      /** Coordinates */
-      coordinates: number[][][];
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      type: "multi_polygon";
-    };
-    Point2: [number, number];
-    /** PointResponse */
-    PointResponse: {
-      /** Id */
-      id: string;
-      /** Leaf Region Id */
-      leaf_region_id: string;
-      /** Node Id */
-      node_id: number;
-      /** Position */
-      position: number[];
-      /** Title */
-      title: string;
-    };
-    /** PolygonGeometryPayload */
-    PolygonGeometryPayload: {
-      /** Coordinates */
-      coordinates: number[][];
-      /**
-       * @description discriminator enum property added by openapi-typescript
-       * @enum {string}
-       */
-      type: "polygon";
-    };
-    RegionGeometryPayload:
-      | components["schemas"]["PolygonGeometryPayload"]
-      | components["schemas"]["MultiPolygonGeometryPayload"];
-    /** RegionResponse */
-    RegionResponse: {
-      /** Bbox */
-      bbox: number[];
-      /** Centroid */
-      centroid: number[];
-      /** Children Available */
-      children_available: boolean;
-      /** Display Rank */
-      display_rank: number;
-      geometry: components["schemas"]["RegionGeometryPayload"];
-      /** Id */
-      id: string;
-      /** Parent Id */
-      parent_id: string | null;
-      /** Region Name */
-      region_name: string;
     };
     /** SearchResponse */
     SearchResponse: {
@@ -257,88 +113,96 @@ export interface components {
       /** Matched Cards */
       matched_cards: components["schemas"]["MatchedCardResponse"][];
     };
-    /** SemanticLevelResponse */
-    SemanticLevelResponse: {
-      /** Child Content Role */
-      child_content_role: string;
-      /** Display Name */
-      display_name: string;
-      /** Level */
-      level: number;
-      /** Max Zoom */
-      max_zoom: number;
-      /** Min Zoom */
-      min_zoom: number;
-      /** Region Role */
-      region_role: string;
-      /** Stable Id */
-      stable_id: string;
+    /** TaxonomyLeafGraphEdgeResponse */
+    TaxonomyLeafGraphEdgeResponse: {
+      /** Id */
+      id: string;
+      /** Source Node Id */
+      source_node_id: number;
+      /** Strength */
+      strength: number;
+      /** Target Node Id */
+      target_node_id: number;
     };
-    /** SemanticMapManifestResponse */
-    SemanticMapManifestResponse: {
+    /** TaxonomyLeafGraphNodeResponse */
+    TaxonomyLeafGraphNodeResponse: {
+      /** Content */
+      content: string;
+      /** Id */
+      id: number;
       /**
-       * Built At
-       * Format: date-time
+       * Scope
+       * @enum {string}
        */
-      built_at: string;
-      coordinate_system: components["schemas"]["CoordinateSystemResponse"];
-      /** Default Semantic Level */
-      default_semantic_level: number;
-      default_view: components["schemas"]["DefaultViewResponse"];
-      /** Max Zoom */
-      max_zoom: number;
-      /** Schema Version */
-      schema_version: string;
-      /** Semantic Levels */
-      semantic_levels: components["schemas"]["SemanticLevelResponse"][];
-      /** Tile Size */
-      tile_size: number;
-      /** Version */
-      version: string;
-      world_bounds: components["schemas"]["Bounds4"];
+      scope: "inner" | "outer";
+      /** Title */
+      title: string;
     };
-    /** SemanticMapTileMetadataResponse */
-    SemanticMapTileMetadataResponse: {
+    /** TaxonomyNodeBranchViewResponse */
+    TaxonomyNodeBranchViewResponse: {
+      /** Breadcrumb */
+      breadcrumb: components["schemas"]["TaxonomyViewNodeResponse"][];
+      /** Children */
+      children: components["schemas"]["TaxonomyViewChildResponse"][];
+      current_node: components["schemas"]["TaxonomyViewNodeResponse"];
       /**
-       * Bounds Format
-       * @constant
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
        */
-      bounds_format: "min_x_min_y_max_x_max_y";
-      tile_bounds: components["schemas"]["Bounds4"];
-      /** X */
-      x: number;
-      /** Y */
-      y: number;
-      /** Z */
-      z: number;
+      node_kind: "branch";
     };
-    /** SemanticMapTileResponse */
-    SemanticMapTileResponse: {
+    /** TaxonomyNodeLeafViewResponse */
+    TaxonomyNodeLeafViewResponse: {
+      /** Breadcrumb */
+      breadcrumb: components["schemas"]["TaxonomyViewNodeResponse"][];
+      current_node: components["schemas"]["TaxonomyViewNodeResponse"];
       /** Edges */
-      edges: components["schemas"]["EdgeResponse"][];
-      /** Labels */
-      labels: components["schemas"]["LabelResponse"][];
-      /** Points */
-      points: components["schemas"]["PointResponse"][];
-      /** Regions */
-      regions: components["schemas"]["RegionResponse"][];
-      /** Schema Version */
-      schema_version: string;
-      /** Semantic Level */
-      semantic_level: number;
-      stats: components["schemas"]["SemanticMapTileStatsResponse"];
-      tile: components["schemas"]["SemanticMapTileMetadataResponse"];
-      /** Version */
-      version: string;
+      edges: components["schemas"]["TaxonomyLeafGraphEdgeResponse"][];
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      node_kind: "leaf";
+      /** Nodes */
+      nodes: components["schemas"]["TaxonomyLeafGraphNodeResponse"][];
     };
-    /** SemanticMapTileStatsResponse */
-    SemanticMapTileStatsResponse: {
-      /** Edge Count */
-      edge_count: number;
-      /** Label Count */
-      label_count: number;
-      /** Region Count */
-      region_count: number;
+    TaxonomyNodeViewResponse:
+      | components["schemas"]["TaxonomyNodeBranchViewResponse"]
+      | components["schemas"]["TaxonomyNodeLeafViewResponse"];
+    /** TaxonomyRootViewResponse */
+    TaxonomyRootViewResponse: {
+      /** Breadcrumb */
+      breadcrumb: components["schemas"]["TaxonomyViewNodeResponse"][];
+      /** Children */
+      children: components["schemas"]["TaxonomyViewChildResponse"][];
+    };
+    /** TaxonomyViewChildResponse */
+    TaxonomyViewChildResponse: {
+      /** Depth */
+      depth: number;
+      /** Descendant Card Count */
+      descendant_card_count: number;
+      /** Id */
+      id: number;
+      /** Is Leaf */
+      is_leaf: boolean;
+      /** Name */
+      name: string;
+      /** Parent Id */
+      parent_id?: number | null;
+    };
+    /** TaxonomyViewNodeResponse */
+    TaxonomyViewNodeResponse: {
+      /** Depth */
+      depth: number;
+      /** Id */
+      id: number;
+      /** Is Leaf */
+      is_leaf: boolean;
+      /** Name */
+      name: string;
+      /** Parent Id */
+      parent_id?: number | null;
     };
     /** ValidationError */
     ValidationError: {
@@ -426,7 +290,38 @@ export interface operations {
       };
     };
   };
-  get_current_manifest_semantic_map_manifest_current_get: {
+  get_node_view_taxonomy_view_nodes__node_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        node_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaxonomyNodeViewResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_root_view_taxonomy_view_root_get: {
     parameters: {
       query?: never;
       header?: never;
@@ -441,69 +336,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["SemanticMapManifestResponse"];
-        };
-      };
-      /** @description Requested semantic-map snapshot was not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorEnvelope"];
-        };
-      };
-    };
-  };
-  get_region_tile_semantic_map_versions__version__tiles_regions__semantic_level___z___x___y__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        version: string;
-        semantic_level: number;
-        z: number;
-        x: number;
-        y: number;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["SemanticMapTileResponse"];
-        };
-      };
-      /** @description Semantic-map tile parameters are invalid. */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorEnvelope"];
-        };
-      };
-      /** @description Requested semantic-map snapshot was not found. */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["ErrorEnvelope"];
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
+          "application/json": components["schemas"]["TaxonomyRootViewResponse"];
         };
       };
     };

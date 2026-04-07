@@ -13,8 +13,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from modules.knowledge_graph.dto import (
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
-    SemanticMapProjectionEdge,
-    SemanticMapProjectionNode,
+    ProjectionCardNode,
+    ProjectionEdge,
+    ProjectionNode,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
 )
@@ -85,17 +86,38 @@ class KnowledgeRepo:
             ConnectedTitleCandidate(node_id=row.neighbor_node_id, title=row.title) for row in rows
         ]
 
-    async def fetch_projection_nodes(self) -> list[SemanticMapProjectionNode]:
+    async def fetch_projection_nodes(self) -> list[ProjectionNode]:
+        rows = (await self._session.scalars(select(Node).order_by(Node.id.asc()))).all()
+        return [
+            ProjectionNode(
+                node_id=row.id,
+                title=row.title,
+                content=row.content,
+                embedding=row.embedding,
+            )
+            for row in rows
+        ]
+
+    async def fetch_projection_cards_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[ProjectionCardNode]:
+        if not node_ids:
+            return []
+
         rows = (
             await self._session.execute(
-                select(Node.id, Node.title, Node.embedding).order_by(Node.id.asc())
+                select(Node.id, Node.title, Node.content)
+                .where(Node.id.in_(node_ids))
+                .order_by(Node.id.asc())
             )
         ).all()
         return [
-            SemanticMapProjectionNode(
+            ProjectionCardNode(
                 node_id=row.id,
                 title=row.title,
-                embedding=row.embedding,
+                content=row.content,
             )
             for row in rows
         ]
@@ -104,21 +126,20 @@ class KnowledgeRepo:
         self,
         *,
         node_ids: Sequence[int],
-    ) -> list[SemanticMapProjectionNode]:
+    ) -> list[ProjectionNode]:
         if not node_ids:
             return []
 
         rows = (
-            await self._session.execute(
-                select(Node.id, Node.title, Node.embedding)
-                .where(Node.id.in_(node_ids))
-                .order_by(Node.id.asc())
+            await self._session.scalars(
+                select(Node).where(Node.id.in_(node_ids)).order_by(Node.id.asc())
             )
         ).all()
         return [
-            SemanticMapProjectionNode(
+            ProjectionNode(
                 node_id=row.id,
                 title=row.title,
+                content=row.content,
                 embedding=row.embedding,
             )
             for row in rows
@@ -128,7 +149,7 @@ class KnowledgeRepo:
         self,
         *,
         node_ids: Sequence[int],
-    ) -> list[SemanticMapProjectionEdge]:
+    ) -> list[ProjectionEdge]:
         if not node_ids:
             return []
 
@@ -136,11 +157,35 @@ class KnowledgeRepo:
             await self._session.execute(
                 select(Edge.node_a_id, Edge.node_b_id, Edge.strength)
                 .where(Edge.node_a_id.in_(node_ids), Edge.node_b_id.in_(node_ids))
-                .order_by(Edge.id.asc())
+                .order_by(Edge.node_a_id.asc(), Edge.node_b_id.asc())
             )
         ).all()
         return [
-            SemanticMapProjectionEdge(
+            ProjectionEdge(
+                node_a_id=row.node_a_id,
+                node_b_id=row.node_b_id,
+                strength=row.strength,
+            )
+            for row in rows
+        ]
+
+    async def fetch_projection_edges_touching_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[ProjectionEdge]:
+        if not node_ids:
+            return []
+
+        rows = (
+            await self._session.execute(
+                select(Edge.node_a_id, Edge.node_b_id, Edge.strength)
+                .where(Edge.node_a_id.in_(node_ids) | Edge.node_b_id.in_(node_ids))
+                .order_by(Edge.node_a_id.asc(), Edge.node_b_id.asc())
+            )
+        ).all()
+        return [
+            ProjectionEdge(
                 node_a_id=row.node_a_id,
                 node_b_id=row.node_b_id,
                 strength=row.strength,

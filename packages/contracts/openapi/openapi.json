@@ -1,181 +1,6 @@
 {
   "components": {
     "schemas": {
-      "Bounds4": {
-        "maxItems": 4,
-        "minItems": 4,
-        "prefixItems": [
-          {
-            "type": "number"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "number"
-          }
-        ],
-        "type": "array"
-      },
-      "CoordinateSystemResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "axis_direction": {
-            "const": "x-right-y-up",
-            "title": "Axis Direction",
-            "type": "string"
-          },
-          "bounds_format": {
-            "const": "min_x_min_y_max_x_max_y",
-            "title": "Bounds Format",
-            "type": "string"
-          },
-          "kind": {
-            "const": "cartesian2d",
-            "title": "Kind",
-            "type": "string"
-          }
-        },
-        "required": [
-          "kind",
-          "axis_direction",
-          "bounds_format"
-        ],
-        "title": "CoordinateSystemResponse",
-        "type": "object"
-      },
-      "DefaultViewResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "target": {
-            "$ref": "#/components/schemas/Point2"
-          },
-          "zoom": {
-            "title": "Zoom",
-            "type": "number"
-          }
-        },
-        "required": [
-          "target",
-          "zoom"
-        ],
-        "title": "DefaultViewResponse",
-        "type": "object"
-      },
-      "EdgeResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "source_node_id": {
-            "title": "Source Node Id",
-            "type": "integer"
-          },
-          "source_position": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Source Position",
-            "type": "array"
-          },
-          "strength": {
-            "title": "Strength",
-            "type": "number"
-          },
-          "target_node_id": {
-            "title": "Target Node Id",
-            "type": "integer"
-          },
-          "target_position": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Target Position",
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "source_node_id",
-          "target_node_id",
-          "strength",
-          "source_position",
-          "target_position"
-        ],
-        "title": "EdgeResponse",
-        "type": "object"
-      },
-      "ErrorCode": {
-        "enum": [
-          "APPLICATION_API_INPUT_INVALID",
-          "APPLICATION_INGESTION_PAYLOAD_INVALID",
-          "APPLICATION_SEMANTIC_MAP_INPUT_INVALID",
-          "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND",
-          "DOMAIN_KNOWLEDGE_RULE_VIOLATION",
-          "DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND",
-          "APPLICATION_SEARCH_STATE_CONFLICT",
-          "INFRA_DB_CONNECTION_UNAVAILABLE",
-          "INFRA_EMBEDDING_SERVICE_UNAVAILABLE",
-          "INFRA_QUEUE_UNAVAILABLE",
-          "INTERNAL_API_UNEXPECTED_ERROR"
-        ],
-        "title": "ErrorCode",
-        "type": "string"
-      },
-      "ErrorEnvelope": {
-        "additionalProperties": false,
-        "properties": {
-          "error": {
-            "$ref": "#/components/schemas/ErrorPayload"
-          }
-        },
-        "required": [
-          "error"
-        ],
-        "title": "ErrorEnvelope",
-        "type": "object"
-      },
-      "ErrorPayload": {
-        "additionalProperties": false,
-        "properties": {
-          "code": {
-            "$ref": "#/components/schemas/ErrorCode"
-          },
-          "details": {
-            "additionalProperties": true,
-            "title": "Details",
-            "type": "object"
-          },
-          "hint": {
-            "minLength": 1,
-            "title": "Hint",
-            "type": "string"
-          },
-          "message": {
-            "minLength": 1,
-            "title": "Message",
-            "type": "string"
-          },
-          "request_id": {
-            "minLength": 1,
-            "title": "Request Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "message",
-          "hint",
-          "request_id"
-        ],
-        "title": "ErrorPayload",
-        "type": "object"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -231,48 +56,6 @@
         "title": "IngestionCreateRequest",
         "type": "object"
       },
-      "LabelResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "font_size": {
-            "title": "Font Size",
-            "type": "integer"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "label_rank": {
-            "title": "Label Rank",
-            "type": "integer"
-          },
-          "position": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Position",
-            "type": "array"
-          },
-          "region_id": {
-            "title": "Region Id",
-            "type": "string"
-          },
-          "text": {
-            "title": "Text",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "region_id",
-          "text",
-          "position",
-          "label_rank",
-          "font_size"
-        ],
-        "title": "LabelResponse",
-        "type": "object"
-      },
       "MatchedCardResponse": {
         "additionalProperties": false,
         "properties": {
@@ -290,187 +73,6 @@
           "content"
         ],
         "title": "MatchedCardResponse",
-        "type": "object"
-      },
-      "MultiPolygonGeometryPayload": {
-        "properties": {
-          "coordinates": {
-            "items": {
-              "items": {
-                "items": {
-                  "type": "number"
-                },
-                "type": "array"
-              },
-              "type": "array"
-            },
-            "title": "Coordinates",
-            "type": "array"
-          },
-          "type": {
-            "const": "multi_polygon",
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "coordinates"
-        ],
-        "title": "MultiPolygonGeometryPayload",
-        "type": "object"
-      },
-      "Point2": {
-        "maxItems": 2,
-        "minItems": 2,
-        "prefixItems": [
-          {
-            "type": "number"
-          },
-          {
-            "type": "number"
-          }
-        ],
-        "type": "array"
-      },
-      "PointResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "leaf_region_id": {
-            "title": "Leaf Region Id",
-            "type": "string"
-          },
-          "node_id": {
-            "title": "Node Id",
-            "type": "integer"
-          },
-          "position": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Position",
-            "type": "array"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "node_id",
-          "leaf_region_id",
-          "title",
-          "position"
-        ],
-        "title": "PointResponse",
-        "type": "object"
-      },
-      "PolygonGeometryPayload": {
-        "properties": {
-          "coordinates": {
-            "items": {
-              "items": {
-                "type": "number"
-              },
-              "type": "array"
-            },
-            "title": "Coordinates",
-            "type": "array"
-          },
-          "type": {
-            "const": "polygon",
-            "title": "Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "coordinates"
-        ],
-        "title": "PolygonGeometryPayload",
-        "type": "object"
-      },
-      "RegionGeometryPayload": {
-        "discriminator": {
-          "mapping": {
-            "multi_polygon": "#/components/schemas/MultiPolygonGeometryPayload",
-            "polygon": "#/components/schemas/PolygonGeometryPayload"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/PolygonGeometryPayload"
-          },
-          {
-            "$ref": "#/components/schemas/MultiPolygonGeometryPayload"
-          }
-        ]
-      },
-      "RegionResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "bbox": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Bbox",
-            "type": "array"
-          },
-          "centroid": {
-            "items": {
-              "type": "number"
-            },
-            "title": "Centroid",
-            "type": "array"
-          },
-          "children_available": {
-            "title": "Children Available",
-            "type": "boolean"
-          },
-          "display_rank": {
-            "title": "Display Rank",
-            "type": "integer"
-          },
-          "geometry": {
-            "$ref": "#/components/schemas/RegionGeometryPayload"
-          },
-          "id": {
-            "title": "Id",
-            "type": "string"
-          },
-          "parent_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Parent Id"
-          },
-          "region_name": {
-            "title": "Region Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "parent_id",
-          "region_name",
-          "centroid",
-          "bbox",
-          "geometry",
-          "display_rank",
-          "children_available"
-        ],
-        "title": "RegionResponse",
         "type": "object"
       },
       "SearchResponse": {
@@ -498,230 +100,288 @@
         "title": "SearchResponse",
         "type": "object"
       },
-      "SemanticLevelResponse": {
+      "TaxonomyLeafGraphEdgeResponse": {
         "additionalProperties": false,
         "properties": {
-          "child_content_role": {
-            "title": "Child Content Role",
+          "id": {
+            "minLength": 1,
+            "title": "Id",
             "type": "string"
           },
-          "display_name": {
-            "title": "Display Name",
+          "source_node_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Source Node Id",
+            "type": "integer"
+          },
+          "strength": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Strength",
+            "type": "number"
+          },
+          "target_node_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Target Node Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "source_node_id",
+          "target_node_id",
+          "strength"
+        ],
+        "title": "TaxonomyLeafGraphEdgeResponse",
+        "type": "object"
+      },
+      "TaxonomyLeafGraphNodeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "minLength": 1,
+            "title": "Content",
             "type": "string"
           },
-          "level": {
-            "title": "Level",
+          "id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Id",
             "type": "integer"
           },
-          "max_zoom": {
-            "title": "Max Zoom",
-            "type": "integer"
-          },
-          "min_zoom": {
-            "title": "Min Zoom",
-            "type": "integer"
-          },
-          "region_role": {
-            "title": "Region Role",
+          "scope": {
+            "enum": [
+              "inner",
+              "outer"
+            ],
+            "title": "Scope",
             "type": "string"
           },
-          "stable_id": {
-            "title": "Stable Id",
+          "title": {
+            "minLength": 1,
+            "title": "Title",
             "type": "string"
           }
         },
         "required": [
-          "level",
-          "stable_id",
-          "display_name",
-          "min_zoom",
-          "max_zoom",
-          "region_role",
-          "child_content_role"
+          "id",
+          "title",
+          "content",
+          "scope"
         ],
-        "title": "SemanticLevelResponse",
+        "title": "TaxonomyLeafGraphNodeResponse",
         "type": "object"
       },
-      "SemanticMapManifestResponse": {
+      "TaxonomyNodeBranchViewResponse": {
         "additionalProperties": false,
         "properties": {
-          "built_at": {
-            "format": "date-time",
-            "title": "Built At",
-            "type": "string"
-          },
-          "coordinate_system": {
-            "$ref": "#/components/schemas/CoordinateSystemResponse"
-          },
-          "default_semantic_level": {
-            "title": "Default Semantic Level",
-            "type": "integer"
-          },
-          "default_view": {
-            "$ref": "#/components/schemas/DefaultViewResponse"
-          },
-          "max_zoom": {
-            "title": "Max Zoom",
-            "type": "integer"
-          },
-          "schema_version": {
-            "title": "Schema Version",
-            "type": "string"
-          },
-          "semantic_levels": {
+          "breadcrumb": {
             "items": {
-              "$ref": "#/components/schemas/SemanticLevelResponse"
+              "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
             },
-            "title": "Semantic Levels",
+            "title": "Breadcrumb",
             "type": "array"
           },
-          "tile_size": {
-            "title": "Tile Size",
-            "type": "integer"
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyViewChildResponse"
+            },
+            "title": "Children",
+            "type": "array"
           },
-          "version": {
-            "title": "Version",
+          "current_node": {
+            "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
+          },
+          "node_kind": {
+            "const": "branch",
+            "title": "Node Kind",
             "type": "string"
-          },
-          "world_bounds": {
-            "$ref": "#/components/schemas/Bounds4"
           }
         },
         "required": [
-          "version",
-          "schema_version",
-          "built_at",
-          "coordinate_system",
-          "world_bounds",
-          "tile_size",
-          "max_zoom",
-          "default_view",
-          "default_semantic_level",
-          "semantic_levels"
+          "node_kind",
+          "current_node",
+          "breadcrumb",
+          "children"
         ],
-        "title": "SemanticMapManifestResponse",
+        "title": "TaxonomyNodeBranchViewResponse",
         "type": "object"
       },
-      "SemanticMapTileMetadataResponse": {
+      "TaxonomyNodeLeafViewResponse": {
         "additionalProperties": false,
         "properties": {
-          "bounds_format": {
-            "const": "min_x_min_y_max_x_max_y",
-            "title": "Bounds Format",
-            "type": "string"
+          "breadcrumb": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
+            },
+            "title": "Breadcrumb",
+            "type": "array"
           },
-          "tile_bounds": {
-            "$ref": "#/components/schemas/Bounds4"
+          "current_node": {
+            "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
           },
-          "x": {
-            "title": "X",
-            "type": "integer"
-          },
-          "y": {
-            "title": "Y",
-            "type": "integer"
-          },
-          "z": {
-            "title": "Z",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "z",
-          "x",
-          "y",
-          "tile_bounds",
-          "bounds_format"
-        ],
-        "title": "SemanticMapTileMetadataResponse",
-        "type": "object"
-      },
-      "SemanticMapTileResponse": {
-        "additionalProperties": false,
-        "properties": {
           "edges": {
             "items": {
-              "$ref": "#/components/schemas/EdgeResponse"
+              "$ref": "#/components/schemas/TaxonomyLeafGraphEdgeResponse"
             },
             "title": "Edges",
             "type": "array"
           },
-          "labels": {
-            "items": {
-              "$ref": "#/components/schemas/LabelResponse"
-            },
-            "title": "Labels",
-            "type": "array"
-          },
-          "points": {
-            "items": {
-              "$ref": "#/components/schemas/PointResponse"
-            },
-            "title": "Points",
-            "type": "array"
-          },
-          "regions": {
-            "items": {
-              "$ref": "#/components/schemas/RegionResponse"
-            },
-            "title": "Regions",
-            "type": "array"
-          },
-          "schema_version": {
-            "title": "Schema Version",
+          "node_kind": {
+            "const": "leaf",
+            "title": "Node Kind",
             "type": "string"
           },
-          "semantic_level": {
-            "title": "Semantic Level",
-            "type": "integer"
-          },
-          "stats": {
-            "$ref": "#/components/schemas/SemanticMapTileStatsResponse"
-          },
-          "tile": {
-            "$ref": "#/components/schemas/SemanticMapTileMetadataResponse"
-          },
-          "version": {
-            "title": "Version",
-            "type": "string"
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyLeafGraphNodeResponse"
+            },
+            "title": "Nodes",
+            "type": "array"
           }
         },
         "required": [
-          "schema_version",
-          "version",
-          "semantic_level",
-          "tile",
-          "stats",
-          "regions",
-          "labels",
-          "points",
+          "node_kind",
+          "current_node",
+          "breadcrumb",
+          "nodes",
           "edges"
         ],
-        "title": "SemanticMapTileResponse",
+        "title": "TaxonomyNodeLeafViewResponse",
         "type": "object"
       },
-      "SemanticMapTileStatsResponse": {
+      "TaxonomyNodeViewResponse": {
+        "discriminator": {
+          "mapping": {
+            "branch": "#/components/schemas/TaxonomyNodeBranchViewResponse",
+            "leaf": "#/components/schemas/TaxonomyNodeLeafViewResponse"
+          },
+          "propertyName": "node_kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TaxonomyNodeBranchViewResponse"
+          },
+          {
+            "$ref": "#/components/schemas/TaxonomyNodeLeafViewResponse"
+          }
+        ]
+      },
+      "TaxonomyRootViewResponse": {
         "additionalProperties": false,
         "properties": {
-          "edge_count": {
-            "title": "Edge Count",
-            "type": "integer"
+          "breadcrumb": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
+            },
+            "title": "Breadcrumb",
+            "type": "array"
           },
-          "label_count": {
-            "title": "Label Count",
-            "type": "integer"
-          },
-          "region_count": {
-            "title": "Region Count",
-            "type": "integer"
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyViewChildResponse"
+            },
+            "title": "Children",
+            "type": "array"
           }
         },
         "required": [
-          "region_count",
-          "label_count",
-          "edge_count"
+          "breadcrumb",
+          "children"
         ],
-        "title": "SemanticMapTileStatsResponse",
+        "title": "TaxonomyRootViewResponse",
+        "type": "object"
+      },
+      "TaxonomyViewChildResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "depth": {
+            "minimum": 0.0,
+            "title": "Depth",
+            "type": "integer"
+          },
+          "descendant_card_count": {
+            "minimum": 1.0,
+            "title": "Descendant Card Count",
+            "type": "integer"
+          },
+          "id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_leaf": {
+            "title": "Is Leaf",
+            "type": "boolean"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "depth",
+          "is_leaf",
+          "descendant_card_count"
+        ],
+        "title": "TaxonomyViewChildResponse",
+        "type": "object"
+      },
+      "TaxonomyViewNodeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "depth": {
+            "minimum": 0.0,
+            "title": "Depth",
+            "type": "integer"
+          },
+          "id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_leaf": {
+            "title": "Is Leaf",
+            "type": "boolean"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "depth",
+          "is_leaf"
+        ],
+        "title": "TaxonomyViewNodeResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -856,83 +516,16 @@
         ]
       }
     },
-    "/semantic-map/manifest/current": {
+    "/taxonomy/view/nodes/{node_id}": {
       "get": {
-        "operationId": "get_current_manifest_semantic_map_manifest_current_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SemanticMapManifestResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Requested semantic-map snapshot was not found."
-          }
-        },
-        "summary": "Get Current Manifest",
-        "tags": [
-          "semantic-map"
-        ]
-      }
-    },
-    "/semantic-map/versions/{version}/tiles/regions/{semantic_level}/{z}/{x}/{y}": {
-      "get": {
-        "operationId": "get_region_tile_semantic_map_versions__version__tiles_regions__semantic_level___z___x___y__get",
+        "operationId": "get_node_view_taxonomy_view_nodes__node_id__get",
         "parameters": [
           {
             "in": "path",
-            "name": "version",
+            "name": "node_id",
             "required": true,
             "schema": {
-              "title": "Version",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "semantic_level",
-            "required": true,
-            "schema": {
-              "title": "Semantic Level",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "z",
-            "required": true,
-            "schema": {
-              "title": "Z",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "x",
-            "required": true,
-            "schema": {
-              "title": "X",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "path",
-            "name": "y",
-            "required": true,
-            "schema": {
-              "title": "Y",
+              "title": "Node Id",
               "type": "integer"
             }
           }
@@ -942,31 +535,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SemanticMapTileResponse"
+                  "$ref": "#/components/schemas/TaxonomyNodeViewResponse"
                 }
               }
             },
             "description": "Successful Response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Semantic-map tile parameters are invalid."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Requested semantic-map snapshot was not found."
           },
           "422": {
             "content": {
@@ -979,9 +552,30 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Region Tile",
+        "summary": "Get Node View",
         "tags": [
-          "semantic-map"
+          "taxonomy"
+        ]
+      }
+    },
+    "/taxonomy/view/root": {
+      "get": {
+        "operationId": "get_root_view_taxonomy_view_root_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonomyRootViewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Root View",
+        "tags": [
+          "taxonomy"
         ]
       }
     }

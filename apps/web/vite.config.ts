@@ -1,4 +1,4 @@
-// abstract: Vite and Vitest configuration for the semantic-map web client.
+// abstract: Vite and Vitest configuration for the taxonomy-view web client.
 // out_of_scope: Runtime feature behavior and deployment infrastructure.
 
 import react from "@vitejs/plugin-react";
@@ -32,7 +32,15 @@ export default defineConfig(({ command, mode }) => {
         ? undefined
         : {
             proxy: {
-              "/semantic-map": {
+              "/cards": {
+                changeOrigin: true,
+                target: normalizeUrl(configuredApiProxyTarget),
+              },
+              "/search": {
+                changeOrigin: true,
+                target: normalizeUrl(configuredApiProxyTarget),
+              },
+              "/taxonomy": {
                 changeOrigin: true,
                 target: normalizeUrl(configuredApiProxyTarget),
               },

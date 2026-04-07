@@ -7,12 +7,11 @@ out_of_scope: Domain behavior semantics, detailed error taxonomy, and advanced C
 
 ## Active Truth Policy
 - This document contains only currently accepted repository-layout decisions.
-- Superseded layout rules are removed instead of kept as transition history.
-- This document defines layout ownership, not detailed architecture constraints.
+- Superseded layout rules are removed instead of preserved as transition history.
 
 ## Context
-- Purpose: define the canonical monorepo layout and directory ownership for the MVP phase.
-- Scope/Boundaries: covers top-level repository topology, application/package placement, and path-level ownership boundaries.
+- Purpose: define canonical monorepo layout and directory ownership for MVP.
+- Scope/Boundaries: top-level topology, application/package placement, and path-level ownership boundaries.
 - Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Repository Topology
@@ -29,93 +28,64 @@ repo/
   scripts/
   human_workspace/
   .orbital/specs/
-  .python-version
-  .pre-commit-config.yaml
-  biome.json
-  commitlint.config.cjs
   Makefile
   package.json
   pnpm-workspace.yaml
   pyproject.toml
-  README.md
-  tsconfig.base.json
-  tsconfig.json
   uv.lock
 ```
 
 ## Directory Ownership
-- repository root: cross-member workspace configuration, human-facing repository execution entrypoints, shared quality tooling configuration, shared TypeScript base configuration, and git-hook governance.
-- `apps/api`: FastAPI service source, process bootstrap shells, API-side tests, and Alembic migration assets.
-- `apps/cli`: local operator-facing CLI source and CLI-specific dependency declaration.
-- `apps/knowledge_corpus`: local/offline source-corpus app source, app-local database lifecycle assets, and app-scoped tests for isolated corpus persistence and retrieval.
-- `apps/web`: React web client source, web-specific package manifest, and web-specific TypeScript entrypoint configs.
-- `packages/contracts`: authoritative OpenAPI snapshot, generated client artifacts, contracts-specific scripts, and contracts-specific package manifest.
-- `infra`: deployment and environment template assets, not application business logic.
-- `scripts`: repository automation scripts invoked by top-level governance commands.
-- `human_workspace`: human-operated research, data-preparation, and exploratory script assets that are repository-versioned but are not online application/runtime ownership boundaries.
-- `.orbital/specs`: active requirements and design documents.
+- `apps/api`: FastAPI source, API tests, and Alembic assets.
+- `apps/cli`: local operator-facing CLI source.
+- `apps/knowledge_corpus`: local/offline corpus app source and app-local DB lifecycle assets.
+- `apps/web`: React web client source.
+- `packages/contracts`: OpenAPI snapshot, generated clients/types, contracts scripts.
+- `infra`: deployment/environment templates.
+- `scripts`: repository automation scripts.
+- `human_workspace`: human-operated research and offline workflow scripts.
+- `.orbital/specs`: active requirements/design/plan documents.
 
-## Application Layout
-### API Application (`apps/api`)
+## API Application Layout (`apps/api`)
 ```text
 apps/api/
   alembic/
     env.py
     versions/
-  alembic.ini
   src/
     core/
-      config.py
-      logging.py
-      errors.py
     entrypoints/
       runtime.py
       api/
-        bootstrap.py
-        app.py
-        providers.py
       worker/
-        bootstrap.py
-        entrypoint.py
-        actors.py
     modules/
       knowledge_graph/
       taxonomy/
       taxonomy_classification/
       search/
       ingestion/
-      semantic_map/
     shared/
       db/
       integrations/
       utils/
   tests/
-  pyproject.toml
 ```
-- `apps/api/src/core/config.py` is the single `pydantic-settings` entrypoint.
 
-### API Module Content Ownership
-- `modules/knowledge_graph` contains domain truth and persistence ownership (`model.py`, `repo.py`, `service.py`, `dto.py`, `ports.py`, `builders.py`).
-- `modules/knowledge_graph` excludes HTTP endpoint files and queue transport wiring.
-- `modules/taxonomy` contains taxonomy persistence ownership, import orchestration, and taxonomy DTO/port contracts.
-- `modules/taxonomy` excludes graph persistence ownership, semantic-map rendering implementation, and LLM classification workflow state.
-- `modules/taxonomy_classification` contains operator-triggered classification orchestration, Cursor session runner logic, and taxonomy-classification DTO/port contracts.
-- `modules/taxonomy_classification` excludes taxonomy persistence model ownership, knowledge-graph persistence model ownership, semantic-map rendering implementation, and HTTP route files.
-- `modules/search` contains read-side HTTP contract files (`api.py`, `schema.py`) and read orchestration service logic.
-- `modules/search` excludes direct persistence access and worker/queue concerns.
-- `modules/ingestion` contains write-side HTTP contract files (`api.py`, `schema.py`), ingestion orchestration (`service.py`), ingestion-owned queue broker (`queue.py`), and worker job-processing primitives (`workers.py`).
-- `modules/ingestion` excludes graph persistence models/repositories and search-response orchestration.
-- `modules/semantic_map` contains semantic-map HTTP read contract files (`api.py`, `schema.py`), snapshot read/rebuild orchestration, and semantic-map DTO/port contracts.
-- `modules/semantic_map` excludes graph persistence models/repositories, search-query orchestration, and frontend rendering implementation.
-- `entrypoints` is the composition layer and contains FastAPI app/provider wiring and Dramatiq actor registration.
+## API Module Content Ownership
+- `modules/knowledge_graph`: graph persistence truth (`model.py`, `repo.py`, `service.py`, `dto.py`, `ports.py`, `builders.py`).
+- `modules/taxonomy`: taxonomy persistence ownership, import orchestration, taxonomy view API contracts and service/repo logic.
+- `modules/taxonomy_classification`: operator-triggered classification orchestration and Cursor session adapters.
+- `modules/search`: read-side HTTP contract and read orchestration.
+- `modules/ingestion`: write-side HTTP contract/orchestration, queue adapter, and worker job-processing primitives.
+- `entrypoints`: composition and process bootstrap layer.
 
-### Web Application (`apps/web`)
+## Web Application Layout (`apps/web`)
 ```text
 apps/web/
   src/
     app/
     features/
-      semantic-map/
+      taxonomy/
       knowledge/
       search/
     shared/
@@ -124,48 +94,27 @@ apps/web/
       utils/
       config/
   tests/
-  package.json
-  tsconfig.app.json
-  tsconfig.node.json
 ```
 
-### Operator CLI Application (`apps/cli`)
+## Operator CLI Layout (`apps/cli`)
 ```text
 apps/cli/
   main.py
-  pyproject.toml
 ```
-- `apps/cli` owns the local single-card submission command, typed review output models, local agent orchestration, graph branching, and backend submission adapter.
-- `apps/cli` also owns the importable shared reviewed-submission Python entrypoint reused by local orchestrators.
-- `apps/cli` excludes knowledge-graph persistence ownership, backend ingestion internals, and frontend rendering concerns.
 
-### Knowledge Corpus Application (`apps/knowledge_corpus`)
+## Knowledge Corpus Layout (`apps/knowledge_corpus`)
 ```text
 apps/knowledge_corpus/
   alembic/
-    env.py
-    versions/
-  alembic.ini
   src/
     knowledge_corpus/
       config.py
       db/
-        base.py
-        session.py
       wikipedia/
-        model.py
-        repo.py
-        search.py
-        service.py
-        types.py
   tests/
-  pyproject.toml
 ```
-- `apps/knowledge_corpus` owns a local/offline source-corpus app with its own PostgreSQL service, migrations, source-specific persistence models, repository/search/service logic, and importable Python-library interfaces.
-- `apps/knowledge_corpus` relies on repository-managed infrastructure and environment assets for its dedicated PostgreSQL service and migration execution flow.
-- `apps/knowledge_corpus` excludes online HTTP APIs, operator CLI contracts, direct imports from other apps, and ownership of the main knowledge-graph persistence model.
 
-### Contracts Package (`packages/contracts`)
+## Contracts Package Layout (`packages/contracts`)
 ```text
 packages/contracts/
   openapi/
@@ -174,77 +123,30 @@ packages/contracts/
     types.ts
     client.ts
   scripts/
-  package.json
-  tsconfig.json
 ```
 
 ## Contract Integration
-- Backend exports OpenAPI into `packages/contracts/openapi/openapi.json`.
-- Generated artifacts in `packages/contracts/generated` are versioned in repository.
+- Backend exports OpenAPI to `packages/contracts/openapi/openapi.json`.
+- Generated artifacts under `packages/contracts/generated` are versioned.
 - Frontend consumes backend APIs only through generated contract artifacts.
 
-## Human Workspace
-```text
-human_workspace/
-  <offline-workflow assets>
-```
-- The topology block is illustrative rather than exhaustive.
-- `human_workspace` may contain operator-run or researcher-run scripts for offline workflows such as dump acquisition, preprocessing, and analysis.
-- `human_workspace` may contain recoverable external import orchestrators that stream preprocessed offline assets into isolated local databases without expanding online app boundaries.
-- `human_workspace` may contain external page-to-card orchestration libraries that consume local corpus page records, run page-scoped LLM sessions, and route reviewed card writes through the existing operator-facing CLI command backed by the shared reviewed-submission boundary owned by `apps/cli`.
-- `human_workspace` assets do not define authoritative online API contracts, runtime composition roots, or production application module boundaries.
-- `human_workspace` may contain operator-maintained taxonomy source files used by explicit bootstrap scripts, but those files are not the runtime truth after import.
-- Versioned data-preparation scripts under `human_workspace` must still keep clear responsibility boundaries and must not bypass active spec governance for accepted repository behavior.
-
 ## Boundary Rules
-1. Repository-root configuration files SHALL own all cross-member tooling and workspace behavior.
-2. Member directories SHALL retain only member-scoped dependencies, runtime configuration, and source assets.
-3. `packages/contracts` SHALL NOT contain application business logic.
-4. `infra` SHALL NOT contain application business logic.
-5. `apps/api/src/shared` SHALL contain reusable technical capabilities only.
-6. Runtime configuration is sourced from `.env` through `pydantic-settings`; YAML is not a runtime configuration source.
-7. `infra/env` contains environment templates and active env files consumed by runtime and test `Settings`.
-8. `apps/api/src/modules/knowledge_graph` SHALL remain the only owner of graph persistence models and repositories.
-9. `apps/api/src/modules/search`, `apps/api/src/modules/ingestion`, and `apps/api/src/modules/semantic_map` SHALL access graph persistence only through `knowledge_graph` domain service ports.
-10. `apps/api/src/modules/taxonomy` SHALL own taxonomy persistence models and repositories for taxonomy tree structure and final knowledge-node assignment truth.
-11. `apps/api/src/modules/taxonomy` SHALL include `model.py`, `repo.py`, `service.py`, taxonomy DTOs, and taxonomy service ports.
-12. `apps/api/src/modules/taxonomy` SHALL NOT include HTTP route files, graph persistence models/repositories, or classifier-candidate workflow state.
-13. `apps/api/src/modules/knowledge_graph` SHALL include `model.py`, `repo.py`, `service.py`, domain DTOs, and domain service ports.
-14. `apps/api/src/modules/knowledge_graph` SHALL NOT include HTTP route files, queue broker setup, or worker actor definitions.
-15. `apps/api/src/modules/search` SHALL include only read-side API transport and orchestration logic.
-16. `apps/api/src/modules/search` SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
-17. `apps/api/src/modules/ingestion` SHALL include write-side API transport/orchestration plus ingestion-owned queue broker and worker job-processing primitives.
-18. `apps/api/src/modules/ingestion` SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
-19. `apps/api/src/shared` SHALL include only cross-module infrastructure (`db`, external integrations, and generic utilities); ingestion-specific queue code SHALL NOT be placed under `shared`.
-20. `apps/api/src/entrypoints/runtime.py` SHALL be the runtime composition root for app/worker settings and singleton dependency assembly.
-21. Runtime modules under `apps/api/src/**` SHALL NOT read environment variables directly (`os.getenv`, `os.environ`).
-22. Runtime dependency resolution SHALL use explicit injection and SHALL NOT use nullable-fallback dependency signatures.
-23. `apps/api/src/modules/**` SHALL NOT import `apps/api/src/entrypoints/**`.
-24. `apps/api/src/modules/semantic_map` SHALL access taxonomy truth only through `taxonomy` service ports and SHALL NOT import `modules/taxonomy/model.py` or `modules/taxonomy/repo.py`.
-25. `apps/api/src/modules/semantic_map` SHALL access knowledge-domain truth only through `knowledge_graph` service ports and SHALL NOT import `modules/knowledge_graph/model.py` or `modules/knowledge_graph/repo.py`.
-26. `apps/web/src/features/semantic-map` SHALL own semantic-map deck.gl rendering, semantic-map API adapters, and feature-specific UI overlays; only genuinely reusable technical primitives may move into `apps/web/src/shared/**`.
-27. `apps/cli` SHALL own only local command execution, agent review orchestration, and ingestion API submission behavior.
-28. `apps/cli` SHALL NOT own backend persistence, worker runtime, or direct database access.
-29. `human_workspace` SHALL contain only human-operated or offline data-preparation assets and SHALL NOT become the authority for online API/runtime contracts.
-30. `apps/knowledge_corpus` SHALL own only isolated local/offline source-corpus persistence, PostgreSQL keyword retrieval, and processed-document bookkeeping.
-31. `apps/knowledge_corpus` SHALL own its own settings, SQLAlchemy metadata, Alembic migrations, and dedicated PostgreSQL service configuration.
-32. `apps/knowledge_corpus` SHALL NOT import `apps/api`, `apps/cli`, or `apps/web`, and those apps SHALL NOT import `apps/knowledge_corpus`.
-33. `apps/knowledge_corpus` SHALL expose only importable Python-library interfaces in first version and SHALL NOT define HTTP or CLI contracts.
-34. `infra` and tracked environment assets SHALL provide the repository-managed PostgreSQL service required by `apps/knowledge_corpus` without merging it into the online API database lifecycle.
-35. `apps/api/src/modules/taxonomy_classification` SHALL own incremental node-classification orchestration and SHALL NOT own taxonomy or knowledge-graph persistence model/repository projection.
-36. `apps/api/src/modules/taxonomy_classification` SHALL access taxonomy and knowledge-node truth only through module service ports and SHALL NOT import `modules/taxonomy/model.py`, `modules/taxonomy/repo.py`, `modules/knowledge_graph/model.py`, or `modules/knowledge_graph/repo.py`.
-37. `apps/api/src/modules/taxonomy_classification` SHALL expose only operator-triggered script execution boundaries in first version and SHALL NOT define HTTP route contracts.
+1. Repository-root configuration files own cross-member tooling/workspace behavior.
+2. Member directories retain only member-scoped dependencies/runtime config/source assets.
+3. `packages/contracts` must not contain application business logic.
+4. `infra` must not contain application business logic.
+5. `apps/api/src/shared` contains reusable technical capabilities only.
+6. Runtime configuration source is `.env` through `pydantic-settings`; YAML is not runtime config.
+7. `apps/api/src/modules/knowledge_graph` remains sole owner of graph persistence models/repositories.
+8. `apps/api/src/modules/search`, `apps/api/src/modules/ingestion`, and `apps/api/src/modules/taxonomy` access graph truth through service ports only.
+9. `apps/api/src/modules/taxonomy` owns taxonomy persistence plus taxonomy view API contracts.
+10. `apps/api/src/modules/taxonomy_classification` owns classification orchestration and does not own graph/taxonomy persistence projections.
+11. `apps/api/src/modules/**` must not import `apps/api/src/entrypoints/**`.
+12. `apps/cli` owns local review/submission flow and must not own backend persistence/runtime concerns.
+13. `human_workspace` assets are not authoritative online API/runtime contracts.
+14. `apps/knowledge_corpus` is isolated local/offline ownership and not imported by online apps.
 
 ## Governance Anchors
-- Detailed architecture constraints are defined in `03-architecture-constraints`.
-- Minimal phase-1 quality gates are `lint/format`, `typecheck`, `test`, and `contract drift`.
-- Dependency-direction enforcement is implemented through `import-linter` contracts in `apps/api/pyproject.toml`.
-- Repository-root quality-gate scripts and pre-commit hooks include `apps/knowledge_corpus` under the same Ruff, Ty, and pytest gate family used for repository members.
-- Knowledge corpus app details are defined in `knowledge-corpus`.
-- Wikipedia-to-knowledge-corpus import orchestration details are defined in `wikipedia-corpus-import`.
-- Wikipedia offline preprocessing details are defined in `wikipedia-offline-preprocessing`.
-- This document defines layout ownership only and does not redefine dependency policy details.
-
-## Deferred to Later Phases
-- Detailed CI stage matrices and environment-specific gate variants.
-- Full import-matrix automation and advanced architecture lint policies.
+- Architecture constraints: `03-architecture-constraints`.
+- Minimal quality gates: lint/format, typecheck, test, contract drift.
+- Dependency-direction enforcement: `import-linter` contracts in `apps/api/pyproject.toml`.

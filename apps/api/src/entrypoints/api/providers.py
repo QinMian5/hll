@@ -27,11 +27,14 @@ from entrypoints.runtime import (
 from modules.ingestion.queue import IngestionTask, publish_ingestion_task
 from modules.ingestion.service import IngestionService
 from modules.knowledge_graph.builders import build_knowledge_graph_service
-from modules.knowledge_graph.ports import KnowledgeGraphReadPort
+from modules.knowledge_graph.ports import (
+    KnowledgeGraphProjectionPort,
+    KnowledgeGraphReadPort,
+)
 from modules.knowledge_graph.service import KnowledgeGraphService
 from modules.search.service import SearchService
-from modules.semantic_map.builders import build_semantic_map_service
-from modules.semantic_map.read.service import SemanticMapService
+from modules.taxonomy.repo import TaxonomyRepo
+from modules.taxonomy.service import TaxonomyService
 from shared.integrations import EmbeddingClient
 
 
@@ -86,10 +89,16 @@ def get_search_service(
     )
 
 
-def get_semantic_map_service(
+def get_taxonomy_service(
     session: Annotated[AsyncSession, Depends(get_async_session)],
-) -> SemanticMapService:
-    return build_semantic_map_service(session=session)
+    knowledge_projection_port: Annotated[
+        KnowledgeGraphProjectionPort, Depends(get_knowledge_graph_service)
+    ],
+) -> TaxonomyService:
+    return TaxonomyService(
+        repo=TaxonomyRepo(session=session),
+        knowledge_projection_port=knowledge_projection_port,
+    )
 
 
 def get_ingestion_service(

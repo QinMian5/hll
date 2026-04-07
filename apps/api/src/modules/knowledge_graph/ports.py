@@ -9,8 +9,9 @@ from typing import Protocol
 
 from modules.knowledge_graph.dto import (
     KnowledgeCardMatch,
-    SemanticMapProjectionEdge,
-    SemanticMapProjectionNode,
+    ProjectionCardNode,
+    ProjectionEdge,
+    ProjectionNode,
     TaxonomyClassificationNodeInput,
 )
 
@@ -33,19 +34,31 @@ class KnowledgeGraphReadPort(Protocol):
 
 
 class KnowledgeGraphProjectionPort(Protocol):
+    async def list_projection_cards_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionCardNode]: ...
+
     async def list_projection_nodes_for_node_ids(
         self,
         *,
         node_ids: list[int],
-    ) -> list[SemanticMapProjectionNode]: ...
+    ) -> list[ProjectionNode]: ...
 
-    async def list_projection_nodes_for_semantic_map(self) -> list[SemanticMapProjectionNode]: ...
+    async def list_projection_nodes(self) -> list[ProjectionNode]: ...
 
     async def list_projection_edges_for_node_ids(
         self,
         *,
         node_ids: list[int],
-    ) -> list[SemanticMapProjectionEdge]: ...
+    ) -> list[ProjectionEdge]: ...
+
+    async def list_projection_edges_touching_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionEdge]: ...
 
     async def list_unassigned_nodes_for_taxonomy_classification(
         self,

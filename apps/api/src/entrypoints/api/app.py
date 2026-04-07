@@ -19,7 +19,7 @@ from core.errors import AppError, InternalError
 from entrypoints.api import providers as api_providers
 from modules.ingestion.api import build_router as build_ingestion_router
 from modules.search.api import build_router as build_search_router
-from modules.semantic_map.api import build_router as build_semantic_map_router
+from modules.taxonomy.api import build_router as build_taxonomy_router
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +28,10 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Knowledge API", version="0.1.0")
     app.include_router(build_search_router(get_search_service=api_providers.get_search_service))
     app.include_router(
-        build_semantic_map_router(get_semantic_map_service=api_providers.get_semantic_map_service)
+        build_ingestion_router(get_ingestion_service=api_providers.get_ingestion_service)
     )
     app.include_router(
-        build_ingestion_router(get_ingestion_service=api_providers.get_ingestion_service)
+        build_taxonomy_router(get_taxonomy_service=api_providers.get_taxonomy_service)
     )
 
     @app.middleware("http")

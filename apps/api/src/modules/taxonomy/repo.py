@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
+    TaxonomyLeafAssignment,
     TaxonomyNodeRecord,
-    TaxonomySemanticMapAssignment,
 )
 from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
 from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
@@ -77,6 +77,14 @@ class TaxonomyRepo:
         )
         return [_taxonomy_node_record_from_model(node) for node in result.all()]
 
+    async def get_node_by_id(self, *, node_id: int) -> TaxonomyNodeRecord | None:
+        node = await self._session.scalar(
+            select(TaxonomyNode).where(TaxonomyNode.id == node_id).limit(1)
+        )
+        if node is None:
+            return None
+        return _taxonomy_node_record_from_model(node)
+
     async def list_children(self, *, parent_id: int | None) -> list[TaxonomyNodeRecord]:
         statement = select(TaxonomyNode)
         if parent_id is None:
@@ -103,22 +111,7 @@ class TaxonomyRepo:
         assignment, taxonomy_node = row
         return _assignment_record_from_row(assignment, taxonomy_node)
 
-    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
-        rows = (
-            await self._session.execute(
-                select(TaxonomyNode.depth)
-                .join(
-                    NodeTaxonomyAssignment,
-                    NodeTaxonomyAssignment.taxonomy_node_id == TaxonomyNode.id,
-                )
-                .where(TaxonomyNode.is_leaf.is_(True))
-                .distinct()
-                .order_by(TaxonomyNode.depth.asc())
-            )
-        ).all()
-        return [row.depth for row in rows]
-
-    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]:
+    async def list_final_assignments(self) -> list[TaxonomyLeafAssignment]:
         rows = (
             await self._session.execute(
                 select(
@@ -131,7 +124,7 @@ class TaxonomyRepo:
             )
         ).all()
         return [
-            TaxonomySemanticMapAssignment(
+            TaxonomyLeafAssignment(
                 node_id=row.node_id,
                 taxonomy_leaf_id=row.taxonomy_leaf_id,
             )

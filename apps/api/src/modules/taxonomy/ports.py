@@ -9,8 +9,8 @@ from typing import Protocol
 
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
+    TaxonomyLeafAssignment,
     TaxonomyNodeRecord,
-    TaxonomySemanticMapAssignment,
 )
 
 
@@ -38,6 +38,4 @@ class TaxonomyReadPort(Protocol):
 
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None: ...
 
-    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]: ...
-
-    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]: ...
+    async def list_final_assignments(self) -> list[TaxonomyLeafAssignment]: ...

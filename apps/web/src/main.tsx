@@ -1,4 +1,4 @@
-// abstract: Browser entrypoint for mounting the semantic-map web client.
+// abstract: Browser entrypoint for mounting the taxonomy-view web client.
 // out_of_scope: Feature-specific query logic and visual component behavior.
 
 import { StrictMode } from "react";

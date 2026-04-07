@@ -1,6 +1,6 @@
 /*
-abstract: Global styling baseline for the semantic-map web client shell.
-out_of_scope: Feature-level deck.gl layer styling and component-local visuals.
+abstract: Global styling baseline for the taxonomy-view web client shell.
+out_of_scope: Feature-level node-layout algorithms and backend data orchestration.
 */
 
 :root {
@@ -48,9 +48,9 @@ select {
   padding: 32px 20px;
 }
 
-.semantic-map-page {
+.taxonomy-view-page {
   margin: 0 auto;
-  max-width: 960px;
+  max-width: 1120px;
   padding: 32px;
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 28px;
@@ -59,9 +59,17 @@ select {
   backdrop-filter: blur(12px);
 }
 
-.semantic-map-page--engine {
+.taxonomy-view-page--engine {
   display: grid;
-  gap: 24px;
+  gap: 18px;
+}
+
+.loading-state,
+.error-state {
+  padding: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 20px;
+  background: rgba(241, 245, 249, 0.85);
 }
 
 .page-eyebrow {
@@ -85,60 +93,47 @@ select {
   color: #475569;
 }
 
-.semantic-map-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-top: 28px;
+.taxonomy-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
 }
 
-.debug-hud {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 20px;
-  background: rgba(241, 245, 249, 0.85);
-}
-
-.debug-hud-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin: 0;
-}
-
-.debug-hud-grid dt {
-  color: #64748b;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.debug-hud-grid dd {
-  margin: 8px 0 0;
-  color: #0f172a;
-  font-weight: 600;
-}
-
-.debug-hud-reset {
-  justify-self: start;
-  padding: 10px 14px;
-  border: 0;
+.taxonomy-breadcrumb__item {
+  border: 1px solid rgba(148, 163, 184, 0.4);
   border-radius: 999px;
-  background: #10233b;
-  color: #f8fafc;
+  background: rgba(248, 250, 252, 0.92);
+  color: #0f172a;
   cursor: pointer;
+  font-weight: 600;
+  padding: 8px 12px;
 }
 
-.debug-hud-reset:hover {
-  background: #1d3658;
+.taxonomy-breadcrumb__item:hover {
+  border-color: rgba(30, 64, 175, 0.38);
+  color: #1d4ed8;
 }
 
-.semantic-map-canvas-shell {
-  position: relative;
-  min-height: 420px;
+.taxonomy-current {
+  padding: 14px 16px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 16px;
+  background: rgba(241, 245, 249, 0.75);
+}
+
+.taxonomy-current h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.taxonomy-current p {
+  margin: 8px 0 0;
+  color: #475569;
+}
+
+.taxonomy-flow-shell {
+  min-height: 620px;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-radius: 24px;
@@ -151,162 +146,64 @@ select {
     rgba(255, 255, 255, 0.92);
 }
 
-.semantic-map-canvas-shell canvas {
-  outline: none;
-}
-
-.canvas-caption {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  padding: 8px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  color: #475569;
-  font-size: 0.85rem;
-}
-
-.semantic-map-inspector {
-  padding: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  border-radius: 20px;
-  background: rgba(241, 245, 249, 0.78);
-}
-
-.semantic-map-inspector h2 {
-  margin: 0;
-  font-size: 1.05rem;
-}
-
-.semantic-map-inspector p {
-  margin: 12px 0 0;
-  color: #475569;
-}
-
-.semantic-map-inspector-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin: 12px 0 0;
-}
-
-.semantic-map-inspector-grid dt {
-  color: #64748b;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.semantic-map-inspector-grid dd {
-  margin: 8px 0 0;
-  color: #0f172a;
-  font-weight: 600;
-}
-
-.semantic-map-inspector-list {
-  margin: 12px 0 0;
-  padding-left: 0;
-  color: #1e293b;
-  list-style: none;
-}
-
-.semantic-map-inspector-list li + li {
-  margin-top: 6px;
-}
-
-.semantic-map-inspector-list-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.semantic-map-inspector-link {
-  border: 0;
-  background: transparent;
-  color: #0f172a;
-  font: inherit;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  padding: 0;
-}
-
-.semantic-map-inspector-link:hover {
-  color: #1d4ed8;
-}
-
-.semantic-map-inspector-strength {
-  color: #64748b;
-  font-variant-numeric: tabular-nums;
-  font-size: 0.9rem;
-}
-
-.semantic-map-engine-fallback {
-  min-height: 420px;
+.taxonomy-bubble {
   display: grid;
   align-content: center;
-}
-
-.summary-card,
-.empty-state,
-.loading-state,
-.error-state {
-  padding: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 18px;
-  background: rgba(248, 250, 252, 0.92);
-}
-
-.summary-card dt {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.summary-card dd {
-  margin: 10px 0 0;
+  justify-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.45);
   color: #0f172a;
-  font-size: 1.05rem;
-  font-weight: 600;
+  text-align: center;
+  padding: 8px;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.92);
 }
 
-.empty-state {
-  margin-top: 32px;
+.taxonomy-bubble--branch {
+  border-color: rgba(30, 64, 175, 0.34);
   background:
-    linear-gradient(
-      135deg,
-      rgba(255, 248, 235, 0.95),
-      rgba(255, 255, 255, 0.95)
+    radial-gradient(
+      circle at 25% 20%,
+      rgba(191, 219, 254, 0.72),
+      rgba(239, 246, 255, 0.95)
     ),
-    rgba(255, 255, 255, 0.92);
+    rgba(239, 246, 255, 0.95);
 }
 
-.empty-state h2,
-.loading-state h2,
-.error-state h2 {
-  margin: 0;
-  font-size: 1.5rem;
+.taxonomy-bubble--inner {
+  border-color: rgba(14, 116, 144, 0.38);
+  background:
+    radial-gradient(
+      circle at 25% 20%,
+      rgba(165, 243, 252, 0.72),
+      rgba(236, 254, 255, 0.95)
+    ),
+    rgba(236, 254, 255, 0.95);
 }
 
-.empty-state p,
-.loading-state p,
-.error-state p {
-  margin: 12px 0 0;
-  color: #475569;
+.taxonomy-bubble--outer {
+  border-color: rgba(120, 113, 108, 0.38);
+  background:
+    radial-gradient(
+      circle at 25% 20%,
+      rgba(231, 229, 228, 0.7),
+      rgba(250, 250, 249, 0.95)
+    ),
+    rgba(250, 250, 249, 0.95);
 }
 
-@media (max-width: 640px) {
-  .app-shell {
-    padding: 16px;
-  }
+.taxonomy-bubble__label {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
 
-  .semantic-map-page {
-    padding: 24px 20px;
-    border-radius: 22px;
-  }
+.taxonomy-bubble__hint {
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: #334155;
 }

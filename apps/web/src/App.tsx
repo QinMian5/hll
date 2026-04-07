@@ -1,12 +1,12 @@
-// abstract: Root app shell for semantic-map phase-1 bootstrap.
+// abstract: Root app shell for taxonomy-query-driven React Flow browsing.
 // out_of_scope: Feature-level data fetching and rendering engine internals.
 
-import { SemanticMapPage } from "./features/semantic-map/page/SemanticMapPage";
+import { TaxonomyViewPage } from "./features/taxonomy-view/page/TaxonomyViewPage";
 
 export function App() {
   return (
     <div className="app-shell">
-      <SemanticMapPage />
+      <TaxonomyViewPage />
     </div>
   );
 }

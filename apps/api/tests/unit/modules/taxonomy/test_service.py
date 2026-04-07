@@ -10,12 +10,19 @@ from datetime import UTC, datetime
 
 import pytest
 
+from core.errors import DomainError, ErrorCode
+from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionEdge
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
+    TaxonomyLeafAssignment,
     TaxonomyNodeRecord,
-    TaxonomySemanticMapAssignment,
 )
 from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
+from modules.taxonomy.schema import (
+    TaxonomyNodeBranchViewResponse,
+    TaxonomyNodeLeafViewResponse,
+    TaxonomyRootViewResponse,
+)
 from modules.taxonomy.service import TaxonomyService
 
 
@@ -24,10 +31,7 @@ class _StubRepo:
     tree_nodes: list[TaxonomyNodeRecord] = field(default_factory=list)
     children: list[TaxonomyNodeRecord] = field(default_factory=list)
     assignment: TaxonomyAssignmentRecord | None = None
-    assigned_leaf_depths_for_map: list[int] = field(default_factory=list)
-    assigned_semantic_map_assignments: list[TaxonomySemanticMapAssignment] = field(
-        default_factory=list
-    )
+    assigned_leaf_assignments: list[TaxonomyLeafAssignment] = field(default_factory=list)
     set_result: TaxonomyAssignmentRecord | None = None
     committed: bool = False
     rolled_back: bool = False
@@ -37,6 +41,12 @@ class _StubRepo:
     async def list_tree_nodes(self) -> list[TaxonomyNodeRecord]:
         return list(self.tree_nodes)
 
+    async def get_node_by_id(self, *, node_id: int) -> TaxonomyNodeRecord | None:
+        for node in self.tree_nodes:
+            if node.id == node_id:
+                return node
+        return None
+
     async def list_children(self, *, parent_id: int | None) -> list[TaxonomyNodeRecord]:
         assert parent_id == 1
         return list(self.children)
@@ -45,11 +55,8 @@ class _StubRepo:
         assert node_id == 41
         return self.assignment
 
-    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
-        return list(self.assigned_leaf_depths_for_map)
-
-    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]:
-        return list(self.assigned_semantic_map_assignments)
+    async def list_final_assignments(self) -> list[TaxonomyLeafAssignment]:
+        return list(self.assigned_leaf_assignments)
 
     async def set_final_assignment(
         self,
@@ -71,6 +78,32 @@ class _StubRepo:
 
     async def rollback(self) -> None:
         self.rolled_back = True
+
+
+@dataclass(slots=True)
+class _StubProjectionPort:
+    nodes: list[ProjectionCardNode]
+    edges: list[ProjectionEdge]
+
+    async def list_projection_cards_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionCardNode]:
+        node_id_set = set(node_ids)
+        return [node for node in self.nodes if node.node_id in node_id_set]
+
+    async def list_projection_edges_touching_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionEdge]:
+        node_id_set = set(node_ids)
+        return [
+            edge
+            for edge in self.edges
+            if edge.node_a_id in node_id_set or edge.node_b_id in node_id_set
+        ]
 
 
 def _leaf_assignment() -> TaxonomyAssignmentRecord:
@@ -125,22 +158,6 @@ async def test_list_children_returns_repo_ordered_children() -> None:
 
 
 @pytest.mark.anyio
-async def test_list_tree_nodes_for_semantic_map_returns_flat_tree_records() -> None:
-    records = [
-        TaxonomyNodeRecord(id=1, parent_id=None, name="Science", depth=0, is_leaf=False),
-        TaxonomyNodeRecord(id=2, parent_id=1, name="Mathematics", depth=1, is_leaf=True),
-    ]
-    service = TaxonomyService(repo=_StubRepo(tree_nodes=records))
-
-    returned = await service.list_tree_nodes_for_semantic_map()
-
-    assert [record.model_dump() for record in returned] == [
-        {"id": 1, "parent_id": None, "name": "Science", "depth": 0, "is_leaf": False},
-        {"id": 2, "parent_id": 1, "name": "Mathematics", "depth": 1, "is_leaf": True},
-    ]
-
-
-@pytest.mark.anyio
 async def test_get_assignment_for_node_returns_leaf_assignment() -> None:
     service = TaxonomyService(repo=_StubRepo(assignment=_leaf_assignment()))
 
@@ -148,32 +165,6 @@ async def test_get_assignment_for_node_returns_leaf_assignment() -> None:
 
     assert assignment is not None
     assert assignment.taxonomy_node.name == "General"
-
-
-@pytest.mark.anyio
-async def test_list_assigned_leaf_depths_for_semantic_map_returns_service_depths() -> None:
-    repo = _StubRepo(assigned_leaf_depths_for_map=[1, 3])
-    service = TaxonomyService(repo=repo)
-
-    assert await service.list_assigned_leaf_depths_for_semantic_map() == [1, 3]
-
-
-@pytest.mark.anyio
-async def test_list_semantic_map_assignments_returns_service_assignments() -> None:
-    repo = _StubRepo(
-        assigned_semantic_map_assignments=[
-            TaxonomySemanticMapAssignment(node_id=12, taxonomy_leaf_id=4),
-            TaxonomySemanticMapAssignment(node_id=18, taxonomy_leaf_id=7),
-        ]
-    )
-    service = TaxonomyService(repo=repo)
-
-    assignments = await service.list_semantic_map_assignments()
-
-    assert [assignment.model_dump() for assignment in assignments] == [
-        {"node_id": 12, "taxonomy_leaf_id": 4},
-        {"node_id": 18, "taxonomy_leaf_id": 7},
-    ]
 
 
 @pytest.mark.anyio
@@ -222,3 +213,117 @@ async def test_set_final_assignment_rolls_back_and_reraises_assignment_exists() 
 
     assert repo.committed is False
     assert repo.rolled_back is True
+
+
+@pytest.mark.anyio
+async def test_get_root_view_returns_only_children_with_descendant_cards() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="A", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=None, name="B", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=3, parent_id=1, name="A1", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_assignments=[
+            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=3),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    view = await service.get_root_view()
+
+    assert isinstance(view, TaxonomyRootViewResponse)
+    assert view.breadcrumb == []
+    assert [child.id for child in view.children] == [1]
+    assert view.children[0].descendant_card_count == 1
+
+
+@pytest.mark.anyio
+async def test_get_node_view_returns_branch_shape_for_non_leaf() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="A", depth=1, is_leaf=False),
+            TaxonomyNodeRecord(id=3, parent_id=1, name="B", depth=1, is_leaf=True),
+            TaxonomyNodeRecord(id=4, parent_id=2, name="A1", depth=2, is_leaf=True),
+        ],
+        assigned_leaf_assignments=[
+            TaxonomyLeafAssignment(node_id=21, taxonomy_leaf_id=3),
+            TaxonomyLeafAssignment(node_id=22, taxonomy_leaf_id=4),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    view = await service.get_node_view(node_id=1)
+
+    assert isinstance(view, TaxonomyNodeBranchViewResponse)
+    assert view.node_kind == "branch"
+    assert [item.id for item in view.breadcrumb] == [1]
+    assert [child.id for child in view.children] == [2, 3]
+
+
+@pytest.mark.anyio
+async def test_get_node_view_returns_leaf_shape_with_scopes_and_canonical_edges() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_assignments=[
+            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=2),
+            TaxonomyLeafAssignment(node_id=12, taxonomy_leaf_id=2),
+        ],
+    )
+    projection_port = _StubProjectionPort(
+        nodes=[
+            ProjectionCardNode(
+                node_id=11,
+                title="Inner 11",
+                content="Inner 11 content",
+            ),
+            ProjectionCardNode(
+                node_id=12,
+                title="Inner 12",
+                content="Inner 12 content",
+            ),
+            ProjectionCardNode(
+                node_id=77,
+                title="Outer 77",
+                content="Outer 77 content",
+            ),
+        ],
+        edges=[
+            ProjectionEdge(node_a_id=11, node_b_id=12, strength=0.91),
+            ProjectionEdge(node_a_id=12, node_b_id=77, strength=0.66),
+        ],
+    )
+    service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
+
+    view = await service.get_node_view(node_id=2)
+
+    assert isinstance(view, TaxonomyNodeLeafViewResponse)
+    assert view.node_kind == "leaf"
+    assert [item.id for item in view.breadcrumb] == [1, 2]
+    assert [(node.id, node.scope) for node in view.nodes] == [
+        (11, "inner"),
+        (12, "inner"),
+        (77, "outer"),
+    ]
+    assert [(edge.source_node_id, edge.target_node_id) for edge in view.edges] == [
+        (11, 12),
+        (12, 77),
+    ]
+
+
+@pytest.mark.anyio
+async def test_get_node_view_raises_not_found_for_unknown_node_id() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+        ]
+    )
+    service = TaxonomyService(repo=repo)
+
+    with pytest.raises(DomainError) as exc_info:
+        await service.get_node_view(node_id=999)
+
+    assert exc_info.value.code == ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND

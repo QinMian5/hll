@@ -1,6 +1,6 @@
 ---
-abstract: Taxonomy module design for authoritative LCC tree storage and final node-to-leaf assignment truth.
-out_of_scope: LLM classification orchestration, candidate ranking workflows, and semantic-map rendering implementation.
+abstract: Taxonomy module design for authoritative LCC tree truth, final node-to-leaf assignment, and drill-down view APIs.
+out_of_scope: LLM classification orchestration internals, candidate ranking policy, and semantic-space snapshot architecture.
 ---
 
 # Design: taxonomy
@@ -11,24 +11,29 @@ out_of_scope: LLM classification orchestration, candidate ranking workflows, and
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the `taxonomy` module that stores the authoritative LCC tree and the final leaf-level classification binding for knowledge nodes.
-- **Scope/Boundaries:** Covers taxonomy ownership, persistence shape, import boundaries, integrity constraints, and read-side responsibilities. Excludes classifier orchestration, confidence workflows, and semantic-map rendering behavior.
-- **Related Requirements:** R-001, R-004, R-005, R-006.
+- **Purpose:** Define the `taxonomy` module as the active browsing backbone: authoritative LCC tree storage, final leaf assignment truth, and taxonomy-query-driven view APIs.
+- **Scope/Boundaries:** Covers taxonomy ownership, persistence shape, import boundaries, integrity constraints, and branch/leaf view contracts consumed by frontend React Flow pages.
+- **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Constraint Projection
 - **Governing Constraints:** Module boundaries remain explicit, persistent truth stays isolated by owner, and behavior-changing design decisions stay synchronized in active specs.
-- **Detail Commitments:** LCC is a single authoritative taxonomy tree stored in the database; each knowledge node can bind to exactly one taxonomy leaf; taxonomy bootstrap happens only through a dedicated import script and not through database initialization.
-- **Update Rule:** Requirement-level constraints remain stable while taxonomy structure, table ownership, and import rules are maintained here as the implementation-facing source of truth.
+- **Detail Commitments:** LCC is a single authoritative tree stored in database; each knowledge node binds to exactly one taxonomy leaf; taxonomy browsing is query-driven from backend and not precomputed through semantic-map snapshot rebuilds.
+- **Update Rule:** Requirement-level constraints remain stable while taxonomy structure and view API details are maintained here as implementation-facing truth.
 
 ## Design Approach
-- **Approach:** Add a dedicated backend `taxonomy` module that owns taxonomy tree persistence and final leaf assignment truth while keeping `knowledge_graph` persistence unchanged.
+- **Approach:** Use taxonomy as the interaction truth for hierarchical drill-down browsing. Backend returns branch or leaf payloads from one taxonomy-view query surface. Frontend computes visual sizing and renders with React Flow.
 - **Key Elements:**
-  - **Module ownership:** `apps/api/src/modules/taxonomy` owns taxonomy tree reads, final node assignment reads/writes, taxonomy DTO/port contracts, and taxonomy import orchestration.
-  - **Authoritative taxonomy source:** The persisted taxonomy tree is the runtime/system truth. `human_workspace/LCC.yaml` is only the operator-maintained import input for bootstrap.
-  - **Tree stability model:** The taxonomy is treated as one single, effectively stable tree. Active behavior does not include versioning, merge/update import, or repeatable synchronization against YAML.
-  - **Classification result model:** Each knowledge node binds to exactly one final taxonomy leaf. Workflow state, candidate classes, confidence scores, and review status are not part of the accepted persistence shape.
-  - **Assignment mutability rule:** Final taxonomy assignment uses first-write semantics. Existing node assignments are not overwritten by later classification attempts.
-  - **Map-structure role:** Taxonomy provides the high-level structural truth for semantic-map browsing. Semantic-map rendering may consume embeddings for local layout, but it does not define top-level class hierarchy independently of taxonomy.
+  - **Module ownership:** `apps/api/src/modules/taxonomy` owns taxonomy tree reads, final assignment reads/writes, taxonomy import orchestration, and taxonomy view API contracts.
+  - **Authoritative source:** Persisted taxonomy tree is runtime/system truth. `human_workspace/LCC.yaml` is bootstrap input only.
+  - **Tree stability model:** Taxonomy is one effectively stable tree. Active behavior excludes merge/update import and repeatable synchronization.
+  - **Classification result model:** Each knowledge node binds to exactly one final taxonomy leaf.
+  - **Assignment mutability rule:** First-write semantics for final assignment; no overwrite path.
+  - **Browsing mode:** Drill-down click navigation (`root -> ... -> leaf`) replaces semantic-map zoom/tile browsing.
+  - **Leaf graph scope rule:** Leaf view includes all inner cards for the leaf plus all one-hop outer neighbor cards; recursion depth is fixed to one hop.
+  - **Edge scope rule:** Leaf view returns only `inner-inner` and `inner-outer` edges. `outer-outer` edges are excluded.
+  - **Node scope marker:** Leaf graph node payload includes explicit `scope` field with values `inner` or `outer`.
+  - **Payload granularity rule:** Leaf graph node payload includes `id`, `title`, and full `content` for both inner and outer nodes.
+  - **Pagination rule:** Leaf graph response is single-shot full payload (no pagination in current phase).
 
 ## Persistence Projection
 
@@ -45,45 +50,105 @@ out_of_scope: LLM classification orchestration, candidate ranking workflows, and
 
 ### node_taxonomy_assignments
 - `id`: integer primary key.
-- `node_id`: non-null foreign key to the persisted knowledge node.
+- `node_id`: non-null foreign key to persisted knowledge node.
 - `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id`.
 - `assigned_at`: non-null timestamp.
 - Required constraints:
   - uniqueness over `node_id`.
 - Write-path rule:
-  - classification workflow uses insert-only assignment creation and rejects writes when `node_id` already has an assignment.
+  - assignment creation is insert-only and rejects writes when `node_id` already has an assignment.
 
 ### Trigger Rule
-- Inserts and updates on `node_taxonomy_assignments` must be rejected unless `taxonomy_node_id` points to a row where `taxonomy_nodes.is_leaf = true`.
-- The leaf-only assignment trigger is implemented through one dedicated hand-authored migration that contains only the trigger/function DDL and does not mix unrelated schema changes.
+- Inserts and updates on `node_taxonomy_assignments` must be rejected unless `taxonomy_node_id` points to `taxonomy_nodes.is_leaf = true`.
+- Trigger/function DDL is maintained by one dedicated migration scoped only to this trigger concern.
 
 ## Import Boundary
-- Taxonomy bootstrap is executed through a dedicated operator script.
-- The import script reads `human_workspace/LCC.yaml`, computes `depth`, computes `is_leaf`, and inserts the taxonomy tree into `taxonomy_nodes`.
-- The import script fails immediately when `taxonomy_nodes` already contains any rows.
-- The import script does not merge, update, or reconcile an existing taxonomy tree.
+- Taxonomy bootstrap runs through a dedicated operator script.
+- The import script reads `human_workspace/LCC.yaml`, computes `depth`, computes `is_leaf`, and inserts taxonomy rows.
+- The import script fails immediately when taxonomy storage is non-empty.
+- The import script does not merge or update existing taxonomy rows.
 - Database initialization and migration flows do not auto-import taxonomy content.
+
+## API Contract
+
+### Root View Endpoint
+- Route: `GET /taxonomy/view/root`
+- Success payload:
+  - no `current_node` field.
+  - `breadcrumb` is an empty array.
+  - `children` array for top-level taxonomy nodes (`parent_id is null`) with `descendant_card_count > 0`; each item:
+    - `id`
+    - `parent_id`
+    - `name`
+    - `depth`
+    - `is_leaf`
+    - `descendant_card_count`
+- Failure behavior:
+  - `404` when taxonomy store has no root node (for example, taxonomy not imported yet).
+
+### Node View Endpoint
+- Route: `GET /taxonomy/view/nodes/{node_id}`
+- Success payload:
+  - common envelope:
+    - `node_kind`: `branch` or `leaf`
+    - `current_node` object:
+      - `id`
+      - `parent_id`
+      - `name`
+      - `depth`
+      - `is_leaf`
+    - `breadcrumb` array ordered root-to-current, each item:
+      - `id`
+      - `parent_id`
+      - `name`
+      - `depth`
+      - `is_leaf`
+  - branch case (`node_kind=branch`):
+    - `children` (direct children only) with `descendant_card_count > 0`, using the same child item shape as root endpoint
+  - leaf case (`node_kind=leaf`):
+    - `nodes` array, each item:
+      - `id`
+      - `title`
+      - `content`
+      - `scope` with value `inner` or `outer`
+    - `edges` array, each item:
+      - `id`
+      - `source_node_id`
+      - `target_node_id`
+      - `strength`
+- Failure behavior:
+  - `404` when taxonomy node id is unknown.
+  - `404` when taxonomy store is empty.
+  - request-shape errors follow global error-governance behavior.
+
+## Response Ordering Rules
+- `breadcrumb` is ordered root-to-current.
+- branch `children` are ordered by `name ASC`, tie-break by `id ASC`.
+- leaf `nodes` are ordered by `id ASC`.
+- leaf `edges` are deduplicated by undirected pair and ordered by `(source_node_id ASC, target_node_id ASC)`.
+- every leaf `edges` item uses canonical undirected endpoint ordering with `source_node_id < target_node_id`.
 
 ## Read Responsibilities
 - The taxonomy module provides:
-  - complete taxonomy-tree reads;
-  - direct-child reads for one taxonomy node;
-  - lookup of the final assigned taxonomy leaf for one knowledge node;
-  - aggregate counts that can be consumed by downstream product surfaces.
+  - complete taxonomy-tree reads and direct-child reads;
+  - final assignment lookup for one knowledge node;
+  - aggregate descendant counts for branch view payloads;
+  - branch/leaf drill-down view payloads with breadcrumb context.
 - The taxonomy module does not provide:
   - candidate generation workflows;
-  - confidence computation;
-  - human review workflow state;
-  - semantic-map visualization logic.
+  - confidence scoring workflows;
+  - semantic-map snapshot/tile contracts.
+  - authoritative node positions for frontend graph layout.
 
 ## Validation
 - **Checks:**
-  - Taxonomy tree import succeeds only into an empty taxonomy store.
-  - Imported rows have correct `depth` and `is_leaf` values.
-  - Sibling reads return nodes ordered by `name ASC`.
-  - A knowledge node cannot have more than one taxonomy assignment.
-  - Assignment writes targeting a non-leaf taxonomy node are rejected by database trigger.
+  - Taxonomy import succeeds only when taxonomy store is empty.
+  - Imported rows have correct `depth` and `is_leaf`.
+  - Sibling reads return `ORDER BY name ASC`.
+  - One knowledge node cannot have multiple assignments.
+  - Non-leaf assignment writes are rejected by trigger.
+  - `GET /taxonomy/view/root` returns top-level children list with `breadcrumb=[]`.
+  - `GET /taxonomy/view/nodes/{id}` returns correct discriminated payload for branch/leaf.
+  - Leaf payload excludes `outer-outer` edges and includes `scope` markers.
 - **Evidence:**
-  - Passing import tests for empty-store success and non-empty-store failure.
-  - Passing repository/service tests for tree reads and assignment reads.
-  - Passing database-level tests for unique-assignment and leaf-only trigger enforcement.
+  - Passing import/repository/service tests and API contract tests for taxonomy view endpoints.

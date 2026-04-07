@@ -5,26 +5,39 @@ Out of scope: HTTP endpoint wiring and LLM classification orchestration.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Protocol
 
+from core.errors import DomainError, ErrorCode
+from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionEdge
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
+    TaxonomyLeafAssignment,
     TaxonomyNodeRecord,
-    TaxonomySemanticMapAssignment,
     TaxonomyTreeNode,
+)
+from modules.taxonomy.schema import (
+    TaxonomyLeafGraphEdgeResponse,
+    TaxonomyLeafGraphNodeResponse,
+    TaxonomyNodeBranchViewResponse,
+    TaxonomyNodeLeafViewResponse,
+    TaxonomyNodeViewResponse,
+    TaxonomyRootViewResponse,
+    TaxonomyViewChildResponse,
+    TaxonomyViewNodeResponse,
 )
 
 
 class TaxonomyRepoProtocol(Protocol):
     async def list_tree_nodes(self) -> list[TaxonomyNodeRecord]: ...
 
+    async def get_node_by_id(self, *, node_id: int) -> TaxonomyNodeRecord | None: ...
+
     async def list_children(self, *, parent_id: int | None) -> list[TaxonomyNodeRecord]: ...
 
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None: ...
 
-    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]: ...
-
-    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]: ...
+    async def list_final_assignments(self) -> list[TaxonomyLeafAssignment]: ...
 
     async def set_final_assignment(
         self,
@@ -38,9 +51,39 @@ class TaxonomyRepoProtocol(Protocol):
     async def rollback(self) -> None: ...
 
 
+class TaxonomyKnowledgeProjectionPort(Protocol):
+    async def list_projection_cards_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionCardNode]: ...
+
+    async def list_projection_edges_touching_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionEdge]: ...
+
+
+def _view_node_from_record(record: TaxonomyNodeRecord) -> TaxonomyViewNodeResponse:
+    return TaxonomyViewNodeResponse(
+        id=record.id,
+        parent_id=record.parent_id,
+        name=record.name,
+        depth=record.depth,
+        is_leaf=record.is_leaf,
+    )
+
+
 class TaxonomyService:
-    def __init__(self, *, repo: TaxonomyRepoProtocol) -> None:
+    def __init__(
+        self,
+        *,
+        repo: TaxonomyRepoProtocol,
+        knowledge_projection_port: TaxonomyKnowledgeProjectionPort | None = None,
+    ) -> None:
         self._repo = repo
+        self._knowledge_projection_port = knowledge_projection_port
 
     async def list_tree(self) -> list[TaxonomyTreeNode]:
         records = await self._repo.list_tree_nodes()
@@ -66,17 +109,152 @@ class TaxonomyService:
     async def list_children(self, *, parent_id: int | None) -> list[TaxonomyNodeRecord]:
         return await self._repo.list_children(parent_id=parent_id)
 
-    async def list_tree_nodes_for_semantic_map(self) -> list[TaxonomyNodeRecord]:
-        return await self._repo.list_tree_nodes()
-
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None:
         return await self._repo.get_assignment_for_node(node_id=node_id)
 
-    async def list_assigned_leaf_depths_for_semantic_map(self) -> list[int]:
-        return await self._repo.list_assigned_leaf_depths_for_semantic_map()
+    async def get_root_view(self) -> TaxonomyRootViewResponse:
+        tree_nodes = await self._repo.list_tree_nodes()
+        node_by_id, child_ids_by_parent = _index_tree(tree_nodes)
+        if not node_by_id:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message="Taxonomy tree is not available.",
+                hint="Import taxonomy data and retry.",
+            )
 
-    async def list_semantic_map_assignments(self) -> list[TaxonomySemanticMapAssignment]:
-        return await self._repo.list_semantic_map_assignments()
+        descendant_counts = await self._load_descendant_card_counts(
+            node_by_id=node_by_id,
+            child_ids_by_parent=child_ids_by_parent,
+        )
+        root_ids = sorted(
+            child_ids_by_parent.get(None, []),
+            key=lambda node_id: (node_by_id[node_id].name, node_by_id[node_id].id),
+        )
+        children = [
+            TaxonomyViewChildResponse(
+                id=node_by_id[node_id].id,
+                parent_id=node_by_id[node_id].parent_id,
+                name=node_by_id[node_id].name,
+                depth=node_by_id[node_id].depth,
+                is_leaf=node_by_id[node_id].is_leaf,
+                descendant_card_count=descendant_counts[node_id],
+            )
+            for node_id in root_ids
+            if descendant_counts[node_id] > 0
+        ]
+        return TaxonomyRootViewResponse(breadcrumb=[], children=children)
+
+    async def get_node_view(self, *, node_id: int) -> TaxonomyNodeViewResponse:
+        tree_nodes = await self._repo.list_tree_nodes()
+        node_by_id, child_ids_by_parent = _index_tree(tree_nodes)
+        if not node_by_id:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message="Taxonomy tree is not available.",
+                hint="Import taxonomy data and retry.",
+            )
+
+        current_node = node_by_id.get(node_id)
+        if current_node is None:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message=f"Taxonomy node {node_id} was not found.",
+                hint="Use an existing taxonomy node id and retry.",
+            )
+
+        descendant_counts = await self._load_descendant_card_counts(
+            node_by_id=node_by_id,
+            child_ids_by_parent=child_ids_by_parent,
+        )
+        breadcrumb = [
+            _view_node_from_record(record)
+            for record in _build_breadcrumb(
+                current_node_id=node_id,
+                node_by_id=node_by_id,
+            )
+        ]
+
+        if not current_node.is_leaf:
+            child_ids = sorted(
+                child_ids_by_parent.get(current_node.id, []),
+                key=lambda child_node_id: (
+                    node_by_id[child_node_id].name,
+                    node_by_id[child_node_id].id,
+                ),
+            )
+            children = [
+                TaxonomyViewChildResponse(
+                    id=node_by_id[child_node_id].id,
+                    parent_id=node_by_id[child_node_id].parent_id,
+                    name=node_by_id[child_node_id].name,
+                    depth=node_by_id[child_node_id].depth,
+                    is_leaf=node_by_id[child_node_id].is_leaf,
+                    descendant_card_count=descendant_counts[child_node_id],
+                )
+                for child_node_id in child_ids
+                if descendant_counts[child_node_id] > 0
+            ]
+            return TaxonomyNodeBranchViewResponse(
+                node_kind="branch",
+                current_node=_view_node_from_record(current_node),
+                breadcrumb=breadcrumb,
+                children=children,
+            )
+
+        if self._knowledge_projection_port is None:
+            raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
+
+        assignments = await self._repo.list_final_assignments()
+        inner_node_ids = sorted(
+            assignment.node_id
+            for assignment in assignments
+            if assignment.taxonomy_leaf_id == current_node.id
+        )
+        edges = await self._knowledge_projection_port.list_projection_edges_touching_node_ids(
+            node_ids=inner_node_ids
+        )
+        all_node_ids = set(inner_node_ids)
+        for edge in edges:
+            all_node_ids.add(edge.node_a_id)
+            all_node_ids.add(edge.node_b_id)
+
+        projection_nodes = await self._knowledge_projection_port.list_projection_cards_for_node_ids(
+            node_ids=sorted(all_node_ids)
+        )
+        inner_node_id_set = set(inner_node_ids)
+        nodes = sorted(
+            (
+                TaxonomyLeafGraphNodeResponse(
+                    id=node.node_id,
+                    title=node.title,
+                    content=node.content,
+                    scope="inner" if node.node_id in inner_node_id_set else "outer",
+                )
+                for node in projection_nodes
+            ),
+            key=lambda node: node.id,
+        )
+
+        edge_items = sorted(
+            (
+                TaxonomyLeafGraphEdgeResponse(
+                    id=f"edge:{edge.node_a_id}:{edge.node_b_id}",
+                    source_node_id=edge.node_a_id,
+                    target_node_id=edge.node_b_id,
+                    strength=edge.strength,
+                )
+                for edge in edges
+            ),
+            key=lambda edge: (edge.source_node_id, edge.target_node_id),
+        )
+
+        return TaxonomyNodeLeafViewResponse(
+            node_kind="leaf",
+            current_node=_view_node_from_record(current_node),
+            breadcrumb=breadcrumb,
+            nodes=nodes,
+            edges=edge_items,
+        )
 
     async def set_final_assignment(
         self,
@@ -94,3 +272,51 @@ class TaxonomyService:
         except Exception:
             await self._repo.rollback()
             raise
+
+    async def _load_descendant_card_counts(
+        self,
+        *,
+        node_by_id: dict[int, TaxonomyNodeRecord],
+        child_ids_by_parent: dict[int | None, list[int]],
+    ) -> dict[int, int]:
+        assignments = await self._repo.list_final_assignments()
+        descendant_counts = dict.fromkeys(node_by_id, 0)
+        for assignment in assignments:
+            descendant_counts[assignment.taxonomy_leaf_id] += 1
+
+        for node in sorted(
+            node_by_id.values(),
+            key=lambda item: (item.depth, item.id),
+            reverse=True,
+        ):
+            if node.parent_id is None:
+                continue
+            descendant_counts[node.parent_id] += descendant_counts[node.id]
+
+        return descendant_counts
+
+
+def _index_tree(
+    tree_nodes: list[TaxonomyNodeRecord],
+) -> tuple[dict[int, TaxonomyNodeRecord], dict[int | None, list[int]]]:
+    node_by_id = {node.id: node for node in tree_nodes}
+    child_ids_by_parent: dict[int | None, list[int]] = defaultdict(list)
+    for node in tree_nodes:
+        child_ids_by_parent[node.parent_id].append(node.id)
+    return (node_by_id, child_ids_by_parent)
+
+
+def _build_breadcrumb(
+    *,
+    current_node_id: int,
+    node_by_id: dict[int, TaxonomyNodeRecord],
+) -> list[TaxonomyNodeRecord]:
+    chain: list[TaxonomyNodeRecord] = []
+    cursor = node_by_id[current_node_id]
+    while True:
+        chain.append(cursor)
+        if cursor.parent_id is None:
+            break
+        cursor = node_by_id[cursor.parent_id]
+    chain.reverse()
+    return chain

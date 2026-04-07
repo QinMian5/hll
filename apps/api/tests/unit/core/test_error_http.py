@@ -32,17 +32,17 @@ from core.errors import (
         ),
         (
             ApplicationError(
-                code=ErrorCode.APPLICATION_SEMANTIC_MAP_INPUT_INVALID,
-                message="Semantic-map tile request is invalid.",
-                hint="Use a supported semantic level and non-negative tile coordinates.",
+                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+                message="Taxonomy view request is invalid.",
+                hint="Use a valid taxonomy node id and retry.",
             ),
             400,
         ),
         (
             DomainError(
-                code=ErrorCode.DOMAIN_SEMANTIC_MAP_RESOURCE_NOT_FOUND,
-                message="Semantic-map snapshot is unavailable.",
-                hint="Run a semantic-map build and retry.",
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message="Taxonomy resource is unavailable.",
+                hint="Import taxonomy data and retry.",
             ),
             404,
         ),
