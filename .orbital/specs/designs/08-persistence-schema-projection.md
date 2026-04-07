@@ -34,12 +34,16 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `title`: non-null text.
 - `content`: non-null text.
 - `embedding`: non-null `Vector(1536)`.
+- `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
+- `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
 
 ### Edges
 - `id`: integer primary key.
 - `node_a_id`: non-null foreign key to `nodes.id` with `ondelete="CASCADE"`.
 - `node_b_id`: non-null foreign key to `nodes.id` with `ondelete="CASCADE"`.
 - `strength`: non-null float.
+- `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
+- `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
 - Required constraints:
   - canonical unordered pair: `node_a_id < node_b_id`.
   - normalized strength range: `0.0 <= strength <= 1.0`.
@@ -49,6 +53,8 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - Composite primary key: `(node_id, edge_id)`.
 - `node_id`: foreign key to `nodes.id` with `ondelete="CASCADE"`.
 - `edge_id`: foreign key to `edges.id` with `ondelete="CASCADE"`.
+- `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
+- `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
 - Required indexes:
   - index on `node_id`
   - index on `edge_id`

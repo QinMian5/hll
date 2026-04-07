@@ -18,6 +18,8 @@ _CURSOR_MODE_ARGS = [
     "--print",
     "--output-format",
     "json",
+    "--model",
+    "auto",
     "--force",
     "--sandbox",
     "enabled",

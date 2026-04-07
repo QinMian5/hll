@@ -117,6 +117,8 @@ def run_page_session(page: PageRecord, settings: PageAgentSettings) -> PageResul
             "--print",
             "--output-format",
             "json",
+            "--model",
+            "auto",
             "--sandbox",
             "enabled",
             "--trust",

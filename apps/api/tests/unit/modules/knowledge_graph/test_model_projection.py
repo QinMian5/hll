@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import cast
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import CheckConstraint, Table
+from sqlalchemy import CheckConstraint, DateTime, Table
 
 from modules.knowledge_graph.model import Adjacency, Edge, Node
 from shared.db.base import Base
@@ -58,6 +58,22 @@ def test_node_and_edge_required_columns_and_edges_relation_contract() -> None:
     assert edges_relation.secondaryjoin is not None
 
 
+def test_node_and_edge_timestamp_columns_are_present_and_required() -> None:
+    for table in (Node.__table__, Edge.__table__):
+        created_at_column = table.c.created_at
+        updated_at_column = table.c.updated_at
+
+        created_at_type = created_at_column.type
+        updated_at_type = updated_at_column.type
+
+        assert isinstance(created_at_type, DateTime)
+        assert isinstance(updated_at_type, DateTime)
+        assert created_at_type.timezone is True
+        assert updated_at_type.timezone is True
+        assert created_at_column.nullable is False
+        assert updated_at_column.nullable is False
+
+
 def test_edges_foreign_keys_use_cascade_delete() -> None:
     for column_name in ("node_a_id", "node_b_id"):
         column = Edge.__table__.c[column_name]
@@ -76,6 +92,21 @@ def test_adjacency_composite_pk_and_indexes() -> None:
     index_names = {index.name for index in table.indexes}
     assert "ix_adjacency_node_id" in index_names
     assert "ix_adjacency_edge_id" in index_names
+
+
+def test_adjacency_timestamp_columns_are_present_and_required() -> None:
+    created_at_column = Adjacency.__table__.c.created_at
+    updated_at_column = Adjacency.__table__.c.updated_at
+
+    created_at_type = created_at_column.type
+    updated_at_type = updated_at_column.type
+
+    assert isinstance(created_at_type, DateTime)
+    assert isinstance(updated_at_type, DateTime)
+    assert created_at_type.timezone is True
+    assert updated_at_type.timezone is True
+    assert created_at_column.nullable is False
+    assert updated_at_column.nullable is False
 
 
 def test_adjacency_foreign_keys_use_cascade_delete() -> None:

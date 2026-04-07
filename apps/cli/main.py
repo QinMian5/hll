@@ -326,6 +326,8 @@ def run_cursor_review_once(
             "--print",
             "--output-format",
             "json",
+            "--model",
+            "auto",
             "--mode",
             "ask",
             "--sandbox",

@@ -1,24 +1,24 @@
 batches:
   - name: mathematics-core
     query: mathematics algebra geometry trigonometry probability function equation
-    limit: 40
+    limit: 1000
 
   - name: physics-core
     query: physics force motion energy wave light electricity magnetism
-    limit: 40
+    limit: 1000
 
   - name: chemistry-core
     query: chemistry atom molecule reaction acid base equilibrium organic
-    limit: 40
+    limit: 1000
 
   - name: biology-core
     query: biology cell gene protein evolution ecology enzyme
-    limit: 40
+    limit: 1000
 
   - name: optics-and-waves
     query: optics refraction reflection diffraction lens mirror sound wave
-    limit: 30
+    limit: 1000
 
   - name: statistics-and-measurement
     query: statistics mean median mode standard deviation measurement error
-    limit: 30
+    limit: 1000
