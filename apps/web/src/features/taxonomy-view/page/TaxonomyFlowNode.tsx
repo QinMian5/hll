@@ -64,7 +64,6 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
   const isBranch = data.scope === "branch";
   const [isDisclosureOpen, setIsDisclosureOpen] = useState(false);
   const tooltipId = useId();
-  const hoverCopy = data.content ?? data.tooltip;
   const canRevealContent = !isBranch && Boolean(data.content);
   const shouldShowTooltip = canRevealContent && isDisclosureOpen;
   const visualVariant = bubbleVariantClasses[data.scope];
@@ -90,7 +89,6 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
         setIsDisclosureOpen(false);
       }}
       style={{ transform: `rotate(${rotationDegrees})` }}
-      title={isBranch ? undefined : hoverCopy}
     >
       <span
         aria-hidden="true"
@@ -122,6 +120,7 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
       {shouldShowTooltip ? (
         <div
           className="absolute bottom-[calc(100%+14px)] left-1/2 z-[5] w-max max-w-[min(18rem,42vw)] -translate-x-1/2 rounded-[18px] border border-[#d5e1f2]/85 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(243,247,255,0.96)_100%)] px-4 py-3 text-left text-[12px] leading-[1.4] text-[#314967] shadow-[0_20px_50px_rgba(165,183,212,0.28)]"
+          data-testid="taxonomy-bubble-disclosure"
           id={tooltipId}
           role="tooltip"
         >

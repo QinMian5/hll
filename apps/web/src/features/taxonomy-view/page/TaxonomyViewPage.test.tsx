@@ -27,12 +27,12 @@ vi.mock("@xyflow/react", () => ({
         const BubbleNode = node.type ? nodeTypes[node.type] : undefined;
 
         return (
-          <button
-            className="contents"
+          /* biome-ignore lint/a11y/noStaticElementInteractions: test-only React Flow mock uses a plain wrapper to mirror production node containers. */
+          /* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard interaction is outside the scope of this structural mock. */
+          <div
             data-testid={`reactflow-node-${node.id}`}
             key={node.id}
             onClick={() => onNodeClick?.({}, node)}
-            type="button"
           >
             {BubbleNode ? (
               <BubbleNode
@@ -49,7 +49,7 @@ vi.mock("@xyflow/react", () => ({
             ) : (
               String(node.data.label)
             )}
-          </button>
+          </div>
         );
       })}
       {edges.map((edge) => (
@@ -464,10 +464,16 @@ describe("TaxonomyViewPage shell contracts", () => {
 
     expect(leafNode).not.toBeNull();
     fireEvent.mouseEnter(leafNode as HTMLElement);
+    expect(
+      within(canvas).getByTestId("taxonomy-bubble-disclosure"),
+    ).toHaveTextContent("Equation content");
     expect(within(canvas).getByRole("tooltip")).toHaveTextContent(
       "Equation content",
     );
     fireEvent.mouseLeave(leafNode as HTMLElement);
+    expect(
+      within(canvas).queryByTestId("taxonomy-bubble-disclosure"),
+    ).not.toBeInTheDocument();
     expect(within(canvas).queryByRole("tooltip")).not.toBeInTheDocument();
 
     fireEvent.click(within(canvas).getByRole("button", { name: "Root" }));
