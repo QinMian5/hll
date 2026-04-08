@@ -40,6 +40,13 @@ function circlesOverlap(
   return distance < left.style.width / 2 + right.style.width / 2;
 }
 
+function expectNodePosition<
+  T extends { readonly position: { readonly x: number; readonly y: number } },
+>(node: T | undefined) {
+  expect(node).toBeDefined();
+  return node as T;
+}
+
 describe("branch layout contracts", () => {
   it("uses logarithmic bubble sizing", () => {
     expect(bubbleDiameterFromDescendantCount(1)).toBeLessThan(
@@ -106,9 +113,11 @@ describe("branch layout contracts", () => {
 
     const heavy = result.nodes.find((node) => node.id === "taxonomy-1");
     const light = result.nodes.find((node) => node.id === "taxonomy-2");
+    const heavyNode = expectNodePosition(heavy);
+    const lightNode = expectNodePosition(light);
 
-    expect(distanceFromCenter(heavy!.position, center)).toBeLessThan(
-      distanceFromCenter(light!.position, center),
+    expect(distanceFromCenter(heavyNode.position, center)).toBeLessThan(
+      distanceFromCenter(lightNode.position, center),
     );
   });
 
@@ -202,6 +211,40 @@ describe("leaf layout contracts", () => {
     );
     expect(second.nodes.map((node) => roundPosition(node.position))).toEqual(
       first.nodes.map((node) => roundPosition(node.position)),
+    );
+  });
+
+  it("pulls highly connected hub nodes toward the center zone", () => {
+    const center = { x: 700, y: 450 };
+    const result = buildLeafLayout({
+      center,
+      edges: [
+        { id: "e-1", source_node_id: 50, strength: 1, target_node_id: 10 },
+        { id: "e-2", source_node_id: 50, strength: 1, target_node_id: 20 },
+        { id: "e-3", source_node_id: 50, strength: 1, target_node_id: 30 },
+        { id: "e-4", source_node_id: 50, strength: 1, target_node_id: 40 },
+      ],
+      nodes: [
+        { content: "A", id: 10, scope: "outer", title: "A" },
+        { content: "B", id: 20, scope: "outer", title: "B" },
+        { content: "C", id: 30, scope: "inner", title: "C" },
+        { content: "D", id: 40, scope: "outer", title: "D" },
+        { content: "Hub", id: 50, scope: "inner", title: "Hub" },
+      ],
+      viewport: { height: 900, width: 1404 },
+    });
+
+    const hub = result.nodes.find((node) => node.id === "card-50");
+    const otherNodes = result.nodes.filter((node) => node.id !== "card-50");
+    const hubNode = expectNodePosition(hub);
+    const averageOtherDistance =
+      otherNodes.reduce(
+        (sum, node) => sum + distanceFromCenter(node.position, center),
+        0,
+      ) / otherNodes.length;
+
+    expect(distanceFromCenter(hubNode.position, center)).toBeLessThan(
+      averageOtherDistance,
     );
   });
 });
