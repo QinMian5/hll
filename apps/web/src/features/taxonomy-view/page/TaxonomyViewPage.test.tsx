@@ -10,7 +10,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@xyflow/react", () => ({
@@ -18,19 +18,38 @@ vi.mock("@xyflow/react", () => ({
   ReactFlow: ({
     children,
     edges = [],
+    nodeTypes = {},
     nodes,
     onNodeClick,
   }: MockReactFlowProps) => (
     <div data-testid="reactflow-mock">
-      {nodes.map((node) => (
-        <button
-          key={node.id}
-          onClick={() => onNodeClick?.({}, node)}
-          type="button"
-        >
-          {String(node.data.label)}
-        </button>
-      ))}
+      {nodes.map((node) => {
+        const BubbleNode = node.type ? nodeTypes[node.type] : undefined;
+
+        return (
+          <button
+            key={node.id}
+            onClick={() => onNodeClick?.({}, node)}
+            type="button"
+          >
+            {BubbleNode ? (
+              <BubbleNode
+                data={node.data}
+                dragging={false}
+                id={node.id}
+                isConnectable={false}
+                selected={false}
+                type={node.type}
+                xPos={node.position?.x ?? 0}
+                yPos={node.position?.y ?? 0}
+                zIndex={0}
+              />
+            ) : (
+              String(node.data.label)
+            )}
+          </button>
+        );
+      })}
       {edges.map((edge) => (
         <div
           data-testid={`reactflow-edge-${edge.id}`}
@@ -61,17 +80,49 @@ interface MockReactFlowProps {
     readonly source: string;
     readonly target: string;
   }>;
+  readonly nodeTypes?: Record<
+    string,
+    ComponentType<MockFlowNodeComponentProps>
+  >;
   readonly nodes: Array<{
-    readonly data: { readonly content?: string; readonly label: string };
+    readonly data: {
+      readonly content?: string;
+      readonly depth?: number;
+      readonly label: string;
+      readonly scope?: "branch" | "inner" | "outer";
+      readonly targetNodeId?: number | null;
+      readonly tooltip?: string;
+    };
     readonly id: string;
+    readonly position?: { readonly x: number; readonly y: number };
+    readonly type?: string;
   }>;
   readonly onNodeClick?: (
     event: unknown,
     node: {
-      readonly data: { readonly content?: string; readonly label: string };
+      readonly data: {
+        readonly content?: string;
+        readonly depth?: number;
+        readonly label: string;
+        readonly scope?: "branch" | "inner" | "outer";
+        readonly targetNodeId?: number | null;
+        readonly tooltip?: string;
+      };
       readonly id: string;
     },
   ) => void;
+}
+
+interface MockFlowNodeComponentProps {
+  readonly data: MockReactFlowProps["nodes"][number]["data"];
+  readonly dragging: boolean;
+  readonly id: string;
+  readonly isConnectable: boolean;
+  readonly selected: boolean;
+  readonly type?: string;
+  readonly xPos: number;
+  readonly yPos: number;
+  readonly zIndex: number;
 }
 
 interface MockQueryResult<T> {
@@ -371,13 +422,24 @@ describe("TaxonomyViewPage shell contracts", () => {
     render(<TaxonomyViewPage />);
 
     const canvas = screen.getByTestId("taxonomy-canvas-shell");
-    fireEvent.click(screen.getByRole("button", { name: "Math" }));
-    expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
+    const rootBranchNode = within(canvas)
+      .getByText("Math")
+      .closest("[data-node-scope='branch']");
+
+    expect(rootBranchNode).not.toBeNull();
     expect(
-      within(canvas).getByRole("button", { name: "Algebra" }),
+      within(rootBranchNode as HTMLElement).getByText("Open"),
     ).toBeInTheDocument();
 
-    fireEvent.click(within(canvas).getByRole("button", { name: "Algebra" }));
+    fireEvent.click(within(rootBranchNode as HTMLElement).getByText("Math"));
+    expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
+    const branchNode = within(canvas)
+      .getByText("Algebra")
+      .closest("[data-node-scope='branch']");
+
+    expect(branchNode).not.toBeNull();
+
+    fireEvent.click(within(branchNode as HTMLElement).getByText("Algebra"));
     expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
     expect(within(canvas).getByText("Equation")).toBeInTheDocument();
     expect(
@@ -386,6 +448,18 @@ describe("TaxonomyViewPage shell contracts", () => {
     expect(
       within(canvas).getByTestId("reactflow-edge-e-1"),
     ).toBeInTheDocument();
+
+    const leafNode = within(canvas)
+      .getByText("Equation")
+      .closest("[data-node-scope='inner']");
+
+    expect(leafNode).not.toBeNull();
+    fireEvent.mouseEnter(leafNode as HTMLElement);
+    expect(within(canvas).getByRole("tooltip")).toHaveTextContent(
+      "Equation content",
+    );
+    fireEvent.mouseLeave(leafNode as HTMLElement);
+    expect(within(canvas).queryByRole("tooltip")).not.toBeInTheDocument();
 
     fireEvent.click(within(canvas).getByRole("button", { name: "Root" }));
     expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
