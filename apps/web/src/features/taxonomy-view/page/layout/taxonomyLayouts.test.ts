@@ -16,6 +16,30 @@ function roundPosition(position: { readonly x: number; readonly y: number }) {
   };
 }
 
+function distanceFromCenter(
+  position: { readonly x: number; readonly y: number },
+  center: { readonly x: number; readonly y: number },
+) {
+  return Math.hypot(position.x - center.x, position.y - center.y);
+}
+
+function circlesOverlap(
+  left: {
+    readonly position: { readonly x: number; readonly y: number };
+    readonly style: { readonly width: number };
+  },
+  right: {
+    readonly position: { readonly x: number; readonly y: number };
+    readonly style: { readonly width: number };
+  },
+) {
+  const distance = Math.hypot(
+    left.position.x - right.position.x,
+    left.position.y - right.position.y,
+  );
+  return distance < left.style.width / 2 + right.style.width / 2;
+}
+
 describe("branch layout contracts", () => {
   it("uses logarithmic bubble sizing", () => {
     expect(bubbleDiameterFromDescendantCount(1)).toBeLessThan(
@@ -67,6 +91,46 @@ describe("branch layout contracts", () => {
     expect(second.nodes.map((node) => roundPosition(node.position))).toEqual(
       first.nodes.map((node) => roundPosition(node.position)),
     );
+  });
+
+  it("prefers heavier bubbles near the center zone", () => {
+    const center = { x: 702, y: 450 };
+    const result = buildBranchLayout({
+      center,
+      children: [
+        { depth: 0, descendant_card_count: 500, id: 1, name: "Science" },
+        { depth: 0, descendant_card_count: 5, id: 2, name: "Culture" },
+      ],
+      viewport: { height: 900, width: 1404 },
+    });
+
+    const heavy = result.nodes.find((node) => node.id === "taxonomy-1");
+    const light = result.nodes.find((node) => node.id === "taxonomy-2");
+
+    expect(distanceFromCenter(heavy!.position, center)).toBeLessThan(
+      distanceFromCenter(light!.position, center),
+    );
+  });
+
+  it("settles dense bubble sets without overlap", () => {
+    const result = buildBranchLayout({
+      center: { x: 702, y: 450 },
+      children: Array.from({ length: 12 }, (_, index) => ({
+        depth: 0,
+        descendant_card_count: 400 - index,
+        id: index + 1,
+        name: `Node ${index + 1}`,
+      })),
+      viewport: { height: 900, width: 1404 },
+    });
+
+    const hasOverlap = result.nodes.some((node, index) =>
+      result.nodes
+        .slice(index + 1)
+        .some((otherNode) => circlesOverlap(node, otherNode)),
+    );
+
+    expect(hasOverlap).toBe(false);
   });
 });
 
