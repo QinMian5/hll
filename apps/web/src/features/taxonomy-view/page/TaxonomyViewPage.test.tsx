@@ -265,11 +265,17 @@ describe("TaxonomyViewPage shell contracts", () => {
 
     render(<TaxonomyViewPage />);
 
+    expect(screen.getByTestId("taxonomy-shell-body")).toHaveClass("p-6");
     expect(screen.getByText("Knowledge Graph")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "GitHub" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Login" })).toBeDisabled();
     expect(screen.getByLabelText("taxonomy flow canvas")).toBeInTheDocument();
     expect(screen.getByLabelText("taxonomy breadcrumb")).toBeInTheDocument();
+    expect(screen.getByTestId("taxonomy-canvas-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("taxonomy-breadcrumb-overlay")).toHaveAttribute(
+      "data-breadcrumb-style",
+      "inline-text",
+    );
     expect(screen.queryByText("Taxonomy drill-down")).not.toBeInTheDocument();
   });
 

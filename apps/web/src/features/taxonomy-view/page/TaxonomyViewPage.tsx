@@ -111,93 +111,130 @@ export function TaxonomyViewPage() {
   ]);
 
   return (
-    <main className="taxonomy-view-shell">
-      <header className="taxonomy-header" data-testid="taxonomy-header-shell">
-        <div className="taxonomy-header__brand">
-          <div aria-hidden="true" className="taxonomy-header__brand-mark" />
-          <span className="taxonomy-header__brand-name">Knowledge Graph</span>
+    <main
+      className="flex min-h-screen flex-col gap-6 p-6"
+      data-testid="taxonomy-shell-body"
+    >
+      <header
+        className="grid min-h-16 grid-cols-[auto_1fr_auto] items-stretch gap-2.5 max-md:grid-cols-1"
+        data-testid="taxonomy-header-shell"
+      >
+        <div className="inline-grid grid-cols-[auto_auto] items-stretch gap-2.5">
+          <div aria-hidden="true" className="h-16 w-16 shrink-0 bg-[#30CBFF]" />
+          <span className="inline-flex items-center px-2.5 py-2 text-[14px] leading-5 text-black">
+            Knowledge Graph
+          </span>
         </div>
-        <div aria-hidden="true" className="taxonomy-header__spacer" />
-        <div className="taxonomy-header__actions">
-          <button className="taxonomy-header__action" disabled type="button">
+        <div aria-hidden="true" className="min-w-0" />
+        <div className="flex items-center justify-end gap-2.5 max-md:justify-start">
+          <button
+            className="min-h-10 min-w-[85px] cursor-not-allowed rounded-lg bg-[#171717] px-6 py-2.5 text-[14px] leading-5 font-medium text-[#FAFAFA] outline-offset-2 focus-visible:outline-2 focus-visible:outline-[#2563EB] disabled:bg-[#171717] disabled:text-[#FAFAFA]"
+            disabled
+            type="button"
+          >
             GitHub
           </button>
-          <button className="taxonomy-header__action" disabled type="button">
+          <button
+            className="min-h-10 min-w-[85px] cursor-not-allowed rounded-lg bg-[#171717] px-6 py-2.5 text-[14px] leading-5 font-medium text-[#FAFAFA] outline-offset-2 focus-visible:outline-2 focus-visible:outline-[#2563EB] disabled:bg-[#171717] disabled:text-[#FAFAFA]"
+            disabled
+            type="button"
+          >
             Login
           </button>
         </div>
       </header>
       <section
         aria-label="taxonomy flow canvas"
-        className="taxonomy-canvas-shell"
+        className="relative min-h-[32rem] h-[calc(100vh-136px)] flex-1"
         data-testid="taxonomy-canvas-shell"
       >
-        <nav
-          aria-label="taxonomy breadcrumb"
-          className="taxonomy-breadcrumb taxonomy-canvas-overlay"
-          data-testid="taxonomy-breadcrumb-overlay"
+        <div
+          className="relative h-full w-full overflow-hidden rounded-[32px] border border-[rgba(214,227,247,0.86)] bg-[linear-gradient(137.03deg,rgba(254,254,255,1)_14.099%,rgba(245,249,255,1)_45.692%,rgba(249,251,255,1)_85.901%)] shadow-[0px_18px_52px_0px_rgba(107,133,189,0.09)]"
+          data-testid="taxonomy-canvas-panel"
         >
-          <button
-            className="taxonomy-breadcrumb__item"
-            onClick={() => {
-              startTransition(() => setActiveNodeId(null));
-            }}
-            type="button"
+          <nav
+            aria-label="taxonomy breadcrumb"
+            className="absolute top-[27px] left-[33px] z-20 flex max-w-[calc(100%-66px)] flex-wrap items-center justify-center gap-2 overflow-hidden"
+            data-breadcrumb-style="inline-text"
+            data-testid="taxonomy-breadcrumb-overlay"
           >
-            Root
-          </button>
-          {breadcrumbs.map((item) => (
             <button
-              className="taxonomy-breadcrumb__item"
-              key={item.id}
+              className="text-[13px] leading-[18px] font-normal text-[rgba(92,107,138,0.74)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0"
               onClick={() => {
-                startTransition(() => setActiveNodeId(item.id));
+                startTransition(() => setActiveNodeId(null));
               }}
               type="button"
             >
-              {item.name}
+              Root
             </button>
-          ))}
-        </nav>
-        {activeQuery.isPending ? (
-          <section
-            aria-busy="true"
-            aria-live="polite"
-            className="taxonomy-status-overlay taxonomy-canvas-overlay"
-            data-testid="taxonomy-loading-overlay"
-          >
-            <h2>Loading taxonomy view</h2>
-            <p>Fetching the latest taxonomy hierarchy snapshot from API.</p>
-          </section>
-        ) : null}
-        {activeQuery.isError ? (
-          <section
-            className="taxonomy-status-overlay taxonomy-canvas-overlay"
-            data-testid="taxonomy-error-overlay"
-            role="alert"
-          >
-            <h2>Taxonomy view unavailable</h2>
-            <p>{activeQuery.error.message}</p>
-          </section>
-        ) : null}
-        <div className="taxonomy-flow-shell">
-          <ReactFlow
-            edges={flowGraph.edges}
-            fitView
-            minZoom={0.2}
-            nodeTypes={nodeTypes}
-            nodes={flowGraph.nodes}
-            onNodeClick={(_, node) => {
-              const targetNodeId = node.data.targetNodeId;
-              if (typeof targetNodeId !== "number") {
-                return;
-              }
-              startTransition(() => setActiveNodeId(targetNodeId));
-            }}
-            proOptions={{ hideAttribution: true }}
-          >
-            <Background />
-          </ReactFlow>
+            {breadcrumbs.flatMap((item) => [
+              <span
+                aria-hidden="true"
+                className="text-[12px] leading-[18px] font-normal text-[rgba(117,133,161,0.56)]"
+                key={`${item.id}-separator`}
+              >
+                /
+              </span>,
+              <button
+                className="text-[13px] leading-[18px] font-medium text-[rgba(33,43,64,0.96)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0"
+                key={item.id}
+                onClick={() => {
+                  startTransition(() => setActiveNodeId(item.id));
+                }}
+                type="button"
+              >
+                {item.name}
+              </button>,
+            ])}
+          </nav>
+          {activeQuery.isPending ? (
+            <section
+              aria-busy="true"
+              aria-live="polite"
+              className="absolute top-1/2 left-1/2 z-20 w-[min(420px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 rounded-[20px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-[22px] text-left shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+              data-testid="taxonomy-loading-overlay"
+            >
+              <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
+                Loading taxonomy view
+              </h2>
+              <p className="mt-2.5 mb-0 text-[#475569]">
+                Fetching the latest taxonomy hierarchy snapshot from API.
+              </p>
+            </section>
+          ) : null}
+          {activeQuery.isError ? (
+            <section
+              className="absolute top-1/2 left-1/2 z-20 w-[min(420px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 rounded-[20px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-[22px] text-left shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+              data-testid="taxonomy-error-overlay"
+              role="alert"
+            >
+              <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
+                Taxonomy view unavailable
+              </h2>
+              <p className="mt-2.5 mb-0 text-[#475569]">
+                {activeQuery.error.message}
+              </p>
+            </section>
+          ) : null}
+          <div className="taxonomy-flow-shell">
+            <ReactFlow
+              edges={flowGraph.edges}
+              fitView
+              minZoom={0.2}
+              nodeTypes={nodeTypes}
+              nodes={flowGraph.nodes}
+              onNodeClick={(_, node) => {
+                const targetNodeId = node.data.targetNodeId;
+                if (typeof targetNodeId !== "number") {
+                  return;
+                }
+                startTransition(() => setActiveNodeId(targetNodeId));
+              }}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background />
+            </ReactFlow>
+          </div>
         </div>
       </section>
     </main>
