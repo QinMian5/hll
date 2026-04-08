@@ -274,6 +274,10 @@ describe("TaxonomyViewPage shell contracts", () => {
     expect(screen.getByLabelText("taxonomy flow canvas")).toBeInTheDocument();
     expect(screen.getByLabelText("taxonomy breadcrumb")).toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-canvas-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("taxonomy-canvas-panel")).toHaveClass(
+      "absolute",
+      "inset-0",
+    );
     expect(screen.getByTestId("taxonomy-breadcrumb-overlay")).toHaveAttribute(
       "data-breadcrumb-style",
       "inline-text",

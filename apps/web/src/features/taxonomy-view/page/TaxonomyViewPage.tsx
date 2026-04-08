@@ -149,7 +149,7 @@ export function TaxonomyViewPage() {
         data-testid="taxonomy-canvas-shell"
       >
         <div
-          className="relative h-full w-full overflow-hidden rounded-[32px] border border-[rgba(214,227,247,0.86)] bg-[linear-gradient(137.03deg,rgba(254,254,255,1)_14.099%,rgba(245,249,255,1)_45.692%,rgba(249,251,255,1)_85.901%)] shadow-[0px_18px_52px_0px_rgba(107,133,189,0.09)]"
+          className="absolute inset-0 overflow-hidden rounded-[32px] border border-[rgba(214,227,247,0.86)] bg-[linear-gradient(137.03deg,rgba(254,254,255,1)_14.099%,rgba(245,249,255,1)_45.692%,rgba(249,251,255,1)_85.901%)] shadow-[0px_18px_52px_0px_rgba(107,133,189,0.09)]"
           data-testid="taxonomy-canvas-panel"
         >
           <nav
@@ -220,6 +220,8 @@ export function TaxonomyViewPage() {
             <ReactFlow
               edges={flowGraph.edges}
               fitView
+              fitViewOptions={{ padding: 0.18 }}
+              key={activeNodeId ?? "root"}
               minZoom={0.2}
               nodeTypes={nodeTypes}
               nodes={flowGraph.nodes}
