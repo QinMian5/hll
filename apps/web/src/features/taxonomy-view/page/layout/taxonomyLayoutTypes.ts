@@ -32,14 +32,14 @@ export interface LeafEdgeLayoutInput {
   readonly target_node_id: number;
 }
 
-export interface TaxonomyLayoutNodeData {
+export type TaxonomyLayoutNodeData = Record<string, unknown> & {
   readonly content?: string;
   readonly depth: number;
   readonly label: string;
   readonly scope: "branch" | "inner" | "outer";
   readonly targetNodeId: number | null;
   readonly tooltip: string;
-}
+};
 
 export interface TaxonomyLayoutNode {
   readonly data: TaxonomyLayoutNodeData;

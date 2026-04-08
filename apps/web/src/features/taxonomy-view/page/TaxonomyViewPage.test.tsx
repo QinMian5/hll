@@ -15,7 +15,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@xyflow/react", () => ({
   Background: () => <div data-testid="reactflow-background" />,
-  ReactFlow: ({ children, nodes, onNodeClick }: MockReactFlowProps) => (
+  ReactFlow: ({
+    children,
+    edges = [],
+    nodes,
+    onNodeClick,
+  }: MockReactFlowProps) => (
     <div data-testid="reactflow-mock">
       {nodes.map((node) => (
         <button
@@ -25,6 +30,12 @@ vi.mock("@xyflow/react", () => ({
         >
           {String(node.data.label)}
         </button>
+      ))}
+      {edges.map((edge) => (
+        <div
+          data-testid={`reactflow-edge-${edge.id}`}
+          key={edge.id}
+        >{`${edge.source}->${edge.target}`}</div>
       ))}
       {children}
     </div>
@@ -45,14 +56,19 @@ import { TaxonomyViewPage } from "./TaxonomyViewPage";
 
 interface MockReactFlowProps {
   readonly children?: ReactNode;
+  readonly edges?: Array<{
+    readonly id: string;
+    readonly source: string;
+    readonly target: string;
+  }>;
   readonly nodes: Array<{
-    readonly data: { readonly label: string };
+    readonly data: { readonly content?: string; readonly label: string };
     readonly id: string;
   }>;
   readonly onNodeClick?: (
     event: unknown,
     node: {
-      readonly data: { readonly label: string };
+      readonly data: { readonly content?: string; readonly label: string };
       readonly id: string;
     },
   ) => void;
@@ -326,12 +342,26 @@ describe("TaxonomyViewPage shell contracts", () => {
             name: "Algebra",
             parent_id: 1,
           },
+          edges: [
+            {
+              id: "e-1",
+              source_node_id: 10,
+              strength: 0.8,
+              target_node_id: 11,
+            },
+          ],
           nodes: [
             {
               content: "Equation content",
               id: 10,
               scope: "inner",
               title: "Equation",
+            },
+            {
+              content: "Proof content",
+              id: 11,
+              scope: "outer",
+              title: "Proof",
             },
           ],
         }),
@@ -350,6 +380,12 @@ describe("TaxonomyViewPage shell contracts", () => {
     fireEvent.click(within(canvas).getByRole("button", { name: "Algebra" }));
     expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
     expect(within(canvas).getByText("Equation")).toBeInTheDocument();
+    expect(
+      within(canvas).queryByText("Equation content"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(canvas).getByTestId("reactflow-edge-e-1"),
+    ).toBeInTheDocument();
 
     fireEvent.click(within(canvas).getByRole("button", { name: "Root" }));
     expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
