@@ -28,6 +28,8 @@ vi.mock("@xyflow/react", () => ({
 
         return (
           <button
+            className="contents"
+            data-testid={`reactflow-node-${node.id}`}
             key={node.id}
             onClick={() => onNodeClick?.({}, node)}
             type="button"
@@ -433,9 +435,10 @@ describe("TaxonomyViewPage shell contracts", () => {
       .closest("[data-node-scope='branch']");
 
     expect(rootBranchNode).not.toBeNull();
+    expect(rootBranchNode).toHaveAttribute("data-bubble-family", "taxonomy");
     expect(
-      within(rootBranchNode as HTMLElement).getByText("Open"),
-    ).toBeInTheDocument();
+      within(rootBranchNode as HTMLElement).queryByText("Open"),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(within(rootBranchNode as HTMLElement).getByText("Math"));
     expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
