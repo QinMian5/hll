@@ -62,9 +62,10 @@ const bubbleVariantClasses: Record<
 
 export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
   const isBranch = data.scope === "branch";
+  const isPointNode = data.renderMode === "point";
   const [isDisclosureOpen, setIsDisclosureOpen] = useState(false);
   const tooltipId = useId();
-  const canRevealContent = !isBranch && Boolean(data.content);
+  const canRevealContent = !isBranch && !isPointNode && Boolean(data.content);
   const shouldShowTooltip = canRevealContent && isDisclosureOpen;
   const visualVariant = bubbleVariantClasses[data.scope];
   const rotationDegrees = isBranch
@@ -82,6 +83,7 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
       data-bubble-family="taxonomy"
       data-bubble-variant={data.scope}
       data-depth={data.depth}
+      data-node-presentation={data.renderMode}
       data-node-scope={data.scope}
       onMouseEnter={() => {
         if (canRevealContent) {
@@ -93,33 +95,44 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
       }}
       style={{ transform: `rotate(${rotationDegrees})` }}
     >
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none absolute -inset-[14%] rounded-full ${visualVariant.halo}`}
-        data-testid="taxonomy-bubble-halo"
-      />
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none absolute inset-0 rounded-full ${visualVariant.frame}`}
-        data-testid="taxonomy-bubble-surface"
-      />
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none absolute inset-[10%] rounded-full ${visualVariant.glow}`}
-        data-testid="taxonomy-bubble-core-glow"
-      />
-      <span
-        aria-hidden="true"
-        className={`pointer-events-none absolute inset-x-[18%] top-[10%] h-[34%] rounded-full blur-[1px] ${visualVariant.sheen}`}
-        data-testid="taxonomy-bubble-sheen"
-      />
-      <span
-        className={`${labelLayoutClasses} [text-wrap:balance] ${visualVariant.label}`}
-        data-bubble-tone={isBranch ? "branch" : "leaf"}
-        data-testid="taxonomy-bubble-label"
-      >
-        {data.label}
-      </span>
+      {isPointNode ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(111,135,176,0.92)_0%,rgba(160,182,219,0.86)_42%,rgba(222,232,248,0.54)_100%)] shadow-[0_0_0_1px_rgba(245,249,255,0.96),0_6px_14px_rgba(148,169,204,0.24)]"
+          data-testid="taxonomy-point-node"
+        />
+      ) : null}
+      {!isPointNode ? (
+        <>
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute -inset-[14%] rounded-full ${visualVariant.halo}`}
+            data-testid="taxonomy-bubble-halo"
+          />
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-0 rounded-full ${visualVariant.frame}`}
+            data-testid="taxonomy-bubble-surface"
+          />
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-[10%] rounded-full ${visualVariant.glow}`}
+            data-testid="taxonomy-bubble-core-glow"
+          />
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-x-[18%] top-[10%] h-[34%] rounded-full blur-[1px] ${visualVariant.sheen}`}
+            data-testid="taxonomy-bubble-sheen"
+          />
+          <span
+            className={`${labelLayoutClasses} [text-wrap:balance] ${visualVariant.label}`}
+            data-bubble-tone={isBranch ? "branch" : "leaf"}
+            data-testid="taxonomy-bubble-label"
+          >
+            {data.label}
+          </span>
+        </>
+      ) : null}
       {shouldShowTooltip ? (
         <div
           className="absolute bottom-[calc(100%+14px)] left-1/2 z-[5] w-max max-w-[min(18rem,42vw)] -translate-x-1/2 rounded-[18px] border border-[#d5e1f2]/85 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(243,247,255,0.96)_100%)] px-4 py-3 text-left text-[12px] leading-[1.4] text-[#314967] shadow-[0_20px_50px_rgba(165,183,212,0.28)]"

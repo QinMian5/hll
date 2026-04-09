@@ -144,33 +144,56 @@ describe("branch layout contracts", () => {
 });
 
 describe("leaf layout contracts", () => {
-  it("returns title-first nodes and preserves supplied edges", () => {
+  it("returns point-mode skeleton nodes and preserves supplied edges by default", () => {
     const result = buildLeafLayout({
       center: { x: 700, y: 450 },
       edges: [
         { id: "e-1", source_node_id: 10, strength: 0.8, target_node_id: 11 },
       ],
       nodes: [
-        {
-          content: "Inner content",
-          id: 10,
-          scope: "inner",
-          title: "Inner node",
-        },
-        {
-          content: "Outer content",
-          id: 11,
-          scope: "outer",
-          title: "Outer node",
-        },
+        { id: 10, scope: "inner" },
+        { id: 11, scope: "outer" },
       ],
       viewport: { height: 900, width: 1404 },
     });
 
     expect(result.nodes).toHaveLength(2);
     expect(result.edges).toHaveLength(1);
-    expect(result.nodes[0]?.data.label).toBe("Inner node");
-    expect(result.nodes[0]?.data.content).toBe("Inner content");
+    expect(result.nodes[0]?.data.renderMode).toBe("point");
+    expect(result.nodes[0]?.data.label).toBe("");
+    expect(result.nodes[0]?.data.content).toBeUndefined();
+  });
+
+  it("upgrades only visible hydrated node ids into bubble mode", () => {
+    const result = buildLeafLayout({
+      center: { x: 700, y: 450 },
+      edges: [
+        { id: "e-1", source_node_id: 10, strength: 0.8, target_node_id: 11 },
+      ],
+      hydratedNodeDetailsById: {
+        10: {
+          content: "Inner content",
+          id: 10,
+          scope: "inner",
+          title: "Inner node",
+        },
+      },
+      nodes: [
+        { id: 10, scope: "inner" },
+        { id: 11, scope: "outer" },
+      ],
+      viewport: { height: 900, width: 1404 },
+      visibleBubbleNodeIds: [10],
+    });
+
+    const innerNode = result.nodes.find((node) => node.data.graphNodeId === 10);
+    const outerNode = result.nodes.find((node) => node.data.graphNodeId === 11);
+
+    expect(innerNode?.data.renderMode).toBe("bubble");
+    expect(innerNode?.data.label).toBe("Inner node");
+    expect(innerNode?.data.content).toBe("Inner content");
+    expect(outerNode?.data.renderMode).toBe("point");
+    expect(outerNode?.data.label).toBe("");
   });
 
   it("keeps rounded positions stable for identical graph input", () => {
@@ -181,24 +204,9 @@ describe("leaf layout contracts", () => {
         { id: "e-2", source_node_id: 11, strength: 0.5, target_node_id: 12 },
       ],
       nodes: [
-        {
-          content: "Inner content",
-          id: 10,
-          scope: "inner" as const,
-          title: "Inner node",
-        },
-        {
-          content: "Outer content",
-          id: 11,
-          scope: "outer" as const,
-          title: "Outer node",
-        },
-        {
-          content: "Third content",
-          id: 12,
-          scope: "outer" as const,
-          title: "Third node",
-        },
+        { id: 10, scope: "inner" as const },
+        { id: 11, scope: "outer" as const },
+        { id: 12, scope: "outer" as const },
       ],
       viewport: { height: 900, width: 1404 },
     };
@@ -225,11 +233,11 @@ describe("leaf layout contracts", () => {
         { id: "e-4", source_node_id: 50, strength: 1, target_node_id: 40 },
       ],
       nodes: [
-        { content: "A", id: 10, scope: "outer", title: "A" },
-        { content: "B", id: 20, scope: "outer", title: "B" },
-        { content: "C", id: 30, scope: "inner", title: "C" },
-        { content: "D", id: 40, scope: "outer", title: "D" },
-        { content: "Hub", id: 50, scope: "inner", title: "Hub" },
+        { id: 10, scope: "outer" },
+        { id: 20, scope: "outer" },
+        { id: 30, scope: "inner" },
+        { id: 40, scope: "outer" },
+        { id: 50, scope: "inner" },
       ],
       viewport: { height: 900, width: 1404 },
     });

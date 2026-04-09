@@ -29,10 +29,7 @@ export interface LeafHydratedNodeLayoutInput
   readonly title: string;
 }
 
-export type LeafNodeLayoutInput = LeafHydratedNodeLayoutInput;
-export type LeafRenderableNodeLayoutInput =
-  | LeafHydratedNodeLayoutInput
-  | LeafSkeletonNodeLayoutInput;
+export type LeafNodeLayoutInput = LeafSkeletonNodeLayoutInput;
 
 export interface LeafEdgeLayoutInput {
   readonly id: string;

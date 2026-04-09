@@ -10,10 +10,6 @@ type TaxonomyRootViewContract =
   components["schemas"]["TaxonomyRootViewResponse"];
 type TaxonomyNodeViewContract =
   components["schemas"]["TaxonomyNodeViewResponse"];
-type TaxonomyBranchViewContract = Extract<
-  TaxonomyNodeViewContract,
-  { readonly node_kind: "branch" }
->;
 export type TaxonomyLeafViewContract = Extract<
   TaxonomyNodeViewContract,
   { readonly node_kind: "leaf" }
@@ -26,28 +22,9 @@ export type TaxonomyLeafNodeDetailsResponse =
   components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
 export type TaxonomyLeafNodeDetailRecord =
   TaxonomyLeafNodeDetailsResponse["nodes"][number];
-export type TaxonomyLeafLegacyNode = TaxonomyLeafSkeletonNode & {
-  readonly content: string;
-  readonly title: string;
-};
 export type TaxonomyRootView = TaxonomyRootViewContract;
-export type TaxonomyLeafView = Omit<TaxonomyLeafViewContract, "nodes"> & {
-  readonly nodes: (TaxonomyLeafLegacyNode | TaxonomyLeafSkeletonNode)[];
-};
-export type TaxonomyNodeView = TaxonomyBranchViewContract | TaxonomyLeafView;
-export type TaxonomyLeafHydrationPlaceholderNode = TaxonomyLeafSkeletonNode & {
-  readonly content: string;
-  readonly title: string;
-};
-export type TaxonomyLeafViewQueryData = Omit<
-  TaxonomyLeafViewContract,
-  "nodes"
-> & {
-  readonly nodes: TaxonomyLeafHydrationPlaceholderNode[];
-};
-export type TaxonomyNodeViewQueryData =
-  | TaxonomyBranchViewContract
-  | TaxonomyLeafViewQueryData;
+export type TaxonomyLeafView = TaxonomyLeafViewContract;
+export type TaxonomyNodeView = TaxonomyNodeViewContract;
 
 type Assert<T extends true> = T;
 type HasProperty<
@@ -106,7 +83,7 @@ async function fetchTaxonomyRootView(): Promise<TaxonomyRootView> {
 
 async function fetchTaxonomyNodeView(
   nodeId: number,
-): Promise<TaxonomyNodeViewQueryData> {
+): Promise<TaxonomyNodeView> {
   const result = await getContractsClient().GET(
     "/taxonomy/view/nodes/{node_id}",
     {
@@ -125,20 +102,7 @@ async function fetchTaxonomyNodeView(
     throw new Error("Taxonomy node view response did not include a payload.");
   }
 
-  const payload = result.data as TaxonomyNodeViewContract;
-
-  if (payload.node_kind !== "leaf") {
-    return payload;
-  }
-
-  return {
-    ...payload,
-    nodes: payload.nodes.map((node) => ({
-      ...node,
-      content: "",
-      title: "",
-    })),
-  };
+  return result.data;
 }
 
 function normalizeLeafDetailNodeIds(nodeIds: readonly number[]) {

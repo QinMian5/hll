@@ -39,7 +39,9 @@ describe("TaxonomyFlowNode branch renderer", () => {
       <TaxonomyFlowNode
         {...makeNodeProps({
           depth: 1,
+          graphNodeId: 2,
           label: "Mathematics",
+          renderMode: "bubble",
           scope: "branch",
           targetNodeId: 2,
           tooltip: "Mathematics · 12 cards",
@@ -70,7 +72,9 @@ describe("TaxonomyFlowNode leaf renderer", () => {
         {...makeNodeProps({
           content: "Equation content",
           depth: 2,
+          graphNodeId: 10,
           label: "Equation",
+          renderMode: "bubble",
           scope: "inner",
           targetNodeId: null,
           tooltip: "Equation",
@@ -105,7 +109,9 @@ describe("TaxonomyFlowNode leaf renderer", () => {
         {...makeNodeProps({
           content: "Proof content",
           depth: 2,
+          graphNodeId: 11,
           label: "Proof",
+          renderMode: "bubble",
           scope: "outer",
           targetNodeId: null,
           tooltip: "Proof",
@@ -130,5 +136,35 @@ describe("TaxonomyFlowNode leaf renderer", () => {
     expect(
       within(outerLeafNode as HTMLElement).getByTestId("taxonomy-bubble-label"),
     ).toHaveAttribute("data-bubble-tone", "leaf");
+  });
+
+  it("renders non-hydrated leaf nodes as point-mode markers without titles or disclosure", () => {
+    render(
+      <TaxonomyFlowNode
+        {...makeNodeProps({
+          depth: 2,
+          graphNodeId: 12,
+          label: "",
+          renderMode: "point",
+          scope: "outer",
+          targetNodeId: null,
+          tooltip: "",
+        })}
+      />,
+    );
+
+    const pointNode = screen
+      .getByTestId("taxonomy-point-node")
+      .closest("[data-node-scope='outer']");
+
+    expect(pointNode).toHaveAttribute("data-node-presentation", "point");
+    expect(
+      within(pointNode as HTMLElement).queryByTestId("taxonomy-bubble-label"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.mouseEnter(pointNode as HTMLElement);
+    expect(
+      screen.queryByTestId("taxonomy-bubble-disclosure"),
+    ).not.toBeInTheDocument();
   });
 });

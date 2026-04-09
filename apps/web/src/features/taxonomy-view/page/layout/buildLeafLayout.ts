@@ -16,11 +16,10 @@ import type {
 } from "./taxonomyLayoutTypes";
 
 interface LeafSimulationNode {
-  readonly content: string;
   readonly diameter: number;
+  readonly graphNodeId: number;
   readonly id: string;
   readonly scope: "inner" | "outer";
-  readonly title: string;
   x: number;
   y: number;
   vx?: number;
@@ -44,7 +43,13 @@ function leafNodeDiameter(scope: "inner" | "outer") {
   return scope === "inner" ? 68 : 52;
 }
 
+function pointNodeDiameter() {
+  return 12;
+}
+
 export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
+  const hydratedNodeDetailsById = input.hydratedNodeDetailsById ?? {};
+  const visibleBubbleNodeIds = new Set(input.visibleBubbleNodeIds ?? []);
   const sortedNodes = [...input.nodes].sort(
     (left, right) => left.id - right.id,
   );
@@ -55,12 +60,17 @@ export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
         index,
       });
 
+      const shouldRenderBubble =
+        visibleBubbleNodeIds.has(node.id) &&
+        input.hydratedNodeDetailsById?.[node.id] !== undefined;
+
       return {
-        content: node.content,
-        diameter: leafNodeDiameter(node.scope),
+        diameter: shouldRenderBubble
+          ? leafNodeDiameter(node.scope)
+          : pointNodeDiameter(),
+        graphNodeId: node.id,
         id: `card-${node.id}`,
         scope: node.scope,
-        title: node.title,
         x: position.x,
         y: position.y,
       };
@@ -115,26 +125,35 @@ export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
       source: `card-${edge.source_node_id}`,
       target: `card-${edge.target_node_id}`,
     })),
-    nodes: simulationNodes.map((node) => ({
-      data: {
-        content: node.content,
-        depth: 0,
-        label: node.title,
-        scope: node.scope,
-        targetNodeId: null,
-        tooltip: node.title,
-      },
-      id: node.id,
-      position: {
-        x: node.x,
-        y: node.y,
-      },
-      style: {
-        borderRadius: `${node.diameter}px`,
-        height: node.diameter,
-        width: node.diameter,
-      },
-      type: "bubble",
-    })),
+    nodes: simulationNodes.map((node) => {
+      const hydratedDetails = hydratedNodeDetailsById[node.graphNodeId];
+      const shouldRenderBubble =
+        visibleBubbleNodeIds.has(node.graphNodeId) &&
+        hydratedDetails !== undefined;
+
+      return {
+        data: {
+          content: shouldRenderBubble ? hydratedDetails.content : undefined,
+          depth: 0,
+          graphNodeId: node.graphNodeId,
+          label: shouldRenderBubble ? hydratedDetails.title : "",
+          renderMode: shouldRenderBubble ? "bubble" : "point",
+          scope: node.scope,
+          targetNodeId: null,
+          tooltip: shouldRenderBubble ? hydratedDetails.title : "",
+        },
+        id: node.id,
+        position: {
+          x: node.x,
+          y: node.y,
+        },
+        style: {
+          borderRadius: `${node.diameter}px`,
+          height: node.diameter,
+          width: node.diameter,
+        },
+        type: "bubble",
+      };
+    }),
   };
 }
