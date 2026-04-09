@@ -542,14 +542,7 @@ describe("TaxonomyViewPage shell contracts", () => {
             name: "Algebra",
             parent_id: 1,
           },
-          edges: [
-            {
-              id: "e-1",
-              source_node_id: 10,
-              strength: 0.8,
-              target_node_id: 11,
-            },
-          ],
+          edges: [[10, 11, 0.8]],
           nodes: [
             {
               id: 10,
@@ -611,7 +604,7 @@ describe("TaxonomyViewPage shell contracts", () => {
     fireEvent.click(within(branchNode as HTMLElement).getByText("Algebra"));
     expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
     expect(
-      within(canvas).getByTestId("reactflow-edge-e-1"),
+      within(canvas).getByTestId("reactflow-edge-10:11"),
     ).toBeInTheDocument();
     expect(within(canvas).queryByText("Equation")).not.toBeInTheDocument();
     expect(

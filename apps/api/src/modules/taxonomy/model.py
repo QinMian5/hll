@@ -12,6 +12,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Text,
     UniqueConstraint,
@@ -41,7 +42,15 @@ class TaxonomyNode(Base):
 
 class NodeTaxonomyAssignment(Base):
     __tablename__ = "node_taxonomy_assignments"
-    __table_args__ = (UniqueConstraint("node_id", name="uq_node_taxonomy_assignments_node_id"),)
+    __table_args__ = (
+        UniqueConstraint("node_id", name="uq_node_taxonomy_assignments_node_id"),
+        Index("ix_node_taxonomy_assignments_taxonomy_node_id", "taxonomy_node_id"),
+        Index(
+            "ix_node_taxonomy_assignments_taxonomy_node_id_node_id",
+            "taxonomy_node_id",
+            "node_id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     node_id: Mapped[int] = mapped_column(
@@ -56,4 +65,18 @@ class NodeTaxonomyAssignment(Base):
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
+    )
+
+
+class TaxonomyLeafProjectionEdge(Base):
+    __tablename__ = "taxonomy_leaf_projection_edges"
+    __table_args__ = (Index("ix_taxonomy_leaf_projection_edges_edge_id", "edge_id"),)
+
+    leaf_id: Mapped[int] = mapped_column(
+        ForeignKey("taxonomy_nodes.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    edge_id: Mapped[int] = mapped_column(
+        ForeignKey("edges.id", ondelete="CASCADE"),
+        primary_key=True,
     )

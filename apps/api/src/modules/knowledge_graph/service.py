@@ -51,6 +51,18 @@ class KnowledgeGraphRepoProtocol(Protocol):
         node_ids: Sequence[int],
     ) -> list[ProjectionEdge]: ...
 
+    async def fetch_projection_edges_for_edge_ids(
+        self,
+        *,
+        edge_ids: Sequence[int],
+    ) -> list[ProjectionEdge]: ...
+
+    async def fetch_adjacent_edge_ids_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[int]: ...
+
     async def fetch_unassigned_nodes_for_taxonomy_classification(
         self,
         *,
@@ -78,11 +90,22 @@ class KnowledgeGraphRepoProtocol(Protocol):
         source_node_id: int,
         related_node_id: int,
         strength: float,
-    ) -> None: ...
+    ) -> int: ...
 
     async def commit(self) -> None: ...
 
     async def rollback(self) -> None: ...
+
+
+class KnowledgeGraphTaxonomyProjectionPort(Protocol):
+    async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]: ...
+
+    async def add_projected_edge_ids_for_leaf(
+        self,
+        *,
+        leaf_id: int,
+        edge_ids: list[int],
+    ) -> None: ...
 
 
 class KnowledgeGraphService:
@@ -92,10 +115,12 @@ class KnowledgeGraphService:
         repo: KnowledgeGraphRepoProtocol,
         edge_similarity_top_k: int,
         edge_similarity_min_strength: float,
+        taxonomy_projection_port: KnowledgeGraphTaxonomyProjectionPort | None = None,
     ) -> None:
         self._repo = repo
         self._edge_similarity_top_k = edge_similarity_top_k
         self._edge_similarity_min_strength = edge_similarity_min_strength
+        self._taxonomy_projection_port = taxonomy_projection_port
 
     async def search_searchable_cards(
         self,
@@ -162,6 +187,20 @@ class KnowledgeGraphService:
     ) -> list[ProjectionEdge]:
         return await self._repo.fetch_projection_edges_touching_node_ids(node_ids=node_ids)
 
+    async def list_projection_edges_for_edge_ids(
+        self,
+        *,
+        edge_ids: list[int],
+    ) -> list[ProjectionEdge]:
+        return await self._repo.fetch_projection_edges_for_edge_ids(edge_ids=edge_ids)
+
+    async def list_adjacent_edge_ids_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[int]:
+        return await self._repo.fetch_adjacent_edge_ids_for_node_ids(node_ids=node_ids)
+
     async def list_unassigned_nodes_for_taxonomy_classification(
         self,
         *,
@@ -196,11 +235,22 @@ class KnowledgeGraphService:
                 if candidate.similarity >= self._edge_similarity_min_strength
             ]
             for candidate in threshold_candidates[: self._edge_similarity_top_k]:
-                await self._repo.create_edge_with_adjacency(
+                edge_id = await self._repo.create_edge_with_adjacency(
                     source_node_id=node_id,
                     related_node_id=candidate.node_id,
                     strength=candidate.similarity,
                 )
+                if self._taxonomy_projection_port is not None:
+                    leaf_ids_by_node_id = (
+                        await self._taxonomy_projection_port.list_leaf_ids_for_node_ids(
+                            node_ids=[node_id, candidate.node_id]
+                        )
+                    )
+                    for leaf_id in sorted(set(leaf_ids_by_node_id.values())):
+                        await self._taxonomy_projection_port.add_projected_edge_ids_for_leaf(
+                            leaf_id=leaf_id,
+                            edge_ids=[edge_id],
+                        )
 
             await self._repo.commit()
             return node_id

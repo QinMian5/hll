@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.repo import KnowledgeRepo
 from modules.knowledge_graph.service import KnowledgeGraphService
+from modules.taxonomy.repo import TaxonomyRepo
 
 
 def build_knowledge_graph_service(
@@ -21,4 +22,5 @@ def build_knowledge_graph_service(
         repo=KnowledgeRepo(session=session),
         edge_similarity_top_k=edge_similarity_top_k,
         edge_similarity_min_strength=edge_similarity_min_strength,
+        taxonomy_projection_port=TaxonomyRepo(session=session),
     )

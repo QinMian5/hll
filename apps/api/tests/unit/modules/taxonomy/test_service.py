@@ -32,11 +32,18 @@ class _StubRepo:
     children: list[TaxonomyNodeRecord] = field(default_factory=list)
     assignment: TaxonomyAssignmentRecord | None = None
     assigned_leaf_assignments: list[TaxonomyLeafAssignment] = field(default_factory=list)
+    assigned_leaf_node_ids: list[int] = field(default_factory=list)
+    projected_edge_ids: list[int] = field(default_factory=list)
     set_result: TaxonomyAssignmentRecord | None = None
     committed: bool = False
     rolled_back: bool = False
     fail_on_set: bool = False
     fail_on_assignment_exists: bool = False
+    list_final_assignments_called: bool = False
+    list_assigned_node_ids_for_leaf_called_with: list[int] = field(default_factory=list)
+    list_projected_edge_ids_for_leaf_called_with: list[int] = field(default_factory=list)
+    add_projected_edge_batches: list[tuple[int, list[int]]] = field(default_factory=list)
+    leaf_lookup_by_node_id: dict[int, int] = field(default_factory=dict)
 
     async def list_tree_nodes(self) -> list[TaxonomyNodeRecord]:
         return list(self.tree_nodes)
@@ -56,7 +63,26 @@ class _StubRepo:
         return self.assignment
 
     async def list_final_assignments(self) -> list[TaxonomyLeafAssignment]:
+        self.list_final_assignments_called = True
         return list(self.assigned_leaf_assignments)
+
+    async def list_assigned_node_ids_for_leaf(self, *, leaf_id: int) -> list[int]:
+        self.list_assigned_node_ids_for_leaf_called_with.append(leaf_id)
+        return list(self.assigned_leaf_node_ids)
+
+    async def list_projected_edge_ids_for_leaf(self, *, leaf_id: int) -> list[int]:
+        self.list_projected_edge_ids_for_leaf_called_with.append(leaf_id)
+        return list(self.projected_edge_ids)
+
+    async def add_projected_edge_ids_for_leaf(self, *, leaf_id: int, edge_ids: list[int]) -> None:
+        self.add_projected_edge_batches.append((leaf_id, list(edge_ids)))
+
+    async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]:
+        return {
+            node_id: self.leaf_lookup_by_node_id[node_id]
+            for node_id in node_ids
+            if node_id in self.leaf_lookup_by_node_id
+        }
 
     async def set_final_assignment(
         self,
@@ -84,26 +110,35 @@ class _StubRepo:
 class _StubProjectionPort:
     nodes: list[ProjectionCardNode]
     edges: list[ProjectionEdge]
+    card_request_batches: list[list[int]] = field(default_factory=list)
+    edge_id_request_batches: list[list[int]] = field(default_factory=list)
+    adjacent_edge_id_request_batches: list[list[int]] = field(default_factory=list)
+    adjacent_edge_ids: list[int] = field(default_factory=list)
 
     async def list_projection_cards_for_node_ids(
         self,
         *,
         node_ids: list[int],
     ) -> list[ProjectionCardNode]:
+        self.card_request_batches.append(list(node_ids))
         node_id_set = set(node_ids)
         return [node for node in self.nodes if node.node_id in node_id_set]
 
-    async def list_projection_edges_touching_node_ids(
+    async def list_projection_edges_for_edge_ids(
+        self,
+        *,
+        edge_ids: list[int],
+    ) -> list[ProjectionEdge]:
+        self.edge_id_request_batches.append(list(edge_ids))
+        return list(self.edges[: len(edge_ids)])
+
+    async def list_adjacent_edge_ids_for_node_ids(
         self,
         *,
         node_ids: list[int],
-    ) -> list[ProjectionEdge]:
-        node_id_set = set(node_ids)
-        return [
-            edge
-            for edge in self.edges
-            if edge.node_a_id in node_id_set or edge.node_b_id in node_id_set
-        ]
+    ) -> list[int]:
+        self.adjacent_edge_id_request_batches.append(list(node_ids))
+        return list(self.adjacent_edge_ids)
 
 
 def _leaf_assignment() -> TaxonomyAssignmentRecord:
@@ -170,7 +205,8 @@ async def test_get_assignment_for_node_returns_leaf_assignment() -> None:
 @pytest.mark.anyio
 async def test_set_final_assignment_commits_written_assignment() -> None:
     repo = _StubRepo(set_result=_leaf_assignment())
-    service = TaxonomyService(repo=repo)
+    projection_port = _StubProjectionPort(nodes=[], edges=[], adjacent_edge_ids=[71, 72])
+    service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
 
     assignment = await service.set_final_assignment(
         node_id=41,
@@ -178,6 +214,8 @@ async def test_set_final_assignment_commits_written_assignment() -> None:
     )
 
     assert assignment.taxonomy_node.id == 9
+    assert projection_port.adjacent_edge_id_request_batches == [[41]]
+    assert repo.add_projected_edge_batches == [(9, [71, 72])]
     assert repo.committed is True
     assert repo.rolled_back is False
 
@@ -268,10 +306,8 @@ async def test_get_node_view_returns_leaf_shape_with_scopes_and_canonical_edges(
             TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
             TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
-        assigned_leaf_assignments=[
-            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=2),
-            TaxonomyLeafAssignment(node_id=12, taxonomy_leaf_id=2),
-        ],
+        assigned_leaf_node_ids=[11, 12],
+        projected_edge_ids=[501, 502],
     )
     projection_port = _StubProjectionPort(
         nodes=[
@@ -313,10 +349,15 @@ async def test_get_node_view_returns_leaf_shape_with_scopes_and_canonical_edges(
         (12, "inner"),
         (77, "outer"),
     ]
-    assert [(edge.source_node_id, edge.target_node_id) for edge in view.edges] == [
-        (11, 12),
-        (12, 77),
+    assert view.edges == [
+        (11, 12, 0.91),
+        (12, 77, 0.66),
     ]
+    assert repo.list_assigned_node_ids_for_leaf_called_with == [2]
+    assert repo.list_projected_edge_ids_for_leaf_called_with == [2]
+    assert repo.list_final_assignments_called is False
+    assert projection_port.edge_id_request_batches == [[501, 502]]
+    assert projection_port.card_request_batches == []
 
 
 @pytest.mark.anyio
@@ -341,10 +382,8 @@ async def test_get_leaf_node_details_returns_requested_records_in_request_order(
             TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
             TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
-        assigned_leaf_assignments=[
-            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=2),
-            TaxonomyLeafAssignment(node_id=12, taxonomy_leaf_id=2),
-        ],
+        assigned_leaf_node_ids=[11, 12],
+        projected_edge_ids=[501, 502],
     )
     projection_port = _StubProjectionPort(
         nodes=[
@@ -385,6 +424,11 @@ async def test_get_leaf_node_details_returns_requested_records_in_request_order(
             "content": "Inner 11 content",
         },
     ]
+    assert repo.list_assigned_node_ids_for_leaf_called_with == [2]
+    assert repo.list_projected_edge_ids_for_leaf_called_with == [2]
+    assert repo.list_final_assignments_called is False
+    assert projection_port.edge_id_request_batches == [[501, 502]]
+    assert projection_port.card_request_batches == [[77, 11]]
 
 
 @pytest.mark.anyio
@@ -415,9 +459,8 @@ async def test_get_leaf_node_details_rejects_node_ids_outside_active_leaf_graph(
             TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
             TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
-        assigned_leaf_assignments=[
-            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=2),
-        ],
+        assigned_leaf_node_ids=[11],
+        projected_edge_ids=[901],
     )
     projection_port = _StubProjectionPort(
         nodes=[

@@ -25,6 +25,7 @@ export type TaxonomyLeafNodeDetailRecord =
 export type TaxonomyRootView = TaxonomyRootViewContract;
 export type TaxonomyLeafView = TaxonomyLeafViewContract;
 export type TaxonomyNodeView = TaxonomyNodeViewContract;
+type TaxonomyLeafEdgeTuple = TaxonomyLeafViewContract["edges"][number];
 
 type Assert<T extends true> = T;
 type HasProperty<
@@ -41,11 +42,63 @@ export type LeafSkeletonOmitsContent = Assert<
 export type LeafDetailPathExists = Assert<
   "/taxonomy/view/leaves/{node_id}/details" extends keyof paths ? true : false
 >;
+export type LeafEdgeTupleShape = Assert<
+  TaxonomyLeafEdgeTuple extends readonly [number, number, number] ? true : false
+>;
 export type TaxonomyLeafContractChecks = [
   LeafSkeletonOmitsTitle,
   LeafSkeletonOmitsContent,
   LeafDetailPathExists,
+  LeafEdgeTupleShape,
 ];
+
+function normalizeLeafEdgeTuple(edge: unknown): TaxonomyLeafEdgeTuple {
+  if (!Array.isArray(edge) || edge.length !== 3) {
+    throw new Error(
+      "Taxonomy leaf edge payload must contain 3 numeric values.",
+    );
+  }
+
+  const [sourceNodeId, targetNodeId, strength] = edge;
+
+  if (
+    typeof sourceNodeId !== "number" ||
+    typeof targetNodeId !== "number" ||
+    typeof strength !== "number"
+  ) {
+    throw new Error(
+      "Taxonomy leaf edge payload must contain 3 numeric values.",
+    );
+  }
+
+  return [sourceNodeId, targetNodeId, strength];
+}
+
+function normalizeTaxonomyNodeViewPayload(data: unknown): TaxonomyNodeView {
+  const nodeView = data as TaxonomyNodeViewContract;
+
+  if (
+    typeof nodeView !== "object" ||
+    nodeView === null ||
+    !("node_kind" in nodeView)
+  ) {
+    throw new Error("Taxonomy node view response was not a valid payload.");
+  }
+
+  if (nodeView.node_kind !== "leaf") {
+    return nodeView;
+  }
+
+  const rawEdges =
+    typeof data === "object" && data !== null && "edges" in data
+      ? (data as { readonly edges: readonly unknown[] }).edges
+      : [];
+
+  return {
+    ...nodeView,
+    edges: rawEdges.map(normalizeLeafEdgeTuple),
+  };
+}
 
 class TaxonomyViewRequestError extends Error {
   readonly status: number;
@@ -102,7 +155,7 @@ async function fetchTaxonomyNodeView(
     throw new Error("Taxonomy node view response did not include a payload.");
   }
 
-  return result.data;
+  return normalizeTaxonomyNodeViewPayload(result.data);
 }
 
 function normalizeLeafDetailNodeIds(nodeIds: readonly number[]) {

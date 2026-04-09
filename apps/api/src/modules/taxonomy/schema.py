@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TaxonomyViewResponseModel(BaseModel):
@@ -50,17 +50,11 @@ class TaxonomyLeafNodeDetailsResponse(TaxonomyViewResponseModel):
     nodes: list[TaxonomyLeafNodeDetailResponse]
 
 
-class TaxonomyLeafGraphEdgeResponse(TaxonomyViewResponseModel):
-    id: str = Field(min_length=1)
-    source_node_id: int = Field(gt=0)
-    target_node_id: int = Field(gt=0)
-    strength: float = Field(ge=0.0, le=1.0)
-
-    @model_validator(mode="after")
-    def validate_canonical_endpoints(self) -> TaxonomyLeafGraphEdgeResponse:
-        if self.source_node_id >= self.target_node_id:
-            raise ValueError("source_node_id must be smaller than target_node_id.")
-        return self
+type TaxonomyLeafGraphEdgeResponse = tuple[
+    Annotated[int, Field(gt=0)],
+    Annotated[int, Field(gt=0)],
+    Annotated[float, Field(ge=0.0, le=1.0)],
+]
 
 
 class TaxonomyNodeBranchViewResponse(TaxonomyViewResponseModel):

@@ -130,17 +130,7 @@ export interface components {
       /** Matched Cards */
       matched_cards: components["schemas"]["MatchedCardResponse"][];
     };
-    /** TaxonomyLeafGraphEdgeResponse */
-    TaxonomyLeafGraphEdgeResponse: {
-      /** Id */
-      id: string;
-      /** Source Node Id */
-      source_node_id: number;
-      /** Strength */
-      strength: number;
-      /** Target Node Id */
-      target_node_id: number;
-    };
+    TaxonomyLeafGraphEdgeResponse: [number, number, number];
     /** TaxonomyLeafGraphNodeResponse */
     TaxonomyLeafGraphNodeResponse: {
       /** Id */

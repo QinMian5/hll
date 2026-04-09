@@ -144,7 +144,10 @@ class KnowledgeRepo:
         rows = (
             await self._session.execute(
                 select(Edge.node_a_id, Edge.node_b_id, Edge.strength)
-                .where(Edge.node_a_id.in_(node_ids) | Edge.node_b_id.in_(node_ids))
+                .distinct()
+                .select_from(Adjacency)
+                .join(Edge, Edge.id == Adjacency.edge_id)
+                .where(Adjacency.node_id.in_(node_ids))
                 .order_by(Edge.node_a_id.asc(), Edge.node_b_id.asc())
             )
         ).all()
@@ -156,6 +159,48 @@ class KnowledgeRepo:
             )
             for row in rows
         ]
+
+    async def fetch_projection_edges_for_edge_ids(
+        self,
+        *,
+        edge_ids: Sequence[int],
+    ) -> list[ProjectionEdge]:
+        if not edge_ids:
+            return []
+
+        rows = (
+            await self._session.execute(
+                select(Edge.node_a_id, Edge.node_b_id, Edge.strength)
+                .where(Edge.id.in_(edge_ids))
+                .order_by(Edge.node_a_id.asc(), Edge.node_b_id.asc())
+            )
+        ).all()
+        return [
+            ProjectionEdge(
+                node_a_id=row.node_a_id,
+                node_b_id=row.node_b_id,
+                strength=row.strength,
+            )
+            for row in rows
+        ]
+
+    async def fetch_adjacent_edge_ids_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[int]:
+        if not node_ids:
+            return []
+
+        rows = (
+            await self._session.execute(
+                select(Adjacency.edge_id)
+                .distinct()
+                .where(Adjacency.node_id.in_(node_ids))
+                .order_by(Adjacency.edge_id.asc())
+            )
+        ).all()
+        return [row.edge_id for row in rows]
 
     async def fetch_unassigned_nodes_for_taxonomy_classification(
         self,
@@ -227,7 +272,7 @@ class KnowledgeRepo:
         source_node_id: int,
         related_node_id: int,
         strength: float,
-    ) -> None:
+    ) -> int:
         node_a_id, node_b_id = _canonical_edge_pair(source_node_id, related_node_id)
         edge = Edge(node_a_id=node_a_id, node_b_id=node_b_id, strength=strength)
         self._session.add(edge)
@@ -240,6 +285,7 @@ class KnowledgeRepo:
             ]
         )
         await self._session.flush()
+        return edge.id
 
     async def commit(self) -> None:
         await self._session.commit()

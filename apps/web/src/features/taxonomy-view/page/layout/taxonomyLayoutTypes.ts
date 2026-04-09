@@ -31,12 +31,11 @@ export interface LeafHydratedNodeLayoutInput
 
 export type LeafNodeLayoutInput = LeafSkeletonNodeLayoutInput;
 
-export interface LeafEdgeLayoutInput {
-  readonly id: string;
-  readonly source_node_id: number;
-  readonly strength: number;
-  readonly target_node_id: number;
-}
+export type LeafEdgeLayoutInput = readonly [
+  sourceNodeId: number,
+  targetNodeId: number,
+  strength: number,
+];
 
 export type TaxonomyLayoutNodeData = Record<string, unknown> & {
   readonly content?: string;

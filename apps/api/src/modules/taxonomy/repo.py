@@ -6,7 +6,8 @@ Out of scope: YAML parsing and HTTP transport wiring.
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.taxonomy.dto import (
@@ -15,7 +16,11 @@ from modules.taxonomy.dto import (
     TaxonomyNodeRecord,
 )
 from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
-from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
+from modules.taxonomy.model import (
+    NodeTaxonomyAssignment,
+    TaxonomyLeafProjectionEdge,
+    TaxonomyNode,
+)
 
 
 def _taxonomy_node_record_from_model(node: TaxonomyNode) -> TaxonomyNodeRecord:
@@ -130,6 +135,65 @@ class TaxonomyRepo:
             )
             for row in rows
         ]
+
+    async def list_assigned_node_ids_for_leaf(self, *, leaf_id: int) -> list[int]:
+        rows = (
+            await self._session.execute(
+                select(NodeTaxonomyAssignment.node_id)
+                .where(NodeTaxonomyAssignment.taxonomy_node_id == leaf_id)
+                .order_by(NodeTaxonomyAssignment.node_id.asc())
+            )
+        ).all()
+        return [row.node_id for row in rows]
+
+    async def list_projected_edge_ids_for_leaf(self, *, leaf_id: int) -> list[int]:
+        rows = (
+            await self._session.execute(
+                select(TaxonomyLeafProjectionEdge.edge_id)
+                .where(TaxonomyLeafProjectionEdge.leaf_id == leaf_id)
+                .order_by(TaxonomyLeafProjectionEdge.edge_id.asc())
+            )
+        ).all()
+        return [row.edge_id for row in rows]
+
+    async def add_projected_edge_ids_for_leaf(self, *, leaf_id: int, edge_ids: list[int]) -> None:
+        deduped_edge_ids = sorted(set(edge_ids))
+        if deduped_edge_ids:
+            statement = (
+                insert(TaxonomyLeafProjectionEdge)
+                .values(
+                    [
+                        {
+                            "leaf_id": leaf_id,
+                            "edge_id": edge_id,
+                        }
+                        for edge_id in deduped_edge_ids
+                    ]
+                )
+                .on_conflict_do_nothing(index_elements=["leaf_id", "edge_id"])
+            )
+            await self._session.execute(statement)
+        await self._session.flush()
+
+    async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]:
+        if not node_ids:
+            return {}
+
+        rows = (
+            await self._session.execute(
+                select(
+                    NodeTaxonomyAssignment.node_id,
+                    NodeTaxonomyAssignment.taxonomy_node_id,
+                )
+                .where(NodeTaxonomyAssignment.node_id.in_(node_ids))
+                .order_by(NodeTaxonomyAssignment.node_id.asc())
+            )
+        ).all()
+        return {row.node_id: row.taxonomy_node_id for row in rows}
+
+    async def clear_all_projected_edge_ids(self) -> None:
+        await self._session.execute(delete(TaxonomyLeafProjectionEdge))
+        await self._session.flush()
 
     async def set_final_assignment(
         self,

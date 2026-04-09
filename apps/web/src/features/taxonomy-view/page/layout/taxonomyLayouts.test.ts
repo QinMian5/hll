@@ -147,9 +147,7 @@ describe("leaf layout contracts", () => {
   it("returns point-mode skeleton nodes and preserves supplied edges by default", () => {
     const result = buildLeafLayout({
       center: { x: 700, y: 450 },
-      edges: [
-        { id: "e-1", source_node_id: 10, strength: 0.8, target_node_id: 11 },
-      ],
+      edges: [[10, 11, 0.8]],
       nodes: [
         { id: 10, scope: "inner" },
         { id: 11, scope: "outer" },
@@ -167,9 +165,7 @@ describe("leaf layout contracts", () => {
   it("upgrades only visible hydrated node ids into bubble mode", () => {
     const result = buildLeafLayout({
       center: { x: 700, y: 450 },
-      edges: [
-        { id: "e-1", source_node_id: 10, strength: 0.8, target_node_id: 11 },
-      ],
+      edges: [[10, 11, 0.8]],
       hydratedNodeDetailsById: {
         10: {
           content: "Inner content",
@@ -200,9 +196,9 @@ describe("leaf layout contracts", () => {
     const input = {
       center: { x: 700, y: 450 },
       edges: [
-        { id: "e-1", source_node_id: 10, strength: 0.8, target_node_id: 11 },
-        { id: "e-2", source_node_id: 11, strength: 0.5, target_node_id: 12 },
-      ],
+        [10, 11, 0.8],
+        [11, 12, 0.5],
+      ] as const,
       nodes: [
         { id: 10, scope: "inner" as const },
         { id: 11, scope: "outer" as const },
@@ -227,10 +223,10 @@ describe("leaf layout contracts", () => {
     const result = buildLeafLayout({
       center,
       edges: [
-        { id: "e-1", source_node_id: 50, strength: 1, target_node_id: 10 },
-        { id: "e-2", source_node_id: 50, strength: 1, target_node_id: 20 },
-        { id: "e-3", source_node_id: 50, strength: 1, target_node_id: 30 },
-        { id: "e-4", source_node_id: 50, strength: 1, target_node_id: 40 },
+        [50, 10, 1],
+        [50, 20, 1],
+        [50, 30, 1],
+        [50, 40, 1],
       ],
       nodes: [
         { id: 10, scope: "outer" },

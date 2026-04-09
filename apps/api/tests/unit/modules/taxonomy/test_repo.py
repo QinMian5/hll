@@ -11,7 +11,10 @@ from datetime import UTC, datetime
 import pytest
 
 from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
-from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
+from modules.taxonomy.model import (
+    NodeTaxonomyAssignment,
+    TaxonomyNode,
+)
 from modules.taxonomy.repo import TaxonomyRepo
 
 
@@ -44,6 +47,7 @@ class _StubSession:
     scalars_results: list[_StubScalarResult] = field(default_factory=list)
     scalar_results: list[object | None] = field(default_factory=list)
     execute_results: list[_StubExecuteResult] = field(default_factory=list)
+    executed_statements: list[object] = field(default_factory=list)
     added: list[object] = field(default_factory=list)
     flushed: bool = False
 
@@ -57,7 +61,10 @@ class _StubSession:
 
     async def execute(self, statement: object) -> _StubExecuteResult:
         assert statement is not None
-        return self.execute_results.pop(0)
+        self.executed_statements.append(statement)
+        if self.execute_results:
+            return self.execute_results.pop(0)
+        return _StubExecuteResult()
 
     def add(self, instance: object) -> None:
         self.added.append(instance)
@@ -203,3 +210,69 @@ async def test_list_final_assignments_returns_leaf_assignments() -> None:
         {"node_id": 3, "taxonomy_leaf_id": 11},
         {"node_id": 9, "taxonomy_leaf_id": 15},
     ]
+
+
+@pytest.mark.anyio
+async def test_list_assigned_node_ids_for_leaf_returns_sorted_node_ids_for_one_leaf() -> None:
+    class _LeafNodeRow:
+        def __init__(self, node_id: int) -> None:
+            self.node_id = node_id
+
+    session = _StubSession(
+        execute_results=[
+            _StubExecuteResult(rows=[_LeafNodeRow(19), _LeafNodeRow(41), _LeafNodeRow(88)])
+        ]
+    )
+    repo = TaxonomyRepo(session=session)
+
+    node_ids = await repo.list_assigned_node_ids_for_leaf(leaf_id=44)
+
+    assert node_ids == [19, 41, 88]
+
+
+@pytest.mark.anyio
+async def test_list_projected_edge_ids_for_leaf_returns_sorted_edge_ids() -> None:
+    class _EdgeRow:
+        def __init__(self, edge_id: int) -> None:
+            self.edge_id = edge_id
+
+    session = _StubSession(
+        execute_results=[
+            _StubExecuteResult(rows=[_EdgeRow(7), _EdgeRow(18), _EdgeRow(42)]),
+        ]
+    )
+    repo = TaxonomyRepo(session=session)
+
+    edge_ids = await repo.list_projected_edge_ids_for_leaf(leaf_id=44)
+
+    assert edge_ids == [7, 18, 42]
+
+
+@pytest.mark.anyio
+async def test_add_projected_edge_ids_for_leaf_creates_projection_rows() -> None:
+    session = _StubSession()
+    repo = TaxonomyRepo(session=session)
+
+    await repo.add_projected_edge_ids_for_leaf(leaf_id=44, edge_ids=[7, 18])
+
+    assert session.flushed is True
+    assert session.executed_statements
+
+
+@pytest.mark.anyio
+async def test_list_leaf_ids_for_node_ids_returns_mapping_for_assigned_nodes() -> None:
+    class _LeafRow:
+        def __init__(self, node_id: int, taxonomy_node_id: int) -> None:
+            self.node_id = node_id
+            self.taxonomy_node_id = taxonomy_node_id
+
+    session = _StubSession(
+        execute_results=[
+            _StubExecuteResult(rows=[_LeafRow(11, 2), _LeafRow(77, 9)]),
+        ]
+    )
+    repo = TaxonomyRepo(session=session)
+
+    mapping = await repo.list_leaf_ids_for_node_ids(node_ids=[77, 11, 999])
+
+    assert mapping == {11: 2, 77: 9}

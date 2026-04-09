@@ -51,6 +51,18 @@ class KnowledgeGraphProjectionPort(Protocol):
         node_ids: list[int],
     ) -> list[ProjectionEdge]: ...
 
+    async def list_projection_edges_for_edge_ids(
+        self,
+        *,
+        edge_ids: list[int],
+    ) -> list[ProjectionEdge]: ...
+
+    async def list_adjacent_edge_ids_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[int]: ...
+
     async def list_unassigned_nodes_for_taxonomy_classification(
         self,
         *,

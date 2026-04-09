@@ -79,16 +79,19 @@ export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
 
   const nodeIds = new Set(simulationNodes.map((node) => node.id));
   const linkEdges = input.edges.map((edge) => {
-    const source = `card-${edge.source_node_id}`;
-    const target = `card-${edge.target_node_id}`;
+    const [sourceNodeId, targetNodeId, strength] = edge;
+    const source = `card-${sourceNodeId}`;
+    const target = `card-${targetNodeId}`;
 
     if (!nodeIds.has(source) || !nodeIds.has(target)) {
-      throw new Error(`Leaf edge ${edge.id} references an unknown node.`);
+      throw new Error(
+        `Leaf edge ${sourceNodeId}:${targetNodeId} references an unknown node.`,
+      );
     }
 
     return {
       source,
-      strength: edge.strength,
+      strength,
       target,
     };
   });
@@ -121,9 +124,9 @@ export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
 
   return {
     edges: input.edges.map((edge) => ({
-      id: edge.id,
-      source: `card-${edge.source_node_id}`,
-      target: `card-${edge.target_node_id}`,
+      id: `${edge[0]}:${edge[1]}`,
+      source: `card-${edge[0]}`,
+      target: `card-${edge[1]}`,
     })),
     nodes: simulationNodes.map((node) => {
       const hydratedDetails = hydratedNodeDetailsById[node.graphNodeId];

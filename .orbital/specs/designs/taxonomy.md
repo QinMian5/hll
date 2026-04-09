@@ -35,7 +35,8 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - **Leaf data-plane rule:** Leaf browsing is split into a skeleton graph surface and a node-detail surface. The skeleton surface carries the full one-hop graph topology needed for point-mode browsing. The detail surface carries `title` and `content` only for requested node ids.
   - **Leaf hydration rule:** Entering a leaf returns the full one-hop skeleton payload in one response and does not include node `title` or `content`.
   - **Leaf detail request rule:** Node details are fetched by explicit node-id batches scoped to the active leaf instead of being embedded in the initial leaf view payload.
-  - **Read-performance rule:** Taxonomy view read paths must avoid full-graph or full-assignment work when the request scope is smaller. Root and branch payloads may aggregate descendant counts across the tree, but leaf-specific reads must use leaf-scoped assignment lookups and node-id-scoped detail reads.
+  - **Leaf read-model rule:** Leaf browsing uses the authoritative final-assignment table for inner-node membership and one dedicated leaf projection table for one-hop edge membership. The projection stores only `(leaf_id, edge_id)` pairs and does not duplicate mutable edge fields such as `strength`.
+  - **Read-performance rule:** Taxonomy view read paths must avoid full-graph or full-assignment work when the request scope is smaller. Root and branch payloads may aggregate descendant counts across the tree, but leaf-specific reads must use leaf-scoped assignment lookups, leaf-scoped projection-edge reads, and node-id-scoped detail reads.
 
 ## Persistence Projection
 
@@ -62,6 +63,25 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - indexed lookup by `(taxonomy_node_id, node_id)` for leaf-scoped node membership reads.
 - Write-path rule:
   - assignment creation is insert-only and rejects writes when `node_id` already has an assignment.
+
+### taxonomy_leaf_projection_edges
+- `leaf_id`: non-null foreign key to `taxonomy_nodes.id`.
+- `edge_id`: non-null foreign key to `edges.id`.
+- Required constraints:
+  - primary key over `(leaf_id, edge_id)`.
+- Required access paths:
+  - indexed read by `leaf_id`.
+  - indexed reverse lookup by `edge_id` for incremental maintenance when an edge changes.
+- Read-model rule:
+  - one row means the referenced edge belongs to the one-hop projection for the referenced leaf.
+  - the table stores only leaf-edge membership and does not duplicate `node_a_id`, `node_b_id`, or `strength`.
+- Derivation rule:
+  - inner nodes come from `node_taxonomy_assignments`.
+  - outer nodes are derived at read time from the endpoints of the projected edges after subtracting the inner node set.
+- Incremental-maintenance rule:
+  - assigning a node to a leaf inserts projection rows for that node's adjacent `edge_id` values into that leaf.
+  - creating an edge inserts projection rows for the leaf of each endpoint node, resulting in one row when both endpoints share a leaf and at most two rows otherwise.
+  - mutable edge fields such as `strength` are read from `edges` at query time through `edge_id` and are not copied into the projection.
 
 ### Trigger Rule
 - Inserts and updates on `node_taxonomy_assignments` must be rejected unless `taxonomy_node_id` points to `taxonomy_nodes.is_leaf = true`.
@@ -163,7 +183,8 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 ## Query Performance Projection
 - Root and branch descendant counts are computed from persisted final assignments, but leaf-specific read paths do not load the full assignment table when one leaf id is already known.
 - The repository layer exposes a leaf-scoped assignment read that returns only the node ids assigned to one taxonomy leaf.
-- Leaf graph edge expansion uses `adjacency` as the primary access path and joins from matching `node_id` values to `edge_id`, then to `edges`. Leaf edge reads do not scan `edges` by filtering `node_a_id IN (...) OR node_b_id IN (...)` across the whole table.
+- Leaf graph edge expansion reads `edge_id` membership from `taxonomy_leaf_projection_edges` for the active `leaf_id`, then joins to `edges` to obtain current endpoints and `strength`.
+- Leaf graph node scope is reconstructed from two sources only: inner membership from `node_taxonomy_assignments` and projected edge endpoints from `taxonomy_leaf_projection_edges`.
 - Leaf detail hydration validates requested node ids against the active one-hop graph without loading title/content for every node in that graph.
 - Leaf detail hydration reads `title` and `content` only for the requested node ids after membership validation succeeds.
 - Taxonomy read performance fixes remain inside the taxonomy and knowledge-graph repository/service boundaries and do not change the external HTTP contracts.
@@ -179,7 +200,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - `GET /taxonomy/view/nodes/{id}` returns correct discriminated payload for branch/leaf.
   - Leaf skeleton payload excludes `outer-outer` edges and includes `scope` markers.
   - `POST /taxonomy/view/leaves/{id}/details` returns `title/content` only for requested node ids inside the active leaf graph.
-  - Leaf edge reads use adjacency-driven access and stay scoped to the requested leaf graph.
+  - Leaf edge reads use the leaf projection table and stay scoped to the requested leaf graph.
   - Leaf detail hydration does not require loading title/content for every node in the expanded one-hop graph.
   - Leaf-scoped assignment lookups use indexed access by `taxonomy_node_id`.
 - **Evidence:**

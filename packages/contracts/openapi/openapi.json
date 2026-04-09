@@ -101,38 +101,24 @@
         "type": "object"
       },
       "TaxonomyLeafGraphEdgeResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "minLength": 1,
-            "title": "Id",
-            "type": "string"
-          },
-          "source_node_id": {
+        "maxItems": 3,
+        "minItems": 3,
+        "prefixItems": [
+          {
             "exclusiveMinimum": 0.0,
-            "title": "Source Node Id",
             "type": "integer"
           },
-          "strength": {
+          {
+            "exclusiveMinimum": 0.0,
+            "type": "integer"
+          },
+          {
             "maximum": 1.0,
             "minimum": 0.0,
-            "title": "Strength",
             "type": "number"
-          },
-          "target_node_id": {
-            "exclusiveMinimum": 0.0,
-            "title": "Target Node Id",
-            "type": "integer"
           }
-        },
-        "required": [
-          "id",
-          "source_node_id",
-          "target_node_id",
-          "strength"
         ],
-        "title": "TaxonomyLeafGraphEdgeResponse",
-        "type": "object"
+        "type": "array"
       },
       "TaxonomyLeafGraphNodeResponse": {
         "additionalProperties": false,

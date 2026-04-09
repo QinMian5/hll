@@ -18,7 +18,6 @@ from modules.taxonomy.dto import (
     TaxonomyTreeNode,
 )
 from modules.taxonomy.schema import (
-    TaxonomyLeafGraphEdgeResponse,
     TaxonomyLeafGraphNodeResponse,
     TaxonomyLeafNodeDetailResponse,
     TaxonomyLeafNodeDetailsResponse,
@@ -41,6 +40,19 @@ class TaxonomyRepoProtocol(Protocol):
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None: ...
 
     async def list_final_assignments(self) -> list[TaxonomyLeafAssignment]: ...
+
+    async def list_assigned_node_ids_for_leaf(self, *, leaf_id: int) -> list[int]: ...
+
+    async def list_projected_edge_ids_for_leaf(self, *, leaf_id: int) -> list[int]: ...
+
+    async def add_projected_edge_ids_for_leaf(
+        self,
+        *,
+        leaf_id: int,
+        edge_ids: list[int],
+    ) -> None: ...
+
+    async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]: ...
 
     async def set_final_assignment(
         self,
@@ -67,11 +79,22 @@ class TaxonomyKnowledgeProjectionPort(Protocol):
         node_ids: list[int],
     ) -> list[ProjectionEdge]: ...
 
+    async def list_projection_edges_for_edge_ids(
+        self,
+        *,
+        edge_ids: list[int],
+    ) -> list[ProjectionEdge]: ...
+
+    async def list_adjacent_edge_ids_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[int]: ...
+
 
 @dataclass(slots=True)
 class _LeafGraphProjection:
     edges: list[ProjectionEdge]
-    nodes_by_id: dict[int, ProjectionCardNode]
     scope_by_node_id: dict[int, Literal["inner", "outer"]]
 
 
@@ -172,10 +195,6 @@ class TaxonomyService:
                 hint="Use an existing taxonomy node id and retry.",
             )
 
-        descendant_counts = await self._load_descendant_card_counts(
-            node_by_id=node_by_id,
-            child_ids_by_parent=child_ids_by_parent,
-        )
         breadcrumb = [
             _view_node_from_record(record)
             for record in _build_breadcrumb(
@@ -185,6 +204,10 @@ class TaxonomyService:
         ]
 
         if not current_node.is_leaf:
+            descendant_counts = await self._load_descendant_card_counts(
+                node_by_id=node_by_id,
+                child_ids_by_parent=child_ids_by_parent,
+            )
             child_ids = sorted(
                 child_ids_by_parent.get(current_node.id, []),
                 key=lambda child_node_id: (
@@ -228,15 +251,14 @@ class TaxonomyService:
 
         edge_items = sorted(
             (
-                TaxonomyLeafGraphEdgeResponse(
-                    id=f"edge:{edge.node_a_id}:{edge.node_b_id}",
-                    source_node_id=edge.node_a_id,
-                    target_node_id=edge.node_b_id,
-                    strength=edge.strength,
+                (
+                    edge.node_a_id,
+                    edge.node_b_id,
+                    edge.strength,
                 )
                 for edge in leaf_graph.edges
             ),
-            key=lambda edge: (edge.source_node_id, edge.target_node_id),
+            key=lambda edge: (edge[0], edge[1]),
         )
 
         return TaxonomyNodeLeafViewResponse(
@@ -295,7 +317,7 @@ class TaxonomyService:
         invalid_node_ids = [
             requested_node_id
             for requested_node_id in node_ids
-            if requested_node_id not in leaf_graph.nodes_by_id
+            if requested_node_id not in leaf_graph.scope_by_node_id
         ]
         if invalid_node_ids:
             raise ApplicationError(
@@ -304,12 +326,24 @@ class TaxonomyService:
                 hint="Send only unique node ids from the active leaf graph and retry.",
             )
 
+        if self._knowledge_projection_port is None:
+            raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
+
+        requested_projection_nodes = (
+            await self._knowledge_projection_port.list_projection_cards_for_node_ids(
+                node_ids=node_ids
+            )
+        )
+        nodes_by_id = {node.node_id: node for node in requested_projection_nodes}
+        if len(nodes_by_id) != len(node_ids):
+            raise RuntimeError("Leaf detail request returned incomplete node details.")
+
         return TaxonomyLeafNodeDetailsResponse(
             nodes=[
                 TaxonomyLeafNodeDetailResponse(
                     id=requested_node_id,
-                    title=leaf_graph.nodes_by_id[requested_node_id].title,
-                    content=leaf_graph.nodes_by_id[requested_node_id].content,
+                    title=nodes_by_id[requested_node_id].title,
+                    content=nodes_by_id[requested_node_id].content,
                 )
                 for requested_node_id in node_ids
             ]
@@ -326,6 +360,16 @@ class TaxonomyService:
                 node_id=node_id,
                 taxonomy_node_id=taxonomy_node_id,
             )
+            if self._knowledge_projection_port is not None:
+                adjacent_edge_ids = (
+                    await self._knowledge_projection_port.list_adjacent_edge_ids_for_node_ids(
+                        node_ids=[node_id]
+                    )
+                )
+                await self._repo.add_projected_edge_ids_for_leaf(
+                    leaf_id=taxonomy_node_id,
+                    edge_ids=adjacent_edge_ids,
+                )
             await self._repo.commit()
             return assignment
         except Exception:
@@ -362,31 +406,24 @@ class TaxonomyService:
         if self._knowledge_projection_port is None:
             raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
 
-        assignments = await self._repo.list_final_assignments()
-        inner_node_ids = sorted(
-            assignment.node_id
-            for assignment in assignments
-            if assignment.taxonomy_leaf_id == current_node.id
+        inner_node_ids = await self._repo.list_assigned_node_ids_for_leaf(leaf_id=current_node.id)
+        projected_edge_ids = await self._repo.list_projected_edge_ids_for_leaf(
+            leaf_id=current_node.id
         )
-        edges = await self._knowledge_projection_port.list_projection_edges_touching_node_ids(
-            node_ids=inner_node_ids
+        edges = await self._knowledge_projection_port.list_projection_edges_for_edge_ids(
+            edge_ids=projected_edge_ids
         )
         all_node_ids = set(inner_node_ids)
         for edge in edges:
             all_node_ids.add(edge.node_a_id)
             all_node_ids.add(edge.node_b_id)
-
-        projection_nodes = await self._knowledge_projection_port.list_projection_cards_for_node_ids(
-            node_ids=sorted(all_node_ids)
-        )
         inner_node_id_set = set(inner_node_ids)
 
         return _LeafGraphProjection(
             edges=edges,
-            nodes_by_id={node.node_id: node for node in projection_nodes},
             scope_by_node_id={
-                node.node_id: "inner" if node.node_id in inner_node_id_set else "outer"
-                for node in projection_nodes
+                related_node_id: "inner" if related_node_id in inner_node_id_set else "outer"
+                for related_node_id in sorted(all_node_ids)
             },
         )
 
