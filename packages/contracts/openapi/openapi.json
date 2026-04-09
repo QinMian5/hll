@@ -137,11 +137,6 @@
       "TaxonomyLeafGraphNodeResponse": {
         "additionalProperties": false,
         "properties": {
-          "content": {
-            "minLength": 1,
-            "title": "Content",
-            "type": "string"
-          },
           "id": {
             "exclusiveMinimum": 0.0,
             "title": "Id",
@@ -154,6 +149,27 @@
             ],
             "title": "Scope",
             "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope"
+        ],
+        "title": "TaxonomyLeafGraphNodeResponse",
+        "type": "object"
+      },
+      "TaxonomyLeafNodeDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Id",
+            "type": "integer"
           },
           "title": {
             "minLength": 1,
@@ -164,10 +180,40 @@
         "required": [
           "id",
           "title",
-          "content",
-          "scope"
+          "content"
         ],
-        "title": "TaxonomyLeafGraphNodeResponse",
+        "title": "TaxonomyLeafNodeDetailResponse",
+        "type": "object"
+      },
+      "TaxonomyLeafNodeDetailsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "node_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Node Ids",
+            "type": "array"
+          }
+        },
+        "title": "TaxonomyLeafNodeDetailsRequest",
+        "type": "object"
+      },
+      "TaxonomyLeafNodeDetailsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyLeafNodeDetailResponse"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "nodes"
+        ],
+        "title": "TaxonomyLeafNodeDetailsResponse",
         "type": "object"
       },
       "TaxonomyNodeBranchViewResponse": {
@@ -513,6 +559,58 @@
         "summary": "Search Cards",
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/taxonomy/view/leaves/{node_id}/details": {
+      "post": {
+        "operationId": "get_leaf_node_details_taxonomy_view_leaves__node_id__details_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaxonomyLeafNodeDetailsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonomyLeafNodeDetailsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Leaf Node Details",
+        "tags": [
+          "taxonomy"
         ]
       }
     },

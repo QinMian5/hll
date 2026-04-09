@@ -38,6 +38,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/taxonomy/view/leaves/{node_id}/details": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Get Leaf Node Details */
+    post: operations["get_leaf_node_details_taxonomy_view_leaves__node_id__details_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/taxonomy/view/nodes/{node_id}": {
     parameters: {
       query?: never;
@@ -126,8 +143,6 @@ export interface components {
     };
     /** TaxonomyLeafGraphNodeResponse */
     TaxonomyLeafGraphNodeResponse: {
-      /** Content */
-      content: string;
       /** Id */
       id: number;
       /**
@@ -135,8 +150,25 @@ export interface components {
        * @enum {string}
        */
       scope: "inner" | "outer";
+    };
+    /** TaxonomyLeafNodeDetailResponse */
+    TaxonomyLeafNodeDetailResponse: {
+      /** Content */
+      content: string;
+      /** Id */
+      id: number;
       /** Title */
       title: string;
+    };
+    /** TaxonomyLeafNodeDetailsRequest */
+    TaxonomyLeafNodeDetailsRequest: {
+      /** Node Ids */
+      node_ids?: number[];
+    };
+    /** TaxonomyLeafNodeDetailsResponse */
+    TaxonomyLeafNodeDetailsResponse: {
+      /** Nodes */
+      nodes: components["schemas"]["TaxonomyLeafNodeDetailResponse"][];
     };
     /** TaxonomyNodeBranchViewResponse */
     TaxonomyNodeBranchViewResponse: {
@@ -277,6 +309,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SearchResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_leaf_node_details_taxonomy_view_leaves__node_id__details_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        node_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TaxonomyLeafNodeDetailsRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
         };
       };
       /** @description Validation Error */

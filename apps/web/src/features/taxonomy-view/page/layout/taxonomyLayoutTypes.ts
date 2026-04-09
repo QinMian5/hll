@@ -18,12 +18,21 @@ export interface BranchChildLayoutInput {
   readonly name: string;
 }
 
-export interface LeafNodeLayoutInput {
-  readonly content: string;
+export interface LeafSkeletonNodeLayoutInput {
   readonly id: number;
   readonly scope: "inner" | "outer";
+}
+
+export interface LeafHydratedNodeLayoutInput
+  extends LeafSkeletonNodeLayoutInput {
+  readonly content: string;
   readonly title: string;
 }
+
+export type LeafNodeLayoutInput = LeafHydratedNodeLayoutInput;
+export type LeafRenderableNodeLayoutInput =
+  | LeafHydratedNodeLayoutInput
+  | LeafSkeletonNodeLayoutInput;
 
 export interface LeafEdgeLayoutInput {
   readonly id: string;
@@ -35,7 +44,9 @@ export interface LeafEdgeLayoutInput {
 export type TaxonomyLayoutNodeData = Record<string, unknown> & {
   readonly content?: string;
   readonly depth: number;
+  readonly graphNodeId?: number;
   readonly label: string;
+  readonly renderMode?: "bubble" | "point";
   readonly scope: "branch" | "inner" | "outer";
   readonly targetNodeId: number | null;
   readonly tooltip: string;
@@ -68,7 +79,11 @@ export interface BranchLayoutInput {
 export interface LeafLayoutInput {
   readonly center: LayoutPoint;
   readonly edges: readonly LeafEdgeLayoutInput[];
+  readonly hydratedNodeDetailsById?: Readonly<
+    Partial<Record<number, LeafHydratedNodeLayoutInput>>
+  >;
   readonly nodes: readonly LeafNodeLayoutInput[];
+  readonly visibleBubbleNodeIds?: readonly number[];
   readonly viewport: LayoutViewport;
 }
 
