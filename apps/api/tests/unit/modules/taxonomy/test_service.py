@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from core.errors import DomainError, ErrorCode
+from core.errors import ApplicationError, DomainError, ErrorCode
 from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionEdge
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
@@ -303,6 +303,11 @@ async def test_get_node_view_returns_leaf_shape_with_scopes_and_canonical_edges(
     assert isinstance(view, TaxonomyNodeLeafViewResponse)
     assert view.node_kind == "leaf"
     assert [item.id for item in view.breadcrumb] == [1, 2]
+    assert [node.model_dump() for node in view.nodes] == [
+        {"id": 11, "scope": "inner"},
+        {"id": 12, "scope": "inner"},
+        {"id": 77, "scope": "outer"},
+    ]
     assert [(node.id, node.scope) for node in view.nodes] == [
         (11, "inner"),
         (12, "inner"),
@@ -327,3 +332,113 @@ async def test_get_node_view_raises_not_found_for_unknown_node_id() -> None:
         await service.get_node_view(node_id=999)
 
     assert exc_info.value.code == ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND
+
+
+@pytest.mark.anyio
+async def test_get_leaf_node_details_returns_requested_records_in_request_order() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_assignments=[
+            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=2),
+            TaxonomyLeafAssignment(node_id=12, taxonomy_leaf_id=2),
+        ],
+    )
+    projection_port = _StubProjectionPort(
+        nodes=[
+            ProjectionCardNode(
+                node_id=11,
+                title="Inner 11",
+                content="Inner 11 content",
+            ),
+            ProjectionCardNode(
+                node_id=12,
+                title="Inner 12",
+                content="Inner 12 content",
+            ),
+            ProjectionCardNode(
+                node_id=77,
+                title="Outer 77",
+                content="Outer 77 content",
+            ),
+        ],
+        edges=[
+            ProjectionEdge(node_a_id=11, node_b_id=12, strength=0.91),
+            ProjectionEdge(node_a_id=12, node_b_id=77, strength=0.66),
+        ],
+    )
+    service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
+
+    detail_response = await service.get_leaf_node_details(node_id=2, node_ids=[77, 11])  # type: ignore[attr-defined]
+
+    assert [node.model_dump() for node in detail_response.nodes] == [
+        {
+            "id": 77,
+            "title": "Outer 77",
+            "content": "Outer 77 content",
+        },
+        {
+            "id": 11,
+            "title": "Inner 11",
+            "content": "Inner 11 content",
+        },
+    ]
+
+
+@pytest.mark.anyio
+async def test_get_leaf_node_details_rejects_non_leaf_taxonomy_node() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Branch", depth=1, is_leaf=False),
+            TaxonomyNodeRecord(id=3, parent_id=2, name="Leaf", depth=2, is_leaf=True),
+        ],
+        assigned_leaf_assignments=[
+            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=3),
+        ],
+    )
+    projection_port = _StubProjectionPort(nodes=[], edges=[])
+    service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await service.get_leaf_node_details(node_id=2, node_ids=[11])  # type: ignore[attr-defined]
+
+    assert exc_info.value.code == ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID
+
+
+@pytest.mark.anyio
+async def test_get_leaf_node_details_rejects_node_ids_outside_active_leaf_graph() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_assignments=[
+            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=2),
+        ],
+    )
+    projection_port = _StubProjectionPort(
+        nodes=[
+            ProjectionCardNode(
+                node_id=11,
+                title="Inner 11",
+                content="Inner 11 content",
+            ),
+            ProjectionCardNode(
+                node_id=77,
+                title="Outer 77",
+                content="Outer 77 content",
+            ),
+        ],
+        edges=[
+            ProjectionEdge(node_a_id=11, node_b_id=77, strength=0.66),
+        ],
+    )
+    service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await service.get_leaf_node_details(node_id=2, node_ids=[999])  # type: ignore[attr-defined]
+
+    assert exc_info.value.code == ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID

@@ -6,9 +6,10 @@ Out of scope: HTTP endpoint wiring and LLM classification orchestration.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Literal, Protocol
 
-from core.errors import DomainError, ErrorCode
+from core.errors import ApplicationError, DomainError, ErrorCode
 from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionEdge
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
@@ -19,6 +20,8 @@ from modules.taxonomy.dto import (
 from modules.taxonomy.schema import (
     TaxonomyLeafGraphEdgeResponse,
     TaxonomyLeafGraphNodeResponse,
+    TaxonomyLeafNodeDetailResponse,
+    TaxonomyLeafNodeDetailsResponse,
     TaxonomyNodeBranchViewResponse,
     TaxonomyNodeLeafViewResponse,
     TaxonomyNodeViewResponse,
@@ -63,6 +66,13 @@ class TaxonomyKnowledgeProjectionPort(Protocol):
         *,
         node_ids: list[int],
     ) -> list[ProjectionEdge]: ...
+
+
+@dataclass(slots=True)
+class _LeafGraphProjection:
+    edges: list[ProjectionEdge]
+    nodes_by_id: dict[int, ProjectionCardNode]
+    scope_by_node_id: dict[int, Literal["inner", "outer"]]
 
 
 def _view_node_from_record(record: TaxonomyNodeRecord) -> TaxonomyViewNodeResponse:
@@ -204,33 +214,14 @@ class TaxonomyService:
         if self._knowledge_projection_port is None:
             raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
 
-        assignments = await self._repo.list_final_assignments()
-        inner_node_ids = sorted(
-            assignment.node_id
-            for assignment in assignments
-            if assignment.taxonomy_leaf_id == current_node.id
-        )
-        edges = await self._knowledge_projection_port.list_projection_edges_touching_node_ids(
-            node_ids=inner_node_ids
-        )
-        all_node_ids = set(inner_node_ids)
-        for edge in edges:
-            all_node_ids.add(edge.node_a_id)
-            all_node_ids.add(edge.node_b_id)
-
-        projection_nodes = await self._knowledge_projection_port.list_projection_cards_for_node_ids(
-            node_ids=sorted(all_node_ids)
-        )
-        inner_node_id_set = set(inner_node_ids)
+        leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
         nodes = sorted(
             (
                 TaxonomyLeafGraphNodeResponse(
-                    id=node.node_id,
-                    title=node.title,
-                    content=node.content,
-                    scope="inner" if node.node_id in inner_node_id_set else "outer",
+                    id=node_id,
+                    scope=scope,
                 )
-                for node in projection_nodes
+                for node_id, scope in leaf_graph.scope_by_node_id.items()
             ),
             key=lambda node: node.id,
         )
@@ -243,7 +234,7 @@ class TaxonomyService:
                     target_node_id=edge.node_b_id,
                     strength=edge.strength,
                 )
-                for edge in edges
+                for edge in leaf_graph.edges
             ),
             key=lambda edge: (edge.source_node_id, edge.target_node_id),
         )
@@ -254,6 +245,74 @@ class TaxonomyService:
             breadcrumb=breadcrumb,
             nodes=nodes,
             edges=edge_items,
+        )
+
+    async def get_leaf_node_details(
+        self,
+        *,
+        node_id: int,
+        node_ids: list[int],
+    ) -> TaxonomyLeafNodeDetailsResponse:
+        tree_nodes = await self._repo.list_tree_nodes()
+        node_by_id, _ = _index_tree(tree_nodes)
+        if not node_by_id:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message="Taxonomy tree is not available.",
+                hint="Import taxonomy data and retry.",
+            )
+
+        current_node = node_by_id.get(node_id)
+        if current_node is None:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message=f"Taxonomy node {node_id} was not found.",
+                hint="Use an existing taxonomy node id and retry.",
+            )
+
+        if not current_node.is_leaf:
+            raise ApplicationError(
+                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+                message="Leaf detail request requires a leaf taxonomy node.",
+                hint="Use a leaf taxonomy node id and retry.",
+            )
+
+        if not node_ids:
+            raise ApplicationError(
+                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+                message="Leaf detail request requires at least one node id.",
+                hint="Send only unique node ids from the active leaf graph and retry.",
+            )
+
+        if len(node_ids) != len(set(node_ids)):
+            raise ApplicationError(
+                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+                message="Leaf detail request contains duplicate node ids.",
+                hint="Send only unique node ids from the active leaf graph and retry.",
+            )
+
+        leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
+        invalid_node_ids = [
+            requested_node_id
+            for requested_node_id in node_ids
+            if requested_node_id not in leaf_graph.nodes_by_id
+        ]
+        if invalid_node_ids:
+            raise ApplicationError(
+                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+                message="Leaf detail request references nodes outside the active leaf graph.",
+                hint="Send only unique node ids from the active leaf graph and retry.",
+            )
+
+        return TaxonomyLeafNodeDetailsResponse(
+            nodes=[
+                TaxonomyLeafNodeDetailResponse(
+                    id=requested_node_id,
+                    title=leaf_graph.nodes_by_id[requested_node_id].title,
+                    content=leaf_graph.nodes_by_id[requested_node_id].content,
+                )
+                for requested_node_id in node_ids
+            ]
         )
 
     async def set_final_assignment(
@@ -294,6 +353,42 @@ class TaxonomyService:
             descendant_counts[node.parent_id] += descendant_counts[node.id]
 
         return descendant_counts
+
+    async def _build_leaf_graph_projection(
+        self,
+        *,
+        current_node: TaxonomyNodeRecord,
+    ) -> _LeafGraphProjection:
+        if self._knowledge_projection_port is None:
+            raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
+
+        assignments = await self._repo.list_final_assignments()
+        inner_node_ids = sorted(
+            assignment.node_id
+            for assignment in assignments
+            if assignment.taxonomy_leaf_id == current_node.id
+        )
+        edges = await self._knowledge_projection_port.list_projection_edges_touching_node_ids(
+            node_ids=inner_node_ids
+        )
+        all_node_ids = set(inner_node_ids)
+        for edge in edges:
+            all_node_ids.add(edge.node_a_id)
+            all_node_ids.add(edge.node_b_id)
+
+        projection_nodes = await self._knowledge_projection_port.list_projection_cards_for_node_ids(
+            node_ids=sorted(all_node_ids)
+        )
+        inner_node_id_set = set(inner_node_ids)
+
+        return _LeafGraphProjection(
+            edges=edges,
+            nodes_by_id={node.node_id: node for node in projection_nodes},
+            scope_by_node_id={
+                node.node_id: "inner" if node.node_id in inner_node_id_set else "outer"
+                for node in projection_nodes
+            },
+        )
 
 
 def _index_tree(

@@ -33,9 +33,21 @@ class TaxonomyRootViewResponse(TaxonomyViewResponseModel):
 
 class TaxonomyLeafGraphNodeResponse(TaxonomyViewResponseModel):
     id: int = Field(gt=0)
+    scope: Literal["inner", "outer"]
+
+
+class TaxonomyLeafNodeDetailResponse(TaxonomyViewResponseModel):
+    id: int = Field(gt=0)
     title: str = Field(min_length=1)
     content: str = Field(min_length=1)
-    scope: Literal["inner", "outer"]
+
+
+class TaxonomyLeafNodeDetailsRequest(TaxonomyViewResponseModel):
+    node_ids: list[int] = Field(default_factory=list)
+
+
+class TaxonomyLeafNodeDetailsResponse(TaxonomyViewResponseModel):
+    nodes: list[TaxonomyLeafNodeDetailResponse]
 
 
 class TaxonomyLeafGraphEdgeResponse(TaxonomyViewResponseModel):

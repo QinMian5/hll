@@ -13,9 +13,11 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
 
-from core.errors import DomainError, ErrorCode
+from core.errors import ApplicationError, DomainError, ErrorCode
 from entrypoints.api import providers as api_providers
 from modules.taxonomy.schema import (
+    TaxonomyLeafNodeDetailResponse,
+    TaxonomyLeafNodeDetailsResponse,
     TaxonomyNodeBranchViewResponse,
     TaxonomyNodeLeafViewResponse,
     TaxonomyRootViewResponse,
@@ -107,6 +109,29 @@ class _FakeTaxonomyService:
             edges=[],
         )
 
+    async def get_leaf_node_details(
+        self,
+        *,
+        node_id: int,
+        node_ids: list[int],
+    ) -> TaxonomyLeafNodeDetailsResponse:
+        assert node_id == 2
+        assert node_ids == [11, 77]
+        return TaxonomyLeafNodeDetailsResponse(
+            nodes=[
+                TaxonomyLeafNodeDetailResponse(
+                    id=11,
+                    title="Inner 11",
+                    content="Inner 11 content",
+                ),
+                TaxonomyLeafNodeDetailResponse(
+                    id=77,
+                    title="Outer 77",
+                    content="Outer 77 content",
+                ),
+            ]
+        )
+
 
 @dataclass(slots=True)
 class _FakeTaxonomyNotFoundService:
@@ -126,6 +151,52 @@ class _FakeTaxonomyNotFoundService:
             code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
             message=f"Taxonomy node {node_id} was not found.",
             hint="Use an existing taxonomy node id and retry.",
+        )
+
+    async def get_leaf_node_details(
+        self,
+        *,
+        node_id: int,
+        node_ids: list[int],
+    ) -> TaxonomyLeafNodeDetailsResponse:
+        raise DomainError(
+            code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+            message=f"Taxonomy node {node_id} was not found.",
+            hint="Use an existing taxonomy node id and retry.",
+        )
+
+
+@dataclass(slots=True)
+class _FakeTaxonomyInvalidDetailsService:
+    async def get_root_view(self) -> TaxonomyRootViewResponse:
+        raise NotImplementedError
+
+    async def get_node_view(
+        self,
+        *,
+        node_id: int,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse:
+        raise NotImplementedError
+
+    async def get_leaf_node_details(
+        self,
+        *,
+        node_id: int,
+        node_ids: list[int],
+    ) -> TaxonomyLeafNodeDetailsResponse:
+        message = "Leaf detail request is invalid."
+        if not node_ids:
+            message = "Leaf detail request requires at least one node id."
+        elif len(node_ids) != len(set(node_ids)):
+            message = "Leaf detail request contains duplicate node ids."
+        elif node_id == 1:
+            message = "Leaf detail request requires a leaf taxonomy node."
+        else:
+            message = "Leaf detail request references nodes outside the active leaf graph."
+        raise ApplicationError(
+            code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+            message=message,
+            hint="Send only unique node ids from the active leaf graph and retry.",
         )
 
 
@@ -182,6 +253,64 @@ async def test_node_view_route_returns_leaf_payload_for_leaf(
     assert payload["current_node"]["id"] == 2
     assert payload["nodes"] == []
     assert payload["edges"] == []
+
+
+@pytest.mark.anyio
+async def test_leaf_details_route_returns_ordered_detail_records(
+    async_client: AsyncClient,
+) -> None:
+    response = await async_client.post(
+        "/taxonomy/view/leaves/2/details",
+        json={"node_ids": [11, 77]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "nodes": [
+            {
+                "id": 11,
+                "title": "Inner 11",
+                "content": "Inner 11 content",
+            },
+            {
+                "id": 77,
+                "title": "Outer 77",
+                "content": "Outer 77 content",
+            },
+        ]
+    }
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("payload", "leaf_id", "expected_message"),
+    [
+        ({"node_ids": []}, 2, "at least one node id"),
+        ({"node_ids": [11, 11]}, 2, "duplicate node ids"),
+        ({"node_ids": [11]}, 1, "requires a leaf taxonomy node"),
+        ({"node_ids": [999]}, 2, "outside the active leaf graph"),
+    ],
+)
+async def test_leaf_details_route_returns_400_for_invalid_detail_requests(
+    async_client: AsyncClient,
+    app: FastAPI,
+    payload: dict[str, list[int]],
+    leaf_id: int,
+    expected_message: str,
+) -> None:
+    app.dependency_overrides[api_providers.get_taxonomy_service] = lambda: (
+        _FakeTaxonomyInvalidDetailsService()
+    )
+
+    response = await async_client.post(
+        f"/taxonomy/view/leaves/{leaf_id}/details",
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    error = response.json()["error"]
+    assert error["code"] == "APPLICATION_TAXONOMY_INPUT_INVALID"
+    assert expected_message in error["message"]
 
 
 @pytest.mark.anyio
