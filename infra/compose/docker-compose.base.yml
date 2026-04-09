@@ -124,6 +124,18 @@ services:
       KNOWLEDGE_API_LOG_FILE_MAX_BYTES: ${KNOWLEDGE_API_LOG_FILE_MAX_BYTES:-10485760}
       KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT: ${KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT:-5}
     command: ["/app/bin/run-api.sh"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/openapi.json', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
     expose:
       - "8000"
     networks:
@@ -169,7 +181,7 @@ services:
     image: knowledge-web:dev
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
     expose:
       - "4173"
     networks:
