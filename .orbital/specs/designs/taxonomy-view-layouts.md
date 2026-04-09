@@ -52,6 +52,7 @@ out_of_scope: Taxonomy API payload semantics, page-shell chrome structure, and r
   - **Leaf skeleton rule:** Entering a leaf renders the full one-hop skeleton graph as points and edges without requesting or displaying node `title` or `content`.
   - **Leaf hydration rule:** Bubble mode is driven by viewport-scoped detail hydration. The frontend requests `title` and `content` only for node ids inside the current viewport plus one overscan ring, then upgrades those nodes from points to bubbles.
   - **Leaf cache rule:** Hydrated node details are cached by node id for the active leaf view and reused during subsequent pans or zooms instead of being re-requested on every movement.
+  - **Leaf hydration latency rule:** Viewport-scoped hydration assumes the backend detail path validates membership and fetches details only for requested node ids. The frontend design does not depend on a backend implementation that reloads full assignment sets or full node-detail sets on every hydration request.
   - **Leaf presentation rule:** Hydrated leaf nodes render title-first. `content` does not occupy default canvas space and appears only in hover disclosure.
   - **Leaf scope handling:** `inner` and `outer` remain valid semantic markers for styling and interaction, but they do not impose geometry rules in the layout solve.
   - **Leaf layout family:** Leaf layout uses a static `d3-force` graph solve with link force, collision force, many-body separation, and weak centering. The solve runs when the leaf payload changes and then freezes to preserve spatial stability.
@@ -83,6 +84,7 @@ out_of_scope: Taxonomy API payload semantics, page-shell chrome structure, and r
   - Leaf view renders the skeleton graph from the one-hop payload without loading titles or content on entry.
   - Leaf view displays nodes as points below the zoom threshold and upgrades only viewport-scoped hydrated nodes into bubbles above the threshold.
   - Leaf node details are requested only for the viewport plus overscan region and are reused from cache during continued navigation.
+  - Viewport-scoped leaf hydration remains responsive because detail requests are bounded to the requested node ids and do not trigger whole-graph detail reads on the backend.
   - Hydrated leaf nodes display only titles by default and reveal `content` on hover.
   - Breadcrumb, bubble typography, and disclosure styling remain visually aligned with the approved Figma direction.
   - Page-owned layout styling is carried primarily by Tailwind utility classes rather than large handwritten CSS blocks.
