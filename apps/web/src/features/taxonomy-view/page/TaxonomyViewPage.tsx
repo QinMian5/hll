@@ -16,6 +16,10 @@ import { TaxonomyFlowNode } from "./TaxonomyFlowNode";
 
 const BRANCH_LAYOUT_VIEWPORT = { height: 900, width: 1404 };
 const LAYOUT_CENTER = { x: 702, y: 450 };
+const breadcrumbMutedClasses =
+  "text-[13px] leading-[18px] font-normal text-[rgba(92,107,138,0.74)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0";
+const breadcrumbCurrentClasses =
+  "text-[13px] leading-[18px] font-medium text-[rgba(33,43,64,0.96)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0";
 
 type BubbleFlowNode = Node<TaxonomyLayoutNodeData, "bubble">;
 
@@ -159,7 +163,10 @@ export function TaxonomyViewPage() {
             data-testid="taxonomy-breadcrumb-overlay"
           >
             <button
-              className="text-[13px] leading-[18px] font-normal text-[rgba(92,107,138,0.74)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0"
+              aria-current={rootMode ? "page" : undefined}
+              className={
+                rootMode ? breadcrumbCurrentClasses : breadcrumbMutedClasses
+              }
               onClick={() => {
                 startTransition(() => setActiveNodeId(null));
               }}
@@ -176,7 +183,14 @@ export function TaxonomyViewPage() {
                 /
               </span>,
               <button
-                className="text-[13px] leading-[18px] font-medium text-[rgba(33,43,64,0.96)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0"
+                aria-current={
+                  item.id === breadcrumbs.at(-1)?.id ? "page" : undefined
+                }
+                className={
+                  item.id === breadcrumbs.at(-1)?.id
+                    ? breadcrumbCurrentClasses
+                    : breadcrumbMutedClasses
+                }
                 key={item.id}
                 onClick={() => {
                   startTransition(() => setActiveNodeId(item.id));

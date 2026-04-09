@@ -32,8 +32,9 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - **Leaf graph scope rule:** Leaf view includes all inner cards for the leaf plus all one-hop outer neighbor cards; recursion depth is fixed to one hop.
   - **Edge scope rule:** Leaf view returns only `inner-inner` and `inner-outer` edges. `outer-outer` edges are excluded.
   - **Node scope marker:** Leaf graph node payload includes explicit `scope` field with values `inner` or `outer`.
-  - **Payload granularity rule:** Leaf graph node payload includes `id`, `title`, and full `content` for both inner and outer nodes.
-  - **Pagination rule:** Leaf graph response is single-shot full payload (no pagination in current phase).
+  - **Leaf data-plane rule:** Leaf browsing is split into a skeleton graph surface and a node-detail surface. The skeleton surface carries the full one-hop graph topology needed for point-mode browsing. The detail surface carries `title` and `content` only for requested node ids.
+  - **Leaf hydration rule:** Entering a leaf returns the full one-hop skeleton payload in one response and does not include node `title` or `content`.
+  - **Leaf detail request rule:** Node details are fetched by explicit node-id batches scoped to the active leaf instead of being embedded in the initial leaf view payload.
 
 ## Persistence Projection
 
@@ -108,8 +109,6 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - leaf case (`node_kind=leaf`):
     - `nodes` array, each item:
       - `id`
-      - `title`
-      - `content`
       - `scope` with value `inner` or `outer`
     - `edges` array, each item:
       - `id`
@@ -121,19 +120,36 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - `404` when taxonomy store is empty.
   - request-shape errors follow global error-governance behavior.
 
+### Leaf Detail Endpoint
+- Route: `POST /taxonomy/view/leaves/{node_id}/details`
+- Request payload:
+  - `node_ids`: non-empty array of unique positive integers
+- Success payload:
+  - `nodes` array ordered to match the request `node_ids`; each item:
+    - `id`
+    - `title`
+    - `content`
+- Failure behavior:
+  - `404` when taxonomy leaf id is unknown.
+  - `404` when the taxonomy store is empty.
+  - `400` when `node_id` is not a leaf taxonomy node.
+  - `400` when `node_ids` is empty, contains duplicates, or references a node outside the active leaf one-hop graph.
+
 ## Response Ordering Rules
 - `breadcrumb` is ordered root-to-current.
 - branch `children` are ordered by `name ASC`, tie-break by `id ASC`.
 - leaf `nodes` are ordered by `id ASC`.
 - leaf `edges` are deduplicated by undirected pair and ordered by `(source_node_id ASC, target_node_id ASC)`.
 - every leaf `edges` item uses canonical undirected endpoint ordering with `source_node_id < target_node_id`.
+- leaf detail `nodes` are ordered to match request `node_ids`.
 
 ## Read Responsibilities
 - The taxonomy module provides:
   - complete taxonomy-tree reads and direct-child reads;
   - final assignment lookup for one knowledge node;
   - aggregate descendant counts for branch view payloads;
-  - branch/leaf drill-down view payloads with breadcrumb context.
+  - branch/leaf drill-down view payloads with breadcrumb context;
+  - leaf node-detail hydration for explicit node-id batches within one active leaf graph.
 - The taxonomy module does not provide:
   - candidate generation workflows;
   - confidence scoring workflows;
@@ -149,6 +165,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - Non-leaf assignment writes are rejected by trigger.
   - `GET /taxonomy/view/root` returns top-level children list with `breadcrumb=[]`.
   - `GET /taxonomy/view/nodes/{id}` returns correct discriminated payload for branch/leaf.
-  - Leaf payload excludes `outer-outer` edges and includes `scope` markers.
+  - Leaf skeleton payload excludes `outer-outer` edges and includes `scope` markers.
+  - `POST /taxonomy/view/leaves/{id}/details` returns `title/content` only for requested node ids inside the active leaf graph.
 - **Evidence:**
   - Passing import/repository/service tests and API contract tests for taxonomy view endpoints.

@@ -52,10 +52,14 @@ describe("TaxonomyFlowNode branch renderer", () => {
     expect(screen.getByTestId("taxonomy-bubble-surface")).toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-bubble-core-glow")).toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-bubble-sheen")).toBeInTheDocument();
-    expect(screen.getByTestId("taxonomy-bubble-label")).toHaveAttribute(
-      "data-bubble-tone",
-      "branch",
-    );
+    const label = screen.getByTestId("taxonomy-bubble-label");
+
+    expect(label).toHaveAttribute("data-bubble-tone", "branch");
+    expect(label.className).toContain("absolute");
+    expect(label.className).toContain("inset-[18%]");
+    expect(label.className).toContain("flex");
+    expect(label.className).toContain("items-center");
+    expect(label.className).toContain("justify-center");
   });
 });
 

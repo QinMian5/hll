@@ -70,6 +70,9 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
   const rotationDegrees = isBranch
     ? `${(((data.targetNodeId ?? 0) % 5) - 2) * 0.9}deg`
     : "0deg";
+  const labelLayoutClasses = isBranch
+    ? "absolute inset-[18%] z-[1] flex items-center justify-center text-center"
+    : "relative z-[1] px-[10%]";
 
   return (
     /* biome-ignore lint/a11y/noStaticElementInteractions: React Flow owns click semantics; this container only controls hover disclosure. */
@@ -111,7 +114,7 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
         data-testid="taxonomy-bubble-sheen"
       />
       <span
-        className={`relative z-[1] px-[10%] [text-wrap:balance] ${visualVariant.label}`}
+        className={`${labelLayoutClasses} [text-wrap:balance] ${visualVariant.label}`}
         data-bubble-tone={isBranch ? "branch" : "leaf"}
         data-testid="taxonomy-bubble-label"
       >

@@ -4,8 +4,9 @@
 import {
   forceCenter,
   forceCollide,
-  forceRadial,
   forceSimulation,
+  forceX,
+  forceY,
 } from "d3-force";
 import type {
   BranchLayoutInput,
@@ -19,6 +20,8 @@ interface BranchSimulationNode {
   readonly id: string;
   readonly radius: number;
   readonly targetRadius: number;
+  readonly targetX: number;
+  readonly targetY: number;
   x: number;
   y: number;
   vx?: number;
@@ -28,8 +31,8 @@ interface BranchSimulationNode {
 export function bubbleDiameterFromDescendantCount(
   descendantCardCount: number,
 ): number {
-  const scaled = 44 + Math.log(Math.max(descendantCardCount, 1) + 1) * 28;
-  return Math.max(44, Math.min(Math.round(scaled), 120));
+  const scaled = 100 + Math.log(Math.max(descendantCardCount, 1)) * 20;
+  return Math.round(Math.max(100, scaled));
 }
 
 function positionOnRing(options: {
@@ -41,8 +44,8 @@ function positionOnRing(options: {
   const radius = options.targetRadius;
 
   return {
-    x: options.center.x + Math.cos(angle) * radius,
-    y: options.center.y + Math.sin(angle) * radius,
+    x: options.center.x + Math.cos(angle) * radius * 1.18,
+    y: options.center.y + Math.sin(angle) * radius * 0.72,
   };
 }
 
@@ -51,7 +54,7 @@ function clampPosition(options: {
   readonly node: BranchSimulationNode;
   readonly viewport: BranchLayoutInput["viewport"];
 }): LayoutPoint {
-  const padding = options.node.radius + 24;
+  const padding = options.node.radius + 32;
 
   return {
     x: Math.min(
@@ -63,6 +66,73 @@ function clampPosition(options: {
       options.viewport.height - padding,
     ),
   };
+}
+
+function resolveBranchOverlaps(options: {
+  readonly center: LayoutPoint;
+  readonly nodes: BranchSimulationNode[];
+  readonly viewport: BranchLayoutInput["viewport"];
+}) {
+  for (let pass = 0; pass < 80; pass += 1) {
+    let moved = false;
+
+    for (let leftIndex = 0; leftIndex < options.nodes.length; leftIndex += 1) {
+      const left = options.nodes[leftIndex];
+
+      for (
+        let rightIndex = leftIndex + 1;
+        rightIndex < options.nodes.length;
+        rightIndex += 1
+      ) {
+        const right = options.nodes[rightIndex];
+        const deltaX = right.x - left.x;
+        const deltaY = right.y - left.y;
+        const distance = Math.hypot(deltaX, deltaY);
+        const minimumDistance = left.radius + right.radius + 8;
+
+        if (distance >= minimumDistance) {
+          continue;
+        }
+
+        const angle =
+          distance > 0
+            ? Math.atan2(deltaY, deltaX)
+            : (leftIndex + 1) * 2.399963229728653;
+        const pushDistance = (minimumDistance - Math.max(distance, 0.001)) / 2;
+        const leftMobility = left.targetRadius === 0 ? 0.2 : 1;
+        const rightMobility = right.targetRadius === 0 ? 0.2 : 1;
+        const totalMobility = leftMobility + rightMobility;
+        const unitX = Math.cos(angle);
+        const unitY = Math.sin(angle);
+
+        left.x -= unitX * pushDistance * (rightMobility / totalMobility);
+        left.y -= unitY * pushDistance * (rightMobility / totalMobility);
+        right.x += unitX * pushDistance * (leftMobility / totalMobility);
+        right.y += unitY * pushDistance * (leftMobility / totalMobility);
+
+        const clampedLeft = clampPosition({
+          center: options.center,
+          node: left,
+          viewport: options.viewport,
+        });
+        const clampedRight = clampPosition({
+          center: options.center,
+          node: right,
+          viewport: options.viewport,
+        });
+
+        left.x = clampedLeft.x;
+        left.y = clampedLeft.y;
+        right.x = clampedRight.x;
+        right.y = clampedRight.y;
+        moved = true;
+      }
+    }
+
+    if (!moved) {
+      break;
+    }
+  }
 }
 
 export function buildBranchLayout(
@@ -80,7 +150,7 @@ export function buildBranchLayout(
     );
     const radius = diameter / 2;
     const targetRadius =
-      index === 0 ? 0 : Math.min(110 + Math.sqrt(index) * 118, 360);
+      index === 0 ? 0 : Math.min(160 + Math.sqrt(index) * 150, 430);
     const position = positionOnRing({
       center: input.center,
       index,
@@ -93,6 +163,8 @@ export function buildBranchLayout(
       id: `taxonomy-${child.id}`,
       radius,
       targetRadius,
+      targetX: position.x,
+      targetY: position.y,
       x: position.x,
       y: position.y,
     };
@@ -103,19 +175,25 @@ export function buildBranchLayout(
     .force(
       "collide",
       forceCollide<BranchSimulationNode>()
-        .radius((node) => node.radius + 12)
+        .radius((node) => node.radius + 16)
         .strength(1),
     )
     .force(
-      "radial",
-      forceRadial<BranchSimulationNode>(
-        (node) => node.targetRadius,
-        input.center.x,
-        input.center.y,
-      ).strength(0.22),
+      "x",
+      forceX<BranchSimulationNode>((node) => node.targetX).strength(0.3),
+    )
+    .force(
+      "y",
+      forceY<BranchSimulationNode>((node) => node.targetY).strength(0.24),
     )
     .stop()
-    .tick(220);
+    .tick(260);
+
+  resolveBranchOverlaps({
+    center: input.center,
+    nodes,
+    viewport: input.viewport,
+  });
 
   return {
     nodes: nodes.map((node) => ({

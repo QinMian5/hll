@@ -48,10 +48,10 @@ function expectNodePosition<
 }
 
 describe("branch layout contracts", () => {
-  it("uses logarithmic bubble sizing", () => {
-    expect(bubbleDiameterFromDescendantCount(1)).toBeLessThan(
-      bubbleDiameterFromDescendantCount(100),
-    );
+  it("uses the configured logarithmic bubble sizing for branch nodes", () => {
+    expect(bubbleDiameterFromDescendantCount(1)).toBe(100);
+    expect(bubbleDiameterFromDescendantCount(10)).toBe(146);
+    expect(bubbleDiameterFromDescendantCount(100)).toBe(192);
   });
 
   it("returns weighted bubbles with deterministic ids and finite positions", () => {

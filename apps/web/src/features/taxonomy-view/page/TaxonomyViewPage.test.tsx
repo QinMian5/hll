@@ -434,6 +434,10 @@ describe("TaxonomyViewPage shell contracts", () => {
     render(<TaxonomyViewPage />);
 
     const canvas = screen.getByTestId("taxonomy-canvas-shell");
+    expect(screen.getByRole("button", { name: "Root" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     const rootBranchNode = within(canvas)
       .getByText("Math")
       .closest("[data-node-scope='branch']");
@@ -446,6 +450,13 @@ describe("TaxonomyViewPage shell contracts", () => {
 
     fireEvent.click(within(rootBranchNode as HTMLElement).getByText("Math"));
     expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
+    expect(screen.getByRole("button", { name: "Root" })).not.toHaveAttribute(
+      "aria-current",
+    );
+    expect(screen.getByRole("button", { name: "Math" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     const branchNode = within(canvas)
       .getByText("Algebra")
       .closest("[data-node-scope='branch']");
