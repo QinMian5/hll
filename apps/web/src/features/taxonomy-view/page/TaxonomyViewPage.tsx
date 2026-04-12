@@ -26,7 +26,7 @@ const breadcrumbMutedClasses =
 const breadcrumbCurrentClasses =
   "text-[13px] leading-[18px] font-medium text-[rgba(33,43,64,0.96)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0";
 const DEFAULT_FLOW_VIEWPORT = { x: 0, y: 0, zoom: 0.45 };
-export const BUBBLE_ACTIVATION_ZOOM = 0.85;
+export const LEAF_CARD_ACTIVATION_ZOOM = 0.85;
 export const LEAF_HYDRATION_OVERSCAN = 160;
 
 type BubbleFlowNode = Node<TaxonomyLayoutNodeData, "bubble">;
@@ -65,9 +65,15 @@ function toFlowEdge(
   edge: ReturnType<typeof buildLeafLayout>["edges"][number],
 ): Edge {
   return {
+    focusable: false,
     id: edge.id,
+    selectable: false,
     source: edge.source,
+    style: {
+      pointerEvents: "none",
+    },
     target: edge.target,
+    type: "straight",
   };
 }
 
@@ -156,12 +162,12 @@ export function TaxonomyViewPage() {
       hydratedNodeDetailsById: {},
       nodes: nodeQuery.data.nodes,
       viewport: BRANCH_LAYOUT_VIEWPORT,
-      visibleBubbleNodeIds: [],
+      visibleCardNodeIds: [],
     });
   }, [nodeQuery.data]);
 
   const visibleLeafNodeIds = useMemo(() => {
-    if (!leafSkeletonLayout || flowViewport.zoom < BUBBLE_ACTIVATION_ZOOM) {
+    if (!leafSkeletonLayout || flowViewport.zoom < LEAF_CARD_ACTIVATION_ZOOM) {
       return [];
     }
 
@@ -186,7 +192,7 @@ export function TaxonomyViewPage() {
     {
       enabled:
         activeLeafId !== null &&
-        flowViewport.zoom >= BUBBLE_ACTIVATION_ZOOM &&
+        flowViewport.zoom >= LEAF_CARD_ACTIVATION_ZOOM &&
         missingLeafNodeIds.length > 0,
     },
   );
@@ -263,7 +269,7 @@ export function TaxonomyViewPage() {
         hydratedNodeDetailsById: leafHydratedNodeDetailsById,
         nodes: nodeQuery.data.nodes,
         viewport: BRANCH_LAYOUT_VIEWPORT,
-        visibleBubbleNodeIds: visibleLeafNodeIds,
+        visibleCardNodeIds: visibleLeafNodeIds,
       });
 
       return {

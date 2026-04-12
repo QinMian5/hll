@@ -4,9 +4,39 @@
 import "@testing-library/jest-dom/vitest";
 
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { TaxonomyLayoutNodeData } from "./layout/taxonomyLayoutTypes";
 import { TaxonomyFlowNode } from "./TaxonomyFlowNode";
+
+vi.mock("@xyflow/react", async () => {
+  const actual =
+    await vi.importActual<typeof import("@xyflow/react")>("@xyflow/react");
+
+  return {
+    ...actual,
+    Handle: ({
+      className,
+      "data-handle-anchor": dataHandleAnchor,
+      "data-testid": dataTestId,
+      id,
+      type,
+    }: {
+      readonly className?: string;
+      readonly "data-handle-anchor"?: string;
+      readonly "data-testid"?: string;
+      readonly id?: string;
+      readonly type?: string;
+    }) => (
+      <div
+        className={className}
+        data-handle-anchor={dataHandleAnchor}
+        data-handle-id={id}
+        data-handle-type={type}
+        data-testid={dataTestId}
+      />
+    ),
+  };
+});
 
 type TaxonomyFlowNodeProps = Parameters<typeof TaxonomyFlowNode>[0];
 
@@ -66,7 +96,7 @@ describe("TaxonomyFlowNode branch renderer", () => {
 });
 
 describe("TaxonomyFlowNode leaf renderer", () => {
-  it("keeps leaf nodes in the shared bubble family and reveals content through disclosure only on hover", () => {
+  it("renders hydrated leaf nodes as centered cards and reveals content through disclosure only on hover", () => {
     render(
       <TaxonomyFlowNode
         {...makeNodeProps({
@@ -74,7 +104,7 @@ describe("TaxonomyFlowNode leaf renderer", () => {
           depth: 2,
           graphNodeId: 10,
           label: "Equation",
-          renderMode: "bubble",
+          renderMode: "card",
           scope: "inner",
           targetNodeId: null,
           tooltip: "Equation",
@@ -86,8 +116,19 @@ describe("TaxonomyFlowNode leaf renderer", () => {
       .getByText("Equation")
       .closest("[data-node-scope='inner']");
 
-    expect(leafNode).toHaveAttribute("data-bubble-family", "taxonomy");
-    expect(leafNode).toHaveAttribute("data-bubble-variant", "inner");
+    expect(leafNode).toHaveAttribute("data-node-presentation", "card");
+    expect(
+      within(leafNode as HTMLElement).getByTestId("taxonomy-leaf-card-surface"),
+    ).toHaveAttribute("data-node-shape", "card");
+    expect(
+      within(leafNode as HTMLElement).getByTestId("taxonomy-card-label"),
+    ).toHaveClass("text-center");
+    expect(
+      within(leafNode as HTMLElement).getByTestId("taxonomy-handle-target"),
+    ).toHaveAttribute("data-handle-anchor", "center");
+    expect(
+      within(leafNode as HTMLElement).getByTestId("taxonomy-handle-source"),
+    ).toHaveAttribute("data-handle-anchor", "center");
     expect(screen.queryByText("Equation content")).not.toBeInTheDocument();
 
     fireEvent.mouseEnter(leafNode as HTMLElement);
@@ -103,7 +144,7 @@ describe("TaxonomyFlowNode leaf renderer", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders outer leaf nodes through the same bubble family with restrained emphasis changes only", () => {
+  it("renders outer leaf nodes as restrained cards rather than circular bubbles", () => {
     render(
       <TaxonomyFlowNode
         {...makeNodeProps({
@@ -111,7 +152,7 @@ describe("TaxonomyFlowNode leaf renderer", () => {
           depth: 2,
           graphNodeId: 11,
           label: "Proof",
-          renderMode: "bubble",
+          renderMode: "card",
           scope: "outer",
           targetNodeId: null,
           tooltip: "Proof",
@@ -123,19 +164,44 @@ describe("TaxonomyFlowNode leaf renderer", () => {
       .getByText("Proof")
       .closest("[data-node-scope='outer']");
 
-    expect(outerLeafNode).toHaveAttribute("data-bubble-family", "taxonomy");
-    expect(outerLeafNode).toHaveAttribute("data-bubble-variant", "outer");
-    expect(
-      within(outerLeafNode as HTMLElement).getByTestId("taxonomy-bubble-halo"),
-    ).toBeInTheDocument();
     expect(
       within(outerLeafNode as HTMLElement).getByTestId(
-        "taxonomy-bubble-surface",
+        "taxonomy-leaf-card-surface",
       ),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("data-node-shape", "card");
     expect(
-      within(outerLeafNode as HTMLElement).getByTestId("taxonomy-bubble-label"),
+      within(outerLeafNode as HTMLElement).getByTestId("taxonomy-card-label"),
     ).toHaveAttribute("data-bubble-tone", "leaf");
+  });
+
+  it("allows hydrated leaf card labels to wrap inside a centered text container", () => {
+    const title = "A very long leaf title that should wrap into multiple lines";
+
+    render(
+      <TaxonomyFlowNode
+        {...makeNodeProps({
+          content: "Long content",
+          depth: 2,
+          graphNodeId: 15,
+          label: title,
+          renderMode: "card",
+          scope: "inner",
+          targetNodeId: null,
+          tooltip: "Long title",
+        })}
+      />,
+    );
+
+    const cardNode = screen
+      .getByText(title)
+      .closest("[data-node-scope='inner']");
+    const label = within(cardNode as HTMLElement).getByTestId(
+      "taxonomy-card-label",
+    );
+
+    expect(label).toHaveClass("whitespace-normal");
+    expect(label).toHaveClass("break-words");
+    expect(label).toHaveClass("text-center");
   });
 
   it("renders non-hydrated leaf nodes as point-mode markers without titles or disclosure", () => {
@@ -159,8 +225,14 @@ describe("TaxonomyFlowNode leaf renderer", () => {
 
     expect(pointNode).toHaveAttribute("data-node-presentation", "point");
     expect(
-      within(pointNode as HTMLElement).queryByTestId("taxonomy-bubble-label"),
+      within(pointNode as HTMLElement).queryByTestId("taxonomy-card-label"),
     ).not.toBeInTheDocument();
+    expect(
+      within(pointNode as HTMLElement).getByTestId("taxonomy-handle-target"),
+    ).toHaveAttribute("data-handle-anchor", "center");
+    expect(
+      within(pointNode as HTMLElement).getByTestId("taxonomy-handle-source"),
+    ).toHaveAttribute("data-handle-anchor", "center");
 
     fireEvent.mouseEnter(pointNode as HTMLElement);
     expect(

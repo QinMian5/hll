@@ -15,6 +15,30 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@xyflow/react", () => ({
   Background: () => <div data-testid="reactflow-background" />,
+  Handle: ({
+    className,
+    "data-handle-anchor": dataHandleAnchor,
+    "data-testid": dataTestId,
+    id,
+    type,
+  }: {
+    readonly className?: string;
+    readonly "data-handle-anchor"?: string;
+    readonly "data-testid"?: string;
+    readonly id?: string;
+    readonly type?: string;
+  }) => (
+    <div
+      className={className}
+      data-handle-anchor={dataHandleAnchor}
+      data-handle-id={id}
+      data-handle-type={type}
+      data-testid={dataTestId}
+    />
+  ),
+  Position: {
+    Top: "top",
+  },
   ReactFlow: ({
     children,
     edges = [],
@@ -43,6 +67,8 @@ vi.mock("@xyflow/react", () => ({
           /* biome-ignore lint/a11y/noStaticElementInteractions: test-only React Flow mock uses a plain wrapper to mirror production node containers. */
           /* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard interaction is outside the scope of this structural mock. */
           <div
+            data-node-height={node.style?.height ?? 0}
+            data-node-width={node.style?.width ?? 0}
             data-node-x={node.position?.x ?? 0}
             data-node-y={node.position?.y ?? 0}
             data-testid={`reactflow-node-${node.id}`}
@@ -69,6 +95,9 @@ vi.mock("@xyflow/react", () => ({
       })}
       {edges.map((edge) => (
         <div
+          data-edge-focusable={String(edge.focusable ?? true)}
+          data-edge-selectable={String(edge.selectable ?? true)}
+          data-edge-type={edge.type ?? ""}
           data-testid={`reactflow-edge-${edge.id}`}
           key={edge.id}
         >{`${edge.source}->${edge.target}`}</div>
@@ -91,8 +120,8 @@ import type {
 } from "../data/taxonomyViewQueries";
 import * as taxonomyViewQueries from "../data/taxonomyViewQueries";
 import {
-  BUBBLE_ACTIVATION_ZOOM,
   flowBoundsFromViewport,
+  LEAF_CARD_ACTIVATION_ZOOM,
   selectLeafHydrationNodeIds,
   TaxonomyViewPage,
 } from "./TaxonomyViewPage";
@@ -100,9 +129,12 @@ import {
 interface MockReactFlowProps {
   readonly children?: ReactNode;
   readonly edges?: Array<{
+    readonly focusable?: boolean;
     readonly id: string;
+    readonly selectable?: boolean;
     readonly source: string;
     readonly target: string;
+    readonly type?: string;
   }>;
   readonly nodeTypes?: Record<
     string,
@@ -113,12 +145,17 @@ interface MockReactFlowProps {
       readonly content?: string;
       readonly depth?: number;
       readonly label: string;
+      readonly renderMode?: "bubble" | "card" | "point";
       readonly scope?: "branch" | "inner" | "outer";
       readonly targetNodeId?: number | null;
       readonly tooltip?: string;
     };
     readonly id: string;
     readonly position?: { readonly x: number; readonly y: number };
+    readonly style?: {
+      readonly height: number;
+      readonly width: number;
+    };
     readonly type?: string;
   }>;
   readonly onMoveEnd?: (
@@ -328,7 +365,7 @@ describe("leaf hydration viewport helpers", () => {
   it("converts the current viewport into flow-space bounds", () => {
     expect(
       flowBoundsFromViewport(
-        { x: -140.4, y: -90, zoom: BUBBLE_ACTIVATION_ZOOM },
+        { x: -140.4, y: -90, zoom: LEAF_CARD_ACTIVATION_ZOOM },
         { height: 900, width: 1404 },
         0,
       ),
@@ -606,6 +643,18 @@ describe("TaxonomyViewPage shell contracts", () => {
     expect(
       within(canvas).getByTestId("reactflow-edge-10:11"),
     ).toBeInTheDocument();
+    expect(within(canvas).getByTestId("reactflow-edge-10:11")).toHaveAttribute(
+      "data-edge-type",
+      "straight",
+    );
+    expect(within(canvas).getByTestId("reactflow-edge-10:11")).toHaveAttribute(
+      "data-edge-focusable",
+      "false",
+    );
+    expect(within(canvas).getByTestId("reactflow-edge-10:11")).toHaveAttribute(
+      "data-edge-selectable",
+      "false",
+    );
     expect(within(canvas).queryByText("Equation")).not.toBeInTheDocument();
     expect(
       within(canvas).queryByTestId("taxonomy-bubble-disclosure"),
@@ -613,6 +662,17 @@ describe("TaxonomyViewPage shell contracts", () => {
     expect(within(canvas).getAllByTestId("taxonomy-point-node")).toHaveLength(
       2,
     );
+    const overviewInnerNode = within(canvas).getByTestId(
+      "reactflow-node-card-10",
+    );
+    const overviewCenter = {
+      x:
+        Number(overviewInnerNode.getAttribute("data-node-x")) +
+        Number(overviewInnerNode.getAttribute("data-node-width")) / 2,
+      y:
+        Number(overviewInnerNode.getAttribute("data-node-y")) +
+        Number(overviewInnerNode.getAttribute("data-node-height")) / 2,
+    };
     expect(
       leafDetailCalls.some(
         (call) => call.leafId === 2 && call.enabled && call.nodeIds.length > 0,
@@ -643,6 +703,24 @@ describe("TaxonomyViewPage shell contracts", () => {
       .closest("[data-node-scope='inner']");
 
     expect(hydratedLeafNode).not.toBeNull();
+    expect(hydratedLeafNode).toHaveAttribute("data-node-presentation", "card");
+    expect(
+      within(hydratedLeafNode as HTMLElement).getByTestId(
+        "taxonomy-leaf-card-surface",
+      ),
+    ).toHaveAttribute("data-node-shape", "card");
+    const zoomedInnerNode = within(canvas).getByTestId(
+      "reactflow-node-card-10",
+    );
+    const zoomedCenter = {
+      x:
+        Number(zoomedInnerNode.getAttribute("data-node-x")) +
+        Number(zoomedInnerNode.getAttribute("data-node-width")) / 2,
+      y:
+        Number(zoomedInnerNode.getAttribute("data-node-y")) +
+        Number(zoomedInnerNode.getAttribute("data-node-height")) / 2,
+    };
+    expect(zoomedCenter).toEqual(overviewCenter);
     fireEvent.mouseEnter(hydratedLeafNode as HTMLElement);
     expect(
       within(canvas).getByTestId("taxonomy-bubble-disclosure"),

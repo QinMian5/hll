@@ -42,7 +42,7 @@ export type TaxonomyLayoutNodeData = Record<string, unknown> & {
   readonly depth: number;
   readonly graphNodeId?: number;
   readonly label: string;
-  readonly renderMode?: "bubble" | "point";
+  readonly renderMode?: "bubble" | "card" | "point";
   readonly scope: "branch" | "inner" | "outer";
   readonly targetNodeId: number | null;
   readonly tooltip: string;
@@ -79,7 +79,7 @@ export interface LeafLayoutInput {
     Partial<Record<number, LeafHydratedNodeLayoutInput>>
   >;
   readonly nodes: readonly LeafNodeLayoutInput[];
-  readonly visibleBubbleNodeIds?: readonly number[];
+  readonly visibleCardNodeIds?: readonly number[];
   readonly viewport: LayoutViewport;
 }
 

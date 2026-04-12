@@ -1,7 +1,7 @@
 // abstract: Custom React Flow node renderer for taxonomy branch and leaf nodes.
 // out_of_scope: Page-level query orchestration and layout solving.
 
-import type { Node, NodeProps } from "@xyflow/react";
+import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { useId, useState } from "react";
 
 import type { TaxonomyLayoutNodeData } from "./layout/taxonomyLayoutTypes";
@@ -22,6 +22,18 @@ const bubbleFrameClasses = [
   "[transform-origin:center]",
   "transition-transform",
   "duration-200",
+].join(" ");
+
+const leafCardFrameClasses = [
+  "group/card",
+  "isolate",
+  "relative",
+  "grid",
+  "size-full",
+  "place-items-center",
+  "overflow-visible",
+  "text-center",
+  "text-slate-950",
 ].join(" ");
 
 const bubbleVariantClasses: Record<
@@ -60,9 +72,44 @@ const bubbleVariantClasses: Record<
   },
 };
 
+const leafCardVariantClasses: Record<
+  Exclude<TaxonomyLayoutNodeData["scope"], "branch">,
+  { frame: string; label: string }
+> = {
+  inner: {
+    frame:
+      "rounded-[18px] border border-[#d6e1f1]/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(244,248,255,0.96)_100%)] shadow-[0_14px_32px_rgba(166,184,214,0.16)]",
+    label:
+      "text-[14px] font-medium leading-[1.2] tracking-[-0.02em] text-[#223b60]",
+  },
+  outer: {
+    frame:
+      "rounded-[18px] border border-[#dde5f2]/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(247,250,255,0.95)_100%)] shadow-[0_12px_28px_rgba(176,189,214,0.14)]",
+    label:
+      "text-[14px] font-medium leading-[1.2] tracking-[-0.02em] text-[#3b526f]",
+  },
+};
+
+const centerHandleClasses = [
+  "!h-0",
+  "!w-0",
+  "!min-h-0",
+  "!min-w-0",
+  "!border-0",
+  "!bg-transparent",
+  "!opacity-0",
+  "!shadow-none",
+  "!pointer-events-none",
+  "!left-1/2",
+  "!top-1/2",
+  "!-translate-x-1/2",
+  "!-translate-y-1/2",
+].join(" ");
+
 export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
   const isBranch = data.scope === "branch";
   const isPointNode = data.renderMode === "point";
+  const isLeafCard = !isBranch && data.renderMode === "card";
   const [isDisclosureOpen, setIsDisclosureOpen] = useState(false);
   const tooltipId = useId();
   const canRevealContent = !isBranch && !isPointNode && Boolean(data.content);
@@ -79,9 +126,9 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
     /* biome-ignore lint/a11y/noStaticElementInteractions: React Flow owns click semantics; this container only controls hover disclosure. */
     <div
       aria-describedby={shouldShowTooltip ? tooltipId : undefined}
-      className={bubbleFrameClasses}
+      className={isLeafCard ? leafCardFrameClasses : bubbleFrameClasses}
       data-bubble-family="taxonomy"
-      data-bubble-variant={data.scope}
+      data-bubble-variant={isBranch ? data.scope : undefined}
       data-depth={data.depth}
       data-node-presentation={data.renderMode}
       data-node-scope={data.scope}
@@ -95,6 +142,28 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
       }}
       style={{ transform: `rotate(${rotationDegrees})` }}
     >
+      {!isBranch ? (
+        <>
+          <Handle
+            className={centerHandleClasses}
+            data-handle-anchor="center"
+            data-testid="taxonomy-handle-target"
+            id="center-target"
+            isConnectable={false}
+            position={Position.Top}
+            type="target"
+          />
+          <Handle
+            className={centerHandleClasses}
+            data-handle-anchor="center"
+            data-testid="taxonomy-handle-source"
+            id="center-source"
+            isConnectable={false}
+            position={Position.Top}
+            type="source"
+          />
+        </>
+      ) : null}
       {isPointNode ? (
         <span
           aria-hidden="true"
@@ -102,7 +171,7 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
           data-testid="taxonomy-point-node"
         />
       ) : null}
-      {!isPointNode ? (
+      {isBranch ? (
         <>
           <span
             aria-hidden="true"
@@ -128,6 +197,23 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
             className={`${labelLayoutClasses} [text-wrap:balance] ${visualVariant.label}`}
             data-bubble-tone={isBranch ? "branch" : "leaf"}
             data-testid="taxonomy-bubble-label"
+          >
+            {data.label}
+          </span>
+        </>
+      ) : null}
+      {isLeafCard ? (
+        <>
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-0 ${leafCardVariantClasses[data.scope].frame}`}
+            data-node-shape="card"
+            data-testid="taxonomy-leaf-card-surface"
+          />
+          <span
+            className={`relative z-[1] flex h-full w-full items-center justify-center px-4 py-3 text-center whitespace-normal break-words [text-wrap:balance] ${leafCardVariantClasses[data.scope].label}`}
+            data-bubble-tone="leaf"
+            data-testid="taxonomy-card-label"
           >
             {data.label}
           </span>

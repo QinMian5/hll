@@ -7,7 +7,14 @@ import {
   bubbleDiameterFromDescendantCount,
   buildBranchLayout,
 } from "./buildBranchLayout";
-import { buildLeafLayout } from "./buildLeafLayout";
+import {
+  buildLeafLayout,
+  LEAF_CARD_MAX_WIDTH,
+  LEAF_CARD_MIN_HEIGHT,
+  LEAF_CARD_MIN_WIDTH,
+  LEAF_COLLISION_RADIUS,
+  scalePointAroundCenter,
+} from "./buildLeafLayout";
 
 function roundPosition(position: { readonly x: number; readonly y: number }) {
   return {
@@ -144,6 +151,19 @@ describe("branch layout contracts", () => {
 });
 
 describe("leaf layout contracts", () => {
+  it("scales solved node centers outward from the shared layout center", () => {
+    expect(
+      scalePointAroundCenter({ x: 760, y: 500 }, { x: 700, y: 450 }, 2),
+    ).toEqual({
+      x: 820,
+      y: 550,
+    });
+  });
+
+  it("uses the configured fixed collision radius for leaf spacing", () => {
+    expect(LEAF_COLLISION_RADIUS).toBe(25);
+  });
+
   it("returns point-mode skeleton nodes and preserves supplied edges by default", () => {
     const result = buildLeafLayout({
       center: { x: 700, y: 450 },
@@ -162,7 +182,7 @@ describe("leaf layout contracts", () => {
     expect(result.nodes[0]?.data.content).toBeUndefined();
   });
 
-  it("upgrades only visible hydrated node ids into bubble mode", () => {
+  it("upgrades only visible hydrated node ids into card mode", () => {
     const result = buildLeafLayout({
       center: { x: 700, y: 450 },
       edges: [[10, 11, 0.8]],
@@ -179,17 +199,75 @@ describe("leaf layout contracts", () => {
         { id: 11, scope: "outer" },
       ],
       viewport: { height: 900, width: 1404 },
-      visibleBubbleNodeIds: [10],
+      visibleCardNodeIds: [10],
     });
 
     const innerNode = result.nodes.find((node) => node.data.graphNodeId === 10);
     const outerNode = result.nodes.find((node) => node.data.graphNodeId === 11);
 
-    expect(innerNode?.data.renderMode).toBe("bubble");
+    expect(innerNode?.data.renderMode).toBe("card");
     expect(innerNode?.data.label).toBe("Inner node");
     expect(innerNode?.data.content).toBe("Inner content");
     expect(outerNode?.data.renderMode).toBe("point");
     expect(outerNode?.data.label).toBe("");
+  });
+
+  it("anchors hydrated leaf cards on the original point center and uses rectangular card metrics", () => {
+    const result = buildLeafLayout({
+      center: { x: 700, y: 450 },
+      edges: [],
+      hydratedNodeDetailsById: {
+        10: {
+          content: "Inner content",
+          id: 10,
+          scope: "inner",
+          title: "Hydrated node",
+        },
+      },
+      nodes: [{ id: 10, scope: "inner" }],
+      viewport: { height: 900, width: 1404 },
+      visibleCardNodeIds: [10],
+    });
+
+    const node = result.nodes[0];
+
+    expect(node?.data.renderMode).toBe("card");
+    expect(node?.style.width).toBeGreaterThanOrEqual(LEAF_CARD_MIN_WIDTH);
+    expect(node?.style.height).toBeGreaterThanOrEqual(LEAF_CARD_MIN_HEIGHT);
+    expect(node?.style.width).toBeGreaterThan(node?.style.height ?? 0);
+    expect(node?.style.borderRadius).not.toBe(`${node?.style.width}px`);
+    expect((node?.position.x ?? 0) + (node?.style.width ?? 0) / 2).toBeCloseTo(
+      700,
+      0,
+    );
+    expect((node?.position.y ?? 0) + (node?.style.height ?? 0) / 2).toBeCloseTo(
+      450,
+      0,
+    );
+  });
+
+  it("caps hydrated leaf card width and grows height when long titles wrap", () => {
+    const result = buildLeafLayout({
+      center: { x: 700, y: 450 },
+      edges: [],
+      hydratedNodeDetailsById: {
+        10: {
+          content: "Inner content",
+          id: 10,
+          scope: "inner",
+          title:
+            "A very long leaf title that should wrap across multiple centered lines",
+        },
+      },
+      nodes: [{ id: 10, scope: "inner" }],
+      viewport: { height: 900, width: 1404 },
+      visibleCardNodeIds: [10],
+    });
+
+    const node = result.nodes[0];
+
+    expect(node?.style.width).toBe(LEAF_CARD_MAX_WIDTH);
+    expect(node?.style.height).toBeGreaterThan(LEAF_CARD_MIN_HEIGHT);
   });
 
   it("keeps rounded positions stable for identical graph input", () => {
