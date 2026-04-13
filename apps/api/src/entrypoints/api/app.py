@@ -22,16 +22,22 @@ from modules.search.api import build_router as build_search_router
 from modules.taxonomy.api import build_router as build_taxonomy_router
 
 logger = logging.getLogger(__name__)
+API_V1_PREFIX = "/api/v1"
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Knowledge API", version="0.1.0")
-    app.include_router(build_search_router(get_search_service=api_providers.get_search_service))
     app.include_router(
-        build_ingestion_router(get_ingestion_service=api_providers.get_ingestion_service)
+        build_search_router(get_search_service=api_providers.get_search_service),
+        prefix=API_V1_PREFIX,
     )
     app.include_router(
-        build_taxonomy_router(get_taxonomy_service=api_providers.get_taxonomy_service)
+        build_ingestion_router(get_ingestion_service=api_providers.get_ingestion_service),
+        prefix=API_V1_PREFIX,
+    )
+    app.include_router(
+        build_taxonomy_router(get_taxonomy_service=api_providers.get_taxonomy_service),
+        prefix=API_V1_PREFIX,
     )
 
     @app.middleware("http")

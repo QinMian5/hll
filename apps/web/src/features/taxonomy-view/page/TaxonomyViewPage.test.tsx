@@ -238,13 +238,14 @@ afterEach(() => {
 });
 
 describe("TaxonomyViewPage", () => {
-  it("renders the Figma-aligned shell header with disabled actions", () => {
+  it("renders only the graph content shell without a second page header", () => {
     render(<TaxonomyViewPage />);
 
-    expect(screen.getByTestId("taxonomy-header-shell")).toBeInTheDocument();
-    expect(screen.getByText("Knowledge Graph")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "GitHub" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Login" })).toBeDisabled();
+    expect(
+      screen.queryByTestId("taxonomy-header-shell"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Knowledge Graph")).not.toBeInTheDocument();
+    expect(screen.getByTestId("taxonomy-canvas-panel")).toBeInTheDocument();
   });
 
   it("renders loading and error overlays inside the stable canvas shell", () => {

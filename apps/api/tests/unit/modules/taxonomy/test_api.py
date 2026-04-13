@@ -211,7 +211,7 @@ def dependency_overrides() -> DependencyOverrides:
 async def test_root_view_route_returns_top_level_children(
     async_client: AsyncClient,
 ) -> None:
-    response = await async_client.get("/taxonomy/view/root")
+    response = await async_client.get("/api/v1/taxonomy/view/root")
 
     assert response.status_code == 200
     payload = response.json()
@@ -232,7 +232,7 @@ async def test_root_view_route_returns_top_level_children(
 async def test_node_view_route_returns_branch_payload_for_non_leaf(
     async_client: AsyncClient,
 ) -> None:
-    response = await async_client.get("/taxonomy/view/nodes/1")
+    response = await async_client.get("/api/v1/taxonomy/view/nodes/1")
 
     assert response.status_code == 200
     payload = response.json()
@@ -245,7 +245,7 @@ async def test_node_view_route_returns_branch_payload_for_non_leaf(
 async def test_node_view_route_returns_leaf_payload_for_leaf(
     async_client: AsyncClient,
 ) -> None:
-    response = await async_client.get("/taxonomy/view/nodes/2")
+    response = await async_client.get("/api/v1/taxonomy/view/nodes/2")
 
     assert response.status_code == 200
     payload = response.json()
@@ -260,7 +260,7 @@ async def test_leaf_details_route_returns_ordered_detail_records(
     async_client: AsyncClient,
 ) -> None:
     response = await async_client.post(
-        "/taxonomy/view/leaves/2/details",
+        "/api/v1/taxonomy/view/leaves/2/details",
         json={"node_ids": [11, 77]},
     )
 
@@ -303,7 +303,7 @@ async def test_leaf_details_route_returns_400_for_invalid_detail_requests(
     )
 
     response = await async_client.post(
-        f"/taxonomy/view/leaves/{leaf_id}/details",
+        f"/api/v1/taxonomy/view/leaves/{leaf_id}/details",
         json=payload,
     )
 
@@ -322,8 +322,8 @@ async def test_taxonomy_view_routes_return_404_when_taxonomy_unavailable(
         _FakeTaxonomyNotFoundService()
     )
 
-    root_response = await async_client.get("/taxonomy/view/root")
-    node_response = await async_client.get("/taxonomy/view/nodes/123")
+    root_response = await async_client.get("/api/v1/taxonomy/view/root")
+    node_response = await async_client.get("/api/v1/taxonomy/view/nodes/123")
 
     assert root_response.status_code == 404
     assert node_response.status_code == 404

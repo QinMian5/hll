@@ -95,7 +95,7 @@ out_of_scope: External CLI command syntax, operator-facing usage text, backend i
   2. `ReviewCardNode` runs the selected reviewer backend and validates the structured result into `ReviewResult`.
   3. If any review dimension has `passed=false`, the graph ends immediately with that `ReviewResult`.
   4. If all dimensions pass, the graph transitions to `SubmitCardNode`.
-  5. `SubmitCardNode` issues the authoritative `POST /cards` submission call and ends with the same `ReviewResult`.
+  5. `SubmitCardNode` issues the authoritative `POST /api/v1/cards` submission call and ends with the same `ReviewResult`.
   6. The CLI serializes the `ReviewResult` into stdout JSON and emits only `result=passed` on success, or `result=failed` plus per-field fixed hints only for failed dimensions.
 
 ## Mermaid Flow
@@ -105,7 +105,7 @@ flowchart TD
     review["ReviewCardNode runs reviewer backend"]
     decision{"All six review dimensions passed"}
     reject["End graph with ReviewResult"]
-    submit["SubmitCardNode issues POST /cards"]
+    submit["SubmitCardNode issues POST /api/v1/cards"]
     finish["End graph with ReviewResult"]
 
     start --> review

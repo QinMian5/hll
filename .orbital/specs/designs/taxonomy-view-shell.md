@@ -1,6 +1,6 @@
 ---
-abstract: Frontend shell design for the taxonomy drill-down page with a Figma-aligned header, stable single-canvas host, Figma-matched canvas panel styling, and in-canvas overlays.
-out_of_scope: Taxonomy API payload semantics, renderer-internal layout algorithms, and authentication or repository-link behavior.
+abstract: Frontend content-shell design for the Graph View route with a stable single-canvas host, Figma-matched canvas panel styling, and in-canvas overlays.
+out_of_scope: Shared app-shell navigation, taxonomy API payload semantics, renderer-internal layout algorithms, and authentication or repository-link behavior.
 ---
 
 # Design: taxonomy-view-shell
@@ -11,35 +11,35 @@ out_of_scope: Taxonomy API payload semantics, renderer-internal layout algorithm
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the active shell and layout behavior for the web taxonomy browsing page so the frontend applies the approved Figma structure without changing the taxonomy drill-down contract.
-- **Scope/Boundaries:** Covers the page-level header, primary canvas container, Figma panel treatment, breadcrumb presentation, overlay placement, status presentation, and shell-level responsiveness for `apps/web`. Excludes backend payload shape, graph data derivation, and auth/repository integration.
+- **Purpose:** Define the active content-shell and layout behavior for the `Graph View` route so taxonomy browsing uses one stable canvas host inside the shared web app shell without changing the taxonomy drill-down contract.
+- **Scope/Boundaries:** Covers the primary canvas container, Figma panel treatment, breadcrumb presentation, overlay placement, status presentation, and graph-route content responsiveness for `apps/web`. Excludes shared top navigation, backend payload shape, graph data derivation, and auth/repository integration.
 - **Related Requirements:** R-001, R-003, R-004, R-006.
 
 ## Constraint Projection
-- **Governing Constraints:** Frontend behavior remains within the unified web client boundary, consumes generated taxonomy contracts without ad hoc API access, preserves explicit module boundaries, and keeps behavior-changing page-shell decisions synchronized in active specs.
-- **Detail Commitments:** The taxonomy browsing page uses a Figma-aligned top header plus one stable taxonomy canvas host wrapped by a Figma-matched panel surface. Breadcrumb, loading, and error UI render as overlays inside the canvas instead of separate page sections. Header action buttons remain present and disabled. The host can mount the branch React Flow renderer or the leaf deck.gl renderer without changing shell geometry. Shell styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS.
-- **Update Rule:** Requirement-level repository and contract constraints remain stable while page-shell structure, overlay rules, and visual layout behavior are maintained in this design document.
+- **Governing Constraints:** Frontend behavior remains within the unified web client boundary, consumes generated taxonomy contracts without ad hoc API access, preserves explicit module boundaries, and keeps behavior-changing graph-route shell decisions synchronized in active specs.
+- **Detail Commitments:** The `Graph View` route renders inside the shared app shell defined by `web-app-shell-navigation.md` and owns one stable taxonomy canvas host wrapped by a Figma-matched panel surface. Breadcrumb, loading, and error UI render as overlays inside the canvas instead of separate page sections. The host can mount the branch React Flow renderer or the leaf deck.gl renderer without changing content-shell geometry. Graph-route content styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS.
+- **Update Rule:** Requirement-level repository and contract constraints remain stable while graph-route content-shell structure, overlay rules, and visual layout behavior are maintained in this design document.
 
 ## Inputs & Outputs
 - **Inputs:**
   - Taxonomy view query states and payloads already owned by `TaxonomyViewPage`.
-  - Approved Figma frame `WBYs6P9HMxe21TSYQL637r`, node `1:3`.
+  - Shared app shell defined in `web-app-shell-navigation.md`.
+  - Approved graph-route Figma frame `WBYs6P9HMxe21TSYQL637r`, node `1:3`.
   - Existing branch drill-down behavior and leaf graph browsing behavior.
 - **Outputs:**
-  - One page shell with a fixed header and one persistent main canvas.
-  - One Figma-matched inner canvas panel with the approved spacing, border, radius, fill, and shadow treatment.
+  - One graph-route content shell with one persistent main canvas.
+  - One Figma-matched inner canvas panel with the approved border, radius, fill, and shadow treatment.
   - In-canvas overlays for breadcrumb, loading state, and error state.
-  - Disabled top-right placeholder actions for `GitHub` and `Login`.
 - **Artifacts:**
   - `apps/web/src/features/taxonomy-view/page/TaxonomyViewPage.tsx`
   - `apps/web/src/features/taxonomy-view/page/TaxonomyFlowNode.tsx`
   - `apps/web/src/index.css`
 
 ## Design Approach
-- **Approach:** The page renders a single stable canvas host beneath a Figma-aligned header. That host mounts the branch React Flow renderer for root and branch states and mounts the leaf deck.gl renderer for leaf states. Status and navigation affordances are layered inside the canvas so layout height does not jump across root, branch, leaf, loading, or error states. Shell styling is carried directly by Tailwind utility classes in the React tree, with handwritten CSS reserved only for library-level overrides or effects that cannot be expressed cleanly through utilities.
+- **Approach:** The `Graph View` route renders one stable canvas host inside the shared app shell body. That host mounts the branch React Flow renderer for root and branch states and mounts the leaf deck.gl renderer for leaf states. Status and navigation affordances are layered inside the canvas so layout height does not jump across root, branch, leaf, loading, or error states. Content-shell styling is carried directly by Tailwind utility classes in the React tree, with handwritten CSS reserved only for library-level overrides or effects that cannot be expressed cleanly through utilities.
 - **Key Elements:**
-  - **Header shell:** A single horizontal header spans the page width. The left side contains a blue square placeholder icon and the `Knowledge Graph` brand label. The center stays empty. The right side contains `GitHub` and `Login` buttons styled like the approved Figma buttons and marked disabled.
-  - **Page spacing:** The shell body uses the approved `24px` outer padding so the primary canvas panel reads as a distinct surface instead of a full-bleed white work area.
+  - **Route body placement:** The graph canvas sits inside the shared app shell content area and does not own a second top-level header.
+  - **Page spacing:** The graph-route content area uses the shared shell spacing contract so the primary canvas panel reads as a distinct surface instead of a full-bleed white work area.
   - **Primary canvas:** The main browsing area is one persistent container that hosts the active taxonomy renderer. Root and branch states mount the React Flow branch renderer. Leaf state mounts the deck.gl leaf renderer. Inside that container, the canvas content sits within a rounded panel surface that matches the Figma frame: approximately `32px` corner radius, a light cool border, a soft white-to-blue gradient fill, large low-contrast shadowing, and clipped contents.
   - **Breadcrumb overlay:** Breadcrumb navigation is positioned at the top-left inside the canvas as a floating overlay. It remains inside the canvas boundary and does not consume vertical layout space outside the flow scene. The breadcrumb is rendered as light inline text navigation, not as pill or chip controls.
   - **Loading overlay:** Pending query state renders as a centered overlay above the canvas content. The canvas frame stays visible and sized identically while the loading layer is shown.
@@ -51,20 +51,17 @@ out_of_scope: Taxonomy API payload semantics, renderer-internal layout algorithm
   - Clicking a breadcrumb item jumps to the selected ancestor while preserving shell geometry.
   - Root state shows the breadcrumb overlay in its root form.
   - Leaf state keeps the same shell and canvas while rendering the leaf-scoped nodes in the dedicated deck.gl scene.
-  - Disabled header buttons do not trigger navigation, mutation, or placeholder route changes.
-
 ## Validation
 - **Checks:**
-  - The page renders exactly two top-level visual regions: header and main canvas.
-  - The header matches the approved Figma structure: left brand, empty middle area, two disabled right-side buttons.
+  - The `Graph View` route renders one stable content shell inside the shared app shell.
   - The canvas panel reads as a distinct inner surface with the approved spacing, gradient fill, border, radius, and shadow treatment.
   - Breadcrumb renders inside the canvas at top-left, does not push down the flow scene, and reads as inline text navigation instead of chip controls.
   - Loading and error states render as overlays inside the canvas instead of replacing the page layout.
   - Canvas dimensions remain stable across root, branch, leaf, loading, and error states.
   - Branch drill-down and ancestor-jump interactions are supported.
   - Leaf pan, zoom, and viewport-scoped rendering stay contained inside the same shell geometry.
-  - Shell elements provide visible disabled/focus treatment and preserve current accessibility semantics for status messaging.
+  - Status overlays preserve current accessibility semantics for loading and error messaging.
 - **Evidence:**
   - Updated page implementation and CSS reflect the shell contract in `apps/web`.
   - Frontend verification passes for the modified page.
-  - Visual inspection against the approved Figma frame confirms the header-and-canvas composition.
+  - Visual inspection against the approved graph-route Figma frame confirms the canvas composition.

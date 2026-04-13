@@ -464,9 +464,9 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/cards": {
+    "/api/v1/cards": {
       "post": {
-        "operationId": "create_ingestion_cards_post",
+        "operationId": "create_ingestion_api_v1_cards_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -505,9 +505,9 @@
         ]
       }
     },
-    "/search": {
+    "/api/v1/search": {
       "get": {
-        "operationId": "search_cards_search_get",
+        "operationId": "search_cards_api_v1_search_get",
         "parameters": [
           {
             "in": "query",
@@ -548,9 +548,9 @@
         ]
       }
     },
-    "/taxonomy/view/leaves/{node_id}/details": {
+    "/api/v1/taxonomy/view/leaves/{node_id}/details": {
       "post": {
-        "operationId": "get_leaf_node_details_taxonomy_view_leaves__node_id__details_post",
+        "operationId": "get_leaf_node_details_api_v1_taxonomy_view_leaves__node_id__details_post",
         "parameters": [
           {
             "in": "path",
@@ -600,9 +600,9 @@
         ]
       }
     },
-    "/taxonomy/view/nodes/{node_id}": {
+    "/api/v1/taxonomy/view/nodes/{node_id}": {
       "get": {
-        "operationId": "get_node_view_taxonomy_view_nodes__node_id__get",
+        "operationId": "get_node_view_api_v1_taxonomy_view_nodes__node_id__get",
         "parameters": [
           {
             "in": "path",
@@ -642,9 +642,9 @@
         ]
       }
     },
-    "/taxonomy/view/root": {
+    "/api/v1/taxonomy/view/root": {
       "get": {
-        "operationId": "get_root_view_taxonomy_view_root_get",
+        "operationId": "get_root_view_api_v1_taxonomy_view_root_get",
         "responses": {
           "200": {
             "content": {

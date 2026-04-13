@@ -23,7 +23,7 @@ The core value is open knowledge dissemination through a machine-consumable know
 ## V1 Scope
 ### In Scope
 - Search read HTTP API.
-- Taxonomy drill-down HTTP APIs (`/taxonomy/view/root`, `/taxonomy/view/nodes/{node_id}`).
+- Taxonomy drill-down HTTP APIs (`/api/v1/taxonomy/view/root`, `/api/v1/taxonomy/view/nodes/{node_id}`).
 - Ingestion accept HTTP API for platform-official card construction.
 - Local operator-facing CLI for single-card review and submission into ingestion API.
 - Atomic knowledge cards.

@@ -25,9 +25,9 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Owns persisted LCC taxonomy tree and final node-to-leaf assignment truth.
 - Owns taxonomy import orchestration from operator-supplied YAML.
 - Owns taxonomy drill-down read orchestration:
-  - `GET /taxonomy/view/root`
-  - `GET /taxonomy/view/nodes/{node_id}`
-  - `POST /taxonomy/view/leaves/{node_id}/details`
+  - `GET /api/v1/taxonomy/view/root`
+  - `GET /api/v1/taxonomy/view/nodes/{node_id}`
+  - `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
 - Consumes `knowledge_graph` read ports for leaf-level one-hop graph payload shaping.
 
 ### taxonomy_classification
@@ -49,23 +49,23 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ## API Contract
 
 ### Ingestion Endpoint
-- Route: `POST /cards`
+- Route: `POST /api/v1/cards`
 - Request fields: `title`, `content`
 - Response:
   - invalid payload: `4xx` via global error-governance mapping
   - valid payload: `202 Accepted`
 
 ### Search Endpoint
-- Route: `GET /search?query=<string>`
+- Route: `GET /api/v1/search?query=<string>`
 - Response:
   - `matched_cards` with `title`, `content` only
   - `connected_titles`
 - Limits:
-  - `matched_cards <= 5`
-  - `connected_titles <= 10`
+  - `matched_cards` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_MATCHED`
+  - `connected_titles` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_CONNECTED`
 
 ### Taxonomy Root View Endpoint
-- Route: `GET /taxonomy/view/root`
+- Route: `GET /api/v1/taxonomy/view/root`
 - Response:
   - no `current_node` field
   - `breadcrumb=[]`
@@ -76,7 +76,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
   - `404` when taxonomy has no root node.
 
 ### Taxonomy Node View Endpoint
-- Route: `GET /taxonomy/view/nodes/{node_id}`
+- Route: `GET /api/v1/taxonomy/view/nodes/{node_id}`
 - Response:
   - common envelope:
     - `node_kind`
@@ -99,7 +99,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
   - `404` when taxonomy store is empty.
 
 ### Taxonomy Leaf Detail Endpoint
-- Route: `POST /taxonomy/view/leaves/{node_id}/details`
+- Route: `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
 - Request:
   - `node_ids[]` non-empty array of unique positive integers scoped to the active leaf one-hop graph
 - Response:
@@ -155,9 +155,9 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 
 ## Validation
 - **Checks:**
-  - `POST /cards` contract checks (`4xx` invalid, `202` valid)
-  - `GET /search` contract checks
-  - `GET /taxonomy/view/root`, `GET /taxonomy/view/nodes/{id}`, and `POST /taxonomy/view/leaves/{id}/details` contract checks
+  - `POST /api/v1/cards` contract checks (`4xx` invalid, `202` valid)
+  - `GET /api/v1/search` contract checks
+  - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, and `POST /api/v1/taxonomy/view/leaves/{id}/details` contract checks
   - architecture checks that `search`/`ingestion` do not import `knowledge_graph.repo/model`
   - architecture checks that runtime API entrypoint does not import worker entrypoint
 - **Evidence:**

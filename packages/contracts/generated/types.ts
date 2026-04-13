@@ -4,7 +4,7 @@
  */
 
 export interface paths {
-  "/cards": {
+  "/api/v1/cards": {
     parameters: {
       query?: never;
       header?: never;
@@ -14,14 +14,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Create Ingestion */
-    post: operations["create_ingestion_cards_post"];
+    post: operations["create_ingestion_api_v1_cards_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/search": {
+  "/api/v1/search": {
     parameters: {
       query?: never;
       header?: never;
@@ -29,7 +29,7 @@ export interface paths {
       cookie?: never;
     };
     /** Search Cards */
-    get: operations["search_cards_search_get"];
+    get: operations["search_cards_api_v1_search_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -38,7 +38,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/taxonomy/view/leaves/{node_id}/details": {
+  "/api/v1/taxonomy/view/leaves/{node_id}/details": {
     parameters: {
       query?: never;
       header?: never;
@@ -48,14 +48,14 @@ export interface paths {
     get?: never;
     put?: never;
     /** Get Leaf Node Details */
-    post: operations["get_leaf_node_details_taxonomy_view_leaves__node_id__details_post"];
+    post: operations["get_leaf_node_details_api_v1_taxonomy_view_leaves__node_id__details_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/taxonomy/view/nodes/{node_id}": {
+  "/api/v1/taxonomy/view/nodes/{node_id}": {
     parameters: {
       query?: never;
       header?: never;
@@ -63,7 +63,7 @@ export interface paths {
       cookie?: never;
     };
     /** Get Node View */
-    get: operations["get_node_view_taxonomy_view_nodes__node_id__get"];
+    get: operations["get_node_view_api_v1_taxonomy_view_nodes__node_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -72,7 +72,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/taxonomy/view/root": {
+  "/api/v1/taxonomy/view/root": {
     parameters: {
       query?: never;
       header?: never;
@@ -80,7 +80,7 @@ export interface paths {
       cookie?: never;
     };
     /** Get Root View */
-    get: operations["get_root_view_taxonomy_view_root_get"];
+    get: operations["get_root_view_api_v1_taxonomy_view_root_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -248,7 +248,7 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  create_ingestion_cards_post: {
+  create_ingestion_api_v1_cards_post: {
     parameters: {
       query?: never;
       header?: never;
@@ -281,7 +281,7 @@ export interface operations {
       };
     };
   };
-  search_cards_search_get: {
+  search_cards_api_v1_search_get: {
     parameters: {
       query: {
         query: string;
@@ -312,7 +312,7 @@ export interface operations {
       };
     };
   };
-  get_leaf_node_details_taxonomy_view_leaves__node_id__details_post: {
+  get_leaf_node_details_api_v1_taxonomy_view_leaves__node_id__details_post: {
     parameters: {
       query?: never;
       header?: never;
@@ -347,7 +347,7 @@ export interface operations {
       };
     };
   };
-  get_node_view_taxonomy_view_nodes__node_id__get: {
+  get_node_view_api_v1_taxonomy_view_nodes__node_id__get: {
     parameters: {
       query?: never;
       header?: never;
@@ -378,7 +378,7 @@ export interface operations {
       };
     };
   };
-  get_root_view_taxonomy_view_root_get: {
+  get_root_view_api_v1_taxonomy_view_root_get: {
     parameters: {
       query?: never;
       header?: never;

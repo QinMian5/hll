@@ -97,7 +97,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 ## API Contract
 
 ### Root View Endpoint
-- Route: `GET /taxonomy/view/root`
+- Route: `GET /api/v1/taxonomy/view/root`
 - Success payload:
   - no `current_node` field.
   - `breadcrumb` is an empty array.
@@ -112,7 +112,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - `404` when taxonomy store has no root node (for example, taxonomy not imported yet).
 
 ### Node View Endpoint
-- Route: `GET /taxonomy/view/nodes/{node_id}`
+- Route: `GET /api/v1/taxonomy/view/nodes/{node_id}`
 - Success payload:
   - common envelope:
     - `node_kind`: `branch` or `leaf`
@@ -142,7 +142,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - request-shape errors follow global error-governance behavior.
 
 ### Leaf Detail Endpoint
-- Route: `POST /taxonomy/view/leaves/{node_id}/details`
+- Route: `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
 - Request payload:
   - `node_ids`: non-empty array of unique positive integers
 - Success payload:
@@ -193,10 +193,10 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - Sibling reads return `ORDER BY name ASC`.
   - One knowledge node cannot have multiple assignments.
   - Non-leaf assignment writes are rejected by trigger.
-  - `GET /taxonomy/view/root` returns top-level children list with `breadcrumb=[]`.
-  - `GET /taxonomy/view/nodes/{id}` returns correct discriminated payload for branch/leaf.
+  - `GET /api/v1/taxonomy/view/root` returns top-level children list with `breadcrumb=[]`.
+  - `GET /api/v1/taxonomy/view/nodes/{id}` returns correct discriminated payload for branch/leaf.
   - Leaf skeleton payload excludes `outer-outer` edges and includes `scope` markers.
-  - `POST /taxonomy/view/leaves/{id}/details` returns `title/content` only for requested node ids inside the active leaf graph.
+  - `POST /api/v1/taxonomy/view/leaves/{id}/details` returns `title/content` only for requested node ids inside the active leaf graph.
   - Leaf edge reads use the leaf projection table and stay scoped to the requested leaf graph.
   - Leaf detail hydration does not require loading title/content for every node in the expanded one-hop graph.
   - Leaf-scoped assignment lookups use indexed access by `taxonomy_node_id`.

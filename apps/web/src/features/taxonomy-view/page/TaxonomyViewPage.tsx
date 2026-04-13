@@ -98,40 +98,12 @@ export function TaxonomyViewPage() {
 
   return (
     <main
-      className="flex min-h-screen flex-col gap-6 p-6"
+      className="flex h-full min-h-0 flex-col overflow-hidden p-6"
       data-testid="taxonomy-shell-body"
     >
-      <header
-        className="grid min-h-16 grid-cols-[auto_1fr_auto] items-stretch gap-2.5 max-md:grid-cols-1"
-        data-testid="taxonomy-header-shell"
-      >
-        <div className="inline-grid grid-cols-[auto_auto] items-stretch gap-2.5">
-          <div aria-hidden="true" className="h-16 w-16 shrink-0 bg-[#30CBFF]" />
-          <span className="inline-flex items-center px-2.5 py-2 text-[14px] leading-5 text-black">
-            Knowledge Graph
-          </span>
-        </div>
-        <div aria-hidden="true" className="min-w-0" />
-        <div className="flex items-center justify-end gap-2.5 max-md:justify-start">
-          <button
-            className="min-h-10 min-w-[85px] cursor-not-allowed rounded-lg bg-[#171717] px-6 py-2.5 text-[14px] leading-5 font-medium text-[#FAFAFA] outline-offset-2 focus-visible:outline-2 focus-visible:outline-[#2563EB] disabled:bg-[#171717] disabled:text-[#FAFAFA]"
-            disabled
-            type="button"
-          >
-            GitHub
-          </button>
-          <button
-            className="min-h-10 min-w-[85px] cursor-not-allowed rounded-lg bg-[#171717] px-6 py-2.5 text-[14px] leading-5 font-medium text-[#FAFAFA] outline-offset-2 focus-visible:outline-2 focus-visible:outline-[#2563EB] disabled:bg-[#171717] disabled:text-[#FAFAFA]"
-            disabled
-            type="button"
-          >
-            Login
-          </button>
-        </div>
-      </header>
       <section
         aria-label="taxonomy flow canvas"
-        className="relative min-h-[32rem] h-[calc(100vh-136px)] flex-1"
+        className="relative min-h-0 flex-1"
         data-testid="taxonomy-canvas-shell"
       >
         <div

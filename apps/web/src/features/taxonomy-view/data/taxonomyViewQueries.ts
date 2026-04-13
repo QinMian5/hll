@@ -40,7 +40,9 @@ export type LeafSkeletonOmitsContent = Assert<
   HasProperty<TaxonomyLeafSkeletonNode, "content"> extends false ? true : false
 >;
 export type LeafDetailPathExists = Assert<
-  "/taxonomy/view/leaves/{node_id}/details" extends keyof paths ? true : false
+  "/api/v1/taxonomy/view/leaves/{node_id}/details" extends keyof paths
+    ? true
+    : false
 >;
 export type LeafEdgeTupleShape = Assert<
   TaxonomyLeafEdgeTuple extends readonly [number, number, number] ? true : false
@@ -118,7 +120,7 @@ const taxonomyViewQueryKeys = {
 };
 
 async function fetchTaxonomyRootView(): Promise<TaxonomyRootView> {
-  const result = await getContractsClient().GET("/taxonomy/view/root");
+  const result = await getContractsClient().GET("/api/v1/taxonomy/view/root");
 
   if (!result.response.ok) {
     throw new TaxonomyViewRequestError(
@@ -138,7 +140,7 @@ async function fetchTaxonomyNodeView(
   nodeId: number,
 ): Promise<TaxonomyNodeView> {
   const result = await getContractsClient().GET(
-    "/taxonomy/view/nodes/{node_id}",
+    "/api/v1/taxonomy/view/nodes/{node_id}",
     {
       params: { path: { node_id: nodeId } },
     },
@@ -168,7 +170,7 @@ async function fetchTaxonomyLeafNodeDetails(
 ): Promise<TaxonomyLeafNodeDetailsResponse> {
   const normalizedNodeIds = normalizeLeafDetailNodeIds(nodeIds);
   const result = await getContractsClient().POST(
-    "/taxonomy/view/leaves/{node_id}/details",
+    "/api/v1/taxonomy/view/leaves/{node_id}/details",
     {
       body: { node_ids: normalizedNodeIds },
       params: { path: { node_id: leafId } },

@@ -1,12 +1,13 @@
-// abstract: Root app shell for taxonomy-query-driven React Flow browsing.
+// abstract: Root app entry that mounts the shared router-backed web application.
 // out_of_scope: Feature-level data fetching and rendering engine internals.
 
-import { TaxonomyViewPage } from "./features/taxonomy-view/page/TaxonomyViewPage";
+import { RouterProvider } from "@tanstack/react-router";
+import { useState } from "react";
+
+import { createAppRouter } from "./app/router";
 
 export function App() {
-  return (
-    <div className="app-shell">
-      <TaxonomyViewPage />
-    </div>
-  );
+  const [router] = useState(createAppRouter);
+
+  return <RouterProvider router={router} />;
 }

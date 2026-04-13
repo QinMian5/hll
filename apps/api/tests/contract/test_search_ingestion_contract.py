@@ -15,8 +15,8 @@ def test_openapi_contains_search_and_ingestion_paths(
 ) -> None:
     openapi = client.app.openapi()
 
-    assert "/search" in openapi["paths"]
-    assert "/cards" in openapi["paths"]
+    assert "/api/v1/search" in openapi["paths"]
+    assert "/api/v1/cards" in openapi["paths"]
 
 
 @pytest.mark.contract
@@ -25,6 +25,6 @@ def test_ingestion_openapi_includes_202_and_422_responses(
 ) -> None:
     openapi = client.app.openapi()
 
-    responses = openapi["paths"]["/cards"]["post"]["responses"]
+    responses = openapi["paths"]["/api/v1/cards"]["post"]["responses"]
     assert "202" in responses
     assert "422" in responses

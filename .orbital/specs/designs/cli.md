@@ -17,7 +17,7 @@ out_of_scope: Internal review-agent implementation, internal graph orchestration
 
 ## Constraint Projection
 - **Governing Constraints:** Repository governance stays unified, authoritative service interfaces remain single-sourced, module boundaries stay explicit, runtime behavior remains reproducible, and spec truth remains synchronized with accepted behavior.
-- **Detail Commitments:** The repository contains a dedicated app at `apps/cli`. The app exposes one importable Python entrypoint for reviewed single-card submission and one CLI wrapper that accepts `--title` and `--content`, emits a minimal English JSON result to stdout, uses `0/1` exit codes, and issues the existing `POST /cards` ingestion call only after a full local review pass. Internal orchestration details are defined in `cli-review-orchestration.md`.
+- **Detail Commitments:** The repository contains a dedicated app at `apps/cli`. The app exposes one importable Python entrypoint for reviewed single-card submission and one CLI wrapper that accepts `--title` and `--content`, emits a minimal English JSON result to stdout, uses `0/1` exit codes, and issues the existing `POST /api/v1/cards` ingestion call only after a full local review pass. Internal orchestration details are defined in `cli-review-orchestration.md`.
 - **Update Rule:** Requirement-level constraints remain stable while this design document captures external command shape, operator contract, output schema, and app-local runtime boundaries. Internal workflow changes are projected into `cli-review-orchestration.md`.
 
 ## Inputs & Outputs
@@ -44,7 +44,7 @@ out_of_scope: Internal review-agent implementation, internal graph orchestration
   - **Shared Python entrypoint:** Accepts `title` and `content`, runs the same review-and-submit flow that the CLI uses, returns the structured local review result, and raises on local runtime failure.
   - **CLI entrypoint:** Accepts `--title` and `--content` as required parameters and wraps the shared Python entrypoint to normalize all terminal states into JSON stdout plus deterministic exit codes.
   - **Review result contract:** The CLI emits only an English `result` marker on success, and on failure emits only the failed review dimensions with their `reason` and fixed `hint`.
-  - **Submission initiation:** The CLI issues the authoritative `POST /cards` call only after local review passes.
+  - **Submission initiation:** The CLI issues the authoritative `POST /api/v1/cards` call only after local review passes.
   - **JSON formatter:** Produces one stable minimal review JSON shape without wrapper metadata.
 - **Interactions:**
   1. The CLI parses `--title` and `--content`.

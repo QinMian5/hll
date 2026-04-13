@@ -33,15 +33,7 @@ export default defineConfig(({ command, mode }) => {
         ? undefined
         : {
             proxy: {
-              "/cards": {
-                changeOrigin: true,
-                target: normalizeUrl(configuredApiProxyTarget),
-              },
-              "/search": {
-                changeOrigin: true,
-                target: normalizeUrl(configuredApiProxyTarget),
-              },
-              "/taxonomy": {
+              "/api": {
                 changeOrigin: true,
                 target: normalizeUrl(configuredApiProxyTarget),
               },

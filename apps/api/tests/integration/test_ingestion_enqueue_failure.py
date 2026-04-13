@@ -43,7 +43,7 @@ async def test_valid_ingestion_payload_returns_202_even_if_enqueue_fails(
 ) -> None:
     caplog.set_level(logging.ERROR)
     response = await async_client.post(
-        "/cards",
+        "/api/v1/cards",
         headers={"X-Request-ID": "req_integration"},
         json={"title": "Title", "content": "Content"},
     )

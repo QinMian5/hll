@@ -45,7 +45,7 @@ def dependency_overrides() -> DependencyOverrides:
 @pytest.mark.anyio
 async def test_ingestion_valid_payload_returns_202(async_client: AsyncClient) -> None:
     response = await async_client.post(
-        "/cards",
+        "/api/v1/cards",
         json={"title": "Title", "content": "Content"},
     )
 
@@ -61,7 +61,7 @@ async def test_ingestion_invalid_payload_returns_422_error_envelope(
     async_client: AsyncClient,
 ) -> None:
     response = await async_client.post(
-        "/cards",
+        "/api/v1/cards",
         json={"title": "", "content": "Content"},
     )
 

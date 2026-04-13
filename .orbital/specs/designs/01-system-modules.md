@@ -76,9 +76,9 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Own final knowledge-node to taxonomy-leaf assignment truth.
   - Own taxonomy import orchestration from operator-supplied YAML.
   - Own taxonomy drill-down view read contracts:
-    - `GET /taxonomy/view/root`
-    - `GET /taxonomy/view/nodes/{node_id}`
-    - `POST /taxonomy/view/leaves/{node_id}/details`
+    - `GET /api/v1/taxonomy/view/root`
+    - `GET /api/v1/taxonomy/view/nodes/{node_id}`
+    - `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
   - Shape branch and leaf payloads (including breadcrumb and scope-marked leaf graph nodes).
 - **Non-responsibilities:**
   - Knowledge-node persistence ownership.
