@@ -51,6 +51,7 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
     - **Results state:** The page shows a top search bar row, a left-side results grid, and a right-side suggestions panel.
   - **Search bar structure:** The results-state search bar follows the approved component hierarchy: `48px` height, `24px` left padding, `10px` right padding, `16px` radius, a dedicated `44x44` icon-button container, and a `20x20` search icon centered inside that container.
   - **Search results structure:** The results body follows the approved two-column grid, with a left results grid and a right suggestions panel. Cards and suggestions inherit their radius, border, shadow, and typography from the approved Figma structures rather than from generic shared surface defaults.
+  - **Search card text rule:** Search result card `title` and `content` render through the shared knowledge-card rich-text contract defined in `web-knowledge-card-rich-text.md`.
   - **Search state ownership:** Search state is URL-addressable. The absence of an effective query renders the empty state. The presence of a query renders the results layout.
   - **Visual language:** The shared shell uses a restrained product-shell style: light header, subtle divider, large whitespace, quiet surfaces, and no extra decorative chrome beyond the approved Figma direction.
   - **Tailwind-first implementation rule:** Shared shell layout, navigation presentation, and Search page presentation are carried primarily through Tailwind utility classes colocated with the React tree. Handwritten CSS is reserved only for library-level overrides or effects that cannot be expressed cleanly through utilities.
@@ -71,6 +72,7 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
   - `Search` uses one route with URL-driven empty/results state switching instead of separate routes for each visual state.
   - The Search empty state matches the approved single centered search-bar composition.
   - The Search results state matches the approved top search row plus left results grid plus right suggestions layout.
+  - Search result card `title` and `content` use the shared knowledge-card rich-text renderer instead of raw string rendering.
   - The Search icon is centered inside the approved `44x44` icon-button container rather than positioned through ad hoc offset utilities.
   - Shell-level styling is carried primarily by Tailwind utilities rather than large handwritten CSS blocks.
 - **Evidence:**

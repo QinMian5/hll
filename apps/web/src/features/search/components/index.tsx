@@ -4,7 +4,7 @@
 import { Search } from "lucide-react";
 import type { FormEventHandler } from "react";
 
-import { Input } from "../../../shared/ui";
+import { Input, KnowledgeRichText } from "../../../shared/ui";
 
 interface SearchFieldProps {
   readonly defaultValue: string;
@@ -84,18 +84,22 @@ interface SearchResultCardProps {
 
 export function SearchResultCard({ content, title }: SearchResultCardProps) {
   return (
-    <div className="flex h-full min-h-0 w-full flex-col items-start gap-[14px] overflow-clip rounded-[24px] border border-[rgba(223,232,247,0.98)] bg-[rgba(255,255,255,0.92)] p-5 shadow-[0_14px_28px_rgba(95,123,185,0.1)]">
+    <div
+      className="flex h-full min-h-0 w-full flex-col items-start gap-[14px] overflow-clip rounded-[24px] border border-[rgba(223,232,247,0.98)] bg-[rgba(255,255,255,0.92)] p-5 shadow-[0_14px_28px_rgba(95,123,185,0.1)]"
+      data-testid="search-result-card"
+    >
       <div className="flex h-6 w-full flex-col items-center justify-center">
-        <div className="w-full text-[16px] leading-[22px] font-medium text-[rgba(18,23,41,0.96)]">
-          {title}
+        <div className="w-full">
+          <KnowledgeRichText text={title} variant="title" />
         </div>
       </div>
       <div className="h-px w-full shrink-0 bg-[#dee6f4]" />
-      <div className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden">
+      <div
+        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden"
+        data-testid="search-result-card-content"
+      >
         <div className="flex min-h-full w-full flex-col items-start">
-          <p className="m-0 text-[14px] leading-[22px] font-normal text-[rgba(61,75,103,0.82)]">
-            {content}
-          </p>
+          <KnowledgeRichText text={content} variant="content" />
         </div>
       </div>
     </div>

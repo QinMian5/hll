@@ -2,19 +2,16 @@
 // out_of_scope: Taxonomy data fetching and page-shell overlays.
 
 import { OrthographicView } from "@deck.gl/core";
-import { LineLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
+import { LineLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { DeckGL } from "@deck.gl/react";
 import { useMemo } from "react";
 
 import type {
-  LeafHoverState,
   LeafOrthographicViewport,
-  LeafSceneCardNode,
   LeafSceneModel,
 } from "./leafSceneTypes";
 
 interface LeafDeckSceneProps {
-  readonly onHoverChange: (hoverState: LeafHoverState | null) => void;
   readonly onViewportChange: (viewport: LeafOrthographicViewport) => void;
   readonly hoveredNodeId: number | null;
   readonly scene: LeafSceneModel;
@@ -28,7 +25,6 @@ const leafView = new OrthographicView({
 });
 
 export function LeafDeckScene({
-  onHoverChange,
   onViewportChange,
   hoveredNodeId,
   scene,
@@ -48,34 +44,6 @@ export function LeafDeckScene({
       scene.neighborNodeIdsByNodeId.get(hoveredNodeId) ?? new Set<number>();
     return new Set([hoveredNodeId, ...neighborNodeIds]);
   }, [hoveredNodeId, scene.neighborNodeIdsByNodeId]);
-  const hoveredCardNodes = useMemo(
-    () =>
-      hoveredNodeId
-        ? scene.cardNodes.filter((node) => node.graphNodeId === hoveredNodeId)
-        : [],
-    [hoveredNodeId, scene.cardNodes],
-  );
-  const connectedCardNodes = useMemo(() => {
-    if (!hoveredNodeId || !highlightedNodeIds) {
-      return [];
-    }
-
-    return scene.cardNodes.filter(
-      (node) =>
-        node.graphNodeId !== hoveredNodeId &&
-        highlightedNodeIds.has(node.graphNodeId),
-    );
-  }, [highlightedNodeIds, hoveredNodeId, scene.cardNodes]);
-  const mutedCardNodes = useMemo(() => {
-    if (!hoveredNodeId || !highlightedNodeIds) {
-      return [];
-    }
-
-    return scene.cardNodes.filter(
-      (node) => !highlightedNodeIds.has(node.graphNodeId),
-    );
-  }, [highlightedNodeIds, hoveredNodeId, scene.cardNodes]);
-
   const layers = useMemo(
     () => [
       new LineLayer({
@@ -124,205 +92,11 @@ export function LeafDeckScene({
         radiusUnits: "pixels",
         stroked: true,
       }),
-      new TextLayer<LeafSceneCardNode>({
-        background: true,
-        backgroundBorderRadius: 18,
-        backgroundPadding: [16, 14],
-        characterSet: "auto",
-        data: !hoveredNodeId ? scene.cardNodes : [],
-        fontFamily:
-          '"Geist", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
-        getAlignmentBaseline: "center",
-        getBackgroundColor: (node: LeafSceneCardNode) =>
-          node.scope === "inner" ? [255, 255, 255, 250] : [239, 245, 252, 252],
-        getColor: (node: LeafSceneCardNode) =>
-          node.scope === "inner" ? [34, 59, 96, 255] : [50, 71, 99, 255],
-        getPixelOffset: [0, 0],
-        getPosition: (node: LeafSceneCardNode) => [
-          node.position.x,
-          node.position.y,
-        ],
-        getSize: 14,
-        getText: (node: LeafSceneCardNode) => node.label,
-        getTextAnchor: "middle",
-        id: "taxonomy-leaf-cards-neutral",
-        lineHeight: 1.2,
-        maxWidth: 12.5,
-        pickable: true,
-        sizeUnits: "pixels",
-        wordBreak: "break-word",
-        onHover: (info) => {
-          const card = info.object ?? null;
-          if (!card || !info.viewport) {
-            onHoverChange(null);
-            return;
-          }
-
-          const [anchorX, anchorCenterY] = info.viewport.project([
-            card.position.x,
-            card.position.y,
-            0,
-          ]);
-
-          onHoverChange({
-            anchorX,
-            anchorBottomY: anchorCenterY + card.size.height / 2,
-            anchorTopY: anchorCenterY - card.size.height / 2,
-            card,
-          });
-        },
-      }),
-      new TextLayer<LeafSceneCardNode>({
-        background: true,
-        backgroundBorderRadius: 18,
-        backgroundPadding: [16, 14],
-        characterSet: "auto",
-        data: mutedCardNodes,
-        fontFamily:
-          '"Geist", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
-        getAlignmentBaseline: "center",
-        getBackgroundColor: [232, 238, 247, 92],
-        getColor: [100, 116, 139, 88],
-        getPixelOffset: [0, 0],
-        getPosition: (node: LeafSceneCardNode) => [
-          node.position.x,
-          node.position.y,
-        ],
-        getSize: 14,
-        getText: (node: LeafSceneCardNode) => node.label,
-        getTextAnchor: "middle",
-        id: "taxonomy-leaf-cards-muted",
-        lineHeight: 1.2,
-        maxWidth: 12.5,
-        pickable: true,
-        sizeUnits: "pixels",
-        wordBreak: "break-word",
-        onHover: (info) => {
-          const card = info.object ?? null;
-          if (!card || !info.viewport) {
-            onHoverChange(null);
-            return;
-          }
-
-          const [anchorX, anchorCenterY] = info.viewport.project([
-            card.position.x,
-            card.position.y,
-            0,
-          ]);
-
-          onHoverChange({
-            anchorX,
-            anchorBottomY: anchorCenterY + card.size.height / 2,
-            anchorTopY: anchorCenterY - card.size.height / 2,
-            card,
-          });
-        },
-      }),
-      new TextLayer<LeafSceneCardNode>({
-        background: true,
-        backgroundBorderRadius: 18,
-        backgroundPadding: [16, 14],
-        characterSet: "auto",
-        data: connectedCardNodes,
-        fontFamily:
-          '"Geist", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
-        getAlignmentBaseline: "center",
-        getBackgroundColor: (node: LeafSceneCardNode) =>
-          node.scope === "inner" ? [250, 253, 255, 250] : [235, 242, 250, 250],
-        getColor: (node: LeafSceneCardNode) =>
-          node.scope === "inner" ? [30, 41, 59, 234] : [41, 55, 78, 236],
-        getPixelOffset: [0, 0],
-        getPosition: (node: LeafSceneCardNode) => [
-          node.position.x,
-          node.position.y,
-        ],
-        getSize: 14,
-        getText: (node: LeafSceneCardNode) => node.label,
-        getTextAnchor: "middle",
-        id: "taxonomy-leaf-cards-connected",
-        lineHeight: 1.2,
-        maxWidth: 12.5,
-        pickable: true,
-        sizeUnits: "pixels",
-        wordBreak: "break-word",
-        onHover: (info) => {
-          const card = info.object ?? null;
-          if (!card || !info.viewport) {
-            onHoverChange(null);
-            return;
-          }
-
-          const [anchorX, anchorCenterY] = info.viewport.project([
-            card.position.x,
-            card.position.y,
-            0,
-          ]);
-
-          onHoverChange({
-            anchorX,
-            anchorBottomY: anchorCenterY + card.size.height / 2,
-            anchorTopY: anchorCenterY - card.size.height / 2,
-            card,
-          });
-        },
-      }),
-      new TextLayer<LeafSceneCardNode>({
-        background: true,
-        backgroundBorderRadius: 18,
-        backgroundPadding: [16, 14],
-        characterSet: "auto",
-        data: hoveredCardNodes,
-        fontFamily:
-          '"Geist", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
-        getAlignmentBaseline: "center",
-        getBackgroundColor: [255, 255, 255, 255],
-        getColor: (node: LeafSceneCardNode) =>
-          node.scope === "inner" ? [15, 23, 42, 255] : [26, 38, 58, 255],
-        getPixelOffset: [0, 0],
-        getPosition: (node: LeafSceneCardNode) => [
-          node.position.x,
-          node.position.y,
-        ],
-        getSize: 14,
-        getText: (node: LeafSceneCardNode) => node.label,
-        getTextAnchor: "middle",
-        id: "taxonomy-leaf-cards-hovered",
-        lineHeight: 1.2,
-        maxWidth: 12.5,
-        pickable: true,
-        sizeUnits: "pixels",
-        wordBreak: "break-word",
-        onHover: (info) => {
-          const card = info.object ?? null;
-          if (!card || !info.viewport) {
-            onHoverChange(null);
-            return;
-          }
-
-          const [anchorX, anchorCenterY] = info.viewport.project([
-            card.position.x,
-            card.position.y,
-            0,
-          ]);
-
-          onHoverChange({
-            anchorX,
-            anchorBottomY: anchorCenterY + card.size.height / 2,
-            anchorTopY: anchorCenterY - card.size.height / 2,
-            card,
-          });
-        },
-      }),
     ],
     [
       highlightedEdgeIds,
       highlightedNodeIds,
-      hoveredCardNodes,
       hoveredNodeId,
-      onHoverChange,
-      connectedCardNodes,
-      mutedCardNodes,
-      scene.cardNodes,
       scene.edges,
       scene.pointNodes,
     ],

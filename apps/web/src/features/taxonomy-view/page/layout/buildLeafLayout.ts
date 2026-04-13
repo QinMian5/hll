@@ -11,6 +11,7 @@ import {
 
 import type {
   LayoutPoint,
+  LeafCardMeasuredSize,
   LeafLayoutInput,
   LeafLayoutResult,
 } from "./taxonomyLayoutTypes";
@@ -19,6 +20,7 @@ interface LeafSimulationNode {
   readonly graphNodeId: number;
   readonly height: number;
   readonly id: string;
+  readonly renderMode: "card" | "point";
   readonly scope: "inner" | "outer";
   readonly width: number;
   x: number;
@@ -27,16 +29,18 @@ interface LeafSimulationNode {
   vy?: number;
 }
 
-export const LEAF_CARD_MIN_WIDTH = 104;
-export const LEAF_CARD_MAX_WIDTH = 176;
+export const LEAF_CARD_WIDTH_TIERS = [192, 224, 272] as const;
+export const LEAF_CARD_MIN_WIDTH = LEAF_CARD_WIDTH_TIERS[0];
+export const LEAF_CARD_MAX_WIDTH =
+  LEAF_CARD_WIDTH_TIERS[LEAF_CARD_WIDTH_TIERS.length - 1];
 export const LEAF_CARD_MIN_HEIGHT = 52;
 export const LEAF_COLLISION_RADIUS = 25;
+const LEAF_CARD_COLLISION_PADDING = 18;
 const LEAF_CARD_HORIZONTAL_PADDING = 16;
-const LEAF_CARD_VERTICAL_PADDING = 14;
-const LEAF_CARD_LINE_HEIGHT = 18;
-const LEAF_CARD_MAX_LINES = 3;
+const LEAF_CARD_VERTICAL_PADDING = 12;
+const LEAF_CARD_LINE_HEIGHT = 22;
 const LEAF_CARD_BORDER_RADIUS = 18;
-const LEAF_CARD_APPROX_CHAR_WIDTH = 7;
+const LEAF_CARD_APPROX_CHAR_WIDTH = 8;
 const LEAF_POINT_INNER_DIAMETER = 10;
 const LEAF_POINT_OUTER_DIAMETER = 8;
 const LEAF_LAYOUT_SPACING_SCALE = 2;
@@ -60,6 +64,22 @@ function pointNodeDiameter(scope: "inner" | "outer") {
     : LEAF_POINT_OUTER_DIAMETER;
 }
 
+function normalizeLeafCardTitle(title: string) {
+  return title
+    .trim()
+    .replace(/\\\[([\s\S]+?)\\\]/g, "$1")
+    .replace(/\\\(([\s\S]+?)\\\)/g, "$1")
+    .replace(
+      /\\(?:mathbf|mathrm|text|operatorname|mathit|textbf)\{([^}]*)\}/g,
+      "$1",
+    )
+    .replace(/\\[a-zA-Z]+/g, "m")
+    .replace(/\\[,;:!]/g, " ")
+    .replace(/[{}]/g, "")
+    .replace(/[*_`~]/g, "")
+    .replace(/\s+/g, " ");
+}
+
 export function scalePointAroundCenter(
   point: LayoutPoint,
   center: LayoutPoint,
@@ -76,7 +96,7 @@ function estimateWrappedLineCount(title: string, maxTextWidth: number) {
     6,
     Math.floor(maxTextWidth / LEAF_CARD_APPROX_CHAR_WIDTH),
   );
-  const normalizedTitle = title.trim().replace(/\s+/g, " ");
+  const normalizedTitle = normalizeLeafCardTitle(title);
 
   if (normalizedTitle.length === 0) {
     return 1;
@@ -111,32 +131,33 @@ function estimateWrappedLineCount(title: string, maxTextWidth: number) {
     lineLength = nextLength;
   }
 
-  return Math.max(1, Math.min(lineCount, LEAF_CARD_MAX_LINES));
+  return Math.max(1, lineCount);
 }
 
-function estimateCardDimensions(title: string) {
-  const normalizedTitle = title.trim().replace(/\s+/g, " ");
-  const maxTextWidth = LEAF_CARD_MAX_WIDTH - LEAF_CARD_HORIZONTAL_PADDING * 2;
+function selectLeafCardWidth(title: string) {
+  const normalizedTitle = normalizeLeafCardTitle(title);
   const longestTokenLength = normalizedTitle
     .split(" ")
     .reduce((longest, token) => Math.max(longest, token.length), 0);
-  const estimatedTextWidth = Math.min(
-    maxTextWidth,
-    Math.max(
-      LEAF_CARD_MIN_WIDTH - LEAF_CARD_HORIZONTAL_PADDING * 2,
-      longestTokenLength * LEAF_CARD_APPROX_CHAR_WIDTH,
-      normalizedTitle.length * LEAF_CARD_APPROX_CHAR_WIDTH * 0.42,
-    ),
-  );
-  const width = Math.max(
-    LEAF_CARD_MIN_WIDTH,
-    Math.min(
-      LEAF_CARD_MAX_WIDTH,
-      estimatedTextWidth + LEAF_CARD_HORIZONTAL_PADDING * 2,
-    ),
-  );
+  const weightedLength =
+    normalizedTitle.length +
+    (title.includes("\\(") || title.includes("\\[") ? 6 : 0);
+
+  if (weightedLength > 42 || longestTokenLength > 18) {
+    return LEAF_CARD_WIDTH_TIERS[2];
+  }
+
+  if (weightedLength > 22 || longestTokenLength > 10) {
+    return LEAF_CARD_WIDTH_TIERS[1];
+  }
+
+  return LEAF_CARD_WIDTH_TIERS[0];
+}
+
+function estimateCardDimensions(title: string) {
+  const width = selectLeafCardWidth(title);
   const lineCount = estimateWrappedLineCount(
-    normalizedTitle,
+    title,
     width - LEAF_CARD_HORIZONTAL_PADDING * 2,
   );
 
@@ -149,29 +170,71 @@ function estimateCardDimensions(title: string) {
   };
 }
 
+function resolveCardDimensions(options: {
+  readonly measuredSize: LeafCardMeasuredSize | undefined;
+  readonly title: string;
+}) {
+  if (options.measuredSize) {
+    return options.measuredSize;
+  }
+
+  return estimateCardDimensions(options.title);
+}
+
+function collisionRadiusForNode(node: LeafSimulationNode) {
+  if (node.renderMode === "point") {
+    return LEAF_COLLISION_RADIUS;
+  }
+
+  return (
+    Math.hypot(node.width / 2, node.height / 2) + LEAF_CARD_COLLISION_PADDING
+  );
+}
+
 export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
   const hydratedNodeDetailsById = input.hydratedNodeDetailsById ?? {};
+  const lockedNodeCentersById = input.lockedNodeCentersById;
+  const measuredCardSizesById = input.measuredCardSizesById ?? {};
   const visibleCardNodeIds = new Set(input.visibleCardNodeIds ?? []);
   const sortedNodes = [...input.nodes].sort(
     (left, right) => left.id - right.id,
   );
   const simulationNodes: LeafSimulationNode[] = sortedNodes.map(
     (node, index) => {
-      const position = positionOnSpiral({
-        center: input.center,
-        index,
-      });
+      const hydratedDetails = hydratedNodeDetailsById[node.id];
+      const shouldRenderCard =
+        visibleCardNodeIds.has(node.id) && hydratedDetails !== undefined;
+      const lockedCenter = lockedNodeCentersById?.get(node.id);
+      const position =
+        lockedCenter ??
+        positionOnSpiral({
+          center: input.center,
+          index,
+        });
+      const renderedDimensions = shouldRenderCard
+        ? resolveCardDimensions({
+            measuredSize: measuredCardSizesById[node.id],
+            title: hydratedDetails.title,
+          })
+        : {
+            height: pointNodeDiameter(node.scope),
+            width: pointNodeDiameter(node.scope),
+          };
 
       return {
         graphNodeId: node.id,
         id: `card-${node.id}`,
         scope: node.scope,
-        height: pointNodeDiameter(node.scope),
-        width: pointNodeDiameter(node.scope),
+        renderMode: shouldRenderCard ? "card" : "point",
+        height: renderedDimensions.height,
+        width: renderedDimensions.width,
         x: position.x,
         y: position.y,
       };
     },
+  );
+  const simulationNodeById = new Map(
+    simulationNodes.map((node) => [node.id, node] as const),
   );
 
   const nodeIds = new Set(simulationNodes.map((node) => node.id));
@@ -193,31 +256,57 @@ export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
     };
   });
 
-  forceSimulation(simulationNodes)
-    .force(
-      "link",
-      forceLink<
-        LeafSimulationNode,
-        {
-          readonly source: string;
-          readonly strength: number;
-          readonly target: string;
-        }
-      >(linkEdges)
-        .id((node) => node.id)
-        .distance((edge) => 130 - edge.strength * 24)
-        .strength((edge) => 0.25 + edge.strength * 0.2),
-    )
-    .force("charge", forceManyBody<LeafSimulationNode>().strength(-240))
-    .force(
-      "collide",
-      forceCollide<LeafSimulationNode>()
-        .radius(() => LEAF_COLLISION_RADIUS)
-        .strength(1),
-    )
-    .force("center", forceCenter(input.center.x, input.center.y).strength(0.12))
-    .stop()
-    .tick(220);
+  if (!lockedNodeCentersById) {
+    forceSimulation(simulationNodes)
+      .force(
+        "link",
+        forceLink<
+          LeafSimulationNode,
+          {
+            readonly source: string;
+            readonly strength: number;
+            readonly target: string;
+          }
+        >(linkEdges)
+          .id((node) => node.id)
+          .distance((edge) => {
+            const source =
+              typeof edge.source === "string"
+                ? simulationNodeById.get(edge.source)
+                : edge.source;
+            const target =
+              typeof edge.target === "string"
+                ? simulationNodeById.get(edge.target)
+                : edge.target;
+            const baseDistance = 130 - edge.strength * 24;
+
+            if (!source || !target) {
+              return baseDistance;
+            }
+
+            return Math.max(
+              baseDistance,
+              collisionRadiusForNode(source) +
+                collisionRadiusForNode(target) +
+                24,
+            );
+          })
+          .strength((edge) => 0.25 + edge.strength * 0.2),
+      )
+      .force("charge", forceManyBody<LeafSimulationNode>().strength(-240))
+      .force(
+        "collide",
+        forceCollide<LeafSimulationNode>()
+          .radius((node) => collisionRadiusForNode(node))
+          .strength(1),
+      )
+      .force(
+        "center",
+        forceCenter(input.center.x, input.center.y).strength(0.12),
+      )
+      .stop()
+      .tick(220);
+  }
 
   return {
     edges: input.edges.map((edge) => ({
@@ -233,10 +322,13 @@ export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
       const scaledCenter = scalePointAroundCenter(
         { x: node.x, y: node.y },
         input.center,
-        LEAF_LAYOUT_SPACING_SCALE,
+        lockedNodeCentersById ? 1 : LEAF_LAYOUT_SPACING_SCALE,
       );
       const renderedDimensions = shouldRenderCard
-        ? estimateCardDimensions(hydratedDetails.title)
+        ? resolveCardDimensions({
+            measuredSize: measuredCardSizesById[node.graphNodeId],
+            title: hydratedDetails.title,
+          })
         : {
             height: node.height,
             width: node.width,

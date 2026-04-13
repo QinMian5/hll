@@ -11,6 +11,11 @@ export interface LayoutViewport {
   readonly width: number;
 }
 
+export interface LeafCardMeasuredSize {
+  readonly height: number;
+  readonly width: number;
+}
+
 export interface BranchChildLayoutInput {
   readonly depth: number;
   readonly descendant_card_count: number;
@@ -77,6 +82,10 @@ export interface LeafLayoutInput {
   readonly edges: readonly LeafEdgeLayoutInput[];
   readonly hydratedNodeDetailsById?: Readonly<
     Partial<Record<number, LeafHydratedNodeLayoutInput>>
+  >;
+  readonly lockedNodeCentersById?: ReadonlyMap<number, LayoutPoint>;
+  readonly measuredCardSizesById?: Readonly<
+    Partial<Record<number, LeafCardMeasuredSize>>
   >;
   readonly nodes: readonly LeafNodeLayoutInput[];
   readonly visibleCardNodeIds?: readonly number[];

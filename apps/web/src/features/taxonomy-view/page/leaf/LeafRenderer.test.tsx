@@ -21,12 +21,10 @@ vi.mock("../../data/taxonomyViewQueries", () => ({
 vi.mock("./LeafDeckScene", () => ({
   LeafDeckScene: ({
     hoveredNodeId,
-    onHoverChange,
     onViewportChange,
     scene,
   }: {
     readonly hoveredNodeId: number | null;
-    readonly onHoverChange: (hoverState: unknown) => void;
     readonly onViewportChange: (viewport: {
       readonly target: readonly [number, number, number];
       readonly zoom: number;
@@ -55,26 +53,6 @@ vi.mock("./LeafDeckScene", () => ({
         type="button"
       >
         Zoom in
-      </button>
-      <button
-        disabled={scene.cardNodes.length === 0}
-        onClick={() =>
-          onHoverChange(
-            scene.cardNodes[0]
-              ? {
-                  card: {
-                    ...scene.cardNodes[0],
-                  },
-                  anchorX: 120,
-                  anchorBottomY: 140,
-                  anchorTopY: 92,
-                }
-              : null,
-          )
-        }
-        type="button"
-      >
-        Hover first card
       </button>
     </div>
   ),
@@ -118,7 +96,11 @@ function makeLeafView(): TaxonomyLeafView {
 function makeLeafDetailsResponse(): TaxonomyLeafNodeDetailsResponse {
   return {
     nodes: [
-      { content: "Equation content", id: 10, title: "Equation" },
+      {
+        content: "*Equation* content",
+        id: 10,
+        title: "Equation \\(E=mc^2\\)",
+      },
       { content: "Proof content", id: 11, title: "Proof" },
     ],
   };
@@ -153,7 +135,7 @@ describe("LeafRenderer", () => {
     );
   });
 
-  it("hydrates viewport-scoped cards after zoom activation and reveals hover disclosure", async () => {
+  it("hydrates viewport-scoped cards into the DOM rich-text overlay and reveals hover disclosure", async () => {
     mockUseTaxonomyLeafNodeDetailsQuery.mockImplementation(
       (_leafId, _nodeIds, options) =>
         ({
@@ -188,17 +170,25 @@ describe("LeafRenderer", () => {
         "2",
       );
     });
+    expect(
+      screen.getByTestId("taxonomy-leaf-rich-text-cards-overlay"),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".katex")).not.toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Hover first card" }));
+    const firstCard = screen.getByTestId("taxonomy-leaf-rich-text-card-10");
+
+    fireEvent.focus(firstCard);
 
     const hoverOverlay = screen.getByTestId("taxonomy-leaf-hover-overlay");
+    const cardLeft = Number.parseFloat(firstCard.style.left);
+    const cardTop = Number.parseFloat(firstCard.style.top);
+    const overlayLeft = Number.parseFloat(hoverOverlay.style.left);
+    const overlayTop = Number.parseFloat(hoverOverlay.style.top);
 
     expect(hoverOverlay).toHaveTextContent("Equation content");
     expect(screen.getByTestId("leaf-hovered-node-id")).toHaveTextContent("10");
-    expect(hoverOverlay).toHaveStyle({
-      left: "120px",
-      top: "148px",
-      transform: "translateX(-50%)",
-    });
+    expect(overlayLeft).toBeCloseTo(cardLeft, 4);
+    expect(overlayTop).toBeGreaterThan(cardTop);
+    expect(hoverOverlay).toHaveStyle({ transform: "translateX(-50%)" });
   });
 });

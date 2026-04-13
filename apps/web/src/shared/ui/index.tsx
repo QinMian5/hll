@@ -4,4 +4,5 @@
 export * from "./button";
 export * from "./card";
 export * from "./input";
+export * from "./knowledge-rich-text";
 export * from "./scroll-area";

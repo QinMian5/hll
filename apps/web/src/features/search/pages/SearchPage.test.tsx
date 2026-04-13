@@ -70,8 +70,9 @@ describe("SearchPage", () => {
       connected_titles: ["Adjacency matrix", "Matrix norm"],
       matched_cards: [
         {
-          content: "Returned by the backend search API.",
-          title: "Matrix decomposition",
+          content:
+            "*Returned* by the backend search API.\n\n- diagonalizable\n\n`rank`",
+          title: "Matrix decomposition \\(A=PDP^{-1}\\)",
         },
       ],
     };
@@ -93,10 +94,11 @@ describe("SearchPage", () => {
     expect(screen.getByDisplayValue("matrix")).toBeInTheDocument();
     expect(screen.getByTestId("search-icon-button")).toBeInTheDocument();
     expect(screen.queryByTestId("search-empty-state")).not.toBeInTheDocument();
+    expect(document.querySelector(".katex")).not.toBeNull();
     expect(screen.getByText("Matrix decomposition")).toBeInTheDocument();
-    expect(
-      screen.getByText("Returned by the backend search API."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Returned")).toBeInTheDocument();
+    expect(screen.getByRole("list")).toBeInTheDocument();
+    expect(screen.getByText("rank").tagName).toBe("CODE");
     expect(
       screen.getByRole("button", { name: "Adjacency matrix" }),
     ).toBeInTheDocument();

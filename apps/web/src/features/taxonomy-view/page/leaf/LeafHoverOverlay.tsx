@@ -3,6 +3,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 
+import { KnowledgeRichText } from "../../../../shared/ui";
 import type { LeafHoverState } from "./leafSceneTypes";
 
 interface LeafHoverOverlayProps {
@@ -87,7 +88,7 @@ export function LeafHoverOverlay({ hoverState }: LeafHoverOverlayProps) {
         transform: "translateX(-50%)",
       }}
     >
-      {hoverState.card.content}
+      <KnowledgeRichText text={hoverState.card.content} variant="content" />
     </div>
   );
 }

@@ -270,6 +270,102 @@ describe("leaf layout contracts", () => {
     expect(node?.style.height).toBeGreaterThan(LEAF_CARD_MIN_HEIGHT);
   });
 
+  it("uses discrete card-width tiers and lets taller titles grow vertically", () => {
+    const result = buildLeafLayout({
+      center: { x: 700, y: 450 },
+      edges: [],
+      hydratedNodeDetailsById: {
+        10: {
+          content: "Inner content",
+          id: 10,
+          scope: "inner",
+          title: "Short title",
+        },
+        11: {
+          content: "Inner content",
+          id: 11,
+          scope: "inner",
+          title: "Equation from \\(E=mc^2\\)",
+        },
+        12: {
+          content: "Inner content",
+          id: 12,
+          scope: "inner",
+          title: "Klein–Gordon equation from the energy–momentum relation",
+        },
+      },
+      nodes: [
+        { id: 10, scope: "inner" },
+        { id: 11, scope: "inner" },
+        { id: 12, scope: "inner" },
+      ],
+      viewport: { height: 900, width: 1404 },
+      visibleCardNodeIds: [10, 11, 12],
+    });
+
+    const shortCard = result.nodes.find((node) => node.data.graphNodeId === 10);
+    const mediumCard = result.nodes.find(
+      (node) => node.data.graphNodeId === 11,
+    );
+    const longCard = result.nodes.find((node) => node.data.graphNodeId === 12);
+
+    expect(shortCard?.style.width).toBe(192);
+    expect(mediumCard?.style.width).toBe(224);
+    expect(longCard?.style.width).toBe(272);
+    expect(longCard?.style.height ?? 0).toBeGreaterThan(
+      shortCard?.style.height ?? 0,
+    );
+  });
+
+  it("preserves locked node centers while measured card boxes update", () => {
+    const skeleton = buildLeafLayout({
+      center: { x: 700, y: 450 },
+      edges: [],
+      nodes: [{ id: 10, scope: "inner" }],
+      viewport: { height: 900, width: 1404 },
+    });
+    const skeletonNode = skeleton.nodes[0];
+    const lockedCenter = {
+      x: (skeletonNode?.position.x ?? 0) + (skeletonNode?.style.width ?? 0) / 2,
+      y:
+        (skeletonNode?.position.y ?? 0) + (skeletonNode?.style.height ?? 0) / 2,
+    };
+
+    const result = buildLeafLayout({
+      center: { x: 700, y: 450 },
+      edges: [],
+      hydratedNodeDetailsById: {
+        10: {
+          content: "Inner content",
+          id: 10,
+          scope: "inner",
+          title: "Klein–Gordon equation from the energy–momentum relation",
+        },
+      },
+      lockedNodeCentersById: new Map([[10, lockedCenter]]),
+      measuredCardSizesById: {
+        10: {
+          height: 118,
+          width: 248,
+        },
+      },
+      nodes: [{ id: 10, scope: "inner" }],
+      viewport: { height: 900, width: 1404 },
+      visibleCardNodeIds: [10],
+    });
+
+    const cardNode = result.nodes[0];
+
+    expect(cardNode?.style.width).toBe(248);
+    expect(cardNode?.style.height).toBe(118);
+    expect(
+      (cardNode?.position.x ?? 0) + (cardNode?.style.width ?? 0) / 2,
+    ).toBeCloseTo(lockedCenter.x, 4);
+    expect(
+      (cardNode?.position.y ?? 0) + (cardNode?.style.height ?? 0) / 2,
+    ).toBeCloseTo(lockedCenter.y, 4);
+  });
+
   it("keeps rounded positions stable for identical graph input", () => {
     const input = {
       center: { x: 700, y: 450 },

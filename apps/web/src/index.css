@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
 
 /*
 abstract: Global styling baseline for the taxonomy-view web client shell.
