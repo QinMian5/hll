@@ -60,6 +60,9 @@ describe("AppShell", () => {
     await waitFor(() =>
       expect(screen.getByText("Knowledge Graph")).toBeInTheDocument(),
     );
+    expect(screen.getByTestId("app-shell")).toHaveClass(
+      "bg-[radial-gradient(circle_at_center,_#f2faff_0%,_#fbfcff_55%,_#f6f7fb_100%)]",
+    );
     expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Graph View" })).toHaveAttribute(
       "data-nav-state",

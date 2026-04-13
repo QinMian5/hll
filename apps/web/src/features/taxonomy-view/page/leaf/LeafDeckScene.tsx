@@ -80,10 +80,10 @@ export function LeafDeckScene({
     () => [
       new LineLayer({
         data: scene.edges,
-        getColor: hoveredNodeId ? [180, 194, 219, 48] : [180, 194, 219, 168],
+        getColor: hoveredNodeId ? [186, 206, 239, 58] : [191, 210, 244, 132],
         getSourcePosition: (edge) => [edge.source.x, edge.source.y],
         getTargetPosition: (edge) => [edge.target.x, edge.target.y],
-        getWidth: (edge) => (hoveredNodeId ? 1 : 1 + edge.strength * 1.25),
+        getWidth: () => 1,
         id: "taxonomy-leaf-edges",
         pickable: false,
         widthUnits: "pixels",
@@ -93,10 +93,10 @@ export function LeafDeckScene({
           hoveredNodeId && highlightedEdgeIds
             ? scene.edges.filter((edge) => highlightedEdgeIds.has(edge.id))
             : [],
-        getColor: [102, 132, 181, 214],
+        getColor: [116, 152, 217, 214],
         getSourcePosition: (edge) => [edge.source.x, edge.source.y],
         getTargetPosition: (edge) => [edge.target.x, edge.target.y],
-        getWidth: (edge) => 2 + edge.strength * 1.5,
+        getWidth: () => 1.5,
         id: "taxonomy-leaf-highlight-edges",
         pickable: false,
         widthUnits: "pixels",
@@ -108,13 +108,13 @@ export function LeafDeckScene({
           highlightedNodeIds
             ? highlightedNodeIds.has(node.graphNodeId)
               ? node.scope === "inner"
-                ? [111, 135, 176, 235]
-                : [160, 182, 219, 210]
-              : [180, 194, 219, 72]
+                ? [120, 163, 243, 255]
+                : [144, 185, 247, 232]
+              : [180, 198, 229, 84]
             : node.scope === "inner"
-              ? [111, 135, 176, 235]
-              : [160, 182, 219, 190],
-        getLineColor: [245, 249, 255, 245],
+              ? [120, 163, 243, 252]
+              : [144, 185, 247, 224],
+        getLineColor: [247, 250, 255, 255],
         getLineWidth: 1,
         getPosition: (node) => [node.position.x, node.position.y],
         getRadius: (node) => node.radius,
@@ -131,7 +131,7 @@ export function LeafDeckScene({
         characterSet: "auto",
         data: !hoveredNodeId ? scene.cardNodes : [],
         fontFamily:
-          '"Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
+          '"Geist", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
         getAlignmentBaseline: "center",
         getBackgroundColor: (node: LeafSceneCardNode) =>
           node.scope === "inner" ? [255, 255, 255, 250] : [239, 245, 252, 252],
@@ -179,7 +179,7 @@ export function LeafDeckScene({
         characterSet: "auto",
         data: mutedCardNodes,
         fontFamily:
-          '"Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
+          '"Geist", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
         getAlignmentBaseline: "center",
         getBackgroundColor: [232, 238, 247, 92],
         getColor: [100, 116, 139, 88],
@@ -225,7 +225,7 @@ export function LeafDeckScene({
         characterSet: "auto",
         data: connectedCardNodes,
         fontFamily:
-          '"Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
+          '"Geist", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
         getAlignmentBaseline: "center",
         getBackgroundColor: (node: LeafSceneCardNode) =>
           node.scope === "inner" ? [250, 253, 255, 250] : [235, 242, 250, 250],
@@ -273,7 +273,7 @@ export function LeafDeckScene({
         characterSet: "auto",
         data: hoveredCardNodes,
         fontFamily:
-          '"Inter", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
+          '"Geist", "ui-sans-serif", "system-ui", "-apple-system", "sans-serif"',
         getAlignmentBaseline: "center",
         getBackgroundColor: [255, 255, 255, 255],
         getColor: (node: LeafSceneCardNode) =>

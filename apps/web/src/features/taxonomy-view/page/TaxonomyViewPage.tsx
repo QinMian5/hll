@@ -3,7 +3,7 @@
 
 import "@xyflow/react/dist/style.css";
 
-import { Background, type Node, ReactFlow } from "@xyflow/react";
+import { type Node, ReactFlow } from "@xyflow/react";
 import { startTransition, useMemo, useState } from "react";
 
 import {
@@ -107,12 +107,12 @@ export function TaxonomyViewPage() {
         data-testid="taxonomy-canvas-shell"
       >
         <div
-          className="absolute inset-0 overflow-hidden rounded-[32px] border border-[rgba(214,227,247,0.86)] bg-[linear-gradient(137.03deg,rgba(254,254,255,1)_14.099%,rgba(245,249,255,1)_45.692%,rgba(249,251,255,1)_85.901%)] shadow-[0px_18px_52px_0px_rgba(107,133,189,0.09)]"
+          className="absolute inset-0 overflow-hidden rounded-[32px] border border-[rgba(214,227,247,0.86)] bg-[linear-gradient(137.03deg,rgba(254,254,255,1)_14.099%,rgba(245,249,255,1)_45.692%,rgba(249,251,255,1)_85.901%)] shadow-[0_18px_52px_rgba(107,133,189,0.09)]"
           data-testid="taxonomy-canvas-panel"
         >
           <nav
             aria-label="taxonomy breadcrumb"
-            className="absolute top-[27px] left-[33px] z-20 flex max-w-[calc(100%-66px)] flex-wrap items-center justify-center gap-2 overflow-hidden"
+            className="absolute top-[27px] left-[33px] z-20 flex max-w-[calc(100%-66px)] flex-wrap items-center justify-center gap-2"
             data-breadcrumb-style="inline-text"
             data-testid="taxonomy-breadcrumb-overlay"
           >
@@ -184,7 +184,7 @@ export function TaxonomyViewPage() {
               </p>
             </section>
           ) : null}
-          <div className="taxonomy-flow-shell absolute inset-0">
+          <div className="taxonomy-flow-shell absolute inset-0 overflow-hidden rounded-[32px]">
             {nodeQuery.data?.node_kind === "leaf" ? (
               <LeafRenderer
                 center={LAYOUT_CENTER}
@@ -199,7 +199,7 @@ export function TaxonomyViewPage() {
               >
                 <ReactFlow
                   fitView
-                  fitViewOptions={{ padding: 0.18 }}
+                  fitViewOptions={{ padding: 0.24 }}
                   key={activeNodeId ?? "root"}
                   minZoom={0.2}
                   nodeTypes={nodeTypes}
@@ -212,9 +212,7 @@ export function TaxonomyViewPage() {
                     startTransition(() => setActiveNodeId(targetNodeId));
                   }}
                   proOptions={{ hideAttribution: true }}
-                >
-                  <Background />
-                </ReactFlow>
+                ></ReactFlow>
               </div>
             )}
           </div>

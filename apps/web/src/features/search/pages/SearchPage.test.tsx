@@ -91,6 +91,7 @@ describe("SearchPage", () => {
     );
     expect(screen.getByTestId("search-suggestions-panel")).toBeInTheDocument();
     expect(screen.getByDisplayValue("matrix")).toBeInTheDocument();
+    expect(screen.getByTestId("search-icon-button")).toBeInTheDocument();
     expect(screen.queryByTestId("search-empty-state")).not.toBeInTheDocument();
     expect(screen.getByText("Matrix decomposition")).toBeInTheDocument();
     expect(
