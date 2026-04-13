@@ -1,5 +1,5 @@
 // abstract: TanStack Query adapters for taxonomy root/node drill-down view contracts.
-// out_of_scope: React Flow rendering and interaction-state orchestration.
+// out_of_scope: Frontend renderer selection, viewport ownership, and interaction-state orchestration.
 
 import type { components, paths } from "@knowledge/contracts/generated/types";
 import { queryOptions, useQuery } from "@tanstack/react-query";

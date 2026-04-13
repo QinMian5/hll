@@ -49,7 +49,8 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Workspace/package manager: root `pnpm` workspace
 - Build tool: `Vite`
 - UI framework: `React` + `TypeScript`
-- Graph rendering engine: `React Flow`
+- Graph rendering engines: `React Flow` for branch taxonomy browsing and `deck.gl` for leaf relation rendering
+- Layout engine: `d3-force`
 - Server-state management: `TanStack Query`
 - Contract consumption: generated TypeScript client from repository OpenAPI artifacts
 - Styling: `Tailwind CSS`
@@ -59,7 +60,9 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 #### Why selected
 - Fast iteration and low boilerplate.
 - Strong compatibility with generated OpenAPI client.
-- `React Flow` matches click-driven taxonomy drill-down and leaf-level relation visualization.
+- `React Flow` keeps the branch drill-down surface simple for lower-count bubble navigation.
+- `deck.gl` provides GPU-backed rendering for dense leaf point, edge, and card visualization under the same frontend-owned layout model.
+- `d3-force` keeps branch and leaf geometry frontend-owned and deterministic without pushing coordinates into backend contracts.
 - No dependency on semantic-map tile/snapshot rendering stack.
 - Layout remains frontend-owned, so backend contracts stay semantic and avoid coordinate persistence coupling.
 

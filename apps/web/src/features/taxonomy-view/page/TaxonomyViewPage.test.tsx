@@ -1,5 +1,5 @@
-// abstract: Behavior tests for the taxonomy view page shell and canvas overlays.
-// out_of_scope: End-to-end browser rendering fidelity and backend query execution.
+// abstract: Behavior tests for the taxonomy page shell and branch/leaf renderer routing.
+// out_of_scope: Browser-level rendering fidelity and backend query execution.
 
 import "@testing-library/jest-dom/vitest";
 
@@ -15,62 +15,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@xyflow/react", () => ({
   Background: () => <div data-testid="reactflow-background" />,
-  Handle: ({
-    className,
-    "data-handle-anchor": dataHandleAnchor,
-    "data-testid": dataTestId,
-    id,
-    type,
-  }: {
-    readonly className?: string;
-    readonly "data-handle-anchor"?: string;
-    readonly "data-testid"?: string;
-    readonly id?: string;
-    readonly type?: string;
-  }) => (
-    <div
-      className={className}
-      data-handle-anchor={dataHandleAnchor}
-      data-handle-id={id}
-      data-handle-type={type}
-      data-testid={dataTestId}
-    />
-  ),
-  Position: {
-    Top: "top",
-  },
   ReactFlow: ({
     children,
-    edges = [],
     nodeTypes = {},
     nodes,
-    onMoveEnd,
     onNodeClick,
   }: MockReactFlowProps) => (
     <div data-testid="reactflow-mock">
-      <button
-        onClick={() => onMoveEnd?.({}, { x: 0, y: 0, zoom: 0.5 })}
-        type="button"
-      >
-        Overview viewport
-      </button>
-      <button
-        onClick={() => onMoveEnd?.({}, { x: 0, y: 0, zoom: 1 })}
-        type="button"
-      >
-        Zoomed viewport
-      </button>
       {nodes.map((node) => {
         const BubbleNode = node.type ? nodeTypes[node.type] : undefined;
 
         return (
-          /* biome-ignore lint/a11y/noStaticElementInteractions: test-only React Flow mock uses a plain wrapper to mirror production node containers. */
-          /* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard interaction is outside the scope of this structural mock. */
+          /* biome-ignore lint/a11y/noStaticElementInteractions: test-only container proxies node click behavior. */
+          /* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard behavior is outside the scope of this structural mock. */
           <div
-            data-node-height={node.style?.height ?? 0}
-            data-node-width={node.style?.width ?? 0}
-            data-node-x={node.position?.x ?? 0}
-            data-node-y={node.position?.y ?? 0}
             data-testid={`reactflow-node-${node.id}`}
             key={node.id}
             onClick={() => onNodeClick?.({}, node)}
@@ -93,56 +51,41 @@ vi.mock("@xyflow/react", () => ({
           </div>
         );
       })}
-      {edges.map((edge) => (
-        <div
-          data-edge-focusable={String(edge.focusable ?? true)}
-          data-edge-selectable={String(edge.selectable ?? true)}
-          data-edge-type={edge.type ?? ""}
-          data-testid={`reactflow-edge-${edge.id}`}
-          key={edge.id}
-        >{`${edge.source}->${edge.target}`}</div>
-      ))}
       {children}
     </div>
   ),
 }));
 
+vi.mock("./leaf/LeafRenderer", () => ({
+  LeafRenderer: ({
+    leafView,
+  }: {
+    readonly leafView: { readonly current_node: { readonly name: string } };
+  }) => (
+    <div data-testid="taxonomy-leaf-renderer">{leafView.current_node.name}</div>
+  ),
+}));
+
 vi.mock("../data/taxonomyViewQueries", () => ({
-  useTaxonomyLeafNodeDetailsQuery: vi.fn(),
   useTaxonomyNodeViewQuery: vi.fn(),
   useTaxonomyRootViewQuery: vi.fn(),
 }));
 
 import type {
-  TaxonomyLeafNodeDetailsResponse,
   TaxonomyNodeView,
   TaxonomyRootView,
 } from "../data/taxonomyViewQueries";
 import * as taxonomyViewQueries from "../data/taxonomyViewQueries";
-import {
-  flowBoundsFromViewport,
-  LEAF_CARD_ACTIVATION_ZOOM,
-  selectLeafHydrationNodeIds,
-  TaxonomyViewPage,
-} from "./TaxonomyViewPage";
+import { TaxonomyViewPage } from "./TaxonomyViewPage";
 
 interface MockReactFlowProps {
   readonly children?: ReactNode;
-  readonly edges?: Array<{
-    readonly focusable?: boolean;
-    readonly id: string;
-    readonly selectable?: boolean;
-    readonly source: string;
-    readonly target: string;
-    readonly type?: string;
-  }>;
   readonly nodeTypes?: Record<
     string,
     ComponentType<MockFlowNodeComponentProps>
   >;
   readonly nodes: Array<{
     readonly data: {
-      readonly content?: string;
       readonly depth?: number;
       readonly label: string;
       readonly renderMode?: "bubble" | "card" | "point";
@@ -158,20 +101,11 @@ interface MockReactFlowProps {
     };
     readonly type?: string;
   }>;
-  readonly onMoveEnd?: (
-    event: unknown,
-    viewport: { readonly x: number; readonly y: number; readonly zoom: number },
-  ) => void;
   readonly onNodeClick?: (
     event: unknown,
     node: {
       readonly data: {
-        readonly content?: string;
-        readonly depth?: number;
-        readonly label: string;
-        readonly scope?: "branch" | "inner" | "outer";
         readonly targetNodeId?: number | null;
-        readonly tooltip?: string;
       };
       readonly id: string;
     },
@@ -203,21 +137,9 @@ const mockUseTaxonomyRootViewQuery = vi.mocked(
 const mockUseTaxonomyNodeViewQuery = vi.mocked(
   taxonomyViewQueries.useTaxonomyNodeViewQuery,
 );
-const mockUseTaxonomyLeafNodeDetailsQuery = vi.mocked(
-  taxonomyViewQueries.useTaxonomyLeafNodeDetailsQuery,
-);
 
 let rootQueryState: MockQueryResult<TaxonomyRootView>;
 let nodeQueryStates: Map<number, MockQueryResult<TaxonomyNodeView>>;
-let leafDetailCalls: Array<{
-  readonly enabled: boolean;
-  readonly leafId: number;
-  readonly nodeIds: readonly number[];
-}>;
-let leafDetailQueryStates: Map<
-  string,
-  MockQueryResult<TaxonomyLeafNodeDetailsResponse>
->;
 
 function makeQueryResult<T>(
   overrides: Partial<MockQueryResult<T>>,
@@ -239,321 +161,46 @@ function makeRootView(overrides: Partial<TaxonomyRootView>): TaxonomyRootView {
   };
 }
 
-function makeBranchNodeView(
-  overrides: Partial<TaxonomyNodeView>,
-): TaxonomyNodeView {
-  return {
-    breadcrumb: [],
-    children: [],
-    current_node: {
-      depth: 0,
-      id: 0,
-      is_leaf: false,
-      name: "Root",
-      parent_id: null,
-    },
-    node_kind: "branch",
-    ...overrides,
-  } as TaxonomyNodeView;
-}
-
 function makeLeafNodeView(
   overrides: Partial<TaxonomyNodeView>,
 ): TaxonomyNodeView {
   return {
     breadcrumb: [],
     current_node: {
-      depth: 0,
-      id: 0,
+      depth: 2,
+      id: 2,
       is_leaf: true,
-      name: "Leaf",
-      parent_id: null,
+      name: "Algebra",
+      parent_id: 1,
     },
-    edges: [],
+    edges: [[10, 11, 0.8]],
     node_kind: "leaf",
-    nodes: [],
+    nodes: [
+      { id: 10, scope: "inner" },
+      { id: 11, scope: "outer" },
+    ],
     ...overrides,
   } as TaxonomyNodeView;
 }
 
-function setRootQueryState(result: MockQueryResult<TaxonomyRootView>) {
-  rootQueryState = result;
-}
-
-function setNodeQueryState(
-  nodeId: number,
-  result: MockQueryResult<TaxonomyNodeView>,
-) {
-  nodeQueryStates.set(nodeId, result);
-}
-
-function leafDetailStateKey(leafId: number, nodeIds: readonly number[]) {
-  return `${leafId}:${[...nodeIds].join(",")}`;
-}
-
-function setLeafDetailQueryState(
-  leafId: number,
-  nodeIds: readonly number[],
-  result: MockQueryResult<TaxonomyLeafNodeDetailsResponse>,
-) {
-  leafDetailQueryStates.set(leafDetailStateKey(leafId, nodeIds), result);
-}
-
 beforeEach(() => {
   rootQueryState = makeQueryResult({
-    data: makeRootView({}),
+    data: makeRootView({
+      children: [
+        {
+          depth: 0,
+          descendant_card_count: 20,
+          id: 1,
+          is_leaf: false,
+          name: "Math",
+          parent_id: null,
+        },
+      ],
+    }),
   });
-  nodeQueryStates = new Map<number, MockQueryResult<TaxonomyNodeView>>();
-  leafDetailCalls = [];
-  leafDetailQueryStates = new Map<
-    string,
-    MockQueryResult<TaxonomyLeafNodeDetailsResponse>
-  >();
-
-  mockUseTaxonomyRootViewQuery.mockImplementation(
-    ({ enabled }: { readonly enabled?: boolean }) =>
-      (enabled ?? true)
-        ? (rootQueryState as ReturnType<
-            typeof taxonomyViewQueries.useTaxonomyRootViewQuery
-          >)
-        : (makeQueryResult<TaxonomyRootView>({}) as ReturnType<
-            typeof taxonomyViewQueries.useTaxonomyRootViewQuery
-          >),
-  );
-
-  mockUseTaxonomyNodeViewQuery.mockImplementation(
-    (nodeId: number, { enabled }: { readonly enabled?: boolean }) =>
-      (enabled ?? true)
-        ? ((nodeQueryStates.get(nodeId) ??
-            makeQueryResult<TaxonomyNodeView>({})) as ReturnType<
-            typeof taxonomyViewQueries.useTaxonomyNodeViewQuery
-          >)
-        : (makeQueryResult<TaxonomyNodeView>({}) as ReturnType<
-            typeof taxonomyViewQueries.useTaxonomyNodeViewQuery
-          >),
-  );
-
-  mockUseTaxonomyLeafNodeDetailsQuery.mockImplementation(
-    (
-      leafId: number,
-      nodeIds: readonly number[],
-      { enabled }: { readonly enabled?: boolean },
-    ) => {
-      leafDetailCalls.push({
-        enabled: enabled ?? true,
-        leafId,
-        nodeIds: [...nodeIds],
-      });
-
-      return (
-        (enabled ?? true)
-          ? (leafDetailQueryStates.get(leafDetailStateKey(leafId, nodeIds)) ??
-            makeQueryResult<TaxonomyLeafNodeDetailsResponse>({}))
-          : makeQueryResult<TaxonomyLeafNodeDetailsResponse>({})
-      ) as ReturnType<
-        typeof taxonomyViewQueries.useTaxonomyLeafNodeDetailsQuery
-      >;
-    },
-  );
-});
-
-afterEach(() => {
-  cleanup();
-});
-
-describe("leaf hydration viewport helpers", () => {
-  it("converts the current viewport into flow-space bounds", () => {
-    expect(
-      flowBoundsFromViewport(
-        { x: -140.4, y: -90, zoom: LEAF_CARD_ACTIVATION_ZOOM },
-        { height: 900, width: 1404 },
-        0,
-      ),
-    ).toEqual({
-      bottom: 1164.7058823529412,
-      left: 165.1764705882353,
-      right: 1816.9411764705883,
-      top: 105.88235294117648,
-    });
-  });
-
-  it("selects only viewport-plus-overscan leaf node ids for hydration", () => {
-    expect(
-      selectLeafHydrationNodeIds(
-        [
-          {
-            data: {
-              depth: 0,
-              graphNodeId: 10,
-              label: "",
-              renderMode: "point",
-              scope: "inner",
-              targetNodeId: null,
-              tooltip: "",
-            },
-            id: "card-10",
-            position: { x: 620, y: 400 },
-            style: { borderRadius: "68px", height: 68, width: 68 },
-            type: "bubble",
-          },
-          {
-            data: {
-              depth: 0,
-              graphNodeId: 11,
-              label: "",
-              renderMode: "point",
-              scope: "outer",
-              targetNodeId: null,
-              tooltip: "",
-            },
-            id: "card-11",
-            position: { x: 2200, y: 400 },
-            style: { borderRadius: "52px", height: 52, width: 52 },
-            type: "bubble",
-          },
-        ],
-        { x: -560, y: -360, zoom: 1 },
-        { height: 900, width: 1404 },
-        40,
-      ),
-    ).toEqual([10]);
-  });
-});
-
-describe("TaxonomyViewPage shell contracts", () => {
-  it("renders the approved figma shell for the root view", () => {
-    setRootQueryState(
-      makeQueryResult({
-        data: makeRootView({
-          children: [
-            {
-              depth: 0,
-              descendant_card_count: 3,
-              id: 1,
-              is_leaf: false,
-              name: "Math",
-              parent_id: null,
-            },
-          ],
-        }),
-      }),
-    );
-
-    render(<TaxonomyViewPage />);
-
-    expect(screen.getByTestId("taxonomy-shell-body")).toHaveClass("p-6");
-    expect(screen.getByText("Knowledge Graph")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "GitHub" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Login" })).toBeDisabled();
-    expect(screen.getByLabelText("taxonomy flow canvas")).toBeInTheDocument();
-    expect(screen.getByLabelText("taxonomy breadcrumb")).toBeInTheDocument();
-    expect(screen.getByTestId("taxonomy-canvas-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("taxonomy-canvas-panel")).toHaveClass(
-      "absolute",
-      "inset-0",
-    );
-    expect(screen.getByTestId("taxonomy-breadcrumb-overlay")).toHaveAttribute(
-      "data-breadcrumb-style",
-      "inline-text",
-    );
-    expect(screen.queryByText("Taxonomy drill-down")).not.toBeInTheDocument();
-  });
-
-  it("shows loading inside the persistent canvas overlay", () => {
-    setRootQueryState(
-      makeQueryResult({
-        isPending: true,
-      }),
-    );
-
-    const { rerender } = render(<TaxonomyViewPage />);
-
-    const canvas = screen.getByTestId("taxonomy-canvas-shell");
-    expect(
-      within(canvas).getByText("Loading taxonomy view"),
-    ).toBeInTheDocument();
-    expect(
-      within(canvas).getByLabelText("taxonomy breadcrumb"),
-    ).toBeInTheDocument();
-
-    setRootQueryState(
-      makeQueryResult({
-        data: makeRootView({
-          children: [],
-        }),
-      }),
-    );
-    rerender(<TaxonomyViewPage />);
-
-    expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
-  });
-
-  it("shows error inside the same canvas overlay", () => {
-    setRootQueryState(
-      makeQueryResult({
-        error: new Error("boom"),
-        isError: true,
-      }),
-    );
-
-    render(<TaxonomyViewPage />);
-
-    const canvas = screen.getByTestId("taxonomy-canvas-shell");
-    expect(within(canvas).getByRole("alert")).toHaveTextContent("boom");
-  });
-
-  it("keeps branch, leaf, and breadcrumb navigation working inside the shell", () => {
-    setRootQueryState(
-      makeQueryResult({
-        data: makeRootView({
-          children: [
-            {
-              depth: 0,
-              descendant_card_count: 3,
-              id: 1,
-              is_leaf: false,
-              name: "Math",
-              parent_id: null,
-            },
-          ],
-        }),
-      }),
-    );
-    setNodeQueryState(
+  nodeQueryStates = new Map([
+    [
       1,
-      makeQueryResult({
-        data: makeBranchNodeView({
-          breadcrumb: [
-            {
-              depth: 0,
-              id: 1,
-              is_leaf: false,
-              name: "Math",
-              parent_id: null,
-            },
-          ],
-          children: [
-            {
-              depth: 1,
-              descendant_card_count: 2,
-              id: 2,
-              is_leaf: true,
-              name: "Algebra",
-              parent_id: 1,
-            },
-          ],
-          current_node: {
-            depth: 0,
-            id: 1,
-            is_leaf: false,
-            name: "Math",
-            parent_id: null,
-          },
-        }),
-      }),
-    );
-    setNodeQueryState(
-      2,
       makeQueryResult({
         data: makeLeafNodeView({
           breadcrumb: [
@@ -564,191 +211,99 @@ describe("TaxonomyViewPage shell contracts", () => {
               name: "Math",
               parent_id: null,
             },
-            {
-              depth: 1,
-              id: 2,
-              is_leaf: true,
-              name: "Algebra",
-              parent_id: 1,
-            },
-          ],
-          current_node: {
-            depth: 1,
-            id: 2,
-            is_leaf: true,
-            name: "Algebra",
-            parent_id: 1,
-          },
-          edges: [[10, 11, 0.8]],
-          nodes: [
-            {
-              id: 10,
-              scope: "inner",
-            },
-            {
-              id: 11,
-              scope: "outer",
-            },
           ],
         }),
       }),
-    );
-    setLeafDetailQueryState(
-      2,
-      [10, 11],
-      makeQueryResult({
-        data: {
-          nodes: [
-            { content: "Equation content", id: 10, title: "Equation" },
-            { content: "Proof content", id: 11, title: "Proof" },
-          ],
-        },
-      }),
-    );
+    ],
+  ]);
 
+  mockUseTaxonomyRootViewQuery.mockImplementation(
+    () =>
+      rootQueryState as unknown as ReturnType<
+        typeof taxonomyViewQueries.useTaxonomyRootViewQuery
+      >,
+  );
+  mockUseTaxonomyNodeViewQuery.mockImplementation((nodeId) => {
+    const result = nodeQueryStates.get(nodeId);
+    return (result ??
+      makeQueryResult({ isPending: true })) as unknown as ReturnType<
+      typeof taxonomyViewQueries.useTaxonomyNodeViewQuery
+    >;
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+
+describe("TaxonomyViewPage", () => {
+  it("renders the Figma-aligned shell header with disabled actions", () => {
     render(<TaxonomyViewPage />);
 
-    const canvas = screen.getByTestId("taxonomy-canvas-shell");
-    expect(screen.getByRole("button", { name: "Root" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    const rootBranchNode = within(canvas)
-      .getByText("Math")
-      .closest("[data-node-scope='branch']");
+    expect(screen.getByTestId("taxonomy-header-shell")).toBeInTheDocument();
+    expect(screen.getByText("Knowledge Graph")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "GitHub" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Login" })).toBeDisabled();
+  });
 
-    expect(rootBranchNode).not.toBeNull();
-    expect(rootBranchNode).toHaveAttribute("data-bubble-family", "taxonomy");
+  it("renders loading and error overlays inside the stable canvas shell", () => {
+    rootQueryState = makeQueryResult({ isPending: true });
+    mockUseTaxonomyRootViewQuery.mockImplementation(
+      () =>
+        rootQueryState as unknown as ReturnType<
+          typeof taxonomyViewQueries.useTaxonomyRootViewQuery
+        >,
+    );
+
+    const { rerender } = render(<TaxonomyViewPage />);
+
+    expect(screen.getByTestId("taxonomy-canvas-shell")).toBeInTheDocument();
+    expect(screen.getByTestId("taxonomy-loading-overlay")).toBeInTheDocument();
+
+    rootQueryState = makeQueryResult({
+      error: new Error("Taxonomy root view request failed with status 502."),
+      isError: true,
+    });
+    mockUseTaxonomyRootViewQuery.mockImplementation(
+      () =>
+        rootQueryState as unknown as ReturnType<
+          typeof taxonomyViewQueries.useTaxonomyRootViewQuery
+        >,
+    );
+
+    rerender(<TaxonomyViewPage />);
+
+    expect(screen.getByTestId("taxonomy-error-overlay")).toHaveTextContent(
+      "Taxonomy root view request failed with status 502.",
+    );
+  });
+
+  it("renders branch mode on React Flow and drills into leaf mode on the dedicated leaf renderer", () => {
+    render(<TaxonomyViewPage />);
+
+    expect(screen.getByTestId("taxonomy-branch-reactflow")).toBeInTheDocument();
     expect(
-      within(rootBranchNode as HTMLElement).queryByText("Open"),
+      screen.queryByTestId("taxonomy-leaf-renderer"),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(within(rootBranchNode as HTMLElement).getByText("Math"));
-    expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
-    expect(screen.getByRole("button", { name: "Root" })).not.toHaveAttribute(
-      "aria-current",
-    );
-    expect(screen.getByRole("button", { name: "Math" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    const branchNode = within(canvas)
-      .getByText("Algebra")
+    const branchNode = within(screen.getByTestId("reactflow-mock"))
+      .getByText("Math")
       .closest("[data-node-scope='branch']");
 
     expect(branchNode).not.toBeNull();
 
-    fireEvent.click(within(branchNode as HTMLElement).getByText("Algebra"));
-    expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
+    fireEvent.click(branchNode as HTMLElement);
+
+    expect(screen.getByTestId("taxonomy-leaf-renderer")).toHaveTextContent(
+      "Algebra",
+    );
     expect(
-      within(canvas).getByTestId("reactflow-edge-10:11"),
-    ).toBeInTheDocument();
-    expect(within(canvas).getByTestId("reactflow-edge-10:11")).toHaveAttribute(
-      "data-edge-type",
-      "straight",
-    );
-    expect(within(canvas).getByTestId("reactflow-edge-10:11")).toHaveAttribute(
-      "data-edge-focusable",
-      "false",
-    );
-    expect(within(canvas).getByTestId("reactflow-edge-10:11")).toHaveAttribute(
-      "data-edge-selectable",
-      "false",
-    );
-    expect(within(canvas).queryByText("Equation")).not.toBeInTheDocument();
-    expect(
-      within(canvas).queryByTestId("taxonomy-bubble-disclosure"),
+      screen.queryByTestId("taxonomy-branch-reactflow"),
     ).not.toBeInTheDocument();
-    expect(within(canvas).getAllByTestId("taxonomy-point-node")).toHaveLength(
-      2,
+    expect(screen.getByRole("button", { name: "Math" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    const overviewInnerNode = within(canvas).getByTestId(
-      "reactflow-node-card-10",
-    );
-    const overviewCenter = {
-      x:
-        Number(overviewInnerNode.getAttribute("data-node-x")) +
-        Number(overviewInnerNode.getAttribute("data-node-width")) / 2,
-      y:
-        Number(overviewInnerNode.getAttribute("data-node-y")) +
-        Number(overviewInnerNode.getAttribute("data-node-height")) / 2,
-    };
-    expect(
-      leafDetailCalls.some(
-        (call) => call.leafId === 2 && call.enabled && call.nodeIds.length > 0,
-      ),
-    ).toBe(false);
-
-    fireEvent.click(screen.getByRole("button", { name: "Zoomed viewport" }));
-    expect(screen.getByText("Equation")).toBeInTheDocument();
-    expect(
-      leafDetailCalls.some(
-        (call) =>
-          call.leafId === 2 &&
-          call.enabled &&
-          call.nodeIds.includes(10) &&
-          call.nodeIds.includes(11),
-      ),
-    ).toBe(true);
-    const initialHydrationCallCount = leafDetailCalls.filter(
-      (call) =>
-        call.leafId === 2 &&
-        call.enabled &&
-        call.nodeIds.includes(10) &&
-        call.nodeIds.includes(11),
-    ).length;
-
-    const hydratedLeafNode = within(canvas)
-      .getByText("Equation")
-      .closest("[data-node-scope='inner']");
-
-    expect(hydratedLeafNode).not.toBeNull();
-    expect(hydratedLeafNode).toHaveAttribute("data-node-presentation", "card");
-    expect(
-      within(hydratedLeafNode as HTMLElement).getByTestId(
-        "taxonomy-leaf-card-surface",
-      ),
-    ).toHaveAttribute("data-node-shape", "card");
-    const zoomedInnerNode = within(canvas).getByTestId(
-      "reactflow-node-card-10",
-    );
-    const zoomedCenter = {
-      x:
-        Number(zoomedInnerNode.getAttribute("data-node-x")) +
-        Number(zoomedInnerNode.getAttribute("data-node-width")) / 2,
-      y:
-        Number(zoomedInnerNode.getAttribute("data-node-y")) +
-        Number(zoomedInnerNode.getAttribute("data-node-height")) / 2,
-    };
-    expect(zoomedCenter).toEqual(overviewCenter);
-    fireEvent.mouseEnter(hydratedLeafNode as HTMLElement);
-    expect(
-      within(canvas).getByTestId("taxonomy-bubble-disclosure"),
-    ).toHaveTextContent("Equation content");
-    fireEvent.mouseLeave(hydratedLeafNode as HTMLElement);
-    expect(
-      within(canvas).queryByTestId("taxonomy-bubble-disclosure"),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Overview viewport" }));
-    expect(within(canvas).queryByText("Equation")).not.toBeInTheDocument();
-    expect(within(canvas).getAllByTestId("taxonomy-point-node")).toHaveLength(
-      2,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Zoomed viewport" }));
-    expect(within(canvas).getByText("Equation")).toBeInTheDocument();
-    expect(
-      leafDetailCalls.filter(
-        (call) =>
-          call.leafId === 2 &&
-          call.enabled &&
-          call.nodeIds.includes(10) &&
-          call.nodeIds.includes(11),
-      ),
-    ).toHaveLength(initialHydrationCallCount);
-
-    fireEvent.click(within(canvas).getByRole("button", { name: "Root" }));
-    expect(screen.getByTestId("taxonomy-canvas-shell")).toBe(canvas);
   });
 });

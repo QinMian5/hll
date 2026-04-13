@@ -27,6 +27,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Owns taxonomy drill-down read orchestration:
   - `GET /taxonomy/view/root`
   - `GET /taxonomy/view/nodes/{node_id}`
+  - `POST /taxonomy/view/leaves/{node_id}/details`
 - Consumes `knowledge_graph` read ports for leaf-level one-hop graph payload shaping.
 
 ### taxonomy_classification
@@ -85,8 +86,8 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
   - leaf payload (`nodes`, `edges`) when node is leaf
 - Leaf payload rules:
   - nodes include all leaf inner cards and all one-hop pulled outer cards
-  - node fields are `id`, `title`, `content`, `scope`
-  - edges fields are `id`, `source_node_id`, `target_node_id`, `strength`
+  - node fields are `id`, `scope`
+  - edges are numeric tuples shaped as `[source_node_id, target_node_id, strength]`
   - canonical endpoint ordering is required for every edge: `source_node_id < target_node_id`
   - edges include only `inner-inner` and `inner-outer`
   - `outer-outer` edges are excluded
@@ -96,6 +97,19 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Failure:
   - `404` when taxonomy node id is unknown.
   - `404` when taxonomy store is empty.
+
+### Taxonomy Leaf Detail Endpoint
+- Route: `POST /taxonomy/view/leaves/{node_id}/details`
+- Request:
+  - `node_ids[]` non-empty array of unique positive integers scoped to the active leaf one-hop graph
+- Response:
+  - `nodes[]` ordered to match requested `node_ids`
+  - node detail item shape: `{id, title, content}`
+- Failure:
+  - `404` when taxonomy leaf id is unknown
+  - `404` when taxonomy store is empty
+  - `400` when `node_id` is not a leaf taxonomy node
+  - `400` when request `node_ids` is empty, contains duplicates, or references a node outside the active leaf one-hop graph
 
 ## Async Processing Flow
 1. API validates ingestion request payload.
@@ -143,7 +157,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - **Checks:**
   - `POST /cards` contract checks (`4xx` invalid, `202` valid)
   - `GET /search` contract checks
-  - `GET /taxonomy/view/root` and `GET /taxonomy/view/nodes/{id}` contract checks
+  - `GET /taxonomy/view/root`, `GET /taxonomy/view/nodes/{id}`, and `POST /taxonomy/view/leaves/{id}/details` contract checks
   - architecture checks that `search`/`ingestion` do not import `knowledge_graph.repo/model`
   - architecture checks that runtime API entrypoint does not import worker entrypoint
 - **Evidence:**

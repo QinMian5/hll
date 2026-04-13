@@ -18,7 +18,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### Frontend
 - **Responsibilities:**
-  - Render taxonomy drill-down browsing with React Flow.
+  - Render taxonomy drill-down browsing with a branch-specific React Flow renderer and a leaf-specific deck.gl renderer inside one shared page shell.
   - Render branch view as direct child category bubbles.
   - Render leaf view as one-hop scoped relation graph (`inner` + pulled `outer` nodes).
   - Provide breadcrumb navigation for ancestor jumps.
@@ -78,6 +78,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Own taxonomy drill-down view read contracts:
     - `GET /taxonomy/view/root`
     - `GET /taxonomy/view/nodes/{node_id}`
+    - `POST /taxonomy/view/leaves/{node_id}/details`
   - Shape branch and leaf payloads (including breadcrumb and scope-marked leaf graph nodes).
 - **Non-responsibilities:**
   - Knowledge-node persistence ownership.

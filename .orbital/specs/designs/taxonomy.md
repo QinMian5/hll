@@ -12,7 +12,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 
 ## Context
 - **Purpose:** Define the `taxonomy` module as the active browsing backbone: authoritative LCC tree storage, final leaf assignment truth, and taxonomy-query-driven view APIs.
-- **Scope/Boundaries:** Covers taxonomy ownership, persistence shape, import boundaries, integrity constraints, and branch/leaf view contracts consumed by frontend React Flow pages.
+- **Scope/Boundaries:** Covers taxonomy ownership, persistence shape, import boundaries, integrity constraints, and branch/leaf view contracts consumed by the taxonomy browsing frontend.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Constraint Projection
@@ -21,7 +21,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 - **Update Rule:** Requirement-level constraints remain stable while taxonomy structure and view API details are maintained here as implementation-facing truth.
 
 ## Design Approach
-- **Approach:** Use taxonomy as the interaction truth for hierarchical drill-down browsing. Backend returns branch or leaf payloads from one taxonomy-view query surface. Frontend computes visual sizing and renders with React Flow.
+- **Approach:** Use taxonomy as the interaction truth for hierarchical drill-down browsing. Backend returns branch or leaf payloads from one taxonomy-view query surface. Frontend computes visual sizing and renders branch and leaf views through frontend-owned renderer pipelines.
 - **Key Elements:**
   - **Module ownership:** `apps/api/src/modules/taxonomy` owns taxonomy tree reads, final assignment reads/writes, taxonomy import orchestration, and taxonomy view API contracts.
   - **Authoritative source:** Persisted taxonomy tree is runtime/system truth. `human_workspace/LCC.yaml` is bootstrap input only.
@@ -135,10 +135,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
       - `id`
       - `scope` with value `inner` or `outer`
     - `edges` array, each item:
-      - `id`
-      - `source_node_id`
-      - `target_node_id`
-      - `strength`
+      - numeric tuple `[source_node_id, target_node_id, strength]`
 - Failure behavior:
   - `404` when taxonomy node id is unknown.
   - `404` when taxonomy store is empty.
@@ -164,7 +161,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 - branch `children` are ordered by `name ASC`, tie-break by `id ASC`.
 - leaf `nodes` are ordered by `id ASC`.
 - leaf `edges` are deduplicated by undirected pair and ordered by `(source_node_id ASC, target_node_id ASC)`.
-- every leaf `edges` item uses canonical undirected endpoint ordering with `source_node_id < target_node_id`.
+- every leaf `edges` tuple uses canonical undirected endpoint ordering with `source_node_id < target_node_id`.
 - leaf detail `nodes` are ordered to match request `node_ids`.
 
 ## Read Responsibilities

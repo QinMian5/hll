@@ -16,6 +16,9 @@
     "test": "vitest --run"
   },
   "dependencies": {
+    "@deck.gl/core": "^9.2.11",
+    "@deck.gl/layers": "^9.2.11",
+    "@deck.gl/react": "^9.2.11",
     "@knowledge/contracts": "workspace:*",
     "@logto/react": "^4.0.13",
     "@tanstack/react-form": "^1.28.6",
