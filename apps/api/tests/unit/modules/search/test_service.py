@@ -11,6 +11,9 @@ import pytest
 
 from modules.search.service import SearchService
 
+TEST_MAX_MATCHED = 3
+TEST_MAX_CONNECTED = 7
+
 
 @dataclass(slots=True)
 class _KnowledgeCardMatch:
@@ -66,8 +69,8 @@ async def test_search_returns_matched_cards_with_only_title_and_content() -> Non
     service = SearchService(
         knowledge_graph_read_port=knowledge_service,
         embedding_client=embedding_client,
-        max_matched=5,
-        max_connected=10,
+        max_matched=TEST_MAX_MATCHED,
+        max_connected=TEST_MAX_CONNECTED,
     )
 
     response = await service.search("what is card b")
@@ -81,16 +84,16 @@ async def test_search_returns_matched_cards_with_only_title_and_content() -> Non
 
 
 @pytest.mark.anyio
-async def test_search_uses_fixed_service_side_limits() -> None:
+async def test_search_uses_constructor_supplied_limits() -> None:
     knowledge_service = _FakeKnowledgeService()
     service = SearchService(
         knowledge_graph_read_port=knowledge_service,
         embedding_client=_FakeEmbeddingClient(),
-        max_matched=5,
-        max_connected=10,
+        max_matched=TEST_MAX_MATCHED,
+        max_connected=TEST_MAX_CONNECTED,
     )
 
     await service.search("q")
 
-    assert knowledge_service.matched_limit_seen == 5
-    assert knowledge_service.connected_limit_seen == 10
+    assert knowledge_service.matched_limit_seen == TEST_MAX_MATCHED
+    assert knowledge_service.connected_limit_seen == TEST_MAX_CONNECTED
