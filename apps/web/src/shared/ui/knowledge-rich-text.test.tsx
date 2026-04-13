@@ -4,7 +4,8 @@
 import "@testing-library/jest-dom/vitest";
 
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { Profiler, useState } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { KnowledgeRichText } from "./knowledge-rich-text";
 
@@ -67,5 +68,37 @@ describe("KnowledgeRichText", () => {
 
     expect(content.querySelector("em")).toBeNull();
     expect(content).toHaveTextContent("Literal unsafe html");
+  });
+
+  it("does not rerender the rich-text subtree when parent state changes without text changes", () => {
+    const onRender = vi.fn();
+
+    function Harness() {
+      const [count, setCount] = useState(0);
+
+      return (
+        <>
+          <button
+            onClick={() => setCount((currentCount) => currentCount + 1)}
+            type="button"
+          >
+            Rerender
+          </button>
+          <span>{count}</span>
+          <Profiler id="knowledge-rich-text" onRender={onRender}>
+            <KnowledgeRichText
+              text={"Energy \\(E=mc^2\\)\n\n- conserved"}
+              variant="content"
+            />
+          </Profiler>
+        </>
+      );
+    }
+
+    render(<Harness />);
+
+    screen.getByRole("button", { name: "Rerender" }).click();
+
+    expect(onRender).toHaveBeenCalledTimes(1);
   });
 });

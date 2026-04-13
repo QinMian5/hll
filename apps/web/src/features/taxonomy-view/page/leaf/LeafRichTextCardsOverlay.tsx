@@ -1,7 +1,7 @@
 // abstract: DOM overlay host for hydrated taxonomy leaf cards that need shared rich-text rendering.
 // out_of_scope: deck.gl point and edge rendering, viewport state ownership, and leaf detail fetching.
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 
 import { KnowledgeRichText } from "../../../../shared/ui";
 import type {
@@ -131,15 +131,34 @@ export function LeafRichTextCardsOverlay({
   viewport,
 }: LeafRichTextCardsOverlayProps) {
   const cardRefs = useRef(new Map<number, HTMLButtonElement | null>());
+  const lastMeasuredKeyRef = useRef<string | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const measurementMetadata = useMemo(
+    () => ({
+      invalidationKey: cardNodes
+        .map(
+          (card) =>
+            `${card.graphNodeId}:${card.size.width}:${card.label}:${card.scope}`,
+        )
+        .join("|"),
+      nodeIds: cardNodes.map((card) => card.graphNodeId),
+    }),
+    [cardNodes],
+  );
 
   useLayoutEffect(() => {
     if (!onCardMeasurementsChange) {
       return;
     }
 
-    const measurements = cardNodes.flatMap((card) => {
-      const element = cardRefs.current.get(card.graphNodeId);
+    if (lastMeasuredKeyRef.current === measurementMetadata.invalidationKey) {
+      return;
+    }
+
+    lastMeasuredKeyRef.current = measurementMetadata.invalidationKey;
+
+    const measurements = measurementMetadata.nodeIds.flatMap((graphNodeId) => {
+      const element = cardRefs.current.get(graphNodeId);
 
       if (!element) {
         return [];
@@ -153,7 +172,7 @@ export function LeafRichTextCardsOverlay({
 
       return [
         {
-          graphNodeId: card.graphNodeId,
+          graphNodeId,
           height: rect.height,
           width: rect.width,
         },
@@ -163,7 +182,7 @@ export function LeafRichTextCardsOverlay({
     if (measurements.length > 0) {
       onCardMeasurementsChange(measurements);
     }
-  }, [cardNodes, onCardMeasurementsChange]);
+  }, [measurementMetadata, onCardMeasurementsChange]);
 
   return (
     <div

@@ -75,6 +75,14 @@ export interface LeafSceneModel {
   readonly pointNodes: readonly LeafScenePointNode[];
 }
 
+export interface LeafSceneModelBase {
+  readonly edgeIdsByNodeId: ReadonlyMap<number, ReadonlySet<string>>;
+  readonly bounds: LeafWorldBounds;
+  readonly edges: readonly LeafSceneEdge[];
+  readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
+  readonly pointNodes: readonly LeafScenePointNode[];
+}
+
 export interface LeafHoverState {
   readonly anchorX: number;
   readonly anchorBottomY: number;

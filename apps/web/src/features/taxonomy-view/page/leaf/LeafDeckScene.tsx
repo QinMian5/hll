@@ -10,12 +10,13 @@ import type {
   LeafOrthographicViewport,
   LeafSceneModel,
 } from "./leafSceneTypes";
+import { useLeafViewportStore } from "./useLeafViewportStore";
 
 interface LeafDeckSceneProps {
   readonly onViewportChange: (viewport: LeafOrthographicViewport) => void;
   readonly hoveredNodeId: number | null;
+  readonly initialViewport: LeafOrthographicViewport;
   readonly scene: LeafSceneModel;
-  readonly viewport: LeafOrthographicViewport;
 }
 
 const leafView = new OrthographicView({
@@ -27,9 +28,13 @@ const leafView = new OrthographicView({
 export function LeafDeckScene({
   onViewportChange,
   hoveredNodeId,
+  initialViewport,
   scene,
-  viewport,
 }: LeafDeckSceneProps) {
+  const { publishViewport, viewState } = useLeafViewportStore({
+    initialViewport,
+    onViewportSnapshotChange: onViewportChange,
+  });
   const highlightedEdgeIds = useMemo(
     () =>
       hoveredNodeId ? (scene.edgeIdsByNodeId.get(hoveredNodeId) ?? null) : null,
@@ -107,21 +112,21 @@ export function LeafDeckScene({
       <DeckGL
         layers={layers}
         onViewStateChange={({ viewState }) => {
-          const target = viewState.target ?? viewport.target;
+          const target = viewState.target ?? initialViewport.target;
           const nextZoom = Array.isArray(viewState.zoom)
-            ? (viewState.zoom[0] ?? viewport.zoom)
-            : (viewState.zoom ?? viewport.zoom);
+            ? (viewState.zoom[0] ?? initialViewport.zoom)
+            : (viewState.zoom ?? initialViewport.zoom);
 
-          onViewportChange({
+          publishViewport({
             target: [
-              target[0] ?? viewport.target[0],
-              target[1] ?? viewport.target[1],
+              target[0] ?? initialViewport.target[0],
+              target[1] ?? initialViewport.target[1],
               target[2] ?? 0,
             ],
             zoom: nextZoom,
           });
         }}
-        viewState={{ target: [...viewport.target], zoom: viewport.zoom }}
+        viewState={{ target: [...viewState.target], zoom: viewState.zoom }}
         views={leafView}
       />
     </div>

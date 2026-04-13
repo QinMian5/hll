@@ -6,6 +6,7 @@ import type { LeafOrthographicViewport } from "./leafSceneTypes";
 
 export const LEAF_CARD_ACTIVATION_ZOOM = 0.85;
 export const LEAF_HYDRATION_OVERSCAN = 160;
+export const LEAF_VIEWPORT_SNAPSHOT_INTERVAL_MS = 48;
 
 export function buildDefaultLeafViewport(
   center: LayoutPoint,

@@ -7,6 +7,7 @@ import type {
   LeafSceneCardNode,
   LeafSceneEdge,
   LeafSceneModel,
+  LeafSceneModelBase,
   LeafScenePointNode,
   LeafWorldBounds,
 } from "./leafSceneTypes";
@@ -57,7 +58,7 @@ function toPointNodes(
     }));
 }
 
-function toCardNodes(
+export function buildLeafCardNodes(
   nodes: readonly TaxonomyLayoutNode[],
 ): LeafSceneCardNode[] {
   return nodes
@@ -129,13 +130,12 @@ function toAdjacencyMaps(input: BuildLeafSceneModelInput) {
   };
 }
 
-export function buildLeafSceneModel(
+export function buildLeafSceneModelBase(
   input: BuildLeafSceneModelInput,
-): LeafSceneModel {
+): LeafSceneModelBase {
   const positionsByNodeId = toEdgeMap(input.layoutNodes);
   const adjacency = toAdjacencyMaps(input);
   const pointNodes = toPointNodes(input.layoutNodes);
-  const cardNodes = toCardNodes(input.layoutNodes);
   const edges: LeafSceneEdge[] = input.edges.map(
     ([sourceId, targetId, strength]) => {
       const source = positionsByNodeId.get(`card-${sourceId}`);
@@ -158,10 +158,38 @@ export function buildLeafSceneModel(
 
   return {
     bounds: deriveSceneBounds(input.layoutNodes),
-    cardNodes,
     edgeIdsByNodeId: adjacency.edgeIdsByNodeId,
     edges,
     neighborNodeIdsByNodeId: adjacency.neighborNodeIdsByNodeId,
     pointNodes,
+  };
+}
+
+export function filterLeafPointNodes(options: {
+  readonly cardNodes: readonly LeafSceneCardNode[];
+  readonly pointNodes: readonly LeafScenePointNode[];
+}) {
+  const visibleCardNodeIds = new Set(
+    options.cardNodes.map((cardNode) => cardNode.graphNodeId),
+  );
+
+  return options.pointNodes.filter(
+    (pointNode) => !visibleCardNodeIds.has(pointNode.graphNodeId),
+  );
+}
+
+export function buildLeafSceneModel(
+  input: BuildLeafSceneModelInput,
+): LeafSceneModel {
+  const baseScene = buildLeafSceneModelBase(input);
+  const cardNodes = buildLeafCardNodes(input.layoutNodes);
+
+  return {
+    ...baseScene,
+    cardNodes,
+    pointNodes: filterLeafPointNodes({
+      cardNodes,
+      pointNodes: baseScene.pointNodes,
+    }),
   };
 }

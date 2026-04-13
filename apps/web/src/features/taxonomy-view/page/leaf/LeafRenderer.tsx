@@ -29,7 +29,11 @@ import {
   LEAF_HYDRATION_OVERSCAN,
 } from "./leafRendererConfig";
 import type { LeafHoverState } from "./leafSceneTypes";
-import { buildLeafSceneModel } from "./useLeafSceneModel";
+import {
+  buildLeafCardNodes,
+  buildLeafSceneModelBase,
+  filterLeafPointNodes,
+} from "./useLeafSceneModel";
 import {
   buildLeafViewportState,
   selectLeafHydrationNodeIds,
@@ -47,10 +51,13 @@ export function LeafRenderer({
   viewport,
 }: LeafRendererProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const [canvasViewport, setCanvasViewport] = useState(viewport);
-  const [deckViewport, setDeckViewport] = useState(() =>
-    buildDefaultLeafViewport(center),
+  const initialDeckViewport = useMemo(
+    () => buildDefaultLeafViewport(center),
+    [center],
   );
+  const [canvasViewport, setCanvasViewport] = useState(viewport);
+  const [deckViewportSnapshot, setDeckViewportSnapshot] =
+    useState(initialDeckViewport);
   const [hoverState, setHoverState] = useState<LeafHoverState | null>(null);
   const [leafDetailCache, setLeafDetailCache] = useState<
     Record<number, TaxonomyLeafNodeDetailRecord>
@@ -60,11 +67,11 @@ export function LeafRenderer({
   >({});
 
   useEffect(() => {
-    setDeckViewport(buildDefaultLeafViewport(center));
+    setDeckViewportSnapshot(initialDeckViewport);
     setHoverState(null);
     setLeafDetailCache({});
     setMeasuredCardSizesById({});
-  }, [center]);
+  }, [initialDeckViewport]);
 
   useLayoutEffect(() => {
     const element = shellRef.current;
@@ -165,9 +172,9 @@ export function LeafRenderer({
       buildLeafViewportState({
         canvas: canvasViewport,
         overscan: LEAF_HYDRATION_OVERSCAN,
-        viewport: deckViewport,
+        viewport: deckViewportSnapshot,
       }),
-    [canvasViewport, deckViewport],
+    [canvasViewport, deckViewportSnapshot],
   );
 
   const visibleLeafNodeIds = useMemo(() => {
@@ -268,14 +275,26 @@ export function LeafRenderer({
     ],
   );
 
-  const scene = useMemo(
+  const leafSceneBase = useMemo(
     () =>
-      buildLeafSceneModel({
+      buildLeafSceneModelBase({
         edges: leafView.edges,
-        layoutNodes: leafLayout.nodes,
+        layoutNodes: leafSkeletonLayout.nodes,
       }),
-    [leafLayout.nodes, leafView.edges],
+    [leafSkeletonLayout.nodes, leafView.edges],
   );
+  const scene = useMemo(() => {
+    const cardNodes = buildLeafCardNodes(leafLayout.nodes);
+
+    return {
+      ...leafSceneBase,
+      cardNodes,
+      pointNodes: filterLeafPointNodes({
+        cardNodes,
+        pointNodes: leafSceneBase.pointNodes,
+      }),
+    };
+  }, [leafLayout.nodes, leafSceneBase]);
   const handleCardMeasurementsChange = useCallback(
     (
       measurements: ReadonlyArray<{
@@ -334,9 +353,9 @@ export function LeafRenderer({
       ) : null}
       <LeafDeckScene
         hoveredNodeId={hoverState?.card.graphNodeId ?? null}
-        onViewportChange={setDeckViewport}
+        initialViewport={initialDeckViewport}
+        onViewportChange={setDeckViewportSnapshot}
         scene={scene}
-        viewport={deckViewport}
       />
       <LeafRichTextCardsOverlay
         canvas={canvasViewport}
@@ -345,7 +364,7 @@ export function LeafRenderer({
         neighborNodeIdsByNodeId={scene.neighborNodeIdsByNodeId}
         onCardMeasurementsChange={handleCardMeasurementsChange}
         onHoverChange={setHoverState}
-        viewport={deckViewport}
+        viewport={deckViewportSnapshot}
       />
       <LeafHoverOverlay hoverState={hoverState} />
     </div>

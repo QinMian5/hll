@@ -1,7 +1,13 @@
 // abstract: Shared rich-text renderer for knowledge-card title and content fields.
 // out_of_scope: Feature-specific card layout, backend payload validation, and route-level data orchestration.
 
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import {
+  Component,
+  type ErrorInfo,
+  memo,
+  type ReactNode,
+  useMemo,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkMath from "remark-math";
@@ -77,19 +83,26 @@ class KnowledgeRichTextBoundary extends Component<
   }
 }
 
-export function KnowledgeRichText({ text, variant }: KnowledgeRichTextProps) {
-  const normalizedText = normalizeMathDelimiters(text);
+export const KnowledgeRichText = memo(function KnowledgeRichText({
+  text,
+  variant,
+}: KnowledgeRichTextProps) {
+  const normalizedText = useMemo(() => normalizeMathDelimiters(text), [text]);
   const className =
     variant === "title" ? titleContainerClasses : contentContainerClasses;
+  const markdownComponents = useMemo(
+    () => ({
+      p: ({ children }: { readonly children?: ReactNode }) =>
+        variant === "title" ? <span>{children}</span> : <p>{children}</p>,
+    }),
+    [variant],
+  );
 
   return (
     <KnowledgeRichTextBoundary text={text} variant={variant}>
       <div className={className} data-testid={`knowledge-rich-text-${variant}`}>
         <ReactMarkdown
-          components={{
-            p: ({ children }) =>
-              variant === "title" ? <span>{children}</span> : <p>{children}</p>,
-          }}
+          components={markdownComponents}
           rehypePlugins={[rehypeKatex]}
           remarkPlugins={[remarkMath]}
           skipHtml
@@ -99,4 +112,4 @@ export function KnowledgeRichText({ text, variant }: KnowledgeRichTextProps) {
       </div>
     </KnowledgeRichTextBoundary>
   );
-}
+});

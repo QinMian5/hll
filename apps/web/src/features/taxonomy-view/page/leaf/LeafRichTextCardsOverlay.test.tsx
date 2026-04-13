@@ -3,7 +3,13 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  type RenderResult,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LeafRichTextCardsOverlay } from "./LeafRichTextCardsOverlay";
 import type { LeafSceneCardNode } from "./leafSceneTypes";
@@ -161,6 +167,85 @@ describe("LeafRichTextCardsOverlay", () => {
     expect(onCardMeasurementsChange).toHaveBeenCalledWith([
       { graphNodeId: 10, height: 88, width: 224 },
     ]);
+
+    getBoundingClientRectSpy.mockRestore();
+  });
+
+  it("does not remeasure cards when only projected position changes", () => {
+    const onCardMeasurementsChange = vi.fn();
+    const getBoundingClientRectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function mockGetBoundingClientRect(
+        this: HTMLElement,
+      ) {
+        const testId = this.getAttribute("data-testid");
+
+        if (testId === "taxonomy-leaf-rich-text-cards-overlay") {
+          return {
+            bottom: 900,
+            height: 900,
+            left: 0,
+            right: 1404,
+            top: 0,
+            width: 1404,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+          } as DOMRect;
+        }
+
+        if (testId === "taxonomy-leaf-rich-text-card-10") {
+          return {
+            bottom: 498,
+            height: 88,
+            left: 602,
+            right: 826,
+            top: 410,
+            width: 224,
+            x: 602,
+            y: 410,
+            toJSON: () => ({}),
+          } as DOMRect;
+        }
+
+        return {
+          bottom: 0,
+          height: 0,
+          left: 0,
+          right: 0,
+          top: 0,
+          width: 0,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      });
+
+    const rendered: RenderResult = render(
+      <LeafRichTextCardsOverlay
+        canvas={{ height: 900, width: 1404 }}
+        cardNodes={[makeCardNode()]}
+        hoveredNodeId={null}
+        neighborNodeIdsByNodeId={new Map()}
+        onCardMeasurementsChange={onCardMeasurementsChange}
+        onHoverChange={vi.fn()}
+        viewport={{ target: [700, 450, 0], zoom: 0 }}
+      />,
+    );
+
+    rendered.rerender(
+      <LeafRichTextCardsOverlay
+        canvas={{ height: 900, width: 1404 }}
+        cardNodes={[{ ...makeCardNode(), position: { x: 740, y: 480 } }]}
+        hoveredNodeId={null}
+        neighborNodeIdsByNodeId={new Map()}
+        onCardMeasurementsChange={onCardMeasurementsChange}
+        onHoverChange={vi.fn()}
+        viewport={{ target: [740, 480, 0], zoom: 0.1 }}
+      />,
+    );
+
+    expect(onCardMeasurementsChange).toHaveBeenCalledTimes(1);
 
     getBoundingClientRectSpy.mockRestore();
   });
