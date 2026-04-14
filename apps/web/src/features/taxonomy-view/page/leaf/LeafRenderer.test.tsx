@@ -21,10 +21,15 @@ vi.mock("../../data/taxonomyViewQueries", () => ({
 vi.mock("./LeafDeckScene", () => ({
   LeafDeckScene: ({
     hoveredNodeId,
+    onViewportFrameChange,
     onViewportChange,
     scene,
   }: {
     readonly hoveredNodeId: number | null;
+    readonly onViewportFrameChange?: (viewport: {
+      readonly target: readonly [number, number, number];
+      readonly zoom: number;
+    }) => void;
     readonly onViewportChange: (viewport: {
       readonly target: readonly [number, number, number];
       readonly zoom: number;
@@ -54,6 +59,17 @@ vi.mock("./LeafDeckScene", () => ({
       >
         Zoom in
       </button>
+      <button
+        onClick={() =>
+          onViewportFrameChange?.({
+            target: [740, 480, 0],
+            zoom: LEAF_CARD_ACTIVATION_ZOOM,
+          })
+        }
+        type="button"
+      >
+        Frame move
+      </button>
     </div>
   ),
 }));
@@ -73,6 +89,21 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
 });
+
+function parseProjectedTransform(transform: string) {
+  const match = transform.match(
+    /translate3d\(([-\d.]+)px,\s*([-\d.]+)px,\s*0px\)/,
+  );
+
+  if (!match) {
+    throw new Error(`Unexpected transform: ${transform}`);
+  }
+
+  return {
+    x: Number.parseFloat(match[1] ?? "0"),
+    y: Number.parseFloat(match[2] ?? "0"),
+  };
+}
 
 function makeLeafView(): TaxonomyLeafView {
   return {
@@ -180,15 +211,53 @@ describe("LeafRenderer", () => {
     fireEvent.focus(firstCard);
 
     const hoverOverlay = screen.getByTestId("taxonomy-leaf-hover-overlay");
-    const cardLeft = Number.parseFloat(firstCard.style.left);
-    const cardTop = Number.parseFloat(firstCard.style.top);
+    const projectedCard = parseProjectedTransform(firstCard.style.transform);
     const overlayLeft = Number.parseFloat(hoverOverlay.style.left);
     const overlayTop = Number.parseFloat(hoverOverlay.style.top);
 
     expect(hoverOverlay).toHaveTextContent("Equation content");
     expect(screen.getByTestId("leaf-hovered-node-id")).toHaveTextContent("10");
-    expect(overlayLeft).toBeCloseTo(cardLeft, 4);
-    expect(overlayTop).toBeGreaterThan(cardTop);
+    expect(overlayLeft).toBeCloseTo(projectedCard.x, 4);
+    expect(overlayTop).toBeGreaterThan(projectedCard.y);
     expect(hoverOverlay).toHaveStyle({ transform: "translateX(-50%)" });
+  });
+
+  it("keeps hydrated cards visually synced with live viewport frame updates", async () => {
+    mockUseTaxonomyLeafNodeDetailsQuery.mockImplementation(
+      (_leafId, _nodeIds, options) =>
+        ({
+          data: options.enabled ? makeLeafDetailsResponse() : undefined,
+          error: null,
+          isError: false,
+          isPending: false,
+        }) as unknown as ReturnType<
+          typeof taxonomyViewQueries.useTaxonomyLeafNodeDetailsQuery
+        >,
+    );
+
+    render(
+      <LeafRenderer
+        center={{ x: 700, y: 450 }}
+        leafView={makeLeafView()}
+        viewport={{ height: 900, width: 1404 }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+
+    const firstCard = await screen.findByTestId(
+      "taxonomy-leaf-rich-text-card-10",
+    );
+    const beforeFrameMove = parseProjectedTransform(firstCard.style.transform);
+
+    expect(beforeFrameMove.x).toBeGreaterThan(0);
+    expect(beforeFrameMove.y).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Frame move" }));
+
+    const afterFrameMove = parseProjectedTransform(firstCard.style.transform);
+
+    expect(afterFrameMove.x).not.toBeCloseTo(beforeFrameMove.x, 4);
+    expect(afterFrameMove.y).not.toBeCloseTo(beforeFrameMove.y, 4);
   });
 });

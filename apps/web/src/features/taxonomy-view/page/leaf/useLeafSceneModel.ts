@@ -130,6 +130,35 @@ function toAdjacencyMaps(input: BuildLeafSceneModelInput) {
   };
 }
 
+function toHighlightEdgesByNodeId(input: {
+  readonly edgeIdsByNodeId: ReadonlyMap<number, ReadonlySet<string>>;
+  readonly edges: readonly LeafSceneEdge[];
+}) {
+  const edgesById = new Map(
+    input.edges.map((edge) => [edge.id, edge] as const),
+  );
+
+  return new Map(
+    [...input.edgeIdsByNodeId.entries()].map(([nodeId, edgeIds]) => [
+      nodeId,
+      [...edgeIds]
+        .map((edgeId) => edgesById.get(edgeId))
+        .filter((edge): edge is LeafSceneEdge => edge !== undefined),
+    ]),
+  ) as ReadonlyMap<number, readonly LeafSceneEdge[]>;
+}
+
+function toFocusNodeIdsByNodeId(
+  neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>,
+) {
+  return new Map(
+    [...neighborNodeIdsByNodeId.entries()].map(([nodeId, neighborNodeIds]) => [
+      nodeId,
+      new Set([nodeId, ...neighborNodeIds]) as ReadonlySet<number>,
+    ]),
+  ) as ReadonlyMap<number, ReadonlySet<number>>;
+}
+
 export function buildLeafSceneModelBase(
   input: BuildLeafSceneModelInput,
 ): LeafSceneModelBase {
@@ -155,11 +184,20 @@ export function buildLeafSceneModelBase(
       };
     },
   );
+  const highlightEdgesByNodeId = toHighlightEdgesByNodeId({
+    edgeIdsByNodeId: adjacency.edgeIdsByNodeId,
+    edges,
+  });
+  const focusNodeIdsByNodeId = toFocusNodeIdsByNodeId(
+    adjacency.neighborNodeIdsByNodeId,
+  );
 
   return {
     bounds: deriveSceneBounds(input.layoutNodes),
     edgeIdsByNodeId: adjacency.edgeIdsByNodeId,
     edges,
+    focusNodeIdsByNodeId,
+    highlightEdgesByNodeId,
     neighborNodeIdsByNodeId: adjacency.neighborNodeIdsByNodeId,
     pointNodes,
   };

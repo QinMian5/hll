@@ -2,7 +2,9 @@
 // out_of_scope: Branch React Flow rendering and page-shell chrome.
 
 import {
+  startTransition,
   useCallback,
+  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -23,7 +25,10 @@ import type {
 } from "../layout/taxonomyLayoutTypes";
 import { LeafDeckScene } from "./LeafDeckScene";
 import { LeafHoverOverlay } from "./LeafHoverOverlay";
-import { LeafRichTextCardsOverlay } from "./LeafRichTextCardsOverlay";
+import {
+  LeafRichTextCardsOverlay,
+  type LeafRichTextCardsOverlayHandle,
+} from "./LeafRichTextCardsOverlay";
 import {
   buildDefaultLeafViewport,
   LEAF_HYDRATION_OVERSCAN,
@@ -55,9 +60,12 @@ export function LeafRenderer({
     () => buildDefaultLeafViewport(center),
     [center],
   );
+  const overlayRef = useRef<LeafRichTextCardsOverlayHandle | null>(null);
   const [canvasViewport, setCanvasViewport] = useState(viewport);
   const [deckViewportSnapshot, setDeckViewportSnapshot] =
     useState(initialDeckViewport);
+  const deferredDeckViewportSnapshot = useDeferredValue(deckViewportSnapshot);
+  const liveViewportRef = useRef(initialDeckViewport);
   const [hoverState, setHoverState] = useState<LeafHoverState | null>(null);
   const [leafDetailCache, setLeafDetailCache] = useState<
     Record<number, TaxonomyLeafNodeDetailRecord>
@@ -67,11 +75,20 @@ export function LeafRenderer({
   >({});
 
   useEffect(() => {
+    liveViewportRef.current = initialDeckViewport;
     setDeckViewportSnapshot(initialDeckViewport);
     setHoverState(null);
     setLeafDetailCache({});
     setMeasuredCardSizesById({});
   }, [initialDeckViewport]);
+
+  const handleViewportFrameChange = useCallback(
+    (viewport: typeof initialDeckViewport) => {
+      liveViewportRef.current = viewport;
+      overlayRef.current?.syncViewport(viewport);
+    },
+    [],
+  );
 
   useLayoutEffect(() => {
     const element = shellRef.current;
@@ -172,9 +189,9 @@ export function LeafRenderer({
       buildLeafViewportState({
         canvas: canvasViewport,
         overscan: LEAF_HYDRATION_OVERSCAN,
-        viewport: deckViewportSnapshot,
+        viewport: deferredDeckViewportSnapshot,
       }),
-    [canvasViewport, deckViewportSnapshot],
+    [canvasViewport, deferredDeckViewportSnapshot],
   );
 
   const visibleLeafNodeIds = useMemo(() => {
@@ -210,14 +227,22 @@ export function LeafRenderer({
       return;
     }
 
-    setLeafDetailCache((currentCache) => {
-      const nextCache = { ...currentCache };
+    startTransition(() => {
+      setLeafDetailCache((currentCache) => {
+        let hasChanges = false;
+        const nextCache = { ...currentCache };
 
-      for (const node of leafDetailsQuery.data.nodes) {
-        nextCache[node.id] = node;
-      }
+        for (const node of leafDetailsQuery.data.nodes) {
+          if (nextCache[node.id] === node) {
+            continue;
+          }
 
-      return nextCache;
+          nextCache[node.id] = node;
+          hasChanges = true;
+        }
+
+        return hasChanges ? nextCache : currentCache;
+      });
     });
   }, [leafDetailsQuery.data]);
 
@@ -303,29 +328,31 @@ export function LeafRenderer({
         readonly width: number;
       }>,
     ) => {
-      setMeasuredCardSizesById((currentSizes) => {
-        let hasChanges = false;
-        const nextSizes = { ...currentSizes };
+      startTransition(() => {
+        setMeasuredCardSizesById((currentSizes) => {
+          let hasChanges = false;
+          const nextSizes = { ...currentSizes };
 
-        for (const measurement of measurements) {
-          const currentMeasurement = currentSizes[measurement.graphNodeId];
+          for (const measurement of measurements) {
+            const currentMeasurement = currentSizes[measurement.graphNodeId];
 
-          if (
-            currentMeasurement &&
-            currentMeasurement.width === measurement.width &&
-            currentMeasurement.height === measurement.height
-          ) {
-            continue;
+            if (
+              currentMeasurement &&
+              currentMeasurement.width === measurement.width &&
+              currentMeasurement.height === measurement.height
+            ) {
+              continue;
+            }
+
+            nextSizes[measurement.graphNodeId] = {
+              height: measurement.height,
+              width: measurement.width,
+            };
+            hasChanges = true;
           }
 
-          nextSizes[measurement.graphNodeId] = {
-            height: measurement.height,
-            width: measurement.width,
-          };
-          hasChanges = true;
-        }
-
-        return hasChanges ? nextSizes : currentSizes;
+          return hasChanges ? nextSizes : currentSizes;
+        });
       });
     },
     [],
@@ -354,6 +381,7 @@ export function LeafRenderer({
       <LeafDeckScene
         hoveredNodeId={hoverState?.card.graphNodeId ?? null}
         initialViewport={initialDeckViewport}
+        onViewportFrameChange={handleViewportFrameChange}
         onViewportChange={setDeckViewportSnapshot}
         scene={scene}
       />
@@ -364,7 +392,8 @@ export function LeafRenderer({
         neighborNodeIdsByNodeId={scene.neighborNodeIdsByNodeId}
         onCardMeasurementsChange={handleCardMeasurementsChange}
         onHoverChange={setHoverState}
-        viewport={deckViewportSnapshot}
+        ref={overlayRef}
+        viewport={liveViewportRef.current}
       />
       <LeafHoverOverlay hoverState={hoverState} />
     </div>

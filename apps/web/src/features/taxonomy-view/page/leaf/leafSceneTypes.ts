@@ -71,6 +71,11 @@ export interface LeafSceneModel {
   readonly bounds: LeafWorldBounds;
   readonly cardNodes: readonly LeafSceneCardNode[];
   readonly edges: readonly LeafSceneEdge[];
+  readonly focusNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
+  readonly highlightEdgesByNodeId: ReadonlyMap<
+    number,
+    readonly LeafSceneEdge[]
+  >;
   readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
   readonly pointNodes: readonly LeafScenePointNode[];
 }
@@ -79,6 +84,11 @@ export interface LeafSceneModelBase {
   readonly edgeIdsByNodeId: ReadonlyMap<number, ReadonlySet<string>>;
   readonly bounds: LeafWorldBounds;
   readonly edges: readonly LeafSceneEdge[];
+  readonly focusNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
+  readonly highlightEdgesByNodeId: ReadonlyMap<
+    number,
+    readonly LeafSceneEdge[]
+  >;
   readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
   readonly pointNodes: readonly LeafScenePointNode[];
 }

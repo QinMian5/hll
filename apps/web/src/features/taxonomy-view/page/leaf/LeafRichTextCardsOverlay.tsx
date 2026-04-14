@@ -1,7 +1,14 @@
 // abstract: DOM overlay host for hydrated taxonomy leaf cards that need shared rich-text rendering.
 // out_of_scope: deck.gl point and edge rendering, viewport state ownership, and leaf detail fetching.
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 
 import { KnowledgeRichText } from "../../../../shared/ui";
 import type {
@@ -28,6 +35,10 @@ interface LeafRichTextCardsOverlayProps {
   readonly viewport: LeafOrthographicViewport;
 }
 
+export interface LeafRichTextCardsOverlayHandle {
+  syncViewport: (viewport: LeafOrthographicViewport) => void;
+}
+
 interface ProjectedPoint {
   readonly x: number;
   readonly y: number;
@@ -47,6 +58,10 @@ function fallbackHoverState(
     anchorX: projected.x,
     card,
   };
+}
+
+function projectedCardTransform(projected: ProjectedPoint) {
+  return `translate3d(${projected.x}px, ${projected.y}px, 0px) translate(-50%, -50%)`;
 }
 
 export function projectLeafWorldPoint(
@@ -121,18 +136,71 @@ function buildHoverStateFromElement(options: {
   };
 }
 
-export function LeafRichTextCardsOverlay({
-  canvas,
-  cardNodes,
-  hoveredNodeId,
-  neighborNodeIdsByNodeId,
-  onCardMeasurementsChange,
-  onHoverChange,
-  viewport,
-}: LeafRichTextCardsOverlayProps) {
+export const LeafRichTextCardsOverlay = forwardRef<
+  LeafRichTextCardsOverlayHandle,
+  LeafRichTextCardsOverlayProps
+>(function LeafRichTextCardsOverlay(
+  {
+    canvas,
+    cardNodes,
+    hoveredNodeId,
+    neighborNodeIdsByNodeId,
+    onCardMeasurementsChange,
+    onHoverChange,
+    viewport,
+  },
+  ref,
+) {
   const cardRefs = useRef(new Map<number, HTMLButtonElement | null>());
   const lastMeasuredKeyRef = useRef<string | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef(canvas);
+  const cardNodesRef = useRef(cardNodes);
+  const viewportRef = useRef(viewport);
+
+  const syncViewport = useCallback((nextViewport: LeafOrthographicViewport) => {
+    viewportRef.current = nextViewport;
+
+    for (const card of cardNodesRef.current) {
+      const element = cardRefs.current.get(card.graphNodeId);
+
+      if (!element) {
+        continue;
+      }
+
+      const projected = projectLeafWorldPoint(
+        canvasRef.current,
+        nextViewport,
+        card.position,
+      );
+
+      element.style.transform = projectedCardTransform(projected);
+    }
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      syncViewport,
+    }),
+    [syncViewport],
+  );
+
+  useLayoutEffect(() => {
+    canvasRef.current = canvas;
+    syncViewport(viewportRef.current);
+  }, [canvas, syncViewport]);
+
+  useLayoutEffect(() => {
+    cardNodesRef.current = cardNodes;
+    syncViewport(viewportRef.current);
+  }, [cardNodes, syncViewport]);
+
+  useLayoutEffect(() => {
+    viewportRef.current = viewport;
+    syncViewport(viewport);
+  }, [syncViewport, viewport]);
+
   const measurementMetadata = useMemo(
     () => ({
       invalidationKey: cardNodes
@@ -233,10 +301,10 @@ export function LeafRichTextCardsOverlay({
               onHoverChange(null);
             }}
             style={{
-              left: `${projected.x}px`,
+              left: "0px",
               minHeight: `${card.size.height}px`,
-              top: `${projected.y}px`,
-              transform: "translate(-50%, -50%)",
+              top: "0px",
+              transform: projectedCardTransform(projected),
               width: `${card.size.width}px`,
             }}
             type="button"
@@ -247,4 +315,4 @@ export function LeafRichTextCardsOverlay({
       })}
     </div>
   );
-}
+});

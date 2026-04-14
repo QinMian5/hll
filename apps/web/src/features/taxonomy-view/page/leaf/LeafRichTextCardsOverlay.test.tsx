@@ -10,8 +10,12 @@ import {
   render,
   screen,
 } from "@testing-library/react";
+import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { LeafRichTextCardsOverlay } from "./LeafRichTextCardsOverlay";
+import {
+  LeafRichTextCardsOverlay,
+  type LeafRichTextCardsOverlayHandle,
+} from "./LeafRichTextCardsOverlay";
 import type { LeafSceneCardNode } from "./leafSceneTypes";
 
 afterEach(() => {
@@ -53,10 +57,39 @@ describe("LeafRichTextCardsOverlay", () => {
     ).toBeInTheDocument();
     expect(document.querySelector(".katex")).not.toBeNull();
     expect(card).toHaveStyle({
-      left: "702px",
-      top: "450px",
-      transform: "translate(-50%, -50%)",
+      left: "0px",
+      top: "0px",
+      transform: "translate3d(702px, 450px, 0px) translate(-50%, -50%)",
     });
+  });
+
+  it("updates rendered card positions immediately from imperative live viewport sync", () => {
+    const overlayRef = createRef<LeafRichTextCardsOverlayHandle>();
+
+    render(
+      <LeafRichTextCardsOverlay
+        canvas={{ height: 900, width: 1404 }}
+        cardNodes={[makeCardNode()]}
+        hoveredNodeId={null}
+        neighborNodeIdsByNodeId={new Map()}
+        onHoverChange={vi.fn()}
+        ref={overlayRef}
+        viewport={{ target: [700, 450, 0], zoom: 0 }}
+      />,
+    );
+
+    const card = screen.getByTestId("taxonomy-leaf-rich-text-card-10");
+
+    expect(card.style.transform).toContain("702px");
+    expect(card.style.transform).toContain("450px");
+
+    overlayRef.current?.syncViewport({
+      target: [740, 480, 0],
+      zoom: 0,
+    });
+
+    expect(card.style.transform).toContain("662px");
+    expect(card.style.transform).toContain("420px");
   });
 
   it("reports hover anchors from the DOM card host", () => {

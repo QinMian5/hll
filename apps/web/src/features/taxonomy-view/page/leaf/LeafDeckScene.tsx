@@ -13,6 +13,7 @@ import type {
 import { useLeafViewportStore } from "./useLeafViewportStore";
 
 interface LeafDeckSceneProps {
+  readonly onViewportFrameChange?: (viewport: LeafOrthographicViewport) => void;
   readonly onViewportChange: (viewport: LeafOrthographicViewport) => void;
   readonly hoveredNodeId: number | null;
   readonly initialViewport: LeafOrthographicViewport;
@@ -26,6 +27,7 @@ const leafView = new OrthographicView({
 });
 
 export function LeafDeckScene({
+  onViewportFrameChange,
   onViewportChange,
   hoveredNodeId,
   initialViewport,
@@ -35,20 +37,20 @@ export function LeafDeckScene({
     initialViewport,
     onViewportSnapshotChange: onViewportChange,
   });
-  const highlightedEdgeIds = useMemo(
+  const highlightedEdges = useMemo(
     () =>
-      hoveredNodeId ? (scene.edgeIdsByNodeId.get(hoveredNodeId) ?? null) : null,
-    [hoveredNodeId, scene.edgeIdsByNodeId],
+      hoveredNodeId
+        ? (scene.highlightEdgesByNodeId.get(hoveredNodeId) ?? [])
+        : [],
+    [hoveredNodeId, scene.highlightEdgesByNodeId],
   );
-  const highlightedNodeIds = useMemo(() => {
-    if (!hoveredNodeId) {
-      return null;
-    }
-
-    const neighborNodeIds =
-      scene.neighborNodeIdsByNodeId.get(hoveredNodeId) ?? new Set<number>();
-    return new Set([hoveredNodeId, ...neighborNodeIds]);
-  }, [hoveredNodeId, scene.neighborNodeIdsByNodeId]);
+  const highlightedNodeIds = useMemo(
+    () =>
+      hoveredNodeId
+        ? (scene.focusNodeIdsByNodeId.get(hoveredNodeId) ?? null)
+        : null,
+    [hoveredNodeId, scene.focusNodeIdsByNodeId],
+  );
   const layers = useMemo(
     () => [
       new LineLayer({
@@ -62,10 +64,7 @@ export function LeafDeckScene({
         widthUnits: "pixels",
       }),
       new LineLayer({
-        data:
-          hoveredNodeId && highlightedEdgeIds
-            ? scene.edges.filter((edge) => highlightedEdgeIds.has(edge.id))
-            : [],
+        data: highlightedEdges,
         getColor: [116, 152, 217, 214],
         getSourcePosition: (edge) => [edge.source.x, edge.source.y],
         getTargetPosition: (edge) => [edge.target.x, edge.target.y],
@@ -99,7 +98,7 @@ export function LeafDeckScene({
       }),
     ],
     [
-      highlightedEdgeIds,
+      highlightedEdges,
       highlightedNodeIds,
       hoveredNodeId,
       scene.edges,
@@ -117,14 +116,17 @@ export function LeafDeckScene({
             ? (viewState.zoom[0] ?? initialViewport.zoom)
             : (viewState.zoom ?? initialViewport.zoom);
 
-          publishViewport({
+          const nextViewport = {
             target: [
               target[0] ?? initialViewport.target[0],
               target[1] ?? initialViewport.target[1],
               target[2] ?? 0,
             ],
             zoom: nextZoom,
-          });
+          } satisfies LeafOrthographicViewport;
+
+          onViewportFrameChange?.(nextViewport);
+          publishViewport(nextViewport);
         }}
         viewState={{ target: [...viewState.target], zoom: viewState.zoom }}
         views={leafView}
