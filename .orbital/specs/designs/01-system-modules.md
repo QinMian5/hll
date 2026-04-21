@@ -140,6 +140,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### Source Pipeline App
 - **Responsibilities:**
   - Own project-level source-processing intake, orchestration state, and long-running runtime for `job-queue-mcp` interactions.
+  - Own app-local PostgreSQL persistence for source-pipeline orchestration state.
   - Materialize external source-processing configs into persisted `WorkflowRun` and `WorkflowUnit` state.
   - Persist only the local linkage state that `job-queue-mcp` cannot provide directly.
   - Fan out accepted `page-to-card` cards into per-card `card-review` jobs.
@@ -161,7 +162,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - Redis + Dramatiq for ingestion asynchronous workflows.
 - `job-queue-mcp` for `page-to-card` and `card-review` step dispatch plus accepted-result retrieval.
 - OpenAI Embeddings API for ingestion worker and search query embedding.
-- PostgreSQL as persistent truth store for graph, taxonomy, and source-pipeline orchestration state.
+- PostgreSQL as persistent truth store for graph and taxonomy, plus dedicated app-local PostgreSQL services for `knowledge_corpus` and `source_pipeline`.
 
 ## Dependency Direction
 - `Frontend -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`

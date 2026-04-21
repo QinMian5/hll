@@ -11,8 +11,8 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from source_pipeline.config import load_migration_settings
-from source_pipeline.db.base import Base
 from source_pipeline.db import models as db_models
+from source_pipeline.db.base import Base
 
 config = context.config
 
@@ -35,6 +35,7 @@ def run_migrations_offline() -> None:
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        compare_server_default=True,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
@@ -54,6 +55,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():

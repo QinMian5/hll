@@ -18,6 +18,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
 ## Constraint Projection
 - **Governing Constraints:** Repository boundaries remain explicit, source-processing orchestration stays isolated from the online API runtime, environment behavior remains reproducible, and active specs capture only current accepted truth.
 - **Detail Commitments:** The repository contains a project-owned `source_pipeline` app. `pipeline_intake` accepts one external config or normalized unit input and materializes minimal local orchestration state. `pipeline_runtime` continuously interacts with `job-queue-mcp`, stores only the linkage state that the queue cannot provide, and advances accepted step transitions. The `page-to-card` step returns an accepted payload object with a `cards` array, including valid empty arrays. Each returned card fans out into one `card-review` job. `card-review` returns the existing six review dimensions. Source-side processed bookkeeping happens before work reaches this app and is outside this design.
+- **Detail Commitments:** The repository contains a project-owned `source_pipeline` app. `pipeline_intake` accepts one external config or normalized unit input and materializes minimal local orchestration state. `pipeline_runtime` continuously interacts with `job-queue-mcp`, stores only the linkage state that the queue cannot provide, and advances accepted step transitions. The `page-to-card` step returns an accepted payload object with a `cards` array, including valid empty arrays. Each returned card fans out into one `card-review` job. `card-review` returns the existing six review dimensions. Source pipeline owns its own dedicated PostgreSQL service, app-local Alembic lineage, and PostgreSQL-backed integration tests. Source-side processed bookkeeping happens before work reaches this app and is outside this design.
 - **Update Rule:** Requirement-level governance stays stable while this design owns source-pipeline runtime boundaries, minimal local state, step contracts, and file placement.
 
 ## Inputs & Outputs
@@ -41,6 +42,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
 - **Approach:** Keep source adaptation separate from step orchestration. `pipeline_intake` owns external config ingestion and source-unit normalization. `pipeline_runtime` owns long-running orchestration state and all `job-queue-mcp` interactions. `page_to_card` and `card_review` own only step contracts. `pipeline_handoff` transfers accepted step outputs to the next step or downstream consumer without storing result payloads as durable business truth.
 - **Key Elements:**
   - **Formal app boundary:** The source-processing runtime is a project app and is not a `human_workspace` script surface.
+  - **Dedicated database lifecycle:** `apps/source_pipeline` owns a dedicated PostgreSQL service and app-local migration lifecycle rather than sharing the online API database service.
   - **Source-agnostic intake boundary:** `pipeline_intake` accepts one external config or normalized unit submission and materializes `WorkflowRun` plus `WorkflowUnit` rows. It does not select source pages, crawl source systems, or write source-side processed markers.
   - **Minimal local persistence:** The app persists only:
     - `workflow_runs` for one submitted orchestration request
@@ -49,6 +51,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     It does not duplicate queue lifecycle state, accepted result payloads, or submission history that already exist in `job-queue-mcp`.
   - **Long-running orchestrator service:** `pipeline_runtime` runs as one dedicated process that continuously polls pending step jobs, reads accepted results, and advances state transitions.
   - **Queue-only execution boundary:** The project submits standardized step jobs to `job-queue-mcp` and consumes accepted results plus authoritative job views from the queue read surfaces. Worker-side execution mechanics are outside this app boundary.
+  - **App-local configuration contract:** The app owns `SOURCE_PIPELINE_DATABASE_URL` and `SOURCE_PIPELINE_MIGRATION_DATABASE_URL` and must not reuse API or knowledge-corpus database URL names.
   - **`SourceUnit` contract:** The normalized unit contains:
     - `source_kind`
     - `source_ref`
@@ -107,10 +110,10 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
 - **Checks:**
   - Spec review confirms source intake, orchestration runtime, and step contracts are formal project-owned app boundaries rather than `human_workspace` scripts.
   - Contract tests verify `SourceUnit`, `CardDraft`, and `CardReviewResult` shapes.
-  - Orchestrator tests verify `workflow_runs`, `workflow_units`, and `card_review_jobs` are sufficient for restart/resume behavior without mirroring queue lifecycle state.
+  - PostgreSQL-backed integration tests verify `workflow_runs`, `workflow_units`, and `card_review_jobs` are sufficient for restart/resume behavior without mirroring queue lifecycle state.
   - Queue integration tests verify accepted `page-to-card` results fan out into one `card-review` job per returned card.
   - Handoff tests verify accepted review results are delivered downstream without durable review-payload persistence.
 - **Evidence:**
   - Approved spec review with synchronized updates to impacted design docs.
-  - Passing state-transition tests for intake, polling, fan-out, reread-from-queue behavior, and restart/resume behavior.
+  - Passing PostgreSQL-backed state-transition tests for intake, polling, fan-out, reread-from-queue behavior, and restart/resume behavior.
   - Passing contract tests for accepted `page-to-card` and `card-review` result shapes.

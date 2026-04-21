@@ -8,10 +8,9 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from source_pipeline.config import SourcePipelineSettings
+from source_pipeline.config import Settings
 
 
 def test_source_pipeline_settings_require_explicit_urls() -> None:
     with pytest.raises(ValidationError):
-        SourcePipelineSettings()
-
+        Settings()

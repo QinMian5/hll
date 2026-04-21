@@ -18,7 +18,6 @@ from source_pipeline.page_to_card.contracts import (
 )
 from source_pipeline.pipeline_handoff.ports import ReviewHandoffPort
 from source_pipeline.pipeline_runtime.job_queue_client import (
-    AcceptedJobResult,
     JobQueueClient,
     NotReadyJobResult,
 )
@@ -129,7 +128,8 @@ class PipelineRuntimeService:
         for review_job in review_jobs:
             if review_job.ordinal >= len(cards):
                 raise ValueError(
-                    f"Review job ordinal {review_job.ordinal} is out of range for workflow unit {unit.id}."
+                    "Review job ordinal "
+                    f"{review_job.ordinal} is out of range for workflow unit {unit.id}."
                 )
             if review_job.job_queue_job_id is not None:
                 continue
@@ -163,10 +163,13 @@ class PipelineRuntimeService:
                 continue
             if review_job.ordinal >= len(cards):
                 raise ValueError(
-                    f"Review job ordinal {review_job.ordinal} is out of range for workflow unit {unit.id}."
+                    "Review job ordinal "
+                    f"{review_job.ordinal} is out of range for workflow unit {unit.id}."
                 )
 
-            review_result = await self._job_queue_client.get_result(job_id=review_job.job_queue_job_id)
+            review_result = await self._job_queue_client.get_result(
+                job_id=review_job.job_queue_job_id
+            )
             if isinstance(review_result, NotReadyJobResult):
                 self._raise_if_dead_letter(review_result)
                 continue
@@ -184,4 +187,6 @@ class PipelineRuntimeService:
     @staticmethod
     def _raise_if_dead_letter(result: NotReadyJobResult) -> None:
         if result.state == "DEAD_LETTER":
-            raise RuntimeError(f"Job {result.job_id} reached DEAD_LETTER before an accepted result.")
+            raise RuntimeError(
+                f"Job {result.job_id} reached DEAD_LETTER before an accepted result."
+            )

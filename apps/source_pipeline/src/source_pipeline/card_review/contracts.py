@@ -16,9 +16,7 @@ class ReviewItem(BaseModel):
     passed: bool
     reason: str | None = Field(
         default=None,
-        description=(
-            "Why this review dimension failed. Null is allowed only when passed is true."
-        ),
+        description=("Why this review dimension failed. Null is allowed only when passed is true."),
     )
 
     @model_validator(mode="after")

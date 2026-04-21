@@ -7,10 +7,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pytest import MonkeyPatch
+
 from source_pipeline.entrypoints import orchestrator as module
 
 
-def test_orchestrator_entrypoint_builds_runtime_once(monkeypatch) -> None:
+def test_orchestrator_entrypoint_builds_runtime_once(monkeypatch: MonkeyPatch) -> None:
     calls: list[object] = []
     runtime = object()
     monkeypatch.setattr(module, "build_runtime", lambda: runtime)
@@ -26,10 +28,8 @@ def test_orchestrator_entrypoint_builds_runtime_once(monkeypatch) -> None:
 
 
 def test_compose_contains_orchestrator_service() -> None:
-    compose = Path(
-        "/Users/mianqin/Code/knowledge/.worktrees/source-pipeline-orchestrator/"
-        "infra/compose/docker-compose.base.yml"
-    ).read_text()
+    repo_root = Path(__file__).resolve().parents[4]
+    compose = (repo_root / "infra/compose/docker-compose.base.yml").read_text()
 
     assert "source_pipeline_migrate:" in compose
     assert "orchestrator:" in compose

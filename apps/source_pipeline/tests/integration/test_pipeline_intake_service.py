@@ -1,6 +1,6 @@
 """
-Abstract: Unit tests for source-pipeline intake materialization.
-Out of scope: Queue transport behavior and runtime fan-out logic.
+Abstract: Integration tests for source-pipeline intake materialization.
+Out of scope: Queue transport behavior and downstream review fan-out logic.
 """
 
 from __future__ import annotations
@@ -12,8 +12,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from source_pipeline.db.models import WorkflowUnit
 from source_pipeline.pipeline_intake.service import PipelineIntakeService
 
+pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.anyio]
 
-@pytest.mark.anyio
+
 async def test_materialize_config_creates_run_and_units(db_session: AsyncSession) -> None:
     service = PipelineIntakeService(db_session)
 

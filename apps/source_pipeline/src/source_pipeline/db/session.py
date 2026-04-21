@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from source_pipeline.config import SourcePipelineSettings
+from source_pipeline.config import Settings
 
 SessionFactory = async_sessionmaker[AsyncSession]
 
@@ -24,7 +24,7 @@ def build_engine(*, database_url: str) -> AsyncEngine:
     )
 
 
-def build_session_factory(settings: SourcePipelineSettings) -> tuple[AsyncEngine, SessionFactory]:
+def build_session_factory(settings: Settings) -> tuple[AsyncEngine, SessionFactory]:
     engine = build_engine(database_url=settings.database_url)
     session_factory: SessionFactory = async_sessionmaker(
         engine,

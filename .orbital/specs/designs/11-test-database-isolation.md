@@ -16,12 +16,13 @@ out_of_scope: Production database hardening, backup strategy, and multi-node top
 
 ## Topology and Environment Isolation
 - Integration tests use a dedicated compose file: `infra/compose/docker-compose.test.yml`.
-- Test compose topology includes PostgreSQL and Redis and does not include `api`/`web`.
+- Test compose topology includes the online PostgreSQL service, the dedicated `source_pipeline_db`, the dedicated `knowledge_corpus_db`, and Redis; it does not include `api`/`web`.
 - Test compose resources must use a dedicated compose project name and must not reuse dev/prod volumes or networks.
 - Test runtime configuration is provided through current process environment, with repository scripts conventionally loading local-only `infra/env/.env.test` before invoking compose or pytest.
 
 ## Configuration Policy
 - Test runtime settings use URL-first fields (`KNOWLEDGE_API_DATABASE_URL`, `KNOWLEDGE_API_MIGRATION_DATABASE_URL`) with no runtime fallback assembly.
+- App-local test runtime settings use URL-first fields for dedicated apps (`KNOWLEDGE_CORPUS_DATABASE_URL`, `KNOWLEDGE_CORPUS_MIGRATION_DATABASE_URL`, `SOURCE_PIPELINE_DATABASE_URL`, `SOURCE_PIPELINE_MIGRATION_DATABASE_URL`) with no runtime fallback assembly.
 - Test environment safety is governed by dedicated test-only environment values and isolated test compose topology.
 
 ## Migration Safety Policy
@@ -29,6 +30,7 @@ out_of_scope: Production database hardening, backup strategy, and multi-node top
 - Test migration configuration is loaded from `apps/api/alembic.ini`.
 - Test migration runtime settings are loaded from current process environment through `pydantic-settings`.
 - Alembic test runs execute only after test scripts inject the dedicated test environment into the process.
+- Dedicated-app test migration entrypoints use app-local Alembic configurations and the same current-process environment rule.
 
 ## Test Execution Policy
 - Default fast test gate remains unit-only (`scripts/run-tests.sh`).
@@ -50,5 +52,5 @@ out_of_scope: Production database hardening, backup strategy, and multi-node top
 - Running `make test-integration` must not require `dev-up`.
 - Migration and integration scripts fail fast when `.env.test` is missing.
 - Integration tests that require DB are marked with `integration` + `db` markers.
-- Test compose startup must bring both PostgreSQL and Redis to healthy state before integration execution.
+- Test compose startup must bring required PostgreSQL services and Redis to healthy state before integration execution.
 - Integration suite includes Redis reachability smoke coverage under the isolated test stack.

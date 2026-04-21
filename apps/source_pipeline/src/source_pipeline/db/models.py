@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, Text, text
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Text, false, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from source_pipeline.db.base import Base
@@ -23,7 +23,7 @@ class WorkflowRun(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=text("CURRENT_TIMESTAMP"),
+        server_default=func.now(),
     )
 
 
@@ -43,7 +43,7 @@ class WorkflowUnit(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=text("CURRENT_TIMESTAMP"),
+        server_default=func.now(),
     )
 
 
@@ -58,9 +58,9 @@ class CardReviewJob(Base):
     )
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     job_queue_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    handoff_done: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
+    handoff_done: Mapped[bool] = mapped_column(nullable=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=text("CURRENT_TIMESTAMP"),
+        server_default=func.now(),
     )

@@ -35,6 +35,12 @@ services:
       - ../../apps/knowledge_corpus/alembic:/app/apps/knowledge_corpus/alembic
       - ../../apps/knowledge_corpus/alembic.ini:/app/apps/knowledge_corpus/alembic.ini
 
+  source_pipeline_migrate:
+    volumes:
+      - ../../apps/source_pipeline/src:/app/apps/source_pipeline/src
+      - ../../apps/source_pipeline/alembic:/app/apps/source_pipeline/alembic
+      - ../../apps/source_pipeline/alembic.ini:/app/apps/source_pipeline/alembic.ini
+
   api:
     environment:
       API_RELOAD: "1"
@@ -62,5 +68,7 @@ volumes:
     name: knowledge_postgres_dev_data
   knowledge_corpus_postgres_data:
     name: knowledge_corpus_postgres_dev_data
+  source_pipeline_postgres_data:
+    name: source_pipeline_postgres_dev_data
   knowledge_redis_data:
     name: knowledge_redis_dev_data

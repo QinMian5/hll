@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# abstract: Start an isolated PostgreSQL + Redis container stack dedicated to tests.
-# out_of_scope: Running migrations and executing pytest suites.
+# abstract: Apply source-pipeline Alembic migrations to the isolated test database path.
+# out_of_scope: Starting containers and running integration test suites.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+APP_DIR="$ROOT_DIR/apps/source_pipeline"
 COMPOSE_TEST="$ROOT_DIR/infra/compose/docker-compose.test.yml"
 ENV_FILE="$ROOT_DIR/infra/env/.env.test"
 TEST_COMPOSE_PROJECT="${TEST_COMPOSE_PROJECT:-knowledge-test-${USER:-local}}"
@@ -16,12 +17,11 @@ set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
-validate_test_settings "$ROOT_DIR/apps/api"
-validate_knowledge_corpus_test_settings "$ROOT_DIR/apps/knowledge_corpus"
-validate_source_pipeline_test_settings "$ROOT_DIR/apps/source_pipeline"
+validate_source_pipeline_test_settings "$APP_DIR"
 
 docker compose \
   -p "$TEST_COMPOSE_PROJECT" \
   --env-file "$ENV_FILE" \
   -f "$COMPOSE_TEST" \
-  up -d --build --wait postgres knowledge_corpus_db source_pipeline_db redis
+  run --rm source_pipeline_migrate \
+  alembic -c /app/apps/source_pipeline/alembic.ini upgrade head

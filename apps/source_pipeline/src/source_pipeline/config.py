@@ -8,7 +8,7 @@ from __future__ import annotations
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
 
 
-class SourcePipelineSettings(BaseSettings):
+class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="SOURCE_PIPELINE_",
         extra="forbid",
@@ -23,7 +23,7 @@ class SourcePipelineSettings(BaseSettings):
     poll_batch_size: int = 100
 
 
-class SourcePipelineMigrationSettings(BaseSettings):
+class MigrationSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="SOURCE_PIPELINE_MIGRATION_",
         extra="forbid",
@@ -33,11 +33,9 @@ class SourcePipelineMigrationSettings(BaseSettings):
     database_url: str
 
 
-def load_settings() -> SourcePipelineSettings:
-    return SourcePipelineSettings.model_validate(EnvSettingsSource(SourcePipelineSettings)())
+def load_settings() -> Settings:
+    return Settings.model_validate(EnvSettingsSource(Settings)())
 
 
-def load_migration_settings() -> SourcePipelineMigrationSettings:
-    return SourcePipelineMigrationSettings.model_validate(
-        EnvSettingsSource(SourcePipelineMigrationSettings)()
-    )
+def load_migration_settings() -> MigrationSettings:
+    return MigrationSettings.model_validate(EnvSettingsSource(MigrationSettings)())

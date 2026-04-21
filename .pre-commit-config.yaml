@@ -57,6 +57,27 @@ repos:
         pass_filenames: false
         files: ^apps/knowledge_corpus/
 
+      - id: source-pipeline-ruff-format
+        name: source-pipeline-ruff-format
+        entry: uv run --project apps/source_pipeline ruff format apps/source_pipeline/src apps/source_pipeline/tests apps/source_pipeline/alembic
+        language: system
+        pass_filenames: false
+        files: ^apps/source_pipeline/
+
+      - id: source-pipeline-ruff-check-fix
+        name: source-pipeline-ruff-check-fix
+        entry: uv run --project apps/source_pipeline ruff check --fix apps/source_pipeline/src apps/source_pipeline/tests apps/source_pipeline/alembic
+        language: system
+        pass_filenames: false
+        files: ^apps/source_pipeline/
+
+      - id: source-pipeline-ty-check
+        name: source-pipeline-ty-check
+        entry: uv run --project apps/source_pipeline ty check --project apps/source_pipeline apps/source_pipeline/src
+        language: system
+        pass_filenames: false
+        files: ^apps/source_pipeline/
+
       - id: js-biome-check-write
         name: js-biome-check-write
         entry: pnpm run js:fix

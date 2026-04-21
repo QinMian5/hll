@@ -50,19 +50,19 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 
 ### Backend Python
 - Lint/format tool is Ruff.
-- Ruff scope for gates is only `apps/api/src`.
+- Ruff scope for gates includes `apps/api`, `apps/knowledge_corpus`, and `apps/source_pipeline`.
 - Ruff select set: `E,F,I,B,UP,SIM,C4,PIE,RUF,ANN,TID`.
 - Ruff ignore set: `B008`.
 - `ruff format` is for local formatting; CI gate runs read-only lint checks.
 
 ### Backend Tests
 - Test runner is pytest.
-- Default blocked gate runs only backend unit tests (`apps/api/tests/unit`).
+- Default blocked gate runs backend unit tests for `apps/api/tests/unit`, `apps/knowledge_corpus/tests/unit`, and `apps/source_pipeline/tests/unit`.
 - Integration and contract tests are present but excluded from default blocked gate.
 
 ### Backend Type Checking
 - Type checker is `ty`.
-- Default blocked scope is only `apps/api/src`.
+- Default blocked scope includes `apps/api/src`, `apps/knowledge_corpus/src`, and `apps/source_pipeline/src`.
 
 ### Frontend
 - JS/TS lint/format tool is Biome.
@@ -99,6 +99,12 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
   - `uv run --project apps/api ruff check --fix`
   - `uv run --project apps/api ty check apps/api/src`
   - `uv run --project apps/api lint-imports --config apps/api/pyproject.toml`
+  - `uv run --project apps/knowledge_corpus ruff format apps/knowledge_corpus/src apps/knowledge_corpus/tests apps/knowledge_corpus/alembic`
+  - `uv run --project apps/knowledge_corpus ruff check --fix apps/knowledge_corpus/src apps/knowledge_corpus/tests apps/knowledge_corpus/alembic`
+  - `uv run --project apps/knowledge_corpus ty check --project apps/knowledge_corpus apps/knowledge_corpus/src`
+  - `uv run --project apps/source_pipeline ruff format apps/source_pipeline/src apps/source_pipeline/tests apps/source_pipeline/alembic`
+  - `uv run --project apps/source_pipeline ruff check --fix apps/source_pipeline/src apps/source_pipeline/tests apps/source_pipeline/alembic`
+  - `uv run --project apps/source_pipeline ty check --project apps/source_pipeline apps/source_pipeline/src`
   - `pnpm run js:fix`
   - `pnpm run js:typecheck`
   - `pnpm exec commitlint --edit`

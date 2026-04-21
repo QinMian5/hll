@@ -20,10 +20,12 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Development exposes `web` on `5173`, `api` on `8000`, and `db` on host `5432` for local debugging and SQL tooling.
 - `db` remains internal-only in production.
 - Knowledge corpus uses its own dedicated PostgreSQL service and does not share the online graph database service.
+- Source pipeline uses its own dedicated PostgreSQL service and does not share the online graph database service.
 - Development may expose the knowledge corpus PostgreSQL service on a separate host port for local tooling; it must not reuse the online database host port.
+- Development may expose the source pipeline PostgreSQL service on a separate host port for local tooling; it must not reuse the online database or knowledge corpus host ports.
 - `redis` remains internal-only in both environments and is provided by a project-managed service definition.
-- Runtime process topology is fixed to two backend process containers: one `api` container and one `worker` container.
-- Horizontal scaling is not an MVP requirement for either `api` or `worker`; deployment baseline keeps one running container per role.
+- Runtime process topology is fixed to three backend process containers: one `api` container, one `worker` container, and one `orchestrator` container.
+- Horizontal scaling is not an MVP requirement for `api`, `worker`, or `orchestrator`; deployment baseline keeps one running container per role.
 - Production search read chain is `nginx -> web -> api -> OpenAI Embeddings API + db`.
 - Production ingestion write chain is `api -> redis -> worker -> OpenAI Embeddings API + db`.
 - Development search read chain is `web -> api -> OpenAI Embeddings API + db`.
@@ -34,6 +36,8 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `backend` network is internal-only and contains `db`, `redis`, `migrate`, `api`, and `worker`.
 - Knowledge corpus PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
 - Accepted first-version service names for the knowledge corpus database path are `knowledge_corpus_db` and `knowledge_corpus_migrate`.
+- Source pipeline PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
+- Accepted first-version service names for the source pipeline database path are `source_pipeline_db` and `source_pipeline_migrate`.
 - `edge` network contains `web`, `api`, `worker`, and `nginx` (production only for `nginx`).
 - Development adds `db` to `edge` for host port publishing while keeping service-to-service database access on `backend`.
 - Cross-service access must follow network boundaries rather than host port access.
@@ -48,6 +52,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Migration autogeneration uses the same base+dev layering and does not use a dedicated compose overlay file.
 - Repository-managed local/offline apps may add dedicated infrastructure services when those services are part of accepted repository app boundaries; knowledge corpus PostgreSQL is one such service.
 - The accepted first-version compose baseline includes `knowledge_corpus_db` as a dedicated PostgreSQL service and `knowledge_corpus_migrate` as a dedicated one-shot migration job for `apps/knowledge_corpus`.
+- The accepted first-version compose baseline includes `source_pipeline_db` as a dedicated PostgreSQL service, `source_pipeline_migrate` as a dedicated one-shot migration job, and `orchestrator` as the dedicated long-running runtime for `apps/source_pipeline`.
 
 ## Volume Lifecycle Policy
 - Development uses non-external volumes and supports optional volume cleanup through an explicit destroy flag.
@@ -59,17 +64,21 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `db` uses a custom PostgreSQL Dockerfile and is the extension package baseline owner.
 - `api` uses a custom Dockerfile.
 - `worker` reuses the same API image with role-specific command override.
+- `orchestrator` uses its own custom Dockerfile built from `apps/source_pipeline`.
 - Single-image policy is required for `api` and `worker`; runtime role is selected only by startup command.
 - The API image installs the locked dependency set required for runtime and migration autogeneration tooling.
+- The source-pipeline image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - `redis` uses fixed-tag official image `redis:7-bookworm`.
 - `web` uses a custom Dockerfile with separate dev/prod targets.
 - `nginx` uses a fixed-tag official image in production and does not use a custom Dockerfile.
 
 ## Process Role Command Contract
 - `api` and `worker` must each have a stable, role-specific startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
+- `orchestrator` must have a stable startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
 - Compose files must reference role startup commands instead of embedding long inline runtime invocation details per environment.
 - API role command owns API logging bootstrap and then starts FastAPI serving.
 - Worker role command owns worker logging bootstrap and then starts Dramatiq worker serving.
+- Orchestrator role command owns source-pipeline runtime bootstrap and then starts the long-running polling loop.
 
 ## Startup and Gating Order
 - Required startup order is fixed:
@@ -82,8 +91,13 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   1. `knowledge_corpus_db` reaches healthy state.
   2. `knowledge_corpus_migrate` one-shot job runs and exits successfully.
   3. External local scripts/programs may use the knowledge corpus library against the migrated database.
+- Source pipeline startup/migration order is separate from the online stack:
+  1. `source_pipeline_db` reaches healthy state.
+  2. `source_pipeline_migrate` one-shot job runs and exits successfully.
+  3. `orchestrator` starts against the migrated source-pipeline database.
 - `api` must not auto-run migrations.
 - `apps/knowledge_corpus` does not own a long-running application container in first version, so its runtime contract ends at migrated database availability plus library usage from external local processes.
+- `apps/source_pipeline` owns one long-running `orchestrator` container and one separate migration job.
 - Startup dependency control must use `healthcheck + depends_on`.
 - `sleep`-based wait logic is forbidden.
 
@@ -127,10 +141,14 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   - `KNOWLEDGE_API_DATABASE_URL` for API and worker runtime database access
   - `KNOWLEDGE_API_MIGRATION_DATABASE_URL` for migration-role execution paths
   - Separate app-specific URL fields for knowledge corpus runtime and migration execution; knowledge corpus must not reuse the online API/worker database URL names
+  - Separate app-specific URL fields for source pipeline runtime and migration execution; source pipeline must not reuse the online API/worker database URL names
 - Knowledge corpus database configuration uses:
   - `KNOWLEDGE_CORPUS_DATABASE_URL` for external local processes that import `apps/knowledge_corpus`
   - `KNOWLEDGE_CORPUS_MIGRATION_DATABASE_URL` for `knowledge_corpus_migrate`
-- Tracked environment files must carry the knowledge corpus URL fields alongside the online stack URL fields when the repository-managed knowledge corpus service is enabled.
+- Source pipeline database configuration uses:
+  - `SOURCE_PIPELINE_DATABASE_URL` for the long-running `orchestrator` runtime
+  - `SOURCE_PIPELINE_MIGRATION_DATABASE_URL` for `source_pipeline_migrate`
+- Tracked environment files must carry the knowledge corpus and source pipeline URL fields alongside the online stack URL fields when those repository-managed app services are enabled.
 
 ## Failure Policy
 - Known startup failures must fail explicitly and stop rollout progression.

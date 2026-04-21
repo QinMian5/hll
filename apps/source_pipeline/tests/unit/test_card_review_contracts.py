@@ -14,4 +14,3 @@ def test_card_review_schema_is_exported_from_python_contracts() -> None:
     assert schema["type"] == "object"
     assert "title_validity" in schema["properties"]
     assert "passed" not in schema["properties"]
-

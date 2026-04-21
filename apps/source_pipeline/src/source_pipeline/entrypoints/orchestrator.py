@@ -10,10 +10,10 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from source_pipeline.config import SourcePipelineSettings, load_settings
+from source_pipeline.card_review.contracts import ReviewResult
+from source_pipeline.config import Settings, load_settings
 from source_pipeline.db.session import SessionFactory, build_session_factory
 from source_pipeline.page_to_card.contracts import CardDraft
-from source_pipeline.card_review.contracts import ReviewResult
 from source_pipeline.pipeline_handoff.ports import ReviewHandoffPort
 from source_pipeline.pipeline_runtime.job_queue_client import JobQueueClient
 from source_pipeline.pipeline_runtime.service import PipelineRuntimeService
@@ -36,7 +36,7 @@ class UnconfiguredReviewHandoff(ReviewHandoffPort):
 
 @dataclass(slots=True, frozen=True)
 class OrchestratorRuntime:
-    settings: SourcePipelineSettings
+    settings: Settings
     engine: AsyncEngine
     session_factory: SessionFactory
     job_queue_client: JobQueueClient

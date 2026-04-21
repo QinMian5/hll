@@ -1,6 +1,6 @@
 """
-Abstract: Unit tests for the source-pipeline runtime tick flow.
-Out of scope: Process bootstrap and Docker/Compose integration.
+Abstract: Integration tests for the source-pipeline runtime tick flow.
+Out of scope: Process bootstrap and Docker/Compose image wiring.
 """
 
 from __future__ import annotations
@@ -18,12 +18,16 @@ from source_pipeline.page_to_card.contracts import CardDraft
 from source_pipeline.pipeline_runtime.job_queue_client import AcceptedJobResult, NotReadyJobResult
 from source_pipeline.pipeline_runtime.service import PipelineRuntimeService
 
+pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.anyio]
+
 
 @dataclass
 class FakeJobQueueClient:
     created_jobs: list[dict[str, object]] = field(default_factory=list)
     create_job_ids: list[int] = field(default_factory=list)
-    results_by_job_id: dict[int, AcceptedJobResult | NotReadyJobResult] = field(default_factory=dict)
+    results_by_job_id: dict[int, AcceptedJobResult | NotReadyJobResult] = field(
+        default_factory=dict
+    )
 
     async def create_job(self, **kwargs: object) -> int:
         self.created_jobs.append(kwargs)
@@ -107,7 +111,6 @@ async def create_workflow_unit(db_session: AsyncSession) -> WorkflowUnit:
     return unit
 
 
-@pytest.mark.anyio
 async def test_tick_submits_page_to_card_when_job_id_missing(db_session: AsyncSession) -> None:
     unit = await create_workflow_unit(db_session)
     client = FakeJobQueueClient(create_job_ids=[12])
@@ -120,7 +123,6 @@ async def test_tick_submits_page_to_card_when_job_id_missing(db_session: AsyncSe
     assert unit.page_to_card_job_id == 12
 
 
-@pytest.mark.anyio
 async def test_tick_rereads_page_to_card_result_and_fans_out_reviews(
     db_session: AsyncSession,
 ) -> None:
@@ -151,7 +153,6 @@ async def test_tick_rereads_page_to_card_result_and_fans_out_reviews(
     assert [job.job_queue_job_id for job in review_jobs] == [21, 22]
 
 
-@pytest.mark.anyio
 async def test_tick_marks_handoff_done_without_persisting_review_payload(
     db_session: AsyncSession,
 ) -> None:
@@ -181,4 +182,4 @@ async def test_tick_marks_handoff_done_without_persisting_review_payload(
 
     assert review_job.handoff_done is True
     assert len(handoff.calls) == 1
-    assert "result_payload" not in CardReviewJob.__table__.c.keys()
+    assert "result_payload" not in CardReviewJob.__table__.c

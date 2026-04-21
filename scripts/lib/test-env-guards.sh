@@ -24,6 +24,12 @@ validate_knowledge_corpus_test_settings() {
     "from knowledge_corpus.config import load_settings, load_migration_settings; load_settings(); load_migration_settings()" >/dev/null
 }
 
+validate_source_pipeline_test_settings() {
+  local app_dir="$1"
+  uv --directory "$app_dir" run python -c \
+    "from source_pipeline.config import load_settings, load_migration_settings; load_settings(); load_migration_settings()" >/dev/null
+}
+
 get_migration_database_url() {
   local api_dir="$1"
   uv --directory "$api_dir" run python -c \
@@ -34,4 +40,10 @@ get_knowledge_corpus_migration_database_url() {
   local corpus_dir="$1"
   uv --directory "$corpus_dir" run python -c \
     "from knowledge_corpus.config import load_migration_settings; print(load_migration_settings().database_url)"
+}
+
+get_source_pipeline_migration_database_url() {
+  local app_dir="$1"
+  uv --directory "$app_dir" run python -c \
+    "from source_pipeline.config import load_migration_settings; print(load_migration_settings().database_url)"
 }
