@@ -181,7 +181,7 @@ class CliSettings(BaseSettings):
     )
 
     cards_url: str = Field(
-        default="http://127.0.0.1:8000/api/v1/cards",
+        default="http://127.0.0.1:8001/api/v1/cards",
         description="Absolute URL of the ingestion cards endpoint.",
     )
     review_backend: Literal["cursor-agent", "openai"] = Field(

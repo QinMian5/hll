@@ -49,7 +49,7 @@ services:
       - ../../apps/api/alembic:/app/apps/api/alembic
       - ../../apps/api/alembic.ini:/app/apps/api/alembic.ini
     ports:
-      - "8000:8000"
+      - "8001:8000"
 
   worker:
   web:
@@ -61,7 +61,7 @@ services:
       - ../../apps/web:/workspace/apps/web
       - ../../packages/contracts:/workspace/packages/contracts
     ports:
-      - "5173:5173"
+      - "5174:5173"
 
 volumes:
   knowledge_postgres_data:

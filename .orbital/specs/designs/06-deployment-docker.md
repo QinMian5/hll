@@ -17,7 +17,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 
 ## Deployment Topology (MVP)
 - Production external exposure is restricted to `80/443` through `Nginx`.
-- Development exposes `web` on `5173`, `api` on `8000`, and `db` on host `5432` for local debugging and SQL tooling.
+- Development exposes `web` on `5174`, `api` on `8001`, and `db` on host `5432` for local debugging and SQL tooling.
 - `db` remains internal-only in production.
 - Knowledge corpus uses its own dedicated PostgreSQL service and does not share the online graph database service.
 - Source pipeline uses its own dedicated PostgreSQL service and does not share the online graph database service.
