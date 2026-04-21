@@ -49,6 +49,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `compose.base.yml`: shared service definitions and common network/volume baseline, including `redis` and `worker`.
 - `compose.dev.yml`: development-only overrides (source mounts, debug commands, direct local port exposure, no `nginx` service).
 - `compose.prod.yml`: production-only overrides (runtime restart policy, `nginx` edge service, `80/443` exposure).
+- `compose.prod.yml` must override accepted long-running and one-shot source-pipeline services with production image tags and production external volume binding for `source_pipeline_postgres_data`.
 - Migration autogeneration uses the same base+dev layering and does not use a dedicated compose overlay file.
 - Repository-managed local/offline apps may add dedicated infrastructure services when those services are part of accepted repository app boundaries; knowledge corpus PostgreSQL is one such service.
 - The accepted first-version compose baseline includes `knowledge_corpus_db` as a dedicated PostgreSQL service and `knowledge_corpus_migrate` as a dedicated one-shot migration job for `apps/knowledge_corpus`.
@@ -58,6 +59,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Development uses non-external volumes and supports optional volume cleanup through an explicit destroy flag.
 - Production uses external volumes that are managed outside compose lifecycle and are not disposable through routine compose down.
 - PostgreSQL persistent data in production must bind to an external named volume.
+- Repository-managed production entrypoints must ensure accepted external PostgreSQL volumes exist before invoking compose operations against the production overlays.
 - Redis mounts explicit named volumes in compose baselines to prevent anonymous-volume drift.
 
 ## Container Build Strategy

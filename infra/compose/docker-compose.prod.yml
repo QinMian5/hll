@@ -7,17 +7,26 @@ services:
   knowledge_corpus_db:
     image: knowledge-corpus-postgres:prod
 
+  source_pipeline_db:
+    image: knowledge-source-pipeline-postgres:prod
+
   migrate:
     image: knowledge-api:prod
 
   knowledge_corpus_migrate:
     image: knowledge-corpus-migrate:prod
 
+  source_pipeline_migrate:
+    image: knowledge-source-pipeline:prod
+
   api:
     image: knowledge-api:prod
 
   worker:
     image: knowledge-api:prod
+
+  orchestrator:
+    image: knowledge-source-pipeline:prod
 
   web:
     image: knowledge-web:prod
@@ -44,3 +53,6 @@ volumes:
   knowledge_corpus_postgres_data:
     external: true
     name: knowledge_corpus_postgres_prod_data
+  source_pipeline_postgres_data:
+    external: true
+    name: source_pipeline_postgres_prod_data

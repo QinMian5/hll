@@ -12,14 +12,16 @@ compose_args=(
   -f "$COMPOSE_DEV"
 )
 
-# `migrate` and `knowledge_corpus_migrate` are one-shot jobs. If an older
+# `migrate`, `knowledge_corpus_migrate`, and `source_pipeline_migrate` are one-shot jobs. If an older
 # failed container is reused, `service_completed_successfully` can stay blocked.
-docker compose "${compose_args[@]}" rm -f migrate knowledge_corpus_migrate >/dev/null 2>&1 || true
+docker compose "${compose_args[@]}" rm -f migrate knowledge_corpus_migrate source_pipeline_migrate >/dev/null 2>&1 || true
 
 if ! docker compose "${compose_args[@]}" up -d --build; then
   echo "[dev-up] migrate service failed. Recent logs:" >&2
   docker compose "${compose_args[@]}" logs migrate --tail 200 >&2 || true
   echo "[dev-up] knowledge_corpus_migrate service logs:" >&2
   docker compose "${compose_args[@]}" logs knowledge_corpus_migrate --tail 200 >&2 || true
+  echo "[dev-up] source_pipeline_migrate service logs:" >&2
+  docker compose "${compose_args[@]}" logs source_pipeline_migrate --tail 200 >&2 || true
   exit 1
 fi

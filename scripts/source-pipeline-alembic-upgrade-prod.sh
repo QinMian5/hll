@@ -11,8 +11,10 @@ ENV_FILE="$ROOT_DIR/infra/env/.env.prod"
 PROD_COMPOSE_PROJECT="${PROD_COMPOSE_PROJECT:-knowledge-prod-${USER:-local}}"
 
 source "$ROOT_DIR/scripts/lib/test-env-guards.sh"
+source "$ROOT_DIR/scripts/lib/prod-volumes.sh"
 
 assert_test_env_file_exists "$ENV_FILE"
+ensure_prod_external_volumes
 
 docker compose \
   -p "$PROD_COMPOSE_PROJECT" \

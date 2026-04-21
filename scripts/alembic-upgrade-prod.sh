@@ -9,11 +9,15 @@ COMPOSE_BASE="$ROOT_DIR/infra/compose/docker-compose.base.yml"
 COMPOSE_ENV="$ROOT_DIR/infra/env/.env.prod"
 COMPOSE_PROD="$ROOT_DIR/infra/compose/docker-compose.prod.yml"
 
+source "$ROOT_DIR/scripts/lib/prod-volumes.sh"
+
 compose_args=(
   --env-file "$COMPOSE_ENV"
   -f "$COMPOSE_BASE"
   -f "$COMPOSE_PROD"
 )
+
+ensure_prod_external_volumes
 
 docker compose "${compose_args[@]}" \
   build api
