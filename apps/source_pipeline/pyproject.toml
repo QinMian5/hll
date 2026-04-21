@@ -1,0 +1,49 @@
+[project]
+name = "source-pipeline"
+version = "0.1.0"
+description = "Project-owned source-pipeline orchestrator app."
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.18.4",
+    "httpx>=0.28.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
+    "psycopg[binary]>=3.3.3",
+    "sqlalchemy[asyncio]>=2.0.48",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.2,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["source_pipeline"]
+
+[dependency-groups]
+dev = [
+    "pytest-anyio>=0.0.0",
+    "pytest>=9.0.2",
+    "ruff>=0.15.8",
+    "ty>=0.0.27",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF", "ANN", "TID"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --maxfail=1"
+testpaths = ["tests"]
+markers = [
+    "unit: Fast and deterministic unit tests.",
+    "integration: Tests that cross process, filesystem, or service boundaries.",
+    "db: Tests requiring isolated backend runtime dependencies (PostgreSQL/Redis).",
+    "migration: Tests validating migration bootstrap and schema upgrade behavior.",
+    "anyio: Run async tests with AnyIO backend.",
+]
+
+[tool.ty.src]
+include = ["src"]

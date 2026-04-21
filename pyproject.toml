@@ -9,4 +9,5 @@ members = [
     "apps/api",
     "apps/cli",
     "apps/knowledge_corpus",
+    "apps/source_pipeline",
 ]
