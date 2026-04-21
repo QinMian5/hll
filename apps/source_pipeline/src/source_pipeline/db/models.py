@@ -23,7 +23,7 @@ class WorkflowRun(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
 
 
@@ -43,7 +43,7 @@ class WorkflowUnit(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )
 
 
@@ -62,5 +62,5 @@ class CardReviewJob(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        server_default=text("now()"),
+        server_default=text("CURRENT_TIMESTAMP"),
     )

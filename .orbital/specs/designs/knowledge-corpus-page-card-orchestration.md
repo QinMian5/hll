@@ -17,7 +17,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
 
 ## Constraint Projection
 - **Governing Constraints:** Repository boundaries remain explicit, source-processing orchestration stays isolated from the online API runtime, environment behavior remains reproducible, and active specs capture only current accepted truth.
-- **Detail Commitments:** The repository contains a project-owned `source_pipeline` app. `pipeline_intake` accepts one external config or normalized unit input and materializes minimal local orchestration state. `pipeline_runtime` continuously interacts with `job-queue-mcp`, stores only the linkage state that the queue cannot provide, and advances accepted step transitions. The `page-to-card` step returns a bare `cards[]` payload, including valid empty arrays. Each returned card fans out into one `card-review` job. `card-review` returns the existing six review dimensions. Source-side processed bookkeeping happens before work reaches this app and is outside this design.
+- **Detail Commitments:** The repository contains a project-owned `source_pipeline` app. `pipeline_intake` accepts one external config or normalized unit input and materializes minimal local orchestration state. `pipeline_runtime` continuously interacts with `job-queue-mcp`, stores only the linkage state that the queue cannot provide, and advances accepted step transitions. The `page-to-card` step returns an accepted payload object with a `cards` array, including valid empty arrays. Each returned card fans out into one `card-review` job. `card-review` returns the existing six review dimensions. Source-side processed bookkeeping happens before work reaches this app and is outside this design.
 - **Update Rule:** Requirement-level governance stays stable while this design owns source-pipeline runtime boundaries, minimal local state, step contracts, and file placement.
 
 ## Inputs & Outputs
@@ -57,10 +57,12 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     - `metadata`
     `source_ref` is the source-owned opaque identifier. Source-specific bookkeeping is external to this app.
   - **`page-to-card` input contract:** The step input is one `SourceUnit`.
-  - **`page-to-card` result contract:** The accepted result payload is a bare JSON array of `CardDraft`. Each `CardDraft` contains exactly:
+  - **`page-to-card` result contract:** The accepted result payload is a JSON object with one required field:
+    - `cards`
+    The `cards` field is an array of `CardDraft`. Each `CardDraft` contains exactly:
     - `title`
     - `content`
-    `[]` is a valid accepted result and means that the source unit produced no kept cards.
+    `{ "cards": [] }` is a valid accepted result and means that the source unit produced no kept cards.
   - **No in-project execution assumptions:** The source-pipeline app does not define or own sessions, agents, prompts, tools, workspaces, or model selection on the worker side.
   - **`card-review` fan-out rule:** Each `CardDraft` returned by `page-to-card` produces one independent `card-review` job. Runtime bookkeeping may include row order or array index metadata, but that ordering is not a stable business identity.
   - **`card-review` input contract:** The step input is one `CardDraft`.
@@ -81,7 +83,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   2. `pipeline_intake` validates the config, creates one `WorkflowRun`, and materializes the corresponding `WorkflowUnit` rows.
   3. `pipeline_runtime` selects units that do not yet have `page_to_card_job_id` and submits one `page-to-card` job per eligible unit to `job-queue-mcp`.
   4. `pipeline_runtime` polls the result surface until an accepted `page-to-card` payload is available or the job enters a terminal non-accepted state.
-  5. `pipeline_runtime` rereads the accepted `cards[]` result, creates missing `CardReviewJob` rows by ordinal, and submits `card-review` jobs for rows that do not yet have `job_queue_job_id`.
+  5. `pipeline_runtime` rereads the accepted `result_payload["cards"]` result, creates missing `CardReviewJob` rows by ordinal, and submits `card-review` jobs for rows that do not yet have `job_queue_job_id`.
   6. `pipeline_runtime` polls each `card-review` job until an accepted result is available or the job enters a terminal non-accepted state.
   7. `pipeline_handoff` forwards each accepted `card-review` result to the next step or downstream consumer and marks only `handoff_done=true` locally.
 

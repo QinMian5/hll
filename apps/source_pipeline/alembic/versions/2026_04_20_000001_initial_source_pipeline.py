@@ -26,7 +26,12 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False, autoincrement=True),
         sa.Column("source_kind", sa.Text(), nullable=False),
         sa.Column("config_payload", sa.JSON(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_workflow_runs")),
     )
     op.create_table(
@@ -37,7 +42,12 @@ def upgrade() -> None:
         sa.Column("source_ref", sa.Text(), nullable=False),
         sa.Column("payload", sa.JSON(), nullable=False),
         sa.Column("page_to_card_job_id", sa.Integer(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(
             ["workflow_run_id"],
             ["workflow_runs.id"],
@@ -53,7 +63,12 @@ def upgrade() -> None:
         sa.Column("ordinal", sa.Integer(), nullable=False),
         sa.Column("job_queue_job_id", sa.Integer(), nullable=True),
         sa.Column("handoff_done", sa.Boolean(), server_default=sa.false(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(
             ["workflow_unit_id"],
             ["workflow_units.id"],

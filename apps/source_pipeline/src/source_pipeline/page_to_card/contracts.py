@@ -27,8 +27,14 @@ class CardDraft(BaseModel):
     content: str
 
 
-CARD_DRAFT_LIST_ADAPTER = TypeAdapter(list[CardDraft])
+class PageToCardResult(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    cards: list[CardDraft]
+
+
+PAGE_TO_CARD_RESULT_ADAPTER = TypeAdapter(PageToCardResult)
 
 
 def export_page_to_card_output_schema() -> dict[str, Any]:
-    return CARD_DRAFT_LIST_ADAPTER.json_schema()
+    return PAGE_TO_CARD_RESULT_ADAPTER.json_schema()

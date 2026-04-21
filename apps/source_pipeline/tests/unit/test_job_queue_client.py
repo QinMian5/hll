@@ -19,7 +19,7 @@ async def test_create_job_posts_expected_payload_and_returns_job_id() -> None:
         assert request.headers["Authorization"] == "Bearer producer-token"
         assert request.read() == (
             b'{"queue_name":"source_pipeline.page_to_card","priority":"normal",'
-            b'"instruction":"extract cards","output_schema":{"type":"array"},'
+            b'"instruction":"extract cards","output_schema":{"type":"object"},'
             b'"payload":{"source_ref":"page-1"},"metadata":{"run_id":1}}'
         )
         return httpx.Response(201, json={"job_id": 12})
@@ -35,7 +35,7 @@ async def test_create_job_posts_expected_payload_and_returns_job_id() -> None:
         queue_name="source_pipeline.page_to_card",
         priority="normal",
         instruction="extract cards",
-        output_schema={"type": "array"},
+        output_schema={"type": "object"},
         payload={"source_ref": "page-1"},
         metadata={"run_id": 1},
     )

@@ -11,6 +11,8 @@ from source_pipeline.page_to_card.contracts import export_page_to_card_output_sc
 def test_page_to_card_schema_is_exported_from_python_contracts() -> None:
     schema = export_page_to_card_output_schema()
 
-    assert schema["type"] == "array"
-    assert schema["items"]["$ref"] == "#/$defs/CardDraft"
+    assert schema["type"] == "object"
+    assert schema["required"] == ["cards"]
+    assert schema["properties"]["cards"]["type"] == "array"
+    assert schema["properties"]["cards"]["items"]["$ref"] == "#/$defs/CardDraft"
     assert schema["$defs"]["CardDraft"]["required"] == ["title", "content"]
