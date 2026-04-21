@@ -1,5 +1,5 @@
 ---
-abstract: Module boundary and responsibility definition for the V1 API-first open knowledge network.
+abstract: Module boundary and responsibility definition for the V1 API-first open knowledge network plus the project-owned source-processing pipeline.
 out_of_scope: Detailed implementation, framework-specific wiring, and storage-engine internals.
 ---
 
@@ -11,7 +11,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
-- **Scope/Boundaries:** Covers ownership for frontend, backend API, operator CLI, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
+- **Scope/Boundaries:** Covers ownership for frontend, backend API, operator CLI, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, source_pipeline, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Module Responsibilities
@@ -137,10 +137,31 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Cross-app runtime ownership.
   - Main knowledge-graph persistence ownership.
 
+### Source Pipeline App
+- **Responsibilities:**
+  - Own project-level source-processing intake, orchestration state, and long-running runtime for `job-queue-mcp` interactions.
+  - Materialize external source-processing configs into persisted `WorkflowRun` and `WorkflowUnit` state.
+  - Persist only the local linkage state that `job-queue-mcp` cannot provide directly.
+  - Fan out accepted `page-to-card` cards into per-card `card-review` jobs.
+  - Hand off accepted review results to downstream consumers without storing them as durable business truth.
+  - Own the following internal modules:
+    - `pipeline_intake` for config ingestion and source-unit normalization
+    - `pipeline_runtime` for polling and state transitions
+    - `page_to_card` for step input/output contracts
+    - `card_review` for six-dimension review contracts
+    - `pipeline_handoff` for next-step or downstream delivery
+- **Non-responsibilities:**
+  - Source discovery or crawling policy.
+  - Source-side processed bookkeeping.
+  - Worker-side execution mechanics for queued jobs.
+  - Online API exposure.
+  - Final reviewed-card persistence ownership.
+
 ## Runtime Infrastructure Dependencies
 - Redis + Dramatiq for ingestion asynchronous workflows.
+- `job-queue-mcp` for `page-to-card` and `card-review` step dispatch plus accepted-result retrieval.
 - OpenAI Embeddings API for ingestion worker and search query embedding.
-- PostgreSQL as persistent truth store for graph and taxonomy data.
+- PostgreSQL as persistent truth store for graph, taxonomy, and source-pipeline orchestration state.
 
 ## Dependency Direction
 - `Frontend -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`
@@ -149,8 +170,10 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Background taxonomy bootstrap -> taxonomy -> Database`
 - `Background taxonomy classification -> taxonomy_classification -> taxonomy + knowledge_graph -> Database`
+- `External source adapter -> Source Pipeline App(pipeline_intake) -> Database`
+- `Source Pipeline App(pipeline_runtime) -> job-queue-mcp -> external workers`
 - `core` is inbound-only; it does not import `entrypoints/modules/shared`.
 
 ## V1 Boundary Summary
-- V1 delivers ingestion acceptance API, search read API, taxonomy drill-down read APIs, taxonomy-backed structure truth, local reviewed card submission CLI, and leaf-level one-hop relation browsing.
+- V1 delivers ingestion acceptance API, search read API, taxonomy drill-down read APIs, taxonomy-backed structure truth, local reviewed card submission CLI, project-owned source-processing pipeline orchestration, and leaf-level one-hop relation browsing.
 - V1 excludes semantic-map snapshot/tile browsing and excludes runtime cache/object-storage dependencies.

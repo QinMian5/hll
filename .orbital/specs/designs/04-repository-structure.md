@@ -21,6 +21,7 @@ repo/
     api/
     cli/
     knowledge_corpus/
+    source_pipeline/
     web/
   packages/
     contracts/
@@ -39,6 +40,7 @@ repo/
 - `apps/api`: FastAPI source, API tests, and Alembic assets.
 - `apps/cli`: local operator-facing CLI source.
 - `apps/knowledge_corpus`: local/offline corpus app source and app-local DB lifecycle assets.
+- `apps/source_pipeline`: project-owned source-processing runtime, queue orchestration, and pipeline state.
 - `apps/web`: React web client source.
 - `packages/contracts`: OpenAPI snapshot, generated clients/types, contracts scripts.
 - `infra`: deployment/environment templates.
@@ -114,6 +116,24 @@ apps/knowledge_corpus/
   tests/
 ```
 
+## Source Pipeline Layout (`apps/source_pipeline`)
+```text
+apps/source_pipeline/
+  alembic/
+  src/
+    source_pipeline/
+      config.py
+      db/
+      entrypoints/
+        orchestrator.py
+      pipeline_intake/
+      pipeline_runtime/
+      page_to_card/
+      card_review/
+      pipeline_handoff/
+  tests/
+```
+
 ## Contracts Package Layout (`packages/contracts`)
 ```text
 packages/contracts/
@@ -145,6 +165,8 @@ packages/contracts/
 12. `apps/cli` owns local review/submission flow and must not own backend persistence/runtime concerns.
 13. `human_workspace` assets are not authoritative online API/runtime contracts.
 14. `apps/knowledge_corpus` is isolated local/offline ownership and not imported by online apps.
+15. `apps/source_pipeline` owns project-level source-processing runtime and remains source-agnostic within this repository boundary.
+16. `apps/source_pipeline` must not import `apps/api/src/entrypoints/**`.
 
 ## Governance Anchors
 - Architecture constraints: `03-architecture-constraints`.
