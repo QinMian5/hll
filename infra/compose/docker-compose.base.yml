@@ -96,6 +96,25 @@ services:
       - backend
     restart: "no"
 
+  source_pipeline_migrate:
+    build:
+      context: ../..
+      dockerfile: infra/docker/source_pipeline/Dockerfile
+    image: knowledge-source-pipeline:dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SOURCE_PIPELINE_DATABASE_URL: ${SOURCE_PIPELINE_DATABASE_URL:?SOURCE_PIPELINE_DATABASE_URL is required}
+      SOURCE_PIPELINE_MIGRATION_DATABASE_URL: ${SOURCE_PIPELINE_MIGRATION_DATABASE_URL:?SOURCE_PIPELINE_MIGRATION_DATABASE_URL is required}
+      SOURCE_PIPELINE_JOB_QUEUE_BASE_URL: ${SOURCE_PIPELINE_JOB_QUEUE_BASE_URL:?SOURCE_PIPELINE_JOB_QUEUE_BASE_URL is required}
+      SOURCE_PIPELINE_PRODUCER_TOKEN: ${SOURCE_PIPELINE_PRODUCER_TOKEN:?SOURCE_PIPELINE_PRODUCER_TOKEN is required}
+      SOURCE_PIPELINE_RESULTS_READER_TOKEN: ${SOURCE_PIPELINE_RESULTS_READER_TOKEN:?SOURCE_PIPELINE_RESULTS_READER_TOKEN is required}
+    command: ["alembic", "-c", "/app/apps/source_pipeline/alembic.ini", "upgrade", "head"]
+    networks:
+      - backend
+    restart: "no"
+
   api:
     build:
       context: ../..
@@ -171,6 +190,25 @@ services:
     networks:
       - backend
       - edge
+    restart: unless-stopped
+
+  orchestrator:
+    image: knowledge-source-pipeline:dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      source_pipeline_migrate:
+        condition: service_completed_successfully
+    environment:
+      SOURCE_PIPELINE_DATABASE_URL: ${SOURCE_PIPELINE_DATABASE_URL:?SOURCE_PIPELINE_DATABASE_URL is required}
+      SOURCE_PIPELINE_JOB_QUEUE_BASE_URL: ${SOURCE_PIPELINE_JOB_QUEUE_BASE_URL:?SOURCE_PIPELINE_JOB_QUEUE_BASE_URL is required}
+      SOURCE_PIPELINE_PRODUCER_TOKEN: ${SOURCE_PIPELINE_PRODUCER_TOKEN:?SOURCE_PIPELINE_PRODUCER_TOKEN is required}
+      SOURCE_PIPELINE_RESULTS_READER_TOKEN: ${SOURCE_PIPELINE_RESULTS_READER_TOKEN:?SOURCE_PIPELINE_RESULTS_READER_TOKEN is required}
+      SOURCE_PIPELINE_POLL_INTERVAL_SECONDS: ${SOURCE_PIPELINE_POLL_INTERVAL_SECONDS:-5}
+      SOURCE_PIPELINE_POLL_BATCH_SIZE: ${SOURCE_PIPELINE_POLL_BATCH_SIZE:-100}
+    command: ["/app/bin/run-orchestrator.sh"]
+    networks:
+      - backend
     restart: unless-stopped
 
   web:
