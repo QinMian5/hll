@@ -60,6 +60,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     - `metadata`
     `source_ref` is the source-owned opaque identifier. Source-specific bookkeeping is external to this app.
   - **`page-to-card` input contract:** The step input is one `SourceUnit`.
+  - **`page-to-card` task guidance:** The `page-to-card` job instruction carries the extraction policy and atomic-card selection guidance. That instruction remains task-specific and does not carry transport-generic worker protocol rules.
   - **`page-to-card` result contract:** The accepted result payload is a JSON object with one required field:
     - `cards`
     The `cards` field is an array of `CardDraft`. Each `CardDraft` contains exactly:
@@ -69,6 +70,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - **No in-project execution assumptions:** The source-pipeline app does not define or own sessions, agents, prompts, tools, workspaces, or model selection on the worker side.
   - **`card-review` fan-out rule:** Each `CardDraft` returned by `page-to-card` produces one independent `card-review` job. Runtime bookkeeping may include row order or array index metadata, but that ordering is not a stable business identity.
   - **`card-review` input contract:** The step input is one `CardDraft`.
+  - **`card-review` task guidance split:** The `card-review` job instruction stays minimal and task-framing only. The detailed six-dimension review semantics live in the Pydantic-authored output-schema field descriptions exported with the job contract.
   - **`card-review` result contract:** The accepted result payload contains exactly:
     - `title_validity`
     - `title_content_alignment`

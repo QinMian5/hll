@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from source_pipeline.card_review.contracts import ReviewResult, export_card_review_output_schema
+from source_pipeline.card_review.instruction import build_card_review_instruction
 from source_pipeline.db.models import CardReviewJob, WorkflowUnit
 from source_pipeline.page_to_card.contracts import (
     CardDraft,
@@ -16,6 +17,7 @@ from source_pipeline.page_to_card.contracts import (
     SourceUnit,
     export_page_to_card_output_schema,
 )
+from source_pipeline.page_to_card.instruction import build_page_to_card_instruction
 from source_pipeline.pipeline_handoff.ports import ReviewHandoffPort
 from source_pipeline.pipeline_runtime.job_queue_client import (
     JobQueueClient,
@@ -71,7 +73,7 @@ class PipelineRuntimeService:
         unit.page_to_card_job_id = await self._job_queue_client.create_job(
             queue_name="source_pipeline.page_to_card",
             priority="normal",
-            instruction="extract cards",
+            instruction=build_page_to_card_instruction(),
             output_schema=export_page_to_card_output_schema(),
             payload=source_unit.model_dump(mode="json"),
             metadata={"workflow_unit_id": unit.id},
@@ -138,7 +140,7 @@ class PipelineRuntimeService:
             review_job.job_queue_job_id = await self._job_queue_client.create_job(
                 queue_name="source_pipeline.card_review",
                 priority="normal",
-                instruction="review card",
+                instruction=build_card_review_instruction(),
                 output_schema=export_card_review_output_schema(),
                 payload=card.model_dump(mode="json"),
                 metadata={"workflow_unit_id": unit.id, "ordinal": review_job.ordinal},

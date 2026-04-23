@@ -13,8 +13,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from source_pipeline.card_review.contracts import ReviewItem, ReviewResult
+from source_pipeline.card_review.instruction import build_card_review_instruction
 from source_pipeline.db.models import CardReviewJob, WorkflowRun, WorkflowUnit
 from source_pipeline.page_to_card.contracts import CardDraft
+from source_pipeline.page_to_card.instruction import build_page_to_card_instruction
 from source_pipeline.pipeline_runtime.job_queue_client import AcceptedJobResult, NotReadyJobResult
 from source_pipeline.pipeline_runtime.service import PipelineRuntimeService
 
@@ -121,6 +123,46 @@ async def test_tick_submits_page_to_card_when_job_id_missing(db_session: AsyncSe
     await db_session.refresh(unit)
 
     assert unit.page_to_card_job_id == 12
+    assert client.created_jobs == [
+        {
+            "queue_name": "source_pipeline.page_to_card",
+            "priority": "normal",
+            "instruction": build_page_to_card_instruction(),
+            "output_schema": {
+                "type": "object",
+                "properties": {
+                    "cards": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/CardDraft"},
+                        "title": "Cards",
+                    }
+                },
+                "required": ["cards"],
+                "title": "PageToCardResult",
+                "$defs": {
+                    "CardDraft": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string", "title": "Title"},
+                            "content": {"type": "string", "title": "Content"},
+                        },
+                        "required": ["title", "content"],
+                        "title": "CardDraft",
+                        "additionalProperties": False,
+                    }
+                },
+                "additionalProperties": False,
+            },
+            "payload": {
+                "source_kind": "external",
+                "source_ref": "page-1",
+                "title": "Page 1",
+                "content": "Body",
+                "metadata": {},
+            },
+            "metadata": {"workflow_unit_id": unit.id},
+        }
+    ]
 
 
 async def test_tick_rereads_page_to_card_result_and_fans_out_reviews(
@@ -151,6 +193,10 @@ async def test_tick_rereads_page_to_card_result_and_fans_out_reviews(
 
     assert [job.ordinal for job in review_jobs] == [0, 1]
     assert [job.job_queue_job_id for job in review_jobs] == [21, 22]
+    assert [job["instruction"] for job in client.created_jobs] == [
+        build_card_review_instruction(),
+        build_card_review_instruction(),
+    ]
 
 
 async def test_tick_marks_handoff_done_without_persisting_review_payload(
