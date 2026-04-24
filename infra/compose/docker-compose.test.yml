@@ -1,5 +1,7 @@
 # abstract: Lightweight isolated PostgreSQL + Redis topology for integration and migration tests.
 # out_of_scope: Application container runtime and production ingress networking.
+name: knowledge-test
+
 services:
   postgres:
     build:

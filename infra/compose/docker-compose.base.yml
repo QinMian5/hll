@@ -1,13 +1,11 @@
 # abstract: Base Docker Compose topology for MVP deployment with explicit migration gating.
 # out_of_scope: Environment-specific overrides and host port exposure policies.
-name: knowledge
 
 services:
   postgres:
     build:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
-    image: knowledge-postgres:dev
     environment:
       POSTGRES_DB: ${KNOWLEDGE_API_POSTGRES_DB:?KNOWLEDGE_API_POSTGRES_DB is required}
       POSTGRES_USER: ${KNOWLEDGE_API_POSTGRES_USER:?KNOWLEDGE_API_POSTGRES_USER is required}
@@ -32,7 +30,6 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
-    image: knowledge-corpus-postgres:dev
     environment:
       POSTGRES_DB: ${KNOWLEDGE_CORPUS_POSTGRES_DB:?KNOWLEDGE_CORPUS_POSTGRES_DB is required}
       POSTGRES_USER: ${KNOWLEDGE_CORPUS_POSTGRES_USER:?KNOWLEDGE_CORPUS_POSTGRES_USER is required}
@@ -57,7 +54,6 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
-    image: knowledge-source-pipeline-postgres:dev
     environment:
       POSTGRES_DB: ${SOURCE_PIPELINE_POSTGRES_DB:?SOURCE_PIPELINE_POSTGRES_DB is required}
       POSTGRES_USER: ${SOURCE_PIPELINE_POSTGRES_USER:?SOURCE_PIPELINE_POSTGRES_USER is required}
@@ -94,7 +90,6 @@ services:
     restart: unless-stopped
 
   migrate:
-    image: knowledge-api:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,7 +104,6 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/knowledge_corpus/Dockerfile
-    image: knowledge-corpus-migrate:dev
     depends_on:
       knowledge_corpus_db:
         condition: service_healthy
@@ -125,7 +119,6 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/source_pipeline/Dockerfile
-    image: knowledge-source-pipeline:dev
     depends_on:
       source_pipeline_db:
         condition: service_healthy
@@ -140,7 +133,6 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/api/Dockerfile
-    image: knowledge-api:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -184,7 +176,6 @@ services:
     restart: unless-stopped
 
   worker:
-    image: knowledge-api:dev
     depends_on:
       postgres:
         condition: service_healthy
@@ -214,7 +205,6 @@ services:
     restart: unless-stopped
 
   orchestrator:
-    image: knowledge-source-pipeline:dev
     depends_on:
       source_pipeline_db:
         condition: service_healthy
@@ -223,8 +213,11 @@ services:
     environment:
       SOURCE_PIPELINE_DATABASE_URL: ${SOURCE_PIPELINE_DATABASE_URL:?SOURCE_PIPELINE_DATABASE_URL is required}
       SOURCE_PIPELINE_JOB_QUEUE_BASE_URL: ${SOURCE_PIPELINE_JOB_QUEUE_BASE_URL:?SOURCE_PIPELINE_JOB_QUEUE_BASE_URL is required}
-      SOURCE_PIPELINE_PRODUCER_TOKEN: ${SOURCE_PIPELINE_PRODUCER_TOKEN:?SOURCE_PIPELINE_PRODUCER_TOKEN is required}
-      SOURCE_PIPELINE_RESULTS_READER_TOKEN: ${SOURCE_PIPELINE_RESULTS_READER_TOKEN:?SOURCE_PIPELINE_RESULTS_READER_TOKEN is required}
+      SOURCE_PIPELINE_JOB_QUEUE_TOKEN_URL: ${SOURCE_PIPELINE_JOB_QUEUE_TOKEN_URL:?SOURCE_PIPELINE_JOB_QUEUE_TOKEN_URL is required}
+      SOURCE_PIPELINE_JOB_QUEUE_CLIENT_ID: ${SOURCE_PIPELINE_JOB_QUEUE_CLIENT_ID:?SOURCE_PIPELINE_JOB_QUEUE_CLIENT_ID is required}
+      SOURCE_PIPELINE_JOB_QUEUE_CLIENT_SECRET: ${SOURCE_PIPELINE_JOB_QUEUE_CLIENT_SECRET:?SOURCE_PIPELINE_JOB_QUEUE_CLIENT_SECRET is required}
+      SOURCE_PIPELINE_JOB_QUEUE_RESOURCE: ${SOURCE_PIPELINE_JOB_QUEUE_RESOURCE:?SOURCE_PIPELINE_JOB_QUEUE_RESOURCE is required}
+      SOURCE_PIPELINE_JOB_QUEUE_SCOPES: ${SOURCE_PIPELINE_JOB_QUEUE_SCOPES:-jobs:create results:read}
       SOURCE_PIPELINE_POLL_INTERVAL_SECONDS: ${SOURCE_PIPELINE_POLL_INTERVAL_SECONDS:-5}
       SOURCE_PIPELINE_POLL_BATCH_SIZE: ${SOURCE_PIPELINE_POLL_BATCH_SIZE:-100}
     command: ["/app/bin/run-orchestrator.sh"]
@@ -237,7 +230,6 @@ services:
       context: ../..
       dockerfile: infra/docker/web/Dockerfile
       target: prod
-    image: knowledge-web:dev
     depends_on:
       api:
         condition: service_healthy
@@ -249,17 +241,11 @@ services:
 
 volumes:
   knowledge_postgres_data:
-    name: knowledge_postgres_data
   knowledge_corpus_postgres_data:
-    name: knowledge_corpus_postgres_data
   source_pipeline_postgres_data:
-    name: source_pipeline_postgres_data
   knowledge_redis_data:
-    name: knowledge_redis_data
 
 networks:
   backend:
-    name: knowledge_backend
     internal: true
   edge:
-    name: knowledge_edge

@@ -1,5 +1,7 @@
 # abstract: Production overrides for the Docker Compose base topology.
 # out_of_scope: Multi-region traffic management and non-Docker deployment targets.
+name: knowledge-prod
+
 services:
   postgres:
     image: knowledge-postgres:prod
@@ -25,14 +27,22 @@ services:
   worker:
     image: knowledge-api:prod
 
+  redis:
+    image: redis:7-bookworm
+
   orchestrator:
     image: knowledge-source-pipeline:prod
+    networks:
+      - backend
+      - proxy
 
   web:
     image: knowledge-web:prod
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
 
   nginx:
-    image: nginx:1.27.5-alpine
+    image: nginx:1.29-bookworm
     depends_on:
       web:
         condition: service_started
@@ -41,10 +51,10 @@ services:
     volumes:
       - ../../infra/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
-      - edge
-    ports:
-      - "80:80"
-      - "443:443"
+      edge: {}
+      proxy:
+        aliases:
+          - knowledge-nginx
 
 volumes:
   knowledge_postgres_data:
@@ -56,3 +66,11 @@ volumes:
   source_pipeline_postgres_data:
     external: true
     name: source_pipeline_postgres_prod_data
+  knowledge_redis_data:
+    external: true
+    name: knowledge_redis_prod_data
+
+networks:
+  proxy:
+    external: true
+    name: proxy

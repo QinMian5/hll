@@ -125,7 +125,7 @@ async def test_tick_submits_page_to_card_when_job_id_missing(db_session: AsyncSe
     assert unit.page_to_card_job_id == 12
     assert client.created_jobs == [
         {
-            "queue_name": "source_pipeline.page_to_card",
+            "queue_name": "page_to_card",
             "priority": "normal",
             "instruction": build_page_to_card_instruction(),
             "output_schema": {
@@ -193,6 +193,7 @@ async def test_tick_rereads_page_to_card_result_and_fans_out_reviews(
 
     assert [job.ordinal for job in review_jobs] == [0, 1]
     assert [job.job_queue_job_id for job in review_jobs] == [21, 22]
+    assert [job["queue_name"] for job in client.created_jobs] == ["card_review", "card_review"]
     assert [job["instruction"] for job in client.created_jobs] == [
         build_card_review_instruction(),
         build_card_review_instruction(),

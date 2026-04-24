@@ -71,7 +71,7 @@ class PipelineRuntimeService:
     async def _submit_page_to_card(self, unit: WorkflowUnit) -> None:
         source_unit = SourceUnit.model_validate(unit.payload)
         unit.page_to_card_job_id = await self._job_queue_client.create_job(
-            queue_name="source_pipeline.page_to_card",
+            queue_name="page_to_card",
             priority="normal",
             instruction=build_page_to_card_instruction(),
             output_schema=export_page_to_card_output_schema(),
@@ -138,7 +138,7 @@ class PipelineRuntimeService:
 
             card = cards[review_job.ordinal]
             review_job.job_queue_job_id = await self._job_queue_client.create_job(
-                queue_name="source_pipeline.card_review",
+                queue_name="card_review",
                 priority="normal",
                 instruction=build_card_review_instruction(),
                 output_schema=export_card_review_output_schema(),

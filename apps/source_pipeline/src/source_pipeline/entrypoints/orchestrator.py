@@ -16,6 +16,7 @@ from source_pipeline.db.session import SessionFactory, build_session_factory
 from source_pipeline.page_to_card.contracts import CardDraft
 from source_pipeline.pipeline_handoff.ports import ReviewHandoffPort
 from source_pipeline.pipeline_runtime.job_queue_client import JobQueueClient
+from source_pipeline.pipeline_runtime.job_queue_token import ClientCredentialsTokenProvider
 from source_pipeline.pipeline_runtime.service import PipelineRuntimeService
 
 
@@ -52,8 +53,13 @@ def build_runtime() -> OrchestratorRuntime:
         session_factory=session_factory,
         job_queue_client=JobQueueClient(
             base_url=settings.job_queue_base_url,
-            producer_token=settings.producer_token,
-            results_reader_token=settings.results_reader_token,
+            token_provider=ClientCredentialsTokenProvider(
+                token_url=settings.job_queue_token_url,
+                client_id=settings.job_queue_client_id,
+                client_secret=settings.job_queue_client_secret,
+                resource=settings.job_queue_resource,
+                scope=settings.job_queue_scopes,
+            ),
         ),
         review_handoff=UnconfiguredReviewHandoff(),
     )

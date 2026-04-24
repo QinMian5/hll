@@ -17,7 +17,6 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
 
 ## Constraint Projection
 - **Governing Constraints:** Repository boundaries remain explicit, source-processing orchestration stays isolated from the online API runtime, environment behavior remains reproducible, and active specs capture only current accepted truth.
-- **Detail Commitments:** The repository contains a project-owned `source_pipeline` app. `pipeline_intake` accepts one external config or normalized unit input and materializes minimal local orchestration state. `pipeline_runtime` continuously interacts with `job-queue-mcp`, stores only the linkage state that the queue cannot provide, and advances accepted step transitions. The `page-to-card` step returns an accepted payload object with a `cards` array, including valid empty arrays. Each returned card fans out into one `card-review` job. `card-review` returns the existing six review dimensions. Source-side processed bookkeeping happens before work reaches this app and is outside this design.
 - **Detail Commitments:** The repository contains a project-owned `source_pipeline` app. `pipeline_intake` accepts one external config or normalized unit input and materializes minimal local orchestration state. `pipeline_runtime` continuously interacts with `job-queue-mcp`, stores only the linkage state that the queue cannot provide, and advances accepted step transitions. The `page-to-card` step returns an accepted payload object with a `cards` array, including valid empty arrays. Each returned card fans out into one `card-review` job. `card-review` returns the existing six review dimensions. Source pipeline owns its own dedicated PostgreSQL service, app-local Alembic lineage, and PostgreSQL-backed integration tests. Source-side processed bookkeeping happens before work reaches this app and is outside this design.
 - **Update Rule:** Requirement-level governance stays stable while this design owns source-pipeline runtime boundaries, minimal local state, step contracts, and file placement.
 
@@ -52,6 +51,8 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - **Long-running orchestrator service:** `pipeline_runtime` runs as one dedicated process that continuously polls pending step jobs, reads accepted results, and advances state transitions.
   - **Queue-only execution boundary:** The project submits standardized step jobs to `job-queue-mcp` and consumes accepted results plus authoritative job views from the queue read surfaces. Worker-side execution mechanics are outside this app boundary.
   - **App-local configuration contract:** The app owns `SOURCE_PIPELINE_DATABASE_URL` and `SOURCE_PIPELINE_MIGRATION_DATABASE_URL` and must not reuse API or knowledge-corpus database URL names.
+  - **Job-queue authentication boundary:** The runtime authenticates to `job-queue-mcp` with a Logto machine-to-machine client-credentials flow. It stores client credentials as environment configuration, requests short-lived access tokens at runtime, and does not store static producer or results-reader bearer tokens.
+  - **Production network boundary:** In production, the orchestrator joins the shared `proxy` network and reaches `job-queue-mcp` through the queue stack's reverse-proxy hostnames. It does not join the queue stack's private backend network or rely on container-name shortcuts.
   - **`SourceUnit` contract:** The normalized unit contains:
     - `source_kind`
     - `source_ref`
@@ -59,6 +60,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     - `content`
     - `metadata`
     `source_ref` is the source-owned opaque identifier. Source-specific bookkeeping is external to this app.
+  - **`page-to-card` queue name:** The page-to-card step submits jobs to the `page_to_card` queue.
   - **`page-to-card` input contract:** The step input is one `SourceUnit`.
   - **`page-to-card` task guidance:** The `page-to-card` job instruction carries the extraction policy and atomic-card selection guidance. That instruction remains task-specific and does not carry transport-generic worker protocol rules.
   - **`page-to-card` result contract:** The accepted result payload is a JSON object with one required field:
@@ -69,6 +71,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     `{ "cards": [] }` is a valid accepted result and means that the source unit produced no kept cards.
   - **No in-project execution assumptions:** The source-pipeline app does not define or own sessions, agents, prompts, tools, workspaces, or model selection on the worker side.
   - **`card-review` fan-out rule:** Each `CardDraft` returned by `page-to-card` produces one independent `card-review` job. Runtime bookkeeping may include row order or array index metadata, but that ordering is not a stable business identity.
+  - **`card-review` queue name:** The card-review step submits jobs to the `card_review` queue.
   - **`card-review` input contract:** The step input is one `CardDraft`.
   - **`card-review` task guidance split:** The `card-review` job instruction stays minimal and task-framing only. The detailed six-dimension review semantics live in the Pydantic-authored output-schema field descriptions exported with the job contract.
   - **`card-review` result contract:** The accepted result payload contains exactly:

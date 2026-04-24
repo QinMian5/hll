@@ -11,6 +11,8 @@ from typing import Any, Literal
 import httpx
 from pydantic import BaseModel, ConfigDict
 
+from source_pipeline.pipeline_runtime.job_queue_token import AccessTokenProvider
+
 type JsonObject = dict[str, Any]
 type JobPriority = Literal["low", "normal", "high", "critical"]
 
@@ -42,12 +44,10 @@ class JobQueueClient:
         self,
         *,
         base_url: str,
-        producer_token: str,
-        results_reader_token: str,
+        token_provider: AccessTokenProvider,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
-        self._producer_token = producer_token
-        self._results_reader_token = results_reader_token
+        self._token_provider = token_provider
         self._client = httpx.AsyncClient(
             base_url=base_url,
             transport=transport,
@@ -63,9 +63,10 @@ class JobQueueClient:
         payload: JsonObject | None = None,
         metadata: JsonObject | None = None,
     ) -> int:
+        access_token = await self._token_provider.get_access_token()
         response = await self._client.post(
             "/producer/jobs",
-            headers={"Authorization": f"Bearer {self._producer_token}"},
+            headers={"Authorization": f"Bearer {access_token}"},
             json={
                 "queue_name": queue_name,
                 "priority": priority,
@@ -79,9 +80,10 @@ class JobQueueClient:
         return int(response.json()["job_id"])
 
     async def get_result(self, *, job_id: int) -> JobResult:
+        access_token = await self._token_provider.get_access_token()
         response = await self._client.get(
             f"/results/{job_id}",
-            headers={"Authorization": f"Bearer {self._results_reader_token}"},
+            headers={"Authorization": f"Bearer {access_token}"},
         )
         if response.status_code == 202:
             return NotReadyJobResult.model_validate(response.json())
@@ -91,3 +93,4 @@ class JobQueueClient:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+        await self._token_provider.aclose()

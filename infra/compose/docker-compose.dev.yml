@@ -1,7 +1,10 @@
 # abstract: Development overrides for the Docker Compose base topology.
 # out_of_scope: Production runtime hardening and host-level security controls.
+name: knowledge-dev
+
 services:
   postgres:
+    image: knowledge-postgres:dev
     networks:
       - backend
       - edge
@@ -9,6 +12,7 @@ services:
       - "5432:5432"
 
   knowledge_corpus_db:
+    image: knowledge-corpus-postgres:dev
     command:
       - postgres
       - -c
@@ -23,25 +27,32 @@ services:
     ports:
       - "5433:5432"
 
+  source_pipeline_db:
+    image: knowledge-source-pipeline-postgres:dev
+
   migrate:
+    image: knowledge-api:dev
     volumes:
       - ../../apps/api/src:/app/apps/api/src
       - ../../apps/api/alembic:/app/apps/api/alembic
       - ../../apps/api/alembic.ini:/app/apps/api/alembic.ini
 
   knowledge_corpus_migrate:
+    image: knowledge-corpus-migrate:dev
     volumes:
       - ../../apps/knowledge_corpus/src:/app/apps/knowledge_corpus/src
       - ../../apps/knowledge_corpus/alembic:/app/apps/knowledge_corpus/alembic
       - ../../apps/knowledge_corpus/alembic.ini:/app/apps/knowledge_corpus/alembic.ini
 
   source_pipeline_migrate:
+    image: knowledge-source-pipeline:dev
     volumes:
       - ../../apps/source_pipeline/src:/app/apps/source_pipeline/src
       - ../../apps/source_pipeline/alembic:/app/apps/source_pipeline/alembic
       - ../../apps/source_pipeline/alembic.ini:/app/apps/source_pipeline/alembic.ini
 
   api:
+    image: knowledge-api:dev
     environment:
       API_RELOAD: "1"
     volumes:
@@ -52,9 +63,16 @@ services:
       - "8001:8000"
 
   worker:
+    image: knowledge-api:dev
+
+  orchestrator:
+    image: knowledge-source-pipeline:dev
+    profiles: ["orchestrator"]
+
   web:
     build:
       target: dev
+    image: knowledge-web:dev
     environment:
       API_PROXY_TARGET: http://api:8000
     volumes:
@@ -62,13 +80,3 @@ services:
       - ../../packages/contracts:/workspace/packages/contracts
     ports:
       - "5174:5173"
-
-volumes:
-  knowledge_postgres_data:
-    name: knowledge_postgres_dev_data
-  knowledge_corpus_postgres_data:
-    name: knowledge_corpus_postgres_dev_data
-  source_pipeline_postgres_data:
-    name: source_pipeline_postgres_dev_data
-  knowledge_redis_data:
-    name: knowledge_redis_dev_data
