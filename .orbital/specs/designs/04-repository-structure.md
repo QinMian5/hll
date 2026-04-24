@@ -130,6 +130,7 @@ apps/source_pipeline/
       pipeline_runtime/
       page_to_card/
       card_review/
+      card_repair/
       pipeline_handoff/
   tests/
 ```
@@ -167,6 +168,7 @@ packages/contracts/
 14. `apps/knowledge_corpus` is isolated local/offline ownership and not imported by online apps.
 15. `apps/source_pipeline` owns project-level source-processing runtime and remains source-agnostic within this repository boundary.
 16. `apps/source_pipeline` must not import `apps/api/src/entrypoints/**`.
+17. `apps/source_pipeline` interacts with the online knowledge system only through accepted HTTP contracts and must not import `apps/api/src/modules/ingestion/**`, `apps/api/src/modules/knowledge_graph/**`, or write knowledge database tables directly.
 
 ## Governance Anchors
 - Architecture constraints: `03-architecture-constraints`.

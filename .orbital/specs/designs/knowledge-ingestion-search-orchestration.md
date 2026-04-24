@@ -51,9 +51,16 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ### Ingestion Endpoint
 - Route: `POST /api/v1/cards`
 - Request fields: `title`, `content`
+- Optional request header: `Idempotency-Key`
 - Response:
   - invalid payload: `4xx` via global error-governance mapping
-  - valid payload: `202 Accepted`
+  - repeated `Idempotency-Key` with conflicting payload: `409 Conflict`
+  - valid first submission: `202 Accepted`
+  - repeated `Idempotency-Key` with identical payload: `202 Accepted`
+- Idempotency behavior:
+  - requests with the same non-empty `Idempotency-Key` and same card payload are treated as the same logical accepted submission
+  - repeated accepted submissions for the same idempotency key and same card payload must return `202 Accepted` without enqueueing duplicate ingestion work or materializing duplicate knowledge cards
+  - repeated idempotency keys with different card payloads are rejected with `409 Conflict`
 
 ### Search Endpoint
 - Route: `GET /api/v1/search?query=<string>`
@@ -114,11 +121,12 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ## Async Processing Flow
 1. API validates ingestion request payload.
 2. API returns `4xx` for invalid payload.
-3. API publishes Dramatiq message through ingestion-owned publisher adapter.
-4. API returns `202` for valid payload.
-5. Worker actor receives task and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
-6. Worker persists node and edges through `knowledge_graph` write service.
-7. Worker computes edge strength as `(dot_product + 1) / 2`, applies configured threshold/top-k, then persists `Edge` and `Adjacency`.
+3. API enforces idempotency when a non-empty `Idempotency-Key` header is present.
+4. API publishes Dramatiq message through ingestion-owned publisher adapter for the first accepted submission of one idempotency key.
+5. API returns `202` for valid payload.
+6. Worker actor receives task and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
+7. Worker persists node and edges through `knowledge_graph` write service.
+8. Worker computes edge strength as `(dot_product + 1) / 2`, applies configured threshold/top-k, then persists `Edge` and `Adjacency`.
 
 ## Taxonomy Bootstrap Flow
 1. Operator script reads `human_workspace/LCC.yaml`.
@@ -156,6 +164,10 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ## Validation
 - **Checks:**
   - `POST /api/v1/cards` contract checks (`4xx` invalid, `202` valid)
+  - ingestion idempotency checks verifying first same-key submission publishes once and returns `202 Accepted`
+  - ingestion idempotency checks verifying same-key same-payload replay returns `202 Accepted` without enqueueing duplicate ingestion work or materializing duplicate knowledge cards
+  - ingestion idempotency checks verifying same-key conflicting payload returns `409 Conflict`
+  - ingestion idempotency checks verifying timeout or connection-loss retry after an already accepted original request converges through same-key replay
   - `GET /api/v1/search` contract checks
   - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, and `POST /api/v1/taxonomy/view/leaves/{id}/details` contract checks
   - architecture checks that `search`/`ingestion` do not import `knowledge_graph.repo/model`
