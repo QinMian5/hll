@@ -33,7 +33,7 @@ async def test_materialize_config_creates_run_and_units(db_session: AsyncSession
         },
     )
 
-    assert run.id == 1
+    assert run.id > 0
     units = list(
         (
             await db_session.execute(
@@ -42,4 +42,6 @@ async def test_materialize_config_creates_run_and_units(db_session: AsyncSession
         ).scalars()
     )
     assert len(units) == 1
+    assert units[0].workflow_run_id == run.id
+    assert units[0].source_ref == "a"
     assert units[0].page_to_card_job_id is None

@@ -11,6 +11,7 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from core.config import load_migration_settings
+from modules.ingestion import model as ingestion_model
 from modules.knowledge_graph import model as knowledge_graph_model
 from modules.taxonomy import model as taxonomy_model
 from shared.db.base import Base
@@ -25,7 +26,7 @@ settings = load_migration_settings()
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 target_metadata = Base.metadata
-REGISTERED_MODEL_MODULES = (knowledge_graph_model, taxonomy_model)
+REGISTERED_MODEL_MODULES = (knowledge_graph_model, taxonomy_model, ingestion_model)
 
 
 def run_migrations_offline() -> None:

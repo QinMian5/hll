@@ -93,6 +93,41 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /**
+     * ErrorCode
+     * @enum {string}
+     */
+    ErrorCode:
+      | "APPLICATION_API_INPUT_INVALID"
+      | "APPLICATION_INGESTION_PAYLOAD_INVALID"
+      | "APPLICATION_INGESTION_STATE_CONFLICT"
+      | "APPLICATION_TAXONOMY_INPUT_INVALID"
+      | "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND"
+      | "DOMAIN_KNOWLEDGE_RULE_VIOLATION"
+      | "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND"
+      | "APPLICATION_SEARCH_STATE_CONFLICT"
+      | "INFRA_DB_CONNECTION_UNAVAILABLE"
+      | "INFRA_EMBEDDING_SERVICE_UNAVAILABLE"
+      | "INFRA_QUEUE_UNAVAILABLE"
+      | "INTERNAL_API_UNEXPECTED_ERROR";
+    /** ErrorEnvelope */
+    ErrorEnvelope: {
+      error: components["schemas"]["ErrorPayload"];
+    };
+    /** ErrorPayload */
+    ErrorPayload: {
+      code: components["schemas"]["ErrorCode"];
+      /** Details */
+      details?: {
+        [key: string]: unknown;
+      };
+      /** Hint */
+      hint: string;
+      /** Message */
+      message: string;
+      /** Request Id */
+      request_id: string;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -251,7 +286,9 @@ export interface operations {
   create_ingestion_api_v1_cards_post: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        "Idempotency-Key"?: string | null;
+      };
       path?: never;
       cookie?: never;
     };
@@ -268,6 +305,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["IngestionAcceptedResponse"];
+        };
+      };
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
         };
       };
       /** @description Validation Error */

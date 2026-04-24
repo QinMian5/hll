@@ -12,9 +12,11 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from source_pipeline.card_repair.contracts import CardRepairInput
+from source_pipeline.card_repair.instruction import build_card_repair_instruction
 from source_pipeline.card_review.contracts import ReviewItem, ReviewResult
 from source_pipeline.card_review.instruction import build_card_review_instruction
-from source_pipeline.db.models import CardReviewJob, WorkflowRun, WorkflowUnit
+from source_pipeline.db.models import CardCandidate, WorkflowRun, WorkflowUnit
 from source_pipeline.page_to_card.contracts import CardDraft
 from source_pipeline.page_to_card.instruction import build_page_to_card_instruction
 from source_pipeline.pipeline_runtime.job_queue_client import AcceptedJobResult, NotReadyJobResult
@@ -40,30 +42,21 @@ class FakeJobQueueClient:
 
 
 @dataclass
-class FakeReviewHandoff:
+class FakeAcceptedCardHandoff:
     calls: list[dict[str, object]] = field(default_factory=list)
 
     async def handoff(
         self,
         *,
-        workflow_unit_id: int,
-        ordinal: int,
+        candidate_id: int,
         card: CardDraft,
-        review: ReviewResult,
     ) -> None:
-        self.calls.append(
-            {
-                "workflow_unit_id": workflow_unit_id,
-                "ordinal": ordinal,
-                "card": card,
-                "review": review,
-            }
-        )
+        self.calls.append({"candidate_id": candidate_id, "card": card})
 
 
-def build_page_result(*cards: tuple[str, str]) -> AcceptedJobResult:
+def build_page_result(*cards: tuple[str, str], job_id: int = 12) -> AcceptedJobResult:
     return AcceptedJobResult(
-        job_id=12,
+        job_id=job_id,
         submission_id=1,
         received_at=datetime(2026, 4, 20, 23, 0, tzinfo=UTC),
         result_payload={
@@ -72,7 +65,7 @@ def build_page_result(*cards: tuple[str, str]) -> AcceptedJobResult:
     )
 
 
-def build_review_result(*, job_id: int) -> AcceptedJobResult:
+def build_review_result(*, job_id: int, passed: bool = True) -> AcceptedJobResult:
     return AcceptedJobResult(
         job_id=job_id,
         submission_id=1,
@@ -80,12 +73,30 @@ def build_review_result(*, job_id: int) -> AcceptedJobResult:
         result_payload=ReviewResult(
             title_validity=ReviewItem(passed=True, reason=None),
             title_content_alignment=ReviewItem(passed=True, reason=None),
-            title_style_validity=ReviewItem(passed=True, reason=None),
+            title_style_validity=ReviewItem(
+                passed=passed,
+                reason=None if passed else "Title style is invalid.",
+            ),
             content_coherence=ReviewItem(passed=True, reason=None),
             content_atomicity=ReviewItem(passed=True, reason=None),
             content_latex_validity=ReviewItem(passed=True, reason=None),
         ).model_dump(mode="json"),
     )
+
+
+def build_repair_result(*cards: tuple[str, str], job_id: int = 31) -> AcceptedJobResult:
+    return AcceptedJobResult(
+        job_id=job_id,
+        submission_id=1,
+        received_at=datetime(2026, 4, 20, 23, 2, tzinfo=UTC),
+        result_payload={
+            "cards": [{"title": title, "content": content} for title, content in cards],
+        },
+    )
+
+
+def not_ready(*, job_id: int, state: str = "RUNNING") -> NotReadyJobResult:
+    return NotReadyJobResult(job_id=job_id, state=state, result_ready=False)
 
 
 async def create_workflow_unit(db_session: AsyncSession) -> WorkflowUnit:
@@ -113,59 +124,34 @@ async def create_workflow_unit(db_session: AsyncSession) -> WorkflowUnit:
     return unit
 
 
+async def list_candidates(db_session: AsyncSession, unit: WorkflowUnit) -> list[CardCandidate]:
+    return list(
+        (
+            await db_session.execute(
+                select(CardCandidate)
+                .where(CardCandidate.workflow_unit_id == unit.id)
+                .order_by(CardCandidate.id)
+            )
+        ).scalars()
+    )
+
+
 async def test_tick_submits_page_to_card_when_job_id_missing(db_session: AsyncSession) -> None:
     unit = await create_workflow_unit(db_session)
     client = FakeJobQueueClient(create_job_ids=[12])
-    handoff = FakeReviewHandoff()
-    service = PipelineRuntimeService(db_session, job_queue_client=client, review_handoff=handoff)
+    handoff = FakeAcceptedCardHandoff()
+    service = PipelineRuntimeService(db_session, job_queue_client=client, card_handoff=handoff)
 
     await service.tick()
     await db_session.refresh(unit)
 
     assert unit.page_to_card_job_id == 12
-    assert client.created_jobs == [
-        {
-            "queue_name": "page_to_card",
-            "priority": "normal",
-            "instruction": build_page_to_card_instruction(),
-            "output_schema": {
-                "type": "object",
-                "properties": {
-                    "cards": {
-                        "type": "array",
-                        "items": {"$ref": "#/$defs/CardDraft"},
-                        "title": "Cards",
-                    }
-                },
-                "required": ["cards"],
-                "title": "PageToCardResult",
-                "$defs": {
-                    "CardDraft": {
-                        "type": "object",
-                        "properties": {
-                            "title": {"type": "string", "title": "Title"},
-                            "content": {"type": "string", "title": "Content"},
-                        },
-                        "required": ["title", "content"],
-                        "title": "CardDraft",
-                        "additionalProperties": False,
-                    }
-                },
-                "additionalProperties": False,
-            },
-            "payload": {
-                "source_kind": "external",
-                "source_ref": "page-1",
-                "title": "Page 1",
-                "content": "Body",
-                "metadata": {},
-            },
-            "metadata": {"workflow_unit_id": unit.id},
-        }
-    ]
+    assert client.created_jobs[0]["queue_name"] == "page_to_card"
+    assert client.created_jobs[0]["instruction"] == build_page_to_card_instruction()
+    assert client.created_jobs[0]["metadata"] == {"workflow_unit_id": unit.id}
 
 
-async def test_tick_rereads_page_to_card_result_and_fans_out_reviews(
+async def test_tick_creates_candidates_and_review_jobs_from_page_result(
     db_session: AsyncSession,
 ) -> None:
     unit = await create_workflow_unit(db_session)
@@ -174,25 +160,22 @@ async def test_tick_rereads_page_to_card_result_and_fans_out_reviews(
 
     client = FakeJobQueueClient(
         create_job_ids=[21, 22],
-        results_by_job_id={12: build_page_result(("Card A", "A body"), ("Card B", "B body"))},
+        results_by_job_id={
+            12: build_page_result(("Card A", "A body"), ("Card B", "B body")),
+            21: not_ready(job_id=21),
+            22: not_ready(job_id=22),
+        },
     )
-    handoff = FakeReviewHandoff()
-    service = PipelineRuntimeService(db_session, job_queue_client=client, review_handoff=handoff)
+    handoff = FakeAcceptedCardHandoff()
+    service = PipelineRuntimeService(db_session, job_queue_client=client, card_handoff=handoff)
 
     await service.tick()
+    await service.tick()
 
-    review_jobs = list(
-        (
-            await db_session.execute(
-                select(CardReviewJob)
-                .where(CardReviewJob.workflow_unit_id == unit.id)
-                .order_by(CardReviewJob.ordinal)
-            )
-        ).scalars()
-    )
-
-    assert [job.ordinal for job in review_jobs] == [0, 1]
-    assert [job.job_queue_job_id for job in review_jobs] == [21, 22]
+    candidates = await list_candidates(db_session, unit)
+    assert [candidate.origin_ordinal for candidate in candidates] == [0, 1]
+    assert [candidate.card_payload["title"] for candidate in candidates] == ["Card A", "Card B"]
+    assert [candidate.review_job_id for candidate in candidates] == [21, 22]
     assert [job["queue_name"] for job in client.created_jobs] == ["card_review", "card_review"]
     assert [job["instruction"] for job in client.created_jobs] == [
         build_card_review_instruction(),
@@ -200,33 +183,260 @@ async def test_tick_rereads_page_to_card_result_and_fans_out_reviews(
     ]
 
 
-async def test_tick_marks_handoff_done_without_persisting_review_payload(
+async def test_tick_with_empty_page_cards_creates_no_candidates_or_review_jobs(
     db_session: AsyncSession,
 ) -> None:
     unit = await create_workflow_unit(db_session)
     unit.page_to_card_job_id = 12
-    await db_session.flush()
-    review_job = CardReviewJob(
-        workflow_unit_id=unit.id,
-        ordinal=0,
-        job_queue_job_id=21,
-        handoff_done=False,
+    await db_session.commit()
+    client = FakeJobQueueClient(results_by_job_id={12: build_page_result()})
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
     )
-    db_session.add(review_job)
+
+    await service.tick()
+
+    assert await list_candidates(db_session, unit) == []
+    assert client.created_jobs == []
+
+
+async def test_tick_hands_off_passed_review_and_marks_candidate_done(
+    db_session: AsyncSession,
+) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    candidate = CardCandidate(
+        workflow_unit_id=unit.id,
+        card_payload={"title": "Card A", "content": "A body"},
+        origin_step="page_to_card",
+        origin_job_id=12,
+        origin_ordinal=0,
+        review_job_id=21,
+    )
+    db_session.add(candidate)
     await db_session.commit()
 
     client = FakeJobQueueClient(
         results_by_job_id={
             12: build_page_result(("Card A", "A body")),
-            21: build_review_result(job_id=21),
+            21: build_review_result(job_id=21, passed=True),
         }
     )
-    handoff = FakeReviewHandoff()
-    service = PipelineRuntimeService(db_session, job_queue_client=client, review_handoff=handoff)
+    handoff = FakeAcceptedCardHandoff()
+    service = PipelineRuntimeService(db_session, job_queue_client=client, card_handoff=handoff)
 
     await service.tick()
-    await db_session.refresh(review_job)
+    await db_session.refresh(candidate)
 
-    assert review_job.handoff_done is True
-    assert len(handoff.calls) == 1
-    assert "result_payload" not in CardReviewJob.__table__.c
+    assert candidate.ingestion_handoff_done is True
+    assert handoff.calls == [
+        {
+            "candidate_id": candidate.id,
+            "card": CardDraft(title="Card A", content="A body"),
+        }
+    ]
+    assert "result_payload" not in CardCandidate.__table__.c
+
+
+async def test_tick_submits_repair_job_for_failed_review_once(db_session: AsyncSession) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    candidate = CardCandidate(
+        workflow_unit_id=unit.id,
+        card_payload={"title": "bad title", "content": "A body"},
+        origin_step="page_to_card",
+        origin_job_id=12,
+        origin_ordinal=0,
+        review_job_id=21,
+    )
+    db_session.add(candidate)
+    await db_session.commit()
+
+    client = FakeJobQueueClient(
+        create_job_ids=[31],
+        results_by_job_id={
+            12: build_page_result(("bad title", "A body")),
+            21: build_review_result(job_id=21, passed=False),
+            31: not_ready(job_id=31),
+        },
+    )
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+    )
+
+    await service.tick()
+    await service.tick()
+    await db_session.refresh(candidate)
+
+    assert candidate.repair_job_id == 31
+    assert [job["queue_name"] for job in client.created_jobs] == ["card_repair"]
+    assert client.created_jobs[0]["instruction"] == build_card_repair_instruction()
+    repair_input = CardRepairInput.model_validate(client.created_jobs[0]["payload"])
+    assert repair_input.card.title == "bad title"
+    assert repair_input.review.title_style_validity.passed is False
+
+
+async def test_tick_repair_empty_cards_stops_lineage(db_session: AsyncSession) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    candidate = CardCandidate(
+        workflow_unit_id=unit.id,
+        card_payload={"title": "bad title", "content": "A body"},
+        origin_step="page_to_card",
+        origin_job_id=12,
+        origin_ordinal=0,
+        review_job_id=21,
+        repair_job_id=31,
+    )
+    db_session.add(candidate)
+    await db_session.commit()
+
+    client = FakeJobQueueClient(
+        results_by_job_id={
+            12: build_page_result(("bad title", "A body")),
+            21: build_review_result(job_id=21, passed=False),
+            31: build_repair_result(),
+        }
+    )
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+    )
+
+    await service.tick()
+
+    assert [candidate.id for candidate in await list_candidates(db_session, unit)] == [candidate.id]
+
+
+async def test_tick_repair_cards_create_child_candidates_that_reenter_review(
+    db_session: AsyncSession,
+) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    candidate = CardCandidate(
+        workflow_unit_id=unit.id,
+        card_payload={"title": "bad title", "content": "A body"},
+        origin_step="page_to_card",
+        origin_job_id=12,
+        origin_ordinal=0,
+        review_job_id=21,
+        repair_job_id=31,
+    )
+    db_session.add(candidate)
+    await db_session.commit()
+
+    client = FakeJobQueueClient(
+        create_job_ids=[41, 42],
+        results_by_job_id={
+            12: build_page_result(("bad title", "A body")),
+            21: build_review_result(job_id=21, passed=False),
+            31: build_repair_result(("Card A", "A body"), ("Card B", "B body")),
+            41: not_ready(job_id=41),
+            42: not_ready(job_id=42),
+        },
+    )
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+    )
+
+    await service.tick()
+    await service.tick()
+    await service.tick()
+
+    candidates = await list_candidates(db_session, unit)
+    assert [item.parent_candidate_id for item in candidates] == [None, candidate.id, candidate.id]
+    assert [item.card_payload["title"] for item in candidates] == ["bad title", "Card A", "Card B"]
+    assert [item.review_job_id for item in candidates[1:]] == [41, 42]
+    assert [job["queue_name"] for job in client.created_jobs] == ["card_review", "card_review"]
+
+
+async def test_terminal_non_accepted_page_result_stops_fanout(
+    db_session: AsyncSession,
+) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    await db_session.commit()
+    client = FakeJobQueueClient(results_by_job_id={12: not_ready(job_id=12, state="DEAD_LETTER")})
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+    )
+
+    await service.tick()
+
+    assert await list_candidates(db_session, unit) == []
+    assert client.created_jobs == []
+
+
+async def test_terminal_non_accepted_review_result_stops_repair_and_handoff(
+    db_session: AsyncSession,
+) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    candidate = CardCandidate(
+        workflow_unit_id=unit.id,
+        card_payload={"title": "Card A", "content": "A body"},
+        origin_step="page_to_card",
+        origin_job_id=12,
+        origin_ordinal=0,
+        review_job_id=21,
+    )
+    db_session.add(candidate)
+    await db_session.commit()
+    handoff = FakeAcceptedCardHandoff()
+    client = FakeJobQueueClient(
+        results_by_job_id={
+            12: build_page_result(("Card A", "A body")),
+            21: not_ready(job_id=21, state="DEAD_LETTER"),
+        }
+    )
+    service = PipelineRuntimeService(db_session, job_queue_client=client, card_handoff=handoff)
+
+    await service.tick()
+    await db_session.refresh(candidate)
+
+    assert candidate.repair_job_id is None
+    assert candidate.ingestion_handoff_done is False
+    assert handoff.calls == []
+
+
+async def test_terminal_non_accepted_repair_result_stops_child_candidate_creation(
+    db_session: AsyncSession,
+) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    candidate = CardCandidate(
+        workflow_unit_id=unit.id,
+        card_payload={"title": "bad title", "content": "A body"},
+        origin_step="page_to_card",
+        origin_job_id=12,
+        origin_ordinal=0,
+        review_job_id=21,
+        repair_job_id=31,
+    )
+    db_session.add(candidate)
+    await db_session.commit()
+    client = FakeJobQueueClient(
+        results_by_job_id={
+            12: build_page_result(("bad title", "A body")),
+            21: build_review_result(job_id=21, passed=False),
+            31: not_ready(job_id=31, state="DEAD_LETTER"),
+        }
+    )
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+    )
+
+    await service.tick()
+
+    assert [candidate.id for candidate in await list_candidates(db_session, unit)] == [candidate.id]

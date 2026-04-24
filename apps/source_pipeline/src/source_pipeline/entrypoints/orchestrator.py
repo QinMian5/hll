@@ -10,29 +10,12 @@ from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from source_pipeline.card_review.contracts import ReviewResult
 from source_pipeline.config import Settings, load_settings
 from source_pipeline.db.session import SessionFactory, build_session_factory
-from source_pipeline.page_to_card.contracts import CardDraft
-from source_pipeline.pipeline_handoff.ports import ReviewHandoffPort
+from source_pipeline.pipeline_handoff.knowledge_ingestion import KnowledgeIngestionHandoff
 from source_pipeline.pipeline_runtime.job_queue_client import JobQueueClient
 from source_pipeline.pipeline_runtime.job_queue_token import ClientCredentialsTokenProvider
 from source_pipeline.pipeline_runtime.service import PipelineRuntimeService
-
-
-class UnconfiguredReviewHandoff(ReviewHandoffPort):
-    async def handoff(
-        self,
-        *,
-        workflow_unit_id: int,
-        ordinal: int,
-        card: CardDraft,
-        review: ReviewResult,
-    ) -> None:
-        raise RuntimeError(
-            "Source-pipeline review handoff is not configured. "
-            "Wire a concrete downstream handoff before processing accepted review results."
-        )
 
 
 @dataclass(slots=True, frozen=True)
@@ -41,7 +24,7 @@ class OrchestratorRuntime:
     engine: AsyncEngine
     session_factory: SessionFactory
     job_queue_client: JobQueueClient
-    review_handoff: ReviewHandoffPort
+    card_handoff: KnowledgeIngestionHandoff
 
 
 def build_runtime() -> OrchestratorRuntime:
@@ -61,7 +44,7 @@ def build_runtime() -> OrchestratorRuntime:
                 scope=settings.job_queue_scopes,
             ),
         ),
-        review_handoff=UnconfiguredReviewHandoff(),
+        card_handoff=KnowledgeIngestionHandoff(base_url=settings.knowledge_api_base_url),
     )
 
 
@@ -72,13 +55,14 @@ async def run_forever(runtime: OrchestratorRuntime) -> None:
                 service = PipelineRuntimeService(
                     session,
                     job_queue_client=runtime.job_queue_client,
-                    review_handoff=runtime.review_handoff,
+                    card_handoff=runtime.card_handoff,
                 )
                 await service.tick()
 
             await asyncio.sleep(runtime.settings.poll_interval_seconds)
     finally:
         await runtime.job_queue_client.aclose()
+        await runtime.card_handoff.aclose()
         await runtime.engine.dispose()
 
 

@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     )
 
     database_url: str
+    knowledge_api_base_url: str
     job_queue_base_url: str
     job_queue_token_url: str
     job_queue_client_id: str

@@ -8,9 +8,15 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from source_pipeline.card_repair.contracts import (
+    CardRepairInput,
+    CardRepairResult,
+    export_card_repair_output_schema,
+)
+from source_pipeline.card_repair.instruction import build_card_repair_instruction
 from source_pipeline.card_review.contracts import ReviewResult, export_card_review_output_schema
 from source_pipeline.card_review.instruction import build_card_review_instruction
-from source_pipeline.db.models import CardReviewJob, WorkflowUnit
+from source_pipeline.db.models import CardCandidate, WorkflowUnit
 from source_pipeline.page_to_card.contracts import (
     CardDraft,
     PageToCardResult,
@@ -18,11 +24,14 @@ from source_pipeline.page_to_card.contracts import (
     export_page_to_card_output_schema,
 )
 from source_pipeline.page_to_card.instruction import build_page_to_card_instruction
-from source_pipeline.pipeline_handoff.ports import ReviewHandoffPort
+from source_pipeline.pipeline_handoff.ports import AcceptedCardHandoffPort
 from source_pipeline.pipeline_runtime.job_queue_client import (
+    AcceptedJobResult,
     JobQueueClient,
     NotReadyJobResult,
 )
+
+TERMINAL_NON_ACCEPTED_STATES = frozenset({"CANCELLED", "DEAD_LETTER", "FAILED", "EXPIRED"})
 
 
 class PipelineRuntimeService:
@@ -31,11 +40,11 @@ class PipelineRuntimeService:
         session: AsyncSession,
         *,
         job_queue_client: JobQueueClient,
-        review_handoff: ReviewHandoffPort,
+        card_handoff: AcceptedCardHandoffPort,
     ) -> None:
         self._session = session
         self._job_queue_client = job_queue_client
-        self._review_handoff = review_handoff
+        self._card_handoff = card_handoff
 
     async def tick(self) -> None:
         units = list(
@@ -49,22 +58,10 @@ class PipelineRuntimeService:
 
             page_result = await self._job_queue_client.get_result(job_id=unit.page_to_card_job_id)
             if isinstance(page_result, NotReadyJobResult):
-                self._raise_if_dead_letter(page_result)
                 continue
 
-            page_cards = PageToCardResult.model_validate(page_result.result_payload).cards
-            review_jobs = await self._ensure_review_jobs(unit=unit, cards=page_cards)
-            submitted_ordinals = await self._submit_missing_review_jobs(
-                unit=unit,
-                cards=page_cards,
-                review_jobs=review_jobs,
-            )
-            await self._handoff_ready_reviews(
-                unit=unit,
-                cards=page_cards,
-                review_jobs=review_jobs,
-                skip_ordinals=submitted_ordinals,
-            )
+            await self._ensure_initial_candidates(unit=unit, page_result=page_result)
+            await self._advance_candidates(unit=unit)
 
         await self._session.commit()
 
@@ -80,115 +77,189 @@ class PipelineRuntimeService:
         )
         await self._session.flush()
 
-    async def _ensure_review_jobs(
+    async def _ensure_initial_candidates(
         self,
         *,
         unit: WorkflowUnit,
-        cards: list[CardDraft],
-    ) -> list[CardReviewJob]:
-        review_jobs = list(
-            (
-                await self._session.execute(
-                    select(CardReviewJob)
-                    .where(CardReviewJob.workflow_unit_id == unit.id)
-                    .order_by(CardReviewJob.ordinal)
-                )
-            ).scalars()
-        )
-        existing_ordinals = {job.ordinal for job in review_jobs}
+        page_result: AcceptedJobResult,
+    ) -> None:
+        cards = PageToCardResult.model_validate(page_result.result_payload).cards
+        existing_origins = await self._candidate_origins_for_unit(unit_id=unit.id)
+        page_job_id = self._require_job_id(unit.page_to_card_job_id)
 
-        for ordinal, _card in enumerate(cards):
-            if ordinal in existing_ordinals:
+        for ordinal, card in enumerate(cards):
+            origin = ("page_to_card", page_job_id, ordinal)
+            if origin in existing_origins:
                 continue
             self._session.add(
-                CardReviewJob(
+                CardCandidate(
                     workflow_unit_id=unit.id,
-                    ordinal=ordinal,
+                    card_payload=card.model_dump(mode="json"),
+                    origin_step=origin[0],
+                    origin_job_id=origin[1],
+                    origin_ordinal=origin[2],
                 )
             )
 
         await self._session.flush()
+
+    async def _advance_candidates(self, *, unit: WorkflowUnit) -> None:
+        candidates = await self._list_candidates_for_unit(unit_id=unit.id)
+
+        for candidate in candidates:
+            if candidate.review_job_id is None:
+                await self._submit_review_job(candidate)
+                continue
+
+            review_result = await self._job_queue_client.get_result(job_id=candidate.review_job_id)
+            if isinstance(review_result, NotReadyJobResult):
+                continue
+
+            review = ReviewResult.model_validate(review_result.result_payload)
+            if _review_passed(review):
+                await self._handoff_passed_candidate(candidate)
+                continue
+
+            if candidate.repair_job_id is None:
+                await self._submit_repair_job(candidate=candidate, review=review)
+                continue
+
+            repair_result = await self._job_queue_client.get_result(job_id=candidate.repair_job_id)
+            if isinstance(repair_result, NotReadyJobResult):
+                continue
+
+            await self._ensure_child_candidates(candidate=candidate, repair_result=repair_result)
+
+        await self._session.flush()
+
+    async def _submit_review_job(self, candidate: CardCandidate) -> None:
+        card = CardDraft.model_validate(candidate.card_payload)
+        candidate.review_job_id = await self._job_queue_client.create_job(
+            queue_name="card_review",
+            priority="normal",
+            instruction=build_card_review_instruction(),
+            output_schema=export_card_review_output_schema(),
+            payload=card.model_dump(mode="json"),
+            metadata={
+                "workflow_unit_id": candidate.workflow_unit_id,
+                "candidate_id": candidate.id,
+            },
+        )
+        await self._session.flush()
+
+    async def _handoff_passed_candidate(self, candidate: CardCandidate) -> None:
+        if candidate.ingestion_handoff_done:
+            return
+
+        await self._card_handoff.handoff(
+            candidate_id=candidate.id,
+            card=CardDraft.model_validate(candidate.card_payload),
+        )
+        candidate.ingestion_handoff_done = True
+        await self._session.flush()
+
+    async def _submit_repair_job(
+        self,
+        *,
+        candidate: CardCandidate,
+        review: ReviewResult,
+    ) -> None:
+        card = CardDraft.model_validate(candidate.card_payload)
+        repair_input = CardRepairInput(card=card, review=review)
+        candidate.repair_job_id = await self._job_queue_client.create_job(
+            queue_name="card_repair",
+            priority="normal",
+            instruction=build_card_repair_instruction(),
+            output_schema=export_card_repair_output_schema(),
+            payload=repair_input.model_dump(mode="json"),
+            metadata={
+                "workflow_unit_id": candidate.workflow_unit_id,
+                "candidate_id": candidate.id,
+            },
+        )
+        await self._session.flush()
+
+    async def _ensure_child_candidates(
+        self,
+        *,
+        candidate: CardCandidate,
+        repair_result: AcceptedJobResult,
+    ) -> None:
+        result = CardRepairResult.model_validate(repair_result.result_payload)
+        existing_origins = await self._candidate_origins_for_parent(
+            parent_candidate_id=candidate.id
+        )
+        repair_job_id = self._require_job_id(candidate.repair_job_id)
+
+        for ordinal, card in enumerate(result.cards):
+            origin = ("card_repair", repair_job_id, ordinal)
+            if origin in existing_origins:
+                continue
+            self._session.add(
+                CardCandidate(
+                    workflow_unit_id=candidate.workflow_unit_id,
+                    parent_candidate_id=candidate.id,
+                    card_payload=card.model_dump(mode="json"),
+                    origin_step=origin[0],
+                    origin_job_id=origin[1],
+                    origin_ordinal=origin[2],
+                )
+            )
+
+        await self._session.flush()
+
+    async def _list_candidates_for_unit(self, *, unit_id: int) -> list[CardCandidate]:
         return list(
             (
                 await self._session.execute(
-                    select(CardReviewJob)
-                    .where(CardReviewJob.workflow_unit_id == unit.id)
-                    .order_by(CardReviewJob.ordinal)
+                    select(CardCandidate)
+                    .where(CardCandidate.workflow_unit_id == unit_id)
+                    .order_by(CardCandidate.id)
                 )
             ).scalars()
         )
 
-    async def _submit_missing_review_jobs(
+    async def _candidate_origins_for_unit(self, *, unit_id: int) -> set[tuple[str, int, int]]:
+        candidates = await self._list_candidates_for_unit(unit_id=unit_id)
+        return {
+            (candidate.origin_step, candidate.origin_job_id, candidate.origin_ordinal)
+            for candidate in candidates
+        }
+
+    async def _candidate_origins_for_parent(
         self,
         *,
-        unit: WorkflowUnit,
-        cards: list[CardDraft],
-        review_jobs: list[CardReviewJob],
-    ) -> set[int]:
-        submitted_ordinals: set[int] = set()
-
-        for review_job in review_jobs:
-            if review_job.ordinal >= len(cards):
-                raise ValueError(
-                    "Review job ordinal "
-                    f"{review_job.ordinal} is out of range for workflow unit {unit.id}."
+        parent_candidate_id: int,
+    ) -> set[tuple[str, int, int]]:
+        candidates = list(
+            (
+                await self._session.execute(
+                    select(CardCandidate).where(
+                        CardCandidate.parent_candidate_id == parent_candidate_id
+                    )
                 )
-            if review_job.job_queue_job_id is not None:
-                continue
-
-            card = cards[review_job.ordinal]
-            review_job.job_queue_job_id = await self._job_queue_client.create_job(
-                queue_name="card_review",
-                priority="normal",
-                instruction=build_card_review_instruction(),
-                output_schema=export_card_review_output_schema(),
-                payload=card.model_dump(mode="json"),
-                metadata={"workflow_unit_id": unit.id, "ordinal": review_job.ordinal},
-            )
-            submitted_ordinals.add(review_job.ordinal)
-
-        await self._session.flush()
-        return submitted_ordinals
-
-    async def _handoff_ready_reviews(
-        self,
-        *,
-        unit: WorkflowUnit,
-        cards: list[CardDraft],
-        review_jobs: list[CardReviewJob],
-        skip_ordinals: set[int],
-    ) -> None:
-        for review_job in review_jobs:
-            if review_job.job_queue_job_id is None or review_job.handoff_done:
-                continue
-            if review_job.ordinal in skip_ordinals:
-                continue
-            if review_job.ordinal >= len(cards):
-                raise ValueError(
-                    "Review job ordinal "
-                    f"{review_job.ordinal} is out of range for workflow unit {unit.id}."
-                )
-
-            review_result = await self._job_queue_client.get_result(
-                job_id=review_job.job_queue_job_id
-            )
-            if isinstance(review_result, NotReadyJobResult):
-                self._raise_if_dead_letter(review_result)
-                continue
-
-            await self._review_handoff.handoff(
-                workflow_unit_id=unit.id,
-                ordinal=review_job.ordinal,
-                card=cards[review_job.ordinal],
-                review=ReviewResult.model_validate(review_result.result_payload),
-            )
-            review_job.handoff_done = True
-
-        await self._session.flush()
+            ).scalars()
+        )
+        return {
+            (candidate.origin_step, candidate.origin_job_id, candidate.origin_ordinal)
+            for candidate in candidates
+        }
 
     @staticmethod
-    def _raise_if_dead_letter(result: NotReadyJobResult) -> None:
-        if result.state == "DEAD_LETTER":
-            raise RuntimeError(
-                f"Job {result.job_id} reached DEAD_LETTER before an accepted result."
-            )
+    def _require_job_id(job_id: int | None) -> int:
+        if job_id is None:
+            raise RuntimeError("Expected source-pipeline job id to be present.")
+        return job_id
+
+
+def _review_passed(review: ReviewResult) -> bool:
+    return all(
+        (
+            review.title_validity.passed,
+            review.title_content_alignment.passed,
+            review.title_style_validity.passed,
+            review.content_coherence.passed,
+            review.content_atomicity.passed,
+            review.content_latex_validity.passed,
+        )
+    )

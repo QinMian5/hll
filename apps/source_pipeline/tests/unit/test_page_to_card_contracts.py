@@ -5,6 +5,7 @@ Out of scope: Queue transport behavior and runtime orchestration logic.
 
 from __future__ import annotations
 
+from source_pipeline.card_review.criteria import CARD_QUALITY_CRITERIA
 from source_pipeline.page_to_card.contracts import export_page_to_card_output_schema
 from source_pipeline.page_to_card.instruction import build_page_to_card_instruction
 
@@ -28,3 +29,10 @@ def test_page_to_card_instruction_encodes_task_guidance_without_protocol_noise()
     assert "If no worthwhile atomic knowledge units are present, return no cards." in instruction
     assert "about 10" not in instruction
     assert "Return ONLY a JSON object" not in instruction
+
+
+def test_page_to_card_instruction_uses_shared_quality_criteria() -> None:
+    instruction = build_page_to_card_instruction()
+
+    for criterion in CARD_QUALITY_CRITERIA:
+        assert criterion.title in instruction

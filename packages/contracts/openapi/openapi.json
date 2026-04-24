@@ -1,6 +1,73 @@
 {
   "components": {
     "schemas": {
+      "ErrorCode": {
+        "enum": [
+          "APPLICATION_API_INPUT_INVALID",
+          "APPLICATION_INGESTION_PAYLOAD_INVALID",
+          "APPLICATION_INGESTION_STATE_CONFLICT",
+          "APPLICATION_TAXONOMY_INPUT_INVALID",
+          "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND",
+          "DOMAIN_KNOWLEDGE_RULE_VIOLATION",
+          "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND",
+          "APPLICATION_SEARCH_STATE_CONFLICT",
+          "INFRA_DB_CONNECTION_UNAVAILABLE",
+          "INFRA_EMBEDDING_SERVICE_UNAVAILABLE",
+          "INFRA_QUEUE_UNAVAILABLE",
+          "INTERNAL_API_UNEXPECTED_ERROR"
+        ],
+        "title": "ErrorCode",
+        "type": "string"
+      },
+      "ErrorEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorPayload"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorEnvelope",
+        "type": "object"
+      },
+      "ErrorPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "hint": {
+            "minLength": 1,
+            "title": "Hint",
+            "type": "string"
+          },
+          "message": {
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "hint",
+          "request_id"
+        ],
+        "title": "ErrorPayload",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -467,6 +534,24 @@
     "/api/v1/cards": {
       "post": {
         "operationId": "create_ingestion_api_v1_cards_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -487,6 +572,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {

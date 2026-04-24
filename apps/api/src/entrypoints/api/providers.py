@@ -25,6 +25,7 @@ from entrypoints.runtime import (
     get_settings as get_runtime_settings,
 )
 from modules.ingestion.queue import IngestionTask, publish_ingestion_task
+from modules.ingestion.repo import IngestionIdempotencyRepo
 from modules.ingestion.service import IngestionService
 from modules.knowledge_graph.builders import build_knowledge_graph_service
 from modules.knowledge_graph.ports import (
@@ -103,6 +104,7 @@ def get_taxonomy_service(
 
 def get_ingestion_service(
     settings: Annotated[Settings, Depends(get_settings)],
+    session: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> IngestionService:
     def _publish(task: IngestionTask) -> None:
         publish_ingestion_task(
@@ -112,4 +114,5 @@ def get_ingestion_service(
 
     return IngestionService(
         task_publisher=_publish,
+        idempotency_repo=IngestionIdempotencyRepo(session=session),
     )

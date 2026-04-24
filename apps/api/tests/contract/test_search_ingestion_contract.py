@@ -20,11 +20,23 @@ def test_openapi_contains_search_and_ingestion_paths(
 
 
 @pytest.mark.contract
-def test_ingestion_openapi_includes_202_and_422_responses(
+def test_ingestion_openapi_includes_idempotency_header_and_responses(
     client: TestClient,
 ) -> None:
     openapi = client.app.openapi()
 
-    responses = openapi["paths"]["/api/v1/cards"]["post"]["responses"]
+    operation = openapi["paths"]["/api/v1/cards"]["post"]
+    parameters = operation["parameters"]
+    idempotency_parameters = [
+        parameter
+        for parameter in parameters
+        if parameter["in"] == "header" and parameter["name"] == "Idempotency-Key"
+    ]
+
+    assert idempotency_parameters
+    assert idempotency_parameters[0]["required"] is False
+
+    responses = operation["responses"]
     assert "202" in responses
+    assert "409" in responses
     assert "422" in responses

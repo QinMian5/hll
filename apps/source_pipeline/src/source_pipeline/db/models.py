@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Text, false, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, Text, UniqueConstraint, false, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from source_pipeline.db.base import Base
@@ -47,8 +47,24 @@ class WorkflowUnit(Base):
     )
 
 
-class CardReviewJob(Base):
-    __tablename__ = "card_review_jobs"
+class CardCandidate(Base):
+    __tablename__ = "card_candidates"
+    __table_args__ = (
+        UniqueConstraint(
+            "workflow_unit_id",
+            "origin_step",
+            "origin_job_id",
+            "origin_ordinal",
+            name="uq_card_candidates_workflow_origin",
+        ),
+        UniqueConstraint(
+            "parent_candidate_id",
+            "origin_step",
+            "origin_job_id",
+            "origin_ordinal",
+            name="uq_card_candidates_parent_origin",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     workflow_unit_id: Mapped[int] = mapped_column(
@@ -56,9 +72,18 @@ class CardReviewJob(Base):
         ForeignKey("workflow_units.id", ondelete="CASCADE"),
         nullable=False,
     )
-    ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
-    job_queue_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    handoff_done: Mapped[bool] = mapped_column(nullable=False, server_default=false())
+    parent_candidate_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("card_candidates.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    card_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    origin_step: Mapped[str] = mapped_column(Text, nullable=False)
+    origin_job_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    origin_ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
+    review_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    repair_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ingestion_handoff_done: Mapped[bool] = mapped_column(nullable=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
