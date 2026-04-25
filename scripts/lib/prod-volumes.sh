@@ -6,6 +6,7 @@ set -euo pipefail
 
 readonly PROD_EXTERNAL_VOLUMES=(
   "knowledge_postgres_prod_data"
+  "knowledge_logto_postgres_prod_data"
   "knowledge_corpus_postgres_prod_data"
   "source_pipeline_postgres_prod_data"
   "knowledge_redis_prod_data"

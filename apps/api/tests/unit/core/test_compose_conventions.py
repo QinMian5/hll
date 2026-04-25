@@ -14,6 +14,7 @@ BASE_COMPOSE = COMPOSE_DIR / "docker-compose.base.yml"
 DEV_COMPOSE = COMPOSE_DIR / "docker-compose.dev.yml"
 PROD_COMPOSE = COMPOSE_DIR / "docker-compose.prod.yml"
 TEST_COMPOSE = COMPOSE_DIR / "docker-compose.test.yml"
+PROD_VOLUMES_HELPER = REPO_ROOT / "scripts" / "lib" / "prod-volumes.sh"
 
 
 def _read(path: Path) -> str:
@@ -58,11 +59,22 @@ def test_prod_compose_owns_all_external_prod_volume_names() -> None:
 
     for volume_name in (
         "knowledge_postgres_prod_data",
+        "knowledge_logto_postgres_prod_data",
         "knowledge_corpus_postgres_prod_data",
         "source_pipeline_postgres_prod_data",
         "knowledge_redis_prod_data",
     ):
         assert f"name: {volume_name}" in prod
+
+
+def test_prod_volume_helper_tracks_prod_compose_external_volumes() -> None:
+    prod = _read(PROD_COMPOSE)
+    helper = _read(PROD_VOLUMES_HELPER)
+
+    external_volume_names = set(re.findall(r"(?m)^\s+name:\s+([a-z0-9_]+_prod_data)\s*$", prod))
+    helper_volume_names = set(re.findall(r'"([a-z0-9_]+_prod_data)"', helper))
+
+    assert helper_volume_names == external_volume_names
 
 
 def test_dev_compose_keeps_orchestrator_out_of_default_startup() -> None:
