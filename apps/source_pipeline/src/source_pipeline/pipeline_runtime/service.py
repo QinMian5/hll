@@ -41,22 +41,35 @@ class PipelineRuntimeService:
         *,
         job_queue_client: JobQueueClient,
         card_handoff: AcceptedCardHandoffPort,
+        poll_batch_size: int = 100,
     ) -> None:
+        if poll_batch_size < 1:
+            raise ValueError("poll_batch_size must be at least 1")
         self._session = session
         self._job_queue_client = job_queue_client
         self._card_handoff = card_handoff
+        self._poll_batch_size = poll_batch_size
 
     async def tick(self) -> None:
+        submitted_count = await self._submit_missing_page_to_card_jobs()
+        if submitted_count > 0:
+            await self._session.commit()
+            return
+
         units = list(
-            (await self._session.execute(select(WorkflowUnit).order_by(WorkflowUnit.id))).scalars()
+            (
+                await self._session.execute(
+                    select(WorkflowUnit)
+                    .where(WorkflowUnit.page_to_card_job_id.is_not(None))
+                    .order_by(WorkflowUnit.id)
+                )
+            ).scalars()
         )
 
         for unit in units:
-            if unit.page_to_card_job_id is None:
-                await self._submit_page_to_card(unit)
-                continue
-
-            page_result = await self._job_queue_client.get_result(job_id=unit.page_to_card_job_id)
+            page_result = await self._job_queue_client.get_result(
+                job_id=self._require_job_id(unit.page_to_card_job_id)
+            )
             if isinstance(page_result, NotReadyJobResult):
                 continue
 
@@ -64,6 +77,21 @@ class PipelineRuntimeService:
             await self._advance_candidates(unit=unit)
 
         await self._session.commit()
+
+    async def _submit_missing_page_to_card_jobs(self) -> int:
+        units = list(
+            (
+                await self._session.execute(
+                    select(WorkflowUnit)
+                    .where(WorkflowUnit.page_to_card_job_id.is_(None))
+                    .order_by(WorkflowUnit.id)
+                    .limit(self._poll_batch_size)
+                )
+            ).scalars()
+        )
+        for unit in units:
+            await self._submit_page_to_card(unit)
+        return len(units)
 
     async def _submit_page_to_card(self, unit: WorkflowUnit) -> None:
         source_unit = SourceUnit.model_validate(unit.payload)

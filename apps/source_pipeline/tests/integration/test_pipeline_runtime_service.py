@@ -29,6 +29,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.anyio]
 class FakeJobQueueClient:
     created_jobs: list[dict[str, object]] = field(default_factory=list)
     create_job_ids: list[int] = field(default_factory=list)
+    requested_result_job_ids: list[int] = field(default_factory=list)
     results_by_job_id: dict[int, AcceptedJobResult | NotReadyJobResult] = field(
         default_factory=dict
     )
@@ -38,6 +39,7 @@ class FakeJobQueueClient:
         return self.create_job_ids.pop(0)
 
     async def get_result(self, *, job_id: int) -> AcceptedJobResult | NotReadyJobResult:
+        self.requested_result_job_ids.append(job_id)
         return self.results_by_job_id[job_id]
 
 
@@ -149,6 +151,89 @@ async def test_tick_submits_page_to_card_when_job_id_missing(db_session: AsyncSe
     assert client.created_jobs[0]["queue_name"] == "page_to_card"
     assert client.created_jobs[0]["instruction"] == build_page_to_card_instruction()
     assert client.created_jobs[0]["metadata"] == {"workflow_unit_id": unit.id}
+
+
+async def test_tick_limits_units_processed_per_batch(db_session: AsyncSession) -> None:
+    for _ in range(3):
+        await create_workflow_unit(db_session)
+
+    client = FakeJobQueueClient(create_job_ids=[12, 13, 14])
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+        poll_batch_size=2,
+    )
+
+    await service.tick()
+
+    units = list(
+        (await db_session.execute(select(WorkflowUnit).order_by(WorkflowUnit.id))).scalars()
+    )
+    assert [unit.page_to_card_job_id for unit in units] == [12, 13, None]
+    assert len(client.created_jobs) == 2
+
+
+async def test_tick_batch_limit_does_not_starve_later_unsubmitted_units(
+    db_session: AsyncSession,
+) -> None:
+    for _ in range(3):
+        await create_workflow_unit(db_session)
+    units = list(
+        (await db_session.execute(select(WorkflowUnit).order_by(WorkflowUnit.id))).scalars()
+    )
+    units[0].page_to_card_job_id = 101
+    units[1].page_to_card_job_id = 102
+    await db_session.commit()
+
+    client = FakeJobQueueClient(
+        create_job_ids=[201],
+        results_by_job_id={
+            101: not_ready(job_id=101),
+            102: not_ready(job_id=102),
+        },
+    )
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+        poll_batch_size=1,
+    )
+
+    await service.tick()
+    await db_session.refresh(units[2])
+
+    assert units[2].page_to_card_job_id == 201
+    assert len(client.created_jobs) == 1
+
+
+async def test_tick_prioritizes_missing_page_jobs_before_result_polling(
+    db_session: AsyncSession,
+) -> None:
+    for _ in range(2):
+        await create_workflow_unit(db_session)
+    units = list(
+        (await db_session.execute(select(WorkflowUnit).order_by(WorkflowUnit.id))).scalars()
+    )
+    units[0].page_to_card_job_id = 101
+    await db_session.commit()
+
+    client = FakeJobQueueClient(
+        create_job_ids=[201],
+        results_by_job_id={101: not_ready(job_id=101)},
+    )
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+        poll_batch_size=1,
+    )
+
+    await service.tick()
+    await db_session.refresh(units[1])
+
+    assert units[1].page_to_card_job_id == 201
+    assert client.requested_result_job_ids == []
 
 
 async def test_tick_creates_candidates_and_review_jobs_from_page_result(

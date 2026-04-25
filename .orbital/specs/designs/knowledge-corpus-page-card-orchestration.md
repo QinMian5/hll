@@ -47,7 +47,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - **Dedicated database lifecycle:** `apps/source_pipeline` owns a dedicated PostgreSQL service and app-local migration lifecycle rather than sharing the online API database service.
   - **Source-agnostic intake boundary:** `pipeline_intake` accepts one external config or normalized unit submission and materializes `WorkflowRun` plus `WorkflowUnit` rows. It does not select source pages, crawl source systems, or write source-side processed markers.
   - **Minimal local persistence:** The app persists only:
-    - `workflow_runs` for one submitted orchestration request
+    - `workflow_runs` for one submitted orchestration request and its source config metadata, without duplicating normalized unit payloads
     - `workflow_units` for one normalized unit plus its `page_to_card_job_id`
     - `card_candidates` for candidate lineage, one `CardDraft` snapshot, review job linkage, repair job linkage, and ingestion handoff completion
     It does not duplicate queue lifecycle state, accepted result payloads, or submission history that already exist in `job-queue-mcp`.

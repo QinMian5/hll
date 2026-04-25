@@ -56,6 +56,7 @@ async def run_forever(runtime: OrchestratorRuntime) -> None:
                     session,
                     job_queue_client=runtime.job_queue_client,
                     card_handoff=runtime.card_handoff,
+                    poll_batch_size=runtime.settings.poll_batch_size,
                 )
                 await service.tick()
 

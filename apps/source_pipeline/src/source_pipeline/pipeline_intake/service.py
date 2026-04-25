@@ -23,14 +23,16 @@ class PipelineIntakeService:
         source_kind: str,
         config_payload: dict[str, Any],
     ) -> WorkflowRun:
+        raw_units = config_payload.get("units", [])
+        run_config_payload = {key: value for key, value in config_payload.items() if key != "units"}
         run = WorkflowRun(
             source_kind=source_kind,
-            config_payload=config_payload,
+            config_payload=run_config_payload,
         )
         self._session.add(run)
         await self._session.flush()
 
-        for raw_unit in config_payload.get("units", []):
+        for raw_unit in raw_units:
             unit_payload = SourceUnit.model_validate(raw_unit).model_dump(mode="json")
             self._session.add(
                 WorkflowUnit(

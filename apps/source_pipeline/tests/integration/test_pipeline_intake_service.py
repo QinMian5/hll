@@ -45,3 +45,4 @@ async def test_materialize_config_creates_run_and_units(db_session: AsyncSession
     assert units[0].workflow_run_id == run.id
     assert units[0].source_ref == "a"
     assert units[0].page_to_card_job_id is None
+    assert "units" not in run.config_payload
