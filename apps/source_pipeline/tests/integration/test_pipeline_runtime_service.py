@@ -456,9 +456,15 @@ async def test_terminal_non_accepted_page_result_stops_fanout(
     )
 
     await service.tick()
+    await db_session.refresh(unit)
 
     assert await list_candidates(db_session, unit) == []
+    assert getattr(unit, "page_to_card_terminal_state", None) == "DEAD_LETTER"
     assert client.created_jobs == []
+
+    await service.tick()
+
+    assert client.requested_result_job_ids == [12]
 
 
 async def test_terminal_non_accepted_review_result_stops_repair_and_handoff(
@@ -488,9 +494,14 @@ async def test_terminal_non_accepted_review_result_stops_repair_and_handoff(
     await service.tick()
     await db_session.refresh(candidate)
 
+    assert getattr(candidate, "review_terminal_state", None) == "DEAD_LETTER"
     assert candidate.repair_job_id is None
     assert candidate.ingestion_handoff_done is False
     assert handoff.calls == []
+
+    await service.tick()
+
+    assert client.requested_result_job_ids.count(21) == 1
 
 
 async def test_terminal_non_accepted_repair_result_stops_child_candidate_creation(
@@ -523,5 +534,11 @@ async def test_terminal_non_accepted_repair_result_stops_child_candidate_creatio
     )
 
     await service.tick()
+    await db_session.refresh(candidate)
 
+    assert getattr(candidate, "repair_terminal_state", None) == "DEAD_LETTER"
     assert [candidate.id for candidate in await list_candidates(db_session, unit)] == [candidate.id]
+
+    await service.tick()
+
+    assert client.requested_result_job_ids.count(31) == 1

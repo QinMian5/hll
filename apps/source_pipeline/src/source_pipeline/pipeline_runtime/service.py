@@ -61,6 +61,7 @@ class PipelineRuntimeService:
                 await self._session.execute(
                     select(WorkflowUnit)
                     .where(WorkflowUnit.page_to_card_job_id.is_not(None))
+                    .where(WorkflowUnit.page_to_card_terminal_state.is_(None))
                     .order_by(WorkflowUnit.id)
                 )
             ).scalars()
@@ -71,6 +72,8 @@ class PipelineRuntimeService:
                 job_id=self._require_job_id(unit.page_to_card_job_id)
             )
             if isinstance(page_result, NotReadyJobResult):
+                if _terminal_non_accepted(page_result):
+                    unit.page_to_card_terminal_state = page_result.state
                 continue
 
             await self._ensure_initial_candidates(unit=unit, page_result=page_result)
@@ -84,6 +87,7 @@ class PipelineRuntimeService:
                 await self._session.execute(
                     select(WorkflowUnit)
                     .where(WorkflowUnit.page_to_card_job_id.is_(None))
+                    .where(WorkflowUnit.page_to_card_terminal_state.is_(None))
                     .order_by(WorkflowUnit.id)
                     .limit(self._poll_batch_size)
                 )
@@ -139,8 +143,13 @@ class PipelineRuntimeService:
                 await self._submit_review_job(candidate)
                 continue
 
+            if candidate.review_terminal_state is not None:
+                continue
+
             review_result = await self._job_queue_client.get_result(job_id=candidate.review_job_id)
             if isinstance(review_result, NotReadyJobResult):
+                if _terminal_non_accepted(review_result):
+                    candidate.review_terminal_state = review_result.state
                 continue
 
             review = ReviewResult.model_validate(review_result.result_payload)
@@ -152,8 +161,13 @@ class PipelineRuntimeService:
                 await self._submit_repair_job(candidate=candidate, review=review)
                 continue
 
+            if candidate.repair_terminal_state is not None:
+                continue
+
             repair_result = await self._job_queue_client.get_result(job_id=candidate.repair_job_id)
             if isinstance(repair_result, NotReadyJobResult):
+                if _terminal_non_accepted(repair_result):
+                    candidate.repair_terminal_state = repair_result.state
                 continue
 
             await self._ensure_child_candidates(candidate=candidate, repair_result=repair_result)
@@ -291,3 +305,7 @@ def _review_passed(review: ReviewResult) -> bool:
             review.content_latex_validity.passed,
         )
     )
+
+
+def _terminal_non_accepted(result: NotReadyJobResult) -> bool:
+    return result.state in TERMINAL_NON_ACCEPTED_STATES

@@ -33,6 +33,7 @@ def test_workflow_unit_projection_stores_only_minimal_linkage_state() -> None:
         "source_ref",
         "payload",
         "page_to_card_job_id",
+        "page_to_card_terminal_state",
         "created_at",
     ]
 
@@ -49,7 +50,9 @@ def test_card_candidate_projection_stores_candidate_lineage_and_job_links() -> N
         "origin_job_id",
         "origin_ordinal",
         "review_job_id",
+        "review_terminal_state",
         "repair_job_id",
+        "repair_terminal_state",
         "ingestion_handoff_done",
         "created_at",
     ]

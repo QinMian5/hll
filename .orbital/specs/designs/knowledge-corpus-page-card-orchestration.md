@@ -51,8 +51,8 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - **Source-agnostic intake boundary:** `pipeline_intake` accepts one external config or normalized unit submission and materializes `WorkflowRun` plus `WorkflowUnit` rows. It does not select source pages, crawl source systems, or write source-side processed markers.
   - **Minimal local persistence:** The app persists only:
     - `workflow_runs` for one submitted orchestration request and its source config metadata, without duplicating normalized unit payloads
-    - `workflow_units` for one normalized unit plus its `page_to_card_job_id`
-    - `card_candidates` for candidate lineage, one `CardDraft` snapshot, review job linkage, repair job linkage, and ingestion handoff completion
+    - `workflow_units` for one normalized unit plus its `page_to_card_job_id` and page-step terminal checkpoint
+    - `card_candidates` for candidate lineage, one `CardDraft` snapshot, review job linkage, review terminal checkpoint, repair job linkage, repair terminal checkpoint, and ingestion handoff completion
     - `job_queue_webhook_events` for idempotent notification intake, processing state, and local wakeup/reconcile coordination
     It does not duplicate queue lifecycle state, accepted result payloads, or submission history that already exist in `job-queue-mcp`.
   - **Candidate-centric orchestration:** A `CardCandidate` is the durable source-pipeline identity for one candidate card. It stores one `CardDraft` snapshot plus workflow-local lineage and job-linkage fields. Queue payloads and results continue to use `CardDraft` for card content.
@@ -65,7 +65,9 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     - `origin_job_id`
     - `origin_ordinal`
     - `review_job_id`
+    - `review_terminal_state`
     - `repair_job_id`
+    - `repair_terminal_state`
     - `ingestion_handoff_done`
     - `created_at`
   - **Candidate state derivation:** Candidate state is derived from job-linkage fields, accepted queue results, and `ingestion_handoff_done`. The first version does not require a separate candidate status enum.
@@ -125,7 +127,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - **Shared quality criteria rule:** The six card-quality criteria are maintained as shared source-pipeline task guidance and projected consistently into page extraction, card review schema descriptions, and card repair instructions.
   - **Handoff retry rule:** If knowledge ingestion handoff fails before `202 Accepted`, `ingestion_handoff_done` remains false and a later orchestrator tick retries the handoff with the same stable `Idempotency-Key`.
   - **Candidate idempotency rule:** Repeated ticks must not duplicate review jobs, repair jobs, ingestion handoffs, or child candidates. Child-candidate creation is idempotent for one parent candidate, one repair job, and one repair-result ordinal. Knowledge ingestion treats repeated `POST /api/v1/cards` requests carrying the same `Idempotency-Key` as the same logical accepted submission, so ambiguous network failures do not materialize duplicate cards.
-  - **Queue-as-truth rule:** Local webhook events are notification triggers only. The runtime rereads accepted results from `GET /results/{job_id}` and rereads current job state from the queue operator/result surfaces during reconcile. It does not mirror accepted payloads, lifecycle states, leases, or submission history into local tables.
+  - **Queue-as-truth rule:** Local webhook events are notification triggers only. The runtime rereads accepted results from `GET /results/{job_id}` and rereads current job state from the queue operator/result surfaces during reconcile. It stores only the terminal non-accepted checkpoint needed to stop repeated local polling and does not mirror accepted payloads, full lifecycle history, leases, or submission history into local tables.
   - **Webhook idempotency rule:** Each incoming webhook event carries a stable event identity. The receiver records each event id once and treats duplicate deliveries as successful repeats without creating duplicate local work.
   - **Local wakeup rule:** Persisting a new webhook event wakes `pipeline_runtime` through a local database-backed notification or queue. The runtime owns event processing and marks local events processed only after the matching source-pipeline state advancement has completed.
   - **Low-frequency reconcile rule:** `pipeline_runtime` keeps a low-frequency reconcile path for outstanding job linkages. Reconcile is a compensation path for missed notifications, configuration errors, or exhausted remote delivery retries; it is not the primary result-consumption path.
@@ -144,7 +146,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   3. `pipeline_runtime` selects units that do not yet have `page_to_card_job_id` and submits one `page-to-card` job per eligible unit to `job-queue-mcp`.
   4. `job-queue-mcp` delivers a notification when a `page-to-card` job has an accepted result or reaches a terminal non-accepted state.
   5. The source-pipeline webhook receiver authenticates the event, persists it idempotently, and wakes `pipeline_runtime`.
-  6. `pipeline_runtime` processes the local event. For accepted result events, it rereads the accepted `result_payload["cards"]` result and creates missing initial `CardCandidate` rows by page result ordinal. For terminal non-accepted events, it stops page-result fan-out for the affected job.
+  6. `pipeline_runtime` processes the local event. For accepted result events, it rereads the accepted `result_payload["cards"]` result and creates missing initial `CardCandidate` rows by page result ordinal. For terminal non-accepted events, it records the affected job's terminal checkpoint and stops page-result fan-out plus repeated local polling for that job.
   7. `pipeline_runtime` submits one `card-review` job for each candidate that lacks `review_job_id`.
   8. `job-queue-mcp` delivers a notification when each `card-review` job has an accepted result or reaches a terminal non-accepted state.
   9. For accepted review results, `pipeline_runtime` rereads the result payload. When all review dimensions pass, `pipeline_handoff` posts the candidate title and content to `POST /api/v1/cards` with a stable `Idempotency-Key` and marks `ingestion_handoff_done=true` after `202 Accepted`.

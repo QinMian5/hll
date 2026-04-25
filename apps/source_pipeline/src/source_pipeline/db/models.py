@@ -40,6 +40,7 @@ class WorkflowUnit(Base):
     source_ref: Mapped[str] = mapped_column(Text, nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     page_to_card_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    page_to_card_terminal_state: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -82,7 +83,9 @@ class CardCandidate(Base):
     origin_job_id: Mapped[int] = mapped_column(Integer, nullable=False)
     origin_ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     review_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    review_terminal_state: Mapped[str | None] = mapped_column(Text, nullable=True)
     repair_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    repair_terminal_state: Mapped[str | None] = mapped_column(Text, nullable=True)
     ingestion_handoff_done: Mapped[bool] = mapped_column(nullable=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
