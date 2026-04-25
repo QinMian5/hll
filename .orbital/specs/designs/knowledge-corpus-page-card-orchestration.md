@@ -11,13 +11,13 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the accepted design for a project-owned source-pipeline app that accepts external source-processing configs or normalized units, submits `page-to-card`, `card-review`, and `card-repair` jobs through `job-queue-mcp`, and hands accepted cards to the knowledge ingestion HTTP boundary.
-- **Scope/Boundaries:** Covers source intake, minimal orchestration state, step contracts, queue interaction, reviewed-card handoff, and runtime/file ownership. Excludes source discovery policy, source-side bookkeeping, worker-side execution details, and taxonomy classification.
+- **Purpose:** Define the accepted design for a project-owned source-pipeline app that accepts external source-processing configs or normalized units, submits `page-to-card`, `card-review`, and `card-repair` jobs through `job-queue-mcp`, receives queue result notifications, and hands accepted cards to the knowledge ingestion HTTP boundary.
+- **Scope/Boundaries:** Covers source intake, minimal orchestration state, step contracts, queue interaction, webhook event intake, reviewed-card handoff, and runtime/file ownership. Excludes source discovery policy, source-side bookkeeping, worker-side execution details, and taxonomy classification.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Constraint Projection
 - **Governing Constraints:** Repository boundaries remain explicit, source-processing orchestration stays isolated from the online API runtime, environment behavior remains reproducible, and active specs capture only current accepted truth.
-- **Detail Commitments:** The repository contains a project-owned `source_pipeline` app. `pipeline_intake` accepts one external config or normalized unit input and materializes minimal local orchestration state. `pipeline_runtime` continuously interacts with `job-queue-mcp`, stores only the linkage state that the queue cannot provide, and advances accepted step transitions. The `page-to-card` step returns an accepted payload object with a `cards` array, including valid empty arrays. Each returned card becomes a persisted `CardCandidate` with a `CardDraft` snapshot. Each candidate is reviewed independently. Passing review results hand the candidate to knowledge ingestion through `POST /api/v1/cards`. Failed review results create `card-repair` jobs whose repaired output cards become child candidates and re-enter review. Source pipeline owns its own dedicated PostgreSQL service, app-local Alembic lineage, and PostgreSQL-backed integration tests. Source-side processed bookkeeping happens before work reaches this app and is outside this design.
+- **Detail Commitments:** The repository contains a project-owned `source_pipeline` app. `pipeline_intake` accepts one external config or normalized unit input and materializes minimal local orchestration state. `pipeline_runtime` interacts with `job-queue-mcp`, stores only the linkage state and local notification state that the queue cannot provide, and advances accepted step transitions after local queue-result events or low-frequency reconcile identify relevant jobs. The `page-to-card` step returns an accepted payload object with a `cards` array, including valid empty arrays. Each returned card becomes a persisted `CardCandidate` with a `CardDraft` snapshot. Each candidate is reviewed independently. Passing review results hand the candidate to knowledge ingestion through `POST /api/v1/cards`. Failed review results create `card-repair` jobs whose repaired output cards become child candidates and re-enter review. Source pipeline owns its own dedicated PostgreSQL service, app-local Alembic lineage, source-pipeline webhook receiver service, and PostgreSQL-backed integration tests. Source-side processed bookkeeping happens before work reaches this app and is outside this design.
 - **Update Rule:** Requirement-level governance stays stable while this design owns source-pipeline runtime boundaries, minimal local state, step contracts, and file placement.
 
 ## Inputs & Outputs
@@ -25,8 +25,10 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - One external source-processing config submitted to `pipeline_intake`.
   - Optional pre-normalized source units submitted to `pipeline_intake`.
   - Access to `job-queue-mcp` producer and result surfaces.
+  - Queue-level notification events delivered by `job-queue-mcp` for source-pipeline queues.
 - **Outputs:**
   - Persisted local linkage state for intake, unit tracking, candidate lineage, review jobs, repair jobs, and ingestion handoff progress.
+  - Persisted local webhook event state for idempotent queue-result notification handling.
   - One `card-review` job submission per active candidate that has not yet been reviewed.
   - One `card-repair` job submission per rejected candidate that has not yet been repaired.
   - HTTP handoff of review-accepted candidates to knowledge ingestion.
@@ -39,9 +41,10 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - `CardReviewResult`
   - `CardRepairInput`
   - `CardRepairResult`
+  - `JobQueueWebhookEvent`
 
 ## Design Approach
-- **Approach:** Keep source adaptation separate from step orchestration. `pipeline_intake` owns external config ingestion and source-unit normalization. `pipeline_runtime` owns long-running orchestration state and all `job-queue-mcp` interactions. `page_to_card`, `card_review`, and `card_repair` own only step contracts. `pipeline_handoff` transfers review-accepted card candidates to the knowledge ingestion HTTP boundary without writing the knowledge database directly.
+- **Approach:** Keep source adaptation, webhook intake, and step orchestration separate. `pipeline_intake` owns external config ingestion and source-unit normalization. The source-pipeline webhook receiver owns authenticated queue-result event intake and local event persistence. `pipeline_runtime` owns long-running orchestration state and all state advancement from local queue-result events, low-frequency reconcile, and `job-queue-mcp` result reads. `page_to_card`, `card_review`, and `card_repair` own only step contracts. `pipeline_handoff` transfers review-accepted card candidates to the knowledge ingestion HTTP boundary without writing the knowledge database directly.
 - **Key Elements:**
   - **Formal app boundary:** The source-processing runtime is a project app and is not a `human_workspace` script surface.
   - **Dedicated database lifecycle:** `apps/source_pipeline` owns a dedicated PostgreSQL service and app-local migration lifecycle rather than sharing the online API database service.
@@ -50,6 +53,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     - `workflow_runs` for one submitted orchestration request and its source config metadata, without duplicating normalized unit payloads
     - `workflow_units` for one normalized unit plus its `page_to_card_job_id`
     - `card_candidates` for candidate lineage, one `CardDraft` snapshot, review job linkage, repair job linkage, and ingestion handoff completion
+    - `job_queue_webhook_events` for idempotent notification intake, processing state, and local wakeup/reconcile coordination
     It does not duplicate queue lifecycle state, accepted result payloads, or submission history that already exist in `job-queue-mcp`.
   - **Candidate-centric orchestration:** A `CardCandidate` is the durable source-pipeline identity for one candidate card. It stores one `CardDraft` snapshot plus workflow-local lineage and job-linkage fields. Queue payloads and results continue to use `CardDraft` for card content.
   - **`CardCandidate` persistence shape:** Each candidate records:
@@ -65,12 +69,16 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     - `ingestion_handoff_done`
     - `created_at`
   - **Candidate state derivation:** Candidate state is derived from job-linkage fields, accepted queue results, and `ingestion_handoff_done`. The first version does not require a separate candidate status enum.
-  - **Long-running orchestrator service:** `pipeline_runtime` runs as one dedicated process that continuously polls pending step jobs, reads accepted results, and advances state transitions.
-  - **Queue-only execution boundary:** The project submits standardized step jobs to `job-queue-mcp` and consumes accepted results plus authoritative job views from the queue read surfaces. Worker-side execution mechanics are outside this app boundary.
+  - **Source-pipeline webhook receiver service:** The project owns a dedicated source-pipeline receiver service for `job-queue-mcp` notifications. The receiver authenticates incoming webhook calls, persists events idempotently, and emits a local database-backed wakeup for `pipeline_runtime`.
+  - **Receiver non-processing rule:** The webhook receiver does not create candidates, submit follow-up jobs, perform knowledge ingestion handoff, or read accepted result payloads. It returns after authenticated idempotent event persistence.
+  - **Long-running orchestrator service:** `pipeline_runtime` runs as one dedicated process that waits on local webhook event notifications, processes local pending queue-result events, performs low-frequency reconcile for outstanding job linkages, reads accepted results from `job-queue-mcp` when needed, and advances state transitions.
+  - **Queue-only execution boundary:** The project submits standardized step jobs to `job-queue-mcp` and consumes queue notifications plus authoritative accepted results from the queue read surfaces. Worker-side execution mechanics are outside this app boundary.
   - **App-local configuration contract:** The app owns `SOURCE_PIPELINE_DATABASE_URL` and `SOURCE_PIPELINE_MIGRATION_DATABASE_URL` and must not reuse API or knowledge-corpus database URL names.
   - **Knowledge ingestion handoff configuration:** The app owns source-pipeline-specific knowledge API configuration, including the knowledge API base URL used for accepted-card handoff. Authentication settings for the knowledge API are source-pipeline configuration when the target knowledge API requires authentication.
   - **Job-queue authentication boundary:** The runtime authenticates to `job-queue-mcp` with a Logto machine-to-machine client-credentials flow. It stores client credentials as environment configuration, requests short-lived access tokens at runtime, and does not store static producer or results-reader bearer tokens.
+  - **Webhook receiver authentication boundary:** The source-pipeline webhook receiver authenticates incoming `job-queue-mcp` webhook calls using the `knowledge` Logto authority. `job-queue-mcp` acts as a machine-to-machine client of `knowledge` Logto for webhook delivery. The receiver validates issuer, audience/resource, expiry, and configured webhook caller client identity before persisting an event.
   - **Production network boundary:** In production, the orchestrator joins the shared `proxy` network and reaches `job-queue-mcp` through the queue stack's reverse-proxy hostnames. It does not join the queue stack's private backend network or rely on container-name shortcuts.
+  - **Webhook exposure boundary:** In production, the project-local app gateway exposes only the source-pipeline webhook receiver path needed by `job-queue-mcp`. The receiver is not the online knowledge API and does not expose source-pipeline administration or result-read endpoints.
   - **`SourceUnit` contract:** The normalized unit contains:
     - `source_kind`
     - `source_ref`
@@ -117,7 +125,10 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - **Shared quality criteria rule:** The six card-quality criteria are maintained as shared source-pipeline task guidance and projected consistently into page extraction, card review schema descriptions, and card repair instructions.
   - **Handoff retry rule:** If knowledge ingestion handoff fails before `202 Accepted`, `ingestion_handoff_done` remains false and a later orchestrator tick retries the handoff with the same stable `Idempotency-Key`.
   - **Candidate idempotency rule:** Repeated ticks must not duplicate review jobs, repair jobs, ingestion handoffs, or child candidates. Child-candidate creation is idempotent for one parent candidate, one repair job, and one repair-result ordinal. Knowledge ingestion treats repeated `POST /api/v1/cards` requests carrying the same `Idempotency-Key` as the same logical accepted submission, so ambiguous network failures do not materialize duplicate cards.
-  - **Queue-as-truth rule:** The runtime rereads accepted results from `GET /results/{job_id}` and rereads current job state from the queue operator/result surfaces. It does not mirror accepted payloads, lifecycle states, leases, or submission history into local tables.
+  - **Queue-as-truth rule:** Local webhook events are notification triggers only. The runtime rereads accepted results from `GET /results/{job_id}` and rereads current job state from the queue operator/result surfaces during reconcile. It does not mirror accepted payloads, lifecycle states, leases, or submission history into local tables.
+  - **Webhook idempotency rule:** Each incoming webhook event carries a stable event identity. The receiver records each event id once and treats duplicate deliveries as successful repeats without creating duplicate local work.
+  - **Local wakeup rule:** Persisting a new webhook event wakes `pipeline_runtime` through a local database-backed notification or queue. The runtime owns event processing and marks local events processed only after the matching source-pipeline state advancement has completed.
+  - **Low-frequency reconcile rule:** `pipeline_runtime` keeps a low-frequency reconcile path for outstanding job linkages. Reconcile is a compensation path for missed notifications, configuration errors, or exhausted remote delivery retries; it is not the primary result-consumption path.
   - **No source discovery in runtime:** `pipeline_runtime` consumes only persisted `WorkflowUnit` state created by intake. Source selection remains outside the runtime.
   - **Knowledge persistence boundary:** Source pipeline does not write knowledge graph tables, compute embeddings, create edges, update adjacency, or assign taxonomy. Accepted card persistence is performed by the knowledge ingestion API and worker runtime.
   - **Card quality criteria:** Page extraction, card review, and card repair share these criteria:
@@ -131,15 +142,17 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   1. An external caller submits one source-processing config to `pipeline_intake`.
   2. `pipeline_intake` validates the config, creates one `WorkflowRun`, and materializes the corresponding `WorkflowUnit` rows.
   3. `pipeline_runtime` selects units that do not yet have `page_to_card_job_id` and submits one `page-to-card` job per eligible unit to `job-queue-mcp`.
-  4. `pipeline_runtime` polls the result surface until an accepted `page-to-card` payload is available or the job enters a terminal non-accepted state.
-  5. `pipeline_runtime` rereads the accepted `result_payload["cards"]` result and creates missing initial `CardCandidate` rows by page result ordinal.
-  6. `pipeline_runtime` submits one `card-review` job for each candidate that lacks `review_job_id`.
-  7. `pipeline_runtime` polls each `card-review` job until an accepted result is available or the job enters a terminal non-accepted state.
-  8. When all review dimensions pass, `pipeline_handoff` posts the candidate title and content to `POST /api/v1/cards` with a stable `Idempotency-Key` and marks `ingestion_handoff_done=true` after `202 Accepted`.
-  9. When any review dimension fails, `pipeline_runtime` submits one `card-repair` job for the candidate when no repair job exists.
-  10. `pipeline_runtime` polls each `card-repair` job until an accepted result is available or the job enters a terminal non-accepted state.
-  11. `pipeline_runtime` creates child `CardCandidate` rows for each repaired card returned by `card-repair`.
-  12. Child candidates re-enter the same review flow.
+  4. `job-queue-mcp` delivers a notification when a `page-to-card` job has an accepted result or reaches a terminal non-accepted state.
+  5. The source-pipeline webhook receiver authenticates the event, persists it idempotently, and wakes `pipeline_runtime`.
+  6. `pipeline_runtime` processes the local event. For accepted result events, it rereads the accepted `result_payload["cards"]` result and creates missing initial `CardCandidate` rows by page result ordinal. For terminal non-accepted events, it stops page-result fan-out for the affected job.
+  7. `pipeline_runtime` submits one `card-review` job for each candidate that lacks `review_job_id`.
+  8. `job-queue-mcp` delivers a notification when each `card-review` job has an accepted result or reaches a terminal non-accepted state.
+  9. For accepted review results, `pipeline_runtime` rereads the result payload. When all review dimensions pass, `pipeline_handoff` posts the candidate title and content to `POST /api/v1/cards` with a stable `Idempotency-Key` and marks `ingestion_handoff_done=true` after `202 Accepted`.
+  10. When any accepted review dimension fails, `pipeline_runtime` submits one `card-repair` job for the candidate when no repair job exists.
+  11. `job-queue-mcp` delivers a notification when each `card-repair` job has an accepted result or reaches a terminal non-accepted state.
+  12. For accepted repair results, `pipeline_runtime` rereads the result payload and creates child `CardCandidate` rows for each repaired card returned by `card-repair`.
+  13. Child candidates re-enter the same review flow.
+  14. `pipeline_runtime` periodically reconciles outstanding job linkages at a low frequency to catch missed notifications and terminal states.
 
 ## File Placement
 - The source-processing app is owned by `apps/source_pipeline`.
@@ -149,14 +162,16 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - `apps/source_pipeline/src/source_pipeline/db/`
   - `apps/source_pipeline/src/source_pipeline/pipeline_intake/`
   - `apps/source_pipeline/src/source_pipeline/pipeline_runtime/`
+  - `apps/source_pipeline/src/source_pipeline/pipeline_webhook/`
   - `apps/source_pipeline/src/source_pipeline/page_to_card/`
   - `apps/source_pipeline/src/source_pipeline/card_review/`
   - `apps/source_pipeline/src/source_pipeline/card_repair/`
   - `apps/source_pipeline/src/source_pipeline/pipeline_handoff/`
   - `apps/source_pipeline/src/source_pipeline/entrypoints/orchestrator.py`
+  - `apps/source_pipeline/src/source_pipeline/entrypoints/webhook_receiver.py`
   - `apps/source_pipeline/tests/`
   - `infra/docker/source_pipeline/`
-  - `infra/compose/docker-compose.base.yml` service entry for the dedicated `orchestrator` process
+  - `infra/compose/docker-compose.base.yml` service entries for the dedicated `orchestrator` and source-pipeline webhook receiver processes
 
 ## Validation
 - **Checks:**
@@ -164,7 +179,8 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - Contract tests verify `SourceUnit`, `CardDraft`, `CardReviewResult`, `CardRepairInput`, and `CardRepairResult` shapes.
   - Instruction tests verify page extraction, card review, and card repair share the same six card-quality criteria without duplicating transport-generic worker protocol instructions.
   - PostgreSQL-backed integration tests verify `workflow_runs`, `workflow_units`, and `card_candidates` are sufficient for restart/resume behavior without mirroring queue lifecycle state.
-  - Queue integration tests verify accepted `page-to-card` results create candidates and fan out into one `card-review` job per candidate.
+  - Webhook receiver tests verify `knowledge` Logto token validation, duplicate event handling, event persistence, and local wakeup behavior.
+  - Queue integration tests verify accepted `page-to-card` notifications lead the runtime to reread results, create candidates, and fan out into one `card-review` job per candidate.
   - Runtime tests verify failed review results submit `card-repair` jobs and accepted repair results create zero or more child candidates that re-enter review.
   - Runtime tests verify `page-to-card`, `card-review`, and `card-repair` terminal non-accepted states stop automatic fan-out and do not create downstream candidates or handoffs.
   - Runtime tests verify `card-repair` accepted results with `cards=[]` stop the candidate lineage without creating child candidates.
@@ -173,5 +189,5 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - Integration tests verify knowledge ingestion deduplicates repeated accepted-card handoffs with the same `Idempotency-Key`, including timeout or connection-loss retries after the server accepted the original request.
 - **Evidence:**
   - Approved spec review with synchronized updates to impacted design docs.
-  - Passing PostgreSQL-backed state-transition tests for intake, polling, candidate creation, repair loops, reread-from-queue behavior, ingestion handoff, and restart/resume behavior.
+  - Passing PostgreSQL-backed state-transition tests for intake, webhook event intake, local event wakeup, candidate creation, repair loops, reread-from-queue behavior, low-frequency reconcile, ingestion handoff, and restart/resume behavior.
   - Passing contract tests for accepted `page-to-card`, `card-review`, and `card-repair` result shapes.
