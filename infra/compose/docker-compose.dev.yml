@@ -105,8 +105,6 @@ services:
     build:
       target: dev
     image: knowledge-web:dev
-    environment:
-      API_PROXY_TARGET: http://api:8000
     volumes:
       - ../../apps/web:/workspace/apps/web
       - ../../packages/contracts:/workspace/packages/contracts

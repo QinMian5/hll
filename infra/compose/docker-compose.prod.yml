@@ -68,8 +68,6 @@ services:
 
   web:
     image: knowledge-web:prod
-    environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
 
   nginx:
     image: nginx:1.29-bookworm
@@ -78,8 +76,6 @@ services:
       logto:
         condition: service_healthy
       web:
-        condition: service_started
-      api:
         condition: service_started
       source_pipeline_webhook_receiver:
         condition: service_started

@@ -1,5 +1,5 @@
 """
-Abstract: Unit tests enforcing production nginx API proxy path preservation.
+Abstract: Unit tests enforcing production nginx public surface boundaries.
 Out of scope: Runtime container startup and TLS termination behavior.
 """
 
@@ -11,12 +11,19 @@ REPO_ROOT = Path(__file__).resolve().parents[5]
 NGINX_CONFIG = REPO_ROOT / "infra" / "docker" / "nginx" / "default.conf"
 
 
-def test_prod_nginx_preserves_api_prefix_for_contract_paths() -> None:
+def test_prod_nginx_does_not_expose_private_api_routes() -> None:
     config = NGINX_CONFIG.read_text(encoding="utf-8")
 
-    assert "location /api/" in config
-    assert "proxy_pass http://api:8000;" in config
-    assert "proxy_pass http://api:8000/;" not in config
+    assert "location /api/" not in config
+    assert "proxy_pass http://api:8000" not in config
+
+
+def test_prod_nginx_routes_web_and_web_api_to_bff() -> None:
+    config = NGINX_CONFIG.read_text(encoding="utf-8")
+
+    assert "location /web-api/" in config
+    assert "location /" in config
+    assert config.count("proxy_pass http://web:4173") >= 2
 
 
 def test_prod_nginx_routes_source_pipeline_webhook_to_receiver() -> None:

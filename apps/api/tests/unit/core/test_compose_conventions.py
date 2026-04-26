@@ -8,6 +8,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[5]
 COMPOSE_DIR = REPO_ROOT / "infra" / "compose"
 BASE_COMPOSE = COMPOSE_DIR / "docker-compose.base.yml"
@@ -40,6 +42,19 @@ def _service_block(path: Path, service_name: str) -> str:
     )
     assert match is not None, f"{service_name} service must exist in {path}"
     return match.group("body")
+
+
+def _compose_data(path: Path) -> dict[str, object]:
+    return yaml.safe_load(_read(path))
+
+
+def _service_data(path: Path, service_name: str) -> dict[str, object]:
+    data = _compose_data(path)
+    services = data["services"]
+    assert isinstance(services, dict)
+    service = services[service_name]
+    assert isinstance(service, dict)
+    return service
 
 
 def test_environment_overlays_own_compose_project_names() -> None:
@@ -121,3 +136,41 @@ def test_dev_compose_keeps_taxonomy_classification_services_out_of_default_start
 
     assert 'profiles: ["taxonomy_classification_runtime"]' in runtime
     assert 'profiles: ["taxonomy_classification_webhook_receiver"]' in receiver
+
+
+def test_prod_keeps_api_off_public_edge_network() -> None:
+    api_base = _service_data(BASE_COMPOSE, "api")
+    api_prod = _service_data(PROD_COMPOSE, "api")
+
+    assert api_base["networks"] == ["backend"]
+    assert "networks" not in api_prod
+
+
+def test_base_web_service_reaches_private_dependencies() -> None:
+    web = _service_data(BASE_COMPOSE, "web")
+
+    assert web["networks"] == ["backend", "edge"]
+    assert set(web["depends_on"]) == {"api", "redis", "logto"}
+
+    environment = web["environment"]
+    assert isinstance(environment, dict)
+    for key in (
+        "KNOWLEDGE_WEB_INTERNAL_API_BASE_URL",
+        "KNOWLEDGE_WEB_REDIS_URL",
+        "KNOWLEDGE_WEB_LOGTO_ENDPOINT",
+        "KNOWLEDGE_WEB_LOGTO_APP_ID",
+        "KNOWLEDGE_WEB_LOGTO_APP_SECRET",
+        "KNOWLEDGE_WEB_SESSION_SECRET",
+        "KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX",
+        "KNOWLEDGE_WEB_QUOTA_ROUTE_OVERRIDES_JSON",
+    ):
+        assert key in environment
+
+
+def test_prod_web_no_longer_exposes_browser_api_origin_config() -> None:
+    web = _service_data(PROD_COMPOSE, "web")
+    environment = web.get("environment", {})
+
+    assert isinstance(environment, dict)
+    assert "VITE_API_BASE_URL" not in environment
+    assert "API_PROXY_TARGET" not in environment
