@@ -1,6 +1,7 @@
 // abstract: Express application assembly for the web BFF runtime.
 // out_of_scope: Auth policy, quota policy, and backend route forwarding implementations.
 
+import cookieParser from "cookie-parser";
 import express, {
   type Express,
   type RequestHandler,
@@ -37,6 +38,7 @@ export async function createApp(options: CreateAppOptions): Promise<Express> {
   app.disable("x-powered-by");
   app.set("trust proxy", options.config.trustProxy);
   app.use(express.json({ limit: "1mb" }));
+  app.use(cookieParser());
 
   if (options.sessionMiddleware !== undefined) {
     app.use(options.sessionMiddleware);
