@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, literal, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from modules.knowledge_graph.model import Node
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
     TaxonomyLeafAssignment,
@@ -25,6 +26,7 @@ from modules.taxonomy.model import (
 
 ROOT_NODE_NAME = "Root"
 UNCLASSIFIED_NODE_NAME = "Unclassified"
+TAXONOMY_PROJECTION_EDGE_INSERT_BATCH_SIZE = 10_000
 
 
 def _taxonomy_node_record_from_model(node: TaxonomyNode) -> TaxonomyNodeRecord:
@@ -56,6 +58,36 @@ class TaxonomyRepo:
     async def has_any_taxonomy_nodes(self) -> bool:
         result = await self._session.execute(select(TaxonomyNode.id).limit(1))
         return result.scalar_one_or_none() is not None
+
+    async def count_nodes(self) -> int:
+        count = await self._session.scalar(select(func.count()).select_from(Node))
+        return int(count or 0)
+
+    async def count_taxonomy_assignments(self) -> int:
+        count = await self._session.scalar(select(func.count()).select_from(NodeTaxonomyAssignment))
+        return int(count or 0)
+
+    async def count_nodes_missing_taxonomy_assignment(self) -> int:
+        count = await self._session.scalar(
+            select(func.count())
+            .select_from(Node)
+            .outerjoin(NodeTaxonomyAssignment, NodeTaxonomyAssignment.node_id == Node.id)
+            .where(NodeTaxonomyAssignment.node_id.is_(None))
+        )
+        return int(count or 0)
+
+    async def assign_unassigned_nodes_to_leaf(self, *, leaf_id: int) -> None:
+        missing_nodes = (
+            select(Node.id, literal(leaf_id))
+            .outerjoin(NodeTaxonomyAssignment, NodeTaxonomyAssignment.node_id == Node.id)
+            .where(NodeTaxonomyAssignment.node_id.is_(None))
+        )
+        await self._session.execute(
+            insert(NodeTaxonomyAssignment)
+            .from_select(["node_id", "taxonomy_node_id"], missing_nodes)
+            .on_conflict_do_nothing(index_elements=["node_id"])
+        )
+        await self._session.flush()
 
     async def get_root_node(self) -> TaxonomyNodeRecord | None:
         node = await self._session.scalar(
@@ -248,7 +280,8 @@ class TaxonomyRepo:
 
     async def add_projected_edge_ids_for_leaf(self, *, leaf_id: int, edge_ids: list[int]) -> None:
         deduped_edge_ids = sorted(set(edge_ids))
-        if deduped_edge_ids:
+        for start in range(0, len(deduped_edge_ids), TAXONOMY_PROJECTION_EDGE_INSERT_BATCH_SIZE):
+            batch = deduped_edge_ids[start : start + TAXONOMY_PROJECTION_EDGE_INSERT_BATCH_SIZE]
             statement = (
                 insert(TaxonomyLeafProjectionEdge)
                 .values(
@@ -257,7 +290,7 @@ class TaxonomyRepo:
                             "leaf_id": leaf_id,
                             "edge_id": edge_id,
                         }
-                        for edge_id in deduped_edge_ids
+                        for edge_id in batch
                     ]
                 )
                 .on_conflict_do_nothing(index_elements=["leaf_id", "edge_id"])

@@ -100,7 +100,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 
 ### Trigger Rule
 - Inserts and updates on `node_taxonomy_assignments` must be rejected unless `taxonomy_node_id` points to `taxonomy_nodes.is_leaf = true`.
-- Root-shape and leaf-only trigger/function or index DDL is maintained by dedicated migrations scoped to taxonomy integrity concerns.
+- Root uniqueness index DDL and leaf-only trigger/function DDL are maintained by dedicated migrations scoped to taxonomy integrity concerns.
 
 ## Operator Structure Mutation Boundary
 - Taxonomy structure mutation runs through dedicated operator scripts backed by taxonomy-owned services.
@@ -110,6 +110,14 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - Operator scripts reject duplicate sibling names under the same parent.
 - Operator scripts reject direct human creation of duplicate `Unclassified` children.
 - Database initialization and migration flows do not auto-import operator taxonomy content.
+
+## Operator Assignment Backfill
+- Knowledge nodes without a taxonomy assignment are assigned through a dedicated operator backfill command.
+- The command defaults to a read-only dry run and requires an explicit confirmation flag before writing assignments.
+- The command ensures `Root` and `Root -> Unclassified` through taxonomy-owned services before applying assignment writes.
+- The command inserts assignments only for knowledge nodes that do not already have a `node_taxonomy_assignments` row.
+- Existing assignments are never moved by the backfill command.
+- Apply mode rebuilds taxonomy leaf projection rows after assignment writes so taxonomy leaf views read current one-hop edge membership.
 
 ## API Contract
 
@@ -211,12 +219,13 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - **Checks:**
   - Taxonomy bootstrap creates exactly one `Root` node and `Root -> Unclassified`.
   - Storage rejects a second `taxonomy_nodes` row with `parent_id IS NULL`.
-  - Storage rejects a root row shape that is not `name='Root'`, `depth=0`, and `is_leaf=false`.
+  - Taxonomy bootstrap creates the persisted root row with `name='Root'`, `depth=0`, and `is_leaf=false`.
   - Regular child creation creates the requested category nodes and each child's `Unclassified` leaf.
   - Sibling reads return `ORDER BY name ASC`.
   - One knowledge node has exactly one current assignment row.
   - Assignment moves update the current leaf without creating duplicate rows.
   - New ingestion-created nodes receive assignment to `Root -> Unclassified`.
+  - Operator backfill assigns only unassigned knowledge nodes to `Root -> Unclassified`.
   - Non-leaf assignment writes are rejected by trigger.
   - `GET /api/v1/taxonomy/view/root` returns direct children of `Root` with `breadcrumb=[]`.
   - `GET /api/v1/taxonomy/view/nodes/{id}` returns correct discriminated payload for branch/leaf.

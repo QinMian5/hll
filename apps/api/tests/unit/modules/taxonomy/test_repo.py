@@ -7,9 +7,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from modules.taxonomy import repo as taxonomy_repo_module
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
     TaxonomyNode,
@@ -72,6 +75,10 @@ class _StubSession:
         self.flushed = True
 
 
+def _repo_with_stub(session: _StubSession) -> TaxonomyRepo:
+    return TaxonomyRepo(session=cast(AsyncSession, session))
+
+
 @pytest.mark.anyio
 async def test_list_tree_nodes_returns_record_models() -> None:
     session = _StubSession(
@@ -84,7 +91,7 @@ async def test_list_tree_nodes_returns_record_models() -> None:
             )
         ]
     )
-    repo = TaxonomyRepo(session=session)
+    repo = _repo_with_stub(session)
 
     records = await repo.list_tree_nodes()
 
@@ -118,7 +125,7 @@ async def test_get_assignment_for_node_returns_leaf_assignment_details() -> None
             )
         ]
     )
-    repo = TaxonomyRepo(session=session)
+    repo = _repo_with_stub(session)
 
     assignment = await repo.get_assignment_for_node(node_id=12)
 
@@ -153,7 +160,7 @@ async def test_set_current_assignment_moves_existing_assignment() -> None:
             )
         ],
     )
-    repo = TaxonomyRepo(session=session)
+    repo = _repo_with_stub(session)
 
     assignment = await repo.set_current_assignment(
         node_id=99,
@@ -191,7 +198,7 @@ async def test_set_current_assignment_creates_when_assignment_missing() -> None:
             )
         ],
     )
-    repo = TaxonomyRepo(session=session)
+    repo = _repo_with_stub(session)
 
     assignment = await repo.set_current_assignment(
         node_id=99,
@@ -215,7 +222,7 @@ async def test_list_final_assignments_returns_leaf_assignments() -> None:
     session = _StubSession(
         execute_results=[_StubExecuteResult(rows=[_AssignmentRow(3, 11), _AssignmentRow(9, 15)])]
     )
-    repo = TaxonomyRepo(session=session)
+    repo = _repo_with_stub(session)
 
     assignments = await repo.list_final_assignments()
 
@@ -236,7 +243,7 @@ async def test_list_assigned_node_ids_for_leaf_returns_sorted_node_ids_for_one_l
             _StubExecuteResult(rows=[_LeafNodeRow(19), _LeafNodeRow(41), _LeafNodeRow(88)])
         ]
     )
-    repo = TaxonomyRepo(session=session)
+    repo = _repo_with_stub(session)
 
     node_ids = await repo.list_assigned_node_ids_for_leaf(leaf_id=44)
 
@@ -254,7 +261,7 @@ async def test_list_projected_edge_ids_for_leaf_returns_sorted_edge_ids() -> Non
             _StubExecuteResult(rows=[_EdgeRow(7), _EdgeRow(18), _EdgeRow(42)]),
         ]
     )
-    repo = TaxonomyRepo(session=session)
+    repo = _repo_with_stub(session)
 
     edge_ids = await repo.list_projected_edge_ids_for_leaf(leaf_id=44)
 
@@ -264,12 +271,31 @@ async def test_list_projected_edge_ids_for_leaf_returns_sorted_edge_ids() -> Non
 @pytest.mark.anyio
 async def test_add_projected_edge_ids_for_leaf_creates_projection_rows() -> None:
     session = _StubSession()
-    repo = TaxonomyRepo(session=session)
+    repo = _repo_with_stub(session)
 
     await repo.add_projected_edge_ids_for_leaf(leaf_id=44, edge_ids=[7, 18])
 
     assert session.flushed is True
     assert session.executed_statements
+
+
+@pytest.mark.anyio
+async def test_add_projected_edge_ids_for_leaf_chunks_projection_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        taxonomy_repo_module,
+        "TAXONOMY_PROJECTION_EDGE_INSERT_BATCH_SIZE",
+        2,
+        raising=False,
+    )
+    session = _StubSession()
+    repo = _repo_with_stub(session)
+
+    await repo.add_projected_edge_ids_for_leaf(leaf_id=44, edge_ids=[18, 7, 18, 42, 99, 100])
+
+    assert session.flushed is True
+    assert len(session.executed_statements) == 3
 
 
 @pytest.mark.anyio
@@ -284,7 +310,7 @@ async def test_list_leaf_ids_for_node_ids_returns_mapping_for_assigned_nodes() -
             _StubExecuteResult(rows=[_LeafRow(11, 2), _LeafRow(77, 9)]),
         ]
     )
-    repo = TaxonomyRepo(session=session)
+    repo = _repo_with_stub(session)
 
     mapping = await repo.list_leaf_ids_for_node_ids(node_ids=[77, 11, 999])
 
