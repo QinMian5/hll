@@ -1,6 +1,6 @@
 ---
-abstract: Operator-triggered taxonomy classification orchestration for incrementally assigning unclassified knowledge nodes through one Cursor session per node.
-out_of_scope: Taxonomy tree persistence ownership, semantic-map snapshot rendering, and HTTP-triggered classification job APIs.
+abstract: Job-queue-backed taxonomy classification orchestration for incrementally moving cards out of visible Unclassified leaves.
+out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechanics, and HTTP-triggered classification APIs.
 ---
 
 # Design: taxonomy-classification
@@ -11,84 +11,151 @@ out_of_scope: Taxonomy tree persistence ownership, semantic-map snapshot renderi
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the `taxonomy_classification` module that incrementally classifies unassigned knowledge nodes by running one Cursor session per node and binding each node to one final taxonomy leaf.
-- **Scope/Boundaries:** Covers operator-triggered batch selection, one-node session orchestration, Cursor tool-call contracts for progressive taxonomy traversal, and first-write assignment semantics. Excludes taxonomy tree persistence ownership, semantic-map rendering behavior, and HTTP-triggered job APIs.
+- **Purpose:** Define the `taxonomy_classification` module that incrementally classifies cards from one scope node's `Unclassified` leaf into existing direct child categories through `job-queue-mcp` single-card tasks.
+- **Scope/Boundaries:** Covers operator-triggered job submission, one-card job contracts, local job linkage state, queue-result notification intake, lightweight reconcile, result validation, and assignment-move orchestration. Excludes taxonomy tree persistence ownership, worker-side implementation mechanics, and HTTP-triggered classification APIs.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Constraint Projection
-- **Governing Constraints:** Module boundaries remain explicit, persistent truth ownership stays in `knowledge_graph` and `taxonomy`, and behavior-changing design decisions stay synchronized in active specs.
-- **Detail Commitments:** Classification execution is operator-triggered via script, defaults to concurrent execution with `max_workers=8`, processes unassigned nodes in `nodes.id ASC` order, supports optional `--limit`, and runs one Cursor session per node with `title + content` context only.
-- **Update Rule:** Requirement-level constraints remain stable while classification orchestration behavior, tool contracts, and runtime/operator semantics are maintained here as implementation-facing truth.
+- **Governing Constraints:** Module boundaries remain explicit, persistent truth ownership stays in `knowledge_graph` and `taxonomy`, queue execution stays external to the API process, and behavior-changing design decisions stay synchronized in active specs.
+- **Detail Commitments:** Classification execution is operator-triggered via scripts and advanced by a background runtime. The runtime submits one `taxonomy_classification` queue job per card, consumes notification-only webhook events plus lightweight polling/reconcile, reads accepted results through `GET /results/{job_id}`, validates target children against taxonomy-owned truth, and moves assignments only through taxonomy-owned services.
+- **Update Rule:** Requirement-level constraints remain stable while classification orchestration behavior, queue contracts, result-consumption rules, and runtime/operator semantics are maintained here as implementation-facing truth.
 
 ## Design Approach
-- **Approach:** Add a dedicated backend `taxonomy_classification` module that orchestrates incremental classification while keeping taxonomy truth and knowledge-node truth owned by their existing modules.
+- **Approach:** Keep human taxonomy-structure control in operator scripts and delegate card-level classification judgment to `job-queue-mcp`. The local `taxonomy_classification` runtime owns queue interaction and result application. Workers return structured classification decisions only; they never write knowledge APIs or databases.
 - **Key Elements:**
-  - **Module ownership:** `apps/api/src/modules/taxonomy_classification` owns batch node selection orchestration, Cursor session orchestration, and tool-call boundaries exposed to Cursor for progressive taxonomy traversal.
-  - **Dependency boundary:** `taxonomy_classification` consumes `knowledge_graph` service ports for node input data and consumes `taxonomy` service ports for taxonomy traversal and final assignment writes.
-  - **Single-session rule:** One node is processed by exactly one Cursor session; one session handles one node end-to-end.
-  - **Node context contract:** Cursor receives only the selected node's `title` and `content`.
-  - **Progressive disclosure contract:** Cursor traverses taxonomy by repeatedly calling `list_children(parent_id)` until a suitable leaf is selected.
-  - **Assignment contract:** Cursor calls `assign_leaf(node_id, leaf_id)` in-session to persist the final classification result.
-  - **First-write rule:** `assign_leaf` is insert-only. If the node already has an assignment, the operation is rejected and does not overwrite existing truth.
-  - **No failure-state persistence:** Failed node attempts do not write fallback state or error markers in persistent storage.
-  - **Retry-by-next-run model:** Nodes left unassigned due to run-time failure remain eligible in the next operator run.
-  - **No HTTP trigger surface:** First version exposes no API endpoint for classification job submission.
+  - **Module ownership:** `apps/api/src/modules/taxonomy_classification` owns classification job submission, job linkage persistence, result event processing, low-frequency reconcile, accepted-result validation, and assignment-move orchestration.
+  - **Dependency boundary:** `taxonomy_classification` consumes `knowledge_graph` service ports for card input data and consumes `taxonomy` service ports for scope lookup, child lookup, and assignment movement.
+  - **Queue boundary:** Classification jobs are submitted to the `taxonomy_classification` queue in `job-queue-mcp`.
+  - **Single-card job rule:** One knowledge card is processed by exactly one queue job for one scope classification attempt.
+  - **Node context contract:** The worker receives only the selected card's `node_id`, `title`, and `content`, plus the current scope and available target child categories.
+  - **Human-structure rule:** The worker must choose among existing human-created direct child categories or keep the card in the current scope's `Unclassified` leaf. The worker cannot create or request new taxonomy nodes.
+  - **Move target rule:** Choosing a child category moves the card assignment to that child category's `Unclassified` leaf.
+  - **Keep-unclassified rule:** Choosing `Unclassified` keeps the card assignment at the current scope's `Unclassified` leaf and records the classification attempt as processed.
+  - **Validation-before-move rule:** The runtime applies accepted results only after verifying that the card is still assigned to the source `Unclassified` leaf, the selected child still exists, the selected child belongs directly to the scope node, and the selected child's `Unclassified` leaf exists.
+  - **Invalid-result rule:** Invalid accepted results are recorded with an error and do not move assignments.
+  - **No HTTP trigger surface:** First-version classification submission and taxonomy child creation are operator-script driven.
 
-## Batch Execution Contract
-- **Entrypoint:** one operator-facing script under `scripts/` triggers classification runs.
-- **Selection set:** only nodes without rows in `node_taxonomy_assignments` are eligible.
-- **Ordering:** eligible nodes are processed in `nodes.id ASC`.
-- **Limit behavior:** `--limit N` processes the first `N` eligible nodes; when omitted, all eligible nodes are processed.
-- **Concurrency default:** batch execution defaults to `max_workers=8`.
-- **Concurrency override:** script arguments may override the worker count for a run.
+## Operator Script Contract
+- **Create taxonomy children script:**
+  - Input: one parent taxonomy node id and one or more child category names.
+  - Behavior: calls taxonomy-owned services to create regular child category nodes under the parent.
+  - Side effect: each regular child category receives its own system-created `Unclassified` child leaf.
+- **Submit classification jobs script:**
+  - Input: one scope taxonomy node id and optional limit.
+  - Selection set: cards currently assigned to the scope node's `Unclassified` leaf and lacking an active outstanding classification job for the same scope and source assignment.
+  - Ordering: selected cards are processed in `nodes.id ASC`.
+  - Job creation: one queue job per selected card.
+  - Script output: submitted, skipped, and already-linked counts.
+  - Resubmission rule: a processed keep-unclassified result, processed invalid accepted result, or terminal non-accepted result does not block a later operator submission for the same card and scope.
 
-## Cursor Tool Contract
-- **`list_children(parent_id)`**
-  - Input: nullable taxonomy parent id.
-  - Output: direct child taxonomy nodes sorted by `name ASC`.
-  - Purpose: progressive taxonomy traversal within one session.
-- **`get_assignment(node_id)`**
-  - Input: node id.
-  - Output: existing final assignment or none.
-  - Purpose: in-session assignment state checks and terminal verification.
-- **`assign_leaf(node_id, leaf_id)`**
-  - Input: knowledge node id and taxonomy leaf id.
-  - Output: persisted final assignment record.
-  - Enforcement:
-    - rejects non-leaf ids;
-    - rejects second-write attempts for already assigned nodes;
-    - does not update prior assignments.
+## Queue Job Contract
+- **Queue name:** `taxonomy_classification`.
+- **Priority:** first-version default is `normal`.
+- **Payload:** one JSON object containing:
+  - `scope_node`: `{id, name}`
+  - `source_unclassified_node`: `{id, name}`
+  - `card`: `{node_id, title, content}`
+  - `children`: array of direct child category options, each item containing a stable child id and name
+  - `allow_unclassified`: `true`
+- **Instruction:** task-specific guidance tells the worker to choose exactly one target using only the payload content.
+- **Output schema:** one JSON object containing:
+  - `node_id`
+  - `target`
+    - `{ "kind": "child", "child_id": <positive integer> }`
+    - or `{ "kind": "unclassified" }`
+  - `confidence`
+  - `rationale`
+- **Result-use rule:** `confidence` and `rationale` are audit fields. Publishing a valid move depends on structural validation, not on a confidence threshold.
+
+## Runtime State
+- The module persists local queue linkage and local notification state needed for restart/resume behavior.
+- A classification job record stores:
+  - scope node id
+  - source `Unclassified` leaf id
+  - card node id
+  - nullable remote `job_id`, assigned only after the local active submission intent is committed
+  - terminal non-accepted state when present
+  - accepted-result processing state
+  - result target snapshot when accepted and valid
+  - last error when processing fails
+  - timestamps
+- Active job linkage is defined by local job rows with `processed_at IS NULL` and `terminal_state IS NULL`.
+- A webhook event record stores:
+  - stable event id
+  - event type
+  - remote job id
+  - queue name
+  - submission id or terminal state
+  - processed timestamp
+  - last error
+- Local state does not duplicate accepted result payloads, full queue lifecycle history, leases, or submission history from `job-queue-mcp`.
+
+## Result Consumption
+- The classification runtime uses the same result-consumption pattern as `source_pipeline`:
+  - queue-level webhook subscriptions deliver notification-only events;
+  - local webhook intake authenticates and persists events idempotently;
+  - pending local events wake the background runtime;
+  - accepted result payloads are reread from `GET /results/{job_id}`;
+  - low-frequency polling/reconcile checks outstanding job links to compensate for missed notifications or exhausted remote delivery retries.
+- The webhook receiver does not move assignments or read result payloads. It returns after authenticated idempotent event persistence.
+- The webhook receiver rejects authenticated notifications whose `queue_name` does not match the configured taxonomy-classification queue before writing any local event.
+- The background runtime owns event processing, result reads, validation, assignment movement, terminal checkpoint updates, and processed/error markers.
+
+## Assignment Move Flow
+1. Operator creates direct child categories for a scope node.
+2. Taxonomy service creates each requested child category plus that child's `Unclassified` leaf.
+3. Operator submits classification jobs for cards currently assigned to the scope node's `Unclassified` leaf.
+4. `job-queue-mcp` dispatches each single-card job to external workers.
+5. `job-queue-mcp` sends notification-only webhook events for accepted results and terminal non-accepted states.
+6. The local webhook receiver records events idempotently and wakes the classification runtime.
+7. The classification runtime reads accepted results from `GET /results/{job_id}`.
+8. The runtime validates the accepted result against current taxonomy and assignment truth.
+9. Valid child targets move the card to the target child's `Unclassified` leaf through taxonomy-owned assignment movement.
+10. Valid `unclassified` targets keep the card in the current source `Unclassified` leaf and mark the job processed.
+11. Invalid accepted results record a job processing error, mark the accepted result locally processed, remove the event wakeup, and leave the current assignment unchanged.
+12. Terminal non-accepted states record terminal checkpoints and leave the current assignment unchanged.
+13. Low-frequency reconcile repeats result and terminal checks for outstanding job links.
 
 ## Runtime Configuration
 - Classification runtime configuration is independent from `apps/cli` reviewer configuration.
-- API runtime settings remain sourced through `apps/api/src/core/config.py`.
+- API shared settings remain free of taxonomy-classification producer/result-reader and webhook receiver secrets.
+- Taxonomy-classification runtime and webhook receiver settings use dedicated settings classes sourced from process environment.
 - Classification settings include:
-  - Cursor executable path.
-  - Cursor workspace root for node sessions.
-  - Cursor session timeout.
-  - Cursor retry limit for malformed/invalid session outputs.
-  - Default classification concurrency (`max_workers=8`).
-
-## Operator Experience
-- Operator execution is script-driven and machine-repeatable.
-- Command UX follows repository style for local operator utilities:
-  - typed request/result contracts using Pydantic models;
-  - command-line argument handling using Click;
-  - progress and summary output using Rich.
+  - runtime-only job-queue base URL;
+  - runtime-only job-queue token URL;
+  - runtime-only job-queue client id;
+  - runtime-only job-queue client secret;
+  - runtime-only job-queue resource/audience;
+  - runtime-only job-queue scopes for job creation and result reads;
+  - receiver-only webhook authentication issuer/resource/discovery URL;
+  - receiver-only webhook allowed caller client id;
+  - receiver-only webhook public path;
+  - runtime poll interval;
+  - runtime reconcile interval;
+  - pending event batch size.
+- Settings boundary rule:
+  - the taxonomy-classification runtime settings require job-queue producer/result-reader settings and do not require webhook auth settings.
+  - the taxonomy-classification webhook receiver settings require queue name plus webhook auth/path settings and do not receive job-queue producer/result-reader client credentials.
 
 ## Failure Handling
-- Node-level run-time failures are isolated to the current node and do not stop the batch run.
-- A failed node attempt leaves persistent classification truth unchanged.
-- Assignment collisions on already-assigned nodes are treated as non-overwrite outcomes.
-- Batch-level completion reports processed, assigned, and unchanged counts without introducing persisted workflow state.
+- Job submission failures leave assignments unchanged and are visible in operator output or runtime logs.
+- Accepted results with unknown child ids, out-of-scope child ids, missing target `Unclassified` leaves, or stale card-source assignments are recorded as locally processed errors and do not move assignments.
+- Terminal non-accepted queue states are recorded to stop repeated local result reads for the affected job.
+- Duplicate webhook deliveries are accepted idempotently.
+- Duplicate operator submission runs do not submit another active job for the same card and scope when a linked outstanding job already exists. Processed and terminal job rows do not block later operator submissions.
+- Runtime errors preserve enough local state for a later runtime tick to retry unprocessed events or reconcile outstanding jobs.
 
 ## Validation
 - **Checks:**
-  - Batch selection tests verify unassigned-only filtering, `nodes.id ASC` ordering, and `--limit` behavior.
-  - Tool-contract tests verify `list_children` ordering and `assign_leaf` first-write-only enforcement.
-  - Integration tests verify non-leaf assignment rejection and already-assigned rejection without overwrite.
-  - Session-runner tests verify one node maps to one Cursor session and in-session assignment write flow.
-  - CLI/script tests verify Click argument handling and Rich progress output.
+  - Operator child-creation script creates children through taxonomy services and automatically creates each child's `Unclassified` leaf.
+  - Operator submission script selects cards from one scope's `Unclassified` leaf in `nodes.id ASC` order.
+  - Submission idempotency tests verify repeated runs do not duplicate active job links for the same card and scope.
+  - Queue-contract tests verify `taxonomy_classification` payload and output schema shape.
+  - Webhook receiver tests verify authentication, duplicate event handling, event persistence, and local wakeup behavior.
+  - Runtime tests verify accepted valid child targets move assignments to the target child's `Unclassified` leaf.
+  - Runtime tests verify accepted `unclassified` targets keep the current assignment and mark the job processed.
+  - Runtime tests verify invalid target ids, out-of-scope child ids, stale source assignments, and missing target `Unclassified` leaves record errors without moving assignments.
+  - Runtime tests verify terminal non-accepted queue states stop repeated processing for that job.
+  - Reconcile tests verify outstanding job links are checked at low frequency through the result-read surface.
 - **Evidence:**
-  - Passing unit and integration tests for selection, traversal-tool contract, and assignment constraints.
-  - Passing operator-script tests showing default `max_workers=8` behavior with optional overrides.
+  - Passing unit and integration tests for operator scripts, queue contracts, webhook intake, result processing, assignment movement, and reconcile behavior.

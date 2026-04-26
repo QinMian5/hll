@@ -22,8 +22,11 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Exposes read/write service ports consumed by `search`, `ingestion`, and `taxonomy`.
 
 ### taxonomy
-- Owns persisted LCC taxonomy tree and final node-to-leaf assignment truth.
-- Owns taxonomy import orchestration from operator-supplied YAML.
+- Owns persisted operator-managed taxonomy tree and current node-to-leaf assignment truth.
+- Owns the real single `Root` node and system-created `Unclassified` leaves.
+- Owns taxonomy import and operator structure mutation orchestration.
+- Owns default assignment of new knowledge nodes to `Root -> Unclassified`.
+- Owns assignment movement between valid taxonomy leaves.
 - Owns taxonomy drill-down read orchestration:
   - `GET /api/v1/taxonomy/view/root`
   - `GET /api/v1/taxonomy/view/nodes/{node_id}`
@@ -31,10 +34,11 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Consumes `knowledge_graph` read ports for leaf-level one-hop graph payload shaping.
 
 ### taxonomy_classification
-- Owns operator-triggered incremental classification orchestration for unassigned nodes.
-- Runs one Cursor session per selected node.
+- Owns operator-triggered `taxonomy_classification` queue job submission for cards in one scope node's `Unclassified` leaf.
+- Owns background result consumption through notification-only webhooks plus lightweight polling/reconcile.
+- Submits one `job-queue-mcp` job per selected card.
 - Consumes `knowledge_graph` and `taxonomy` service ports only.
-- Persists final assignment through taxonomy first-write boundary.
+- Applies valid accepted classification results by moving assignments through taxonomy-owned services.
 
 ### ingestion
 - Owns write-side HTTP acceptance endpoint and async dispatch orchestration.
@@ -76,11 +80,11 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Response:
   - no `current_node` field
   - `breadcrumb=[]`
-  - `children[]` top-level taxonomy nodes (`parent_id is null`) filtered to `descendant_card_count > 0`
+  - `children[]` direct children of the real `Root` node
   - child item shape: `{id, parent_id, name, depth, is_leaf, descendant_card_count}`
   - children ordering: `name ASC`, tie-break `id ASC`
 - Failure:
-  - `404` when taxonomy has no root node.
+  - `404` when the real `Root` node is unavailable.
 
 ### Taxonomy Node View Endpoint
 - Route: `GET /api/v1/taxonomy/view/nodes/{node_id}`
@@ -103,7 +107,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
   - response is full payload, no pagination
 - Failure:
   - `404` when taxonomy node id is unknown.
-  - `404` when taxonomy store is empty.
+  - `404` when taxonomy root is unavailable.
 
 ### Taxonomy Leaf Detail Endpoint
 - Route: `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
@@ -114,7 +118,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
   - node detail item shape: `{id, title, content}`
 - Failure:
   - `404` when taxonomy leaf id is unknown
-  - `404` when taxonomy store is empty
+  - `404` when taxonomy root is unavailable
   - `400` when `node_id` is not a leaf taxonomy node
   - `400` when request `node_ids` is empty, contains duplicates, or references a node outside the active leaf one-hop graph
 
@@ -127,24 +131,29 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 6. Worker actor receives task and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
 7. Worker persists node and edges through `knowledge_graph` write service.
 8. Worker computes edge strength as `(dot_product + 1) / 2`, applies configured threshold/top-k, then persists `Edge` and `Adjacency`.
+9. Worker assigns the new node to `Root -> Unclassified` through taxonomy-owned assignment services.
 
 ## Taxonomy Bootstrap Flow
-1. Operator script reads `human_workspace/LCC.yaml`.
-2. Script fails immediately when taxonomy storage already contains rows.
-3. Script computes `depth` and `is_leaf`, then writes authoritative taxonomy tree.
-4. Classification workflow later binds each knowledge node to one final taxonomy leaf.
+1. Operator script creates or imports one authoritative tree rooted at the real `Root` node.
+2. Bootstrap creates `Root -> Unclassified`.
+3. Creating a regular taxonomy node creates that node's `Unclassified` child leaf.
+4. Taxonomy storage remains the authoritative structure truth.
 
 ## Taxonomy Classification Flow
-1. Operator script selects unassigned nodes in deterministic order (`nodes.id ASC`).
-2. Classifier runs one Cursor session per selected node.
-3. Session traverses taxonomy progressively until a leaf is selected.
-4. Session persists assignment via first-write `assign_leaf`.
-5. Failed node attempts keep persistent truth unchanged.
+1. Operator script selects cards assigned to one scope node's `Unclassified` leaf in deterministic order (`nodes.id ASC`).
+2. Operator script submits one `taxonomy_classification` queue job per selected card.
+3. `job-queue-mcp` delivers notification-only events for accepted results and terminal non-accepted outcomes.
+4. The local taxonomy-classification runtime persists webhook events idempotently and reads accepted result payloads through `GET /results/{job_id}`.
+5. Valid child targets move the card assignment to the selected child category's `Unclassified` leaf.
+6. Valid `unclassified` targets keep the card assignment at the current scope's `Unclassified` leaf.
+7. Invalid accepted results and terminal non-accepted outcomes record local processing state without moving assignments.
+8. Lightweight polling/reconcile checks outstanding job links as a compensation path.
 
 ## Runtime Dependencies
 - Redis is required for ingestion queue broker transport.
 - Dramatiq is required for async worker execution.
 - API and worker run in separate process containers from one shared app image.
+- `job-queue-mcp` is required for taxonomy classification queue execution and result reads.
 - OpenAI Embeddings API is required for worker ingestion and search query embedding.
 - PostgreSQL remains persistent source of truth.
 - Runtime configuration values are sourced from `.env` via `pydantic-settings`.
@@ -154,12 +163,15 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Enqueue/worker/embedding/materialization failures for ingestion remain internal-only for endpoint behavior.
 - Internal failures must be logged with correlation/debug-friendly fields.
 - Taxonomy view endpoints do not return graph layout coordinates; frontend layout is client-owned.
+- Taxonomy classification workers do not write knowledge APIs or databases.
+- Taxonomy classification result processing moves assignments only after local validation against current taxonomy truth.
 
 ## Non-Goals (V1)
 - Semantic-map snapshot/tile APIs.
 - Keyword retrieval or hybrid retrieval.
 - Ingestion processing-status exposure.
 - Dead-letter queue policy matrix and queue durability optimization.
+- HTTP-triggered taxonomy classification management APIs.
 
 ## Validation
 - **Checks:**
@@ -168,8 +180,12 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
   - ingestion idempotency checks verifying same-key same-payload replay returns `202 Accepted` without enqueueing duplicate ingestion work or materializing duplicate knowledge cards
   - ingestion idempotency checks verifying same-key conflicting payload returns `409 Conflict`
   - ingestion idempotency checks verifying timeout or connection-loss retry after an already accepted original request converges through same-key replay
+  - ingestion worker checks verifying newly created nodes receive `Root -> Unclassified` assignment
   - `GET /api/v1/search` contract checks
   - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, and `POST /api/v1/taxonomy/view/leaves/{id}/details` contract checks
+  - taxonomy classification queue-contract checks
+  - taxonomy classification webhook/reconcile checks
+  - taxonomy classification assignment-move checks
   - architecture checks that `search`/`ingestion` do not import `knowledge_graph.repo/model`
   - architecture checks that runtime API entrypoint does not import worker entrypoint
 - **Evidence:**

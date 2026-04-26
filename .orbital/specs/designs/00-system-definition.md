@@ -12,7 +12,7 @@ out_of_scope: Implementation details, data-model internals, and module-level tec
 ## System Definition
 The system is an API-first open knowledge network for the agent era.
 V1 exposes search read, taxonomy drill-down read, and ingestion accept HTTP APIs, plus a local operator-facing CLI for reviewed card submission.
-The platform organizes knowledge as atomic cards and relation links to support machine-oriented retrieval and taxonomy-first hierarchical exploration.
+The platform organizes knowledge as atomic cards and relation links to support machine-oriented retrieval, taxonomy-first hierarchical exploration, and operator-guided incremental classification.
 
 ## Target Users
 The primary target users are Agents.
@@ -29,6 +29,8 @@ The core value is open knowledge dissemination through a machine-consumable know
 - Atomic knowledge cards.
 - Relation links with dot-product-mapped strength computation in ingestion worker execution.
 - Taxonomy-backed hierarchical browsing with branch/leaf query responses.
+- Operator-managed taxonomy structure with visible `Unclassified` leaves.
+- Background taxonomy classification through `job-queue-mcp`.
 - Leaf-level one-hop graph view (inner + pulled outer nodes, scoped edges).
 - Frontend-owned graph layout (backend does not return authoritative node coordinates).
 
@@ -45,6 +47,8 @@ The core value is open knowledge dissemination through a machine-consumable know
 - Database baseline is established.
 - Taxonomy drill-down visualization is available in frontend.
 - Ingestion-driven relation strength is computed and usable in search and leaf-level graph views.
+- New cards enter taxonomy browsing through `Root -> Unclassified`.
+- Background classification can move cards from a scope's `Unclassified` leaf into child-scope `Unclassified` leaves.
 
 ## Future Expansion Directions
 - Community contribution and governance models.

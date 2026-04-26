@@ -24,9 +24,9 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Development may expose the knowledge corpus PostgreSQL service on a separate host port for local tooling; it must not reuse the online database host port.
 - Development may expose the source pipeline PostgreSQL service on a separate host port for local tooling; it must not reuse the online database or knowledge corpus host ports.
 - `redis` remains internal-only in both environments and is provided by a project-managed service definition.
-- Production runtime process topology is fixed to four application backend process containers: one `api` container, one `worker` container, one `orchestrator` container, and one source-pipeline webhook receiver container. The production identity topology additionally includes self-hosted `logto-postgres`, `logto-seed`, and `logto` services for the `knowledge` OAuth authority.
-- Development starts `api` and `worker` by default; `orchestrator` and the source-pipeline webhook receiver are explicit opt-in profiles because local development must not accidentally submit source-pipeline jobs to the shared queue or expose webhook intake unintentionally.
-- Horizontal scaling is not an MVP requirement for `api`, `worker`, `orchestrator`, or the source-pipeline webhook receiver; production baseline keeps one running container per role.
+- Production runtime process topology includes one `api` container, one `worker` container, one source-pipeline `orchestrator` container, one source-pipeline webhook receiver container, one taxonomy-classification runtime container, and one taxonomy-classification webhook receiver container. The production identity topology additionally includes self-hosted `logto-postgres`, `logto-seed`, and `logto` services for the `knowledge` OAuth authority.
+- Development starts `api` and `worker` by default; source-pipeline and taxonomy-classification queue-connected runtimes are explicit opt-in profiles because local development must not accidentally submit jobs to the shared queue or expose webhook intake unintentionally.
+- Horizontal scaling is not an MVP requirement for `api`, `worker`, source-pipeline runtimes, or taxonomy-classification runtimes; production baseline keeps one running container per role.
 - Production search read chain is `shared proxy -> nginx -> web -> api -> OpenAI Embeddings API + db`.
 - Production ingestion write chain is `api -> redis -> worker -> OpenAI Embeddings API + db`.
 - Development search read chain is `web -> api -> OpenAI Embeddings API + db`.
@@ -34,15 +34,15 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Migration is a dedicated one-shot job and not part of API startup.
 
 ## Network Boundaries
-- `backend` network is internal-only and contains `db`, repository-managed data services, one-shot migration jobs, `redis`, self-hosted Logto services, `api`, `worker`, production or explicitly enabled `orchestrator`, and production or explicitly enabled source-pipeline webhook receiver.
+- `backend` network is internal-only and contains `db`, repository-managed data services, one-shot migration jobs, `redis`, self-hosted Logto services, `api`, `worker`, production or explicitly enabled source-pipeline runtimes, and production or explicitly enabled taxonomy-classification runtimes.
 - Knowledge corpus PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
 - Accepted first-version service names for the knowledge corpus database path are `knowledge_corpus_db` and `knowledge_corpus_migrate`.
 - Source pipeline PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
 - Accepted first-version service names for the source pipeline database path are `source_pipeline_db` and `source_pipeline_migrate`.
-- `edge` network contains `web`, `api`, `worker`, self-hosted Logto, the source-pipeline webhook receiver when enabled, and the project-local `nginx` app gateway.
+- `edge` network contains `web`, `api`, `worker`, self-hosted Logto, enabled webhook receiver roles, and the project-local `nginx` app gateway.
 - Production connects the project-local `nginx` app gateway to the external shared `proxy` network with stable `knowledge-nginx`, `knowledge.orbitalis.org`, `knowledge-logto.orbitalis.org`, and `admin.knowledge-logto.internal.home.arpa` aliases. It must not publish host `80/443` ports directly.
-- Production connects `orchestrator` to the external shared `proxy` network only for `job-queue-mcp` reverse-proxy hostnames. Development does not connect `orchestrator` to `proxy` by default.
-- Production exposes the source-pipeline webhook receiver through the project-local `nginx` app gateway on a dedicated source-pipeline webhook path. The receiver itself remains container-only and must not publish host ports directly.
+- Production connects source-pipeline and taxonomy-classification result-consuming runtimes to the external shared `proxy` network only for `job-queue-mcp` reverse-proxy hostnames. Development does not connect these runtimes to `proxy` by default.
+- Production exposes webhook receiver roles through the project-local `nginx` app gateway on dedicated webhook paths. Receiver containers remain container-only and must not publish host ports directly.
 - Development adds `db` to `edge` for host port publishing while keeping service-to-service database access on `backend`.
 - Cross-service access must follow network boundaries rather than host port access.
 - Development host access to PostgreSQL is for local tooling only; container-to-container database access still uses Docker service DNS (`postgres`) on `backend`.
@@ -59,6 +59,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Repository-managed local/offline apps may add dedicated infrastructure services when those services are part of accepted repository app boundaries; knowledge corpus PostgreSQL is one such service.
 - The accepted first-version compose baseline includes `knowledge_corpus_db` as a dedicated PostgreSQL service and `knowledge_corpus_migrate` as a dedicated one-shot migration job for `apps/knowledge_corpus`.
 - The accepted first-version compose baseline includes `source_pipeline_db` as a dedicated PostgreSQL service, `source_pipeline_migrate` as a dedicated one-shot migration job, `orchestrator` as the dedicated long-running runtime for `apps/source_pipeline`, and `source_pipeline_webhook_receiver` as the dedicated webhook intake runtime for `apps/source_pipeline`.
+- The accepted taxonomy-classification compose baseline uses the API database and API image with dedicated role commands for `taxonomy_classification_runtime` and `taxonomy_classification_webhook_receiver`.
 
 ## Volume Lifecycle Policy
 - Development and test use non-external project-scoped compose volumes and support optional volume cleanup through an explicit destroy flag.
@@ -72,8 +73,10 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `logto-postgres` uses the fixed official PostgreSQL image because Logto owns its own schema and does not use the repository app/migration role initialization script.
 - `api` uses a custom Dockerfile.
 - `worker` reuses the same API image with role-specific command override.
+- `taxonomy_classification_runtime` and `taxonomy_classification_webhook_receiver` reuse the same API image with role-specific command overrides.
 - `orchestrator` and `source_pipeline_webhook_receiver` use the same custom Dockerfile built from `apps/source_pipeline`.
 - Single-image policy is required for `api` and `worker`; runtime role is selected only by startup command.
+- Single-image policy applies to taxonomy-classification API-side roles; runtime role is selected only by startup command.
 - The API image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - The source-pipeline image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - `redis` uses fixed-tag official image `redis:7-bookworm`.
@@ -83,11 +86,14 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 ## Process Role Command Contract
 - `api` and `worker` must each have a stable, role-specific startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
 - `orchestrator` and `source_pipeline_webhook_receiver` must each have a stable startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
-- Compose files must reference role startup commands instead of embedding long inline runtime invocation details per environment.
+- `taxonomy_classification_runtime` and `taxonomy_classification_webhook_receiver` must each have a stable startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
+- Compose files must reference role startup commands. Long inline runtime invocation details stay out of environment-specific compose service definitions.
 - API role command owns API logging bootstrap and then starts FastAPI serving.
 - Worker role command owns worker logging bootstrap and then starts Dramatiq worker serving.
 - Orchestrator role command owns source-pipeline runtime bootstrap and then starts the long-running local event and reconcile loop.
 - Source-pipeline webhook receiver role command owns source-pipeline webhook HTTP bootstrap and then starts the authenticated notification receiver.
+- Taxonomy-classification runtime role command owns taxonomy-classification runtime bootstrap and then starts the long-running local event and reconcile loop.
+- Taxonomy-classification webhook receiver role command owns taxonomy-classification webhook HTTP bootstrap and then starts the authenticated notification receiver.
 
 ## Startup and Gating Order
 - Required startup order is fixed:
@@ -104,9 +110,14 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   1. `source_pipeline_db` reaches healthy state.
   2. `source_pipeline_migrate` one-shot job runs and exits successfully.
   3. Production `orchestrator` and `source_pipeline_webhook_receiver`, or development source-pipeline services when their profiles are explicitly enabled, start against the migrated source-pipeline database.
+- Taxonomy-classification queue runtime startup uses the online API database migration gate:
+  1. `db` reaches healthy state.
+  2. `migrate` one-shot job runs and exits successfully.
+  3. Production `taxonomy_classification_runtime` and `taxonomy_classification_webhook_receiver`, or development taxonomy-classification services when their profiles are explicitly enabled, start against the migrated API database.
 - `api` must not auto-run migrations.
 - `apps/knowledge_corpus` does not own a long-running application container in first version, so its runtime contract ends at migrated database availability plus library usage from external local processes.
 - `apps/source_pipeline` owns one long-running `orchestrator` container, one long-running source-pipeline webhook receiver container, and one separate migration job.
+- `apps/api` owns one long-running taxonomy-classification runtime container and one long-running taxonomy-classification webhook receiver container.
 - Startup dependency control must use `healthcheck + depends_on`.
 - `sleep`-based wait logic is forbidden.
 
@@ -170,9 +181,23 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   - `SOURCE_PIPELINE_WEBHOOK_ALLOWED_CLIENT_ID` for the dedicated `job-queue-mcp` delivery client identity allowed to call the receiver
   - `SOURCE_PIPELINE_WEBHOOK_PUBLIC_PATH` for the project-local nginx path that routes to the receiver
 - The source-pipeline webhook receiver does not receive the source-pipeline Job Queue producer/result-reader client secret because receiving webhook notifications does not require creating jobs or reading accepted results.
-- Knowledge Logto provisioning includes a dedicated machine-to-machine application for `job-queue-mcp` webhook delivery. Its client credential is consumed by `job-queue-mcp` webhook subscription configuration, while the source-pipeline receiver stores only validation settings and the allowed delivery client identity.
+- Taxonomy classification Job Queue client configuration uses:
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_BASE_URL` for producer and result-read calls to `job-queue-mcp`
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_TOKEN_URL` for the Job Queue Logto client-credentials flow used by taxonomy-classification producer and result-reader calls
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_ID` and `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET` for taxonomy-classification access to `job-queue-mcp`
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_RESOURCE` and `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_SCOPES` for the Job Queue access-token audience and scope request
+- These Job Queue producer/result-reader fields are present only on the taxonomy-classification runtime role and operator submission environment.
+- Taxonomy classification webhook receiver configuration uses:
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME` for rejecting misrouted authenticated queue notifications before local event persistence
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_ISSUER` for the `knowledge` Logto issuer trusted by the receiver
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_RESOURCE` for the receiver API resource/audience
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_DISCOVERY_URL` for container-to-container discovery when it differs from the public issuer URL
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID` for the dedicated `job-queue-mcp` delivery client identity allowed to call the receiver
+  - `KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_PUBLIC_PATH` for the project-local nginx path that routes to the receiver
+- The taxonomy-classification webhook receiver does not receive the taxonomy-classification Job Queue producer/result-reader client secret because receiving webhook notifications does not require creating jobs or reading accepted results.
+- Knowledge Logto provisioning includes dedicated machine-to-machine applications for `job-queue-mcp` webhook delivery to source-pipeline and taxonomy-classification receivers. Their client credentials are consumed by `job-queue-mcp` webhook subscription configuration, while receiver roles store only validation settings and allowed delivery client identities.
 - Knowledge Logto production routing uses `https://knowledge-logto.orbitalis.org` for the auth endpoint and `https://admin.knowledge-logto.internal.home.arpa` for the admin console, both routed through the project-local `nginx` app gateway.
-- Tracked environment files must carry the knowledge corpus and source pipeline URL fields alongside the online stack URL fields when those repository-managed app services are enabled.
+- Tracked environment files must carry the knowledge corpus, source pipeline, and taxonomy-classification queue-runtime fields alongside the online stack URL fields when those repository-managed app services are enabled.
 
 ## Failure Policy
 - Known startup failures must fail explicitly and stop rollout progression.

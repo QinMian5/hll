@@ -1,6 +1,6 @@
 ---
-abstract: Taxonomy module design for authoritative LCC tree truth, final node-to-leaf assignment, and drill-down view APIs.
-out_of_scope: LLM classification orchestration internals, candidate ranking policy, and semantic-space snapshot architecture.
+abstract: Taxonomy module design for authoritative operator-managed tree truth, visible Unclassified leaves, movable node-to-leaf assignments, and drill-down view APIs.
+out_of_scope: AI classification job orchestration, worker-side execution mechanics, and semantic-space snapshot architecture.
 ---
 
 # Design: taxonomy
@@ -11,31 +11,39 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the `taxonomy` module as the active browsing backbone: authoritative LCC tree storage, final leaf assignment truth, and taxonomy-query-driven view APIs.
-- **Scope/Boundaries:** Covers taxonomy ownership, persistence shape, import boundaries, integrity constraints, and branch/leaf view contracts consumed by the taxonomy browsing frontend.
+- **Purpose:** Define the `taxonomy` module as the active browsing backbone: authoritative operator-managed taxonomy tree storage, visible `Unclassified` bucket leaves, current node-to-leaf assignment truth, and taxonomy-query-driven view APIs.
+- **Scope/Boundaries:** Covers taxonomy ownership, persistence shape, operator tree mutation boundaries, integrity constraints, assignment movement semantics, and branch/leaf view contracts consumed by the taxonomy browsing frontend.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Constraint Projection
 - **Governing Constraints:** Module boundaries remain explicit, persistent truth stays isolated by owner, and behavior-changing design decisions stay synchronized in active specs.
-- **Detail Commitments:** LCC is a single authoritative tree stored in database; each knowledge node binds to exactly one taxonomy leaf; taxonomy browsing is query-driven from backend and not precomputed through semantic-map snapshot rebuilds.
-- **Update Rule:** Requirement-level constraints remain stable while taxonomy structure and view API details are maintained here as implementation-facing truth.
+- **Detail Commitments:** Taxonomy is an operator-managed tree stored in the API database. The tree has one real `Root` node. Every regular taxonomy node has one system-created direct child leaf named `Unclassified`. Each knowledge node has exactly one current taxonomy leaf assignment. New knowledge nodes are assigned to `Root -> Unclassified` during ingestion. Taxonomy browsing is query-driven from backend and not precomputed through semantic-map snapshot rebuilds.
+- **Update Rule:** Requirement-level constraints remain stable while taxonomy structure, mutation, assignment, and view API details are maintained here as implementation-facing truth.
 
 ## Design Approach
-- **Approach:** Use taxonomy as the interaction truth for hierarchical drill-down browsing. Backend returns branch or leaf payloads from one taxonomy-view query surface. Frontend computes visual sizing and renders branch and leaf views through frontend-owned renderer pipelines.
+- **Approach:** Use taxonomy as the interaction truth for hierarchical drill-down browsing and incremental classification. Backend returns branch or leaf payloads from one taxonomy-view query surface. Operator scripts mutate taxonomy structure through taxonomy-owned services. Classification workers do not mutate taxonomy storage directly.
 - **Key Elements:**
-  - **Module ownership:** `apps/api/src/modules/taxonomy` owns taxonomy tree reads, final assignment reads/writes, taxonomy import orchestration, and taxonomy view API contracts.
-  - **Authoritative source:** Persisted taxonomy tree is runtime/system truth. `human_workspace/LCC.yaml` is bootstrap input only.
-  - **Tree stability model:** Taxonomy is one effectively stable tree. Active behavior excludes merge/update import and repeatable synchronization.
-  - **Classification result model:** Each knowledge node binds to exactly one final taxonomy leaf.
-  - **Assignment mutability rule:** First-write semantics for final assignment; no overwrite path.
-  - **Browsing mode:** Drill-down click navigation (`root -> ... -> leaf`) replaces semantic-map zoom/tile browsing.
+  - **Module ownership:** `apps/api/src/modules/taxonomy` owns taxonomy tree reads, taxonomy tree writes, assignment reads/writes, default assignment resolution, and taxonomy view API contracts.
+  - **Authoritative source:** Persisted taxonomy rows are runtime/system truth. Operator-provided classification outlines are inputs to taxonomy-owned import or mutation services.
+  - **Root invariant:** Exactly one taxonomy node has `parent_id IS NULL`; its name is `Root`, its depth is `0`, and it is not a leaf.
+  - **Unclassified bucket invariant:** Every regular taxonomy node has exactly one direct child named `Unclassified` with `is_leaf=true`. This child is a real taxonomy node and is visible through taxonomy view reads.
+  - **System bucket naming rule:** The system-owned bucket name is exactly `Unclassified`. Parent names are not prefixed into bucket names.
+  - **Assignment result model:** Each knowledge node binds to exactly one current taxonomy leaf.
+  - **Assignment movement rule:** Assignment writes may create an initial leaf assignment or move an existing assignment to another valid taxonomy leaf.
+  - **Default ingestion assignment rule:** New knowledge nodes are assigned to `Root -> Unclassified` after node creation succeeds.
+  - **Classification movement rule:** When a card is classified into a direct child category of a scope node, its assignment moves to that child category's `Unclassified` leaf.
+  - **Structure-node rule:** Regular category nodes are structure nodes. In this first version, cards are assigned to system `Unclassified` leaves; selecting a child category moves the card to that child's `Unclassified` leaf.
+  - **Operator mutation rule:** First-version taxonomy structure mutation is script-driven. HTTP APIs do not expose taxonomy mutation commands.
+  - **Child creation rule:** Creating a regular child category automatically creates its own `Unclassified` child leaf.
+  - **Browsing mode:** Drill-down click navigation (`root -> ... -> leaf`) is the active browsing mode.
+  - **Branch visibility rule:** Branch payloads return direct children with `descendant_card_count`; empty operator-created categories and `Unclassified` bucket leaves remain representable in the tree response.
   - **Leaf graph scope rule:** Leaf view includes all inner cards for the leaf plus all one-hop outer neighbor cards; recursion depth is fixed to one hop.
   - **Edge scope rule:** Leaf view returns only `inner-inner` and `inner-outer` edges. `outer-outer` edges are excluded.
   - **Node scope marker:** Leaf graph node payload includes explicit `scope` field with values `inner` or `outer`.
   - **Leaf data-plane rule:** Leaf browsing is split into a skeleton graph surface and a node-detail surface. The skeleton surface carries the full one-hop graph topology needed for point-mode browsing. The detail surface carries `title` and `content` only for requested node ids.
   - **Leaf hydration rule:** Entering a leaf returns the full one-hop skeleton payload in one response and does not include node `title` or `content`.
-  - **Leaf detail request rule:** Node details are fetched by explicit node-id batches scoped to the active leaf instead of being embedded in the initial leaf view payload.
-  - **Leaf read-model rule:** Leaf browsing uses the authoritative final-assignment table for inner-node membership and one dedicated leaf projection table for one-hop edge membership. The projection stores only `(leaf_id, edge_id)` pairs and does not duplicate mutable edge fields such as `strength`.
+  - **Leaf detail request rule:** Node details are fetched by explicit node-id batches scoped to the active leaf; the initial leaf view payload excludes node `title` and `content`.
+  - **Leaf read-model rule:** Leaf browsing uses the authoritative current-assignment table for inner-node membership and one dedicated leaf projection table for one-hop edge membership. The projection stores only `(leaf_id, edge_id)` pairs and does not duplicate mutable edge fields such as `strength`.
   - **Read-performance rule:** Taxonomy view read paths must avoid full-graph or full-assignment work when the request scope is smaller. Root and branch payloads may aggregate descendant counts across the tree, but leaf-specific reads must use leaf-scoped assignment lookups, leaf-scoped projection-edge reads, and node-id-scoped detail reads.
 
 ## Persistence Projection
@@ -48,21 +56,28 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 - `is_leaf`: non-null boolean.
 - Required constraints:
   - uniqueness over `(parent_id, name)`.
+  - a partial unique index enforcing at most one row with `parent_id IS NULL`.
 - Read-order rule:
   - sibling nodes are read with `ORDER BY name ASC`.
+- Root rule:
+  - exactly one persisted node is the root node; storage enforces at most one root row and taxonomy bootstrap/service code ensures the row exists.
+- Unclassified rule:
+  - each regular taxonomy node has a direct child named `Unclassified`.
+  - `Unclassified` children are leaves.
 
 ### node_taxonomy_assignments
 - `id`: integer primary key.
 - `node_id`: non-null foreign key to persisted knowledge node.
 - `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id`.
-- `assigned_at`: non-null timestamp.
+- `assigned_at`: non-null timestamp recording the current assignment write.
 - Required constraints:
   - uniqueness over `node_id`.
 - Required access paths:
   - indexed lookup by `taxonomy_node_id`.
   - indexed lookup by `(taxonomy_node_id, node_id)` for leaf-scoped node membership reads.
 - Write-path rule:
-  - assignment creation is insert-only and rejects writes when `node_id` already has an assignment.
+  - assignment writes are upserts by `node_id`.
+  - moving a node updates the existing row's `taxonomy_node_id` and current assignment timestamp.
 
 ### taxonomy_leaf_projection_edges
 - `leaf_id`: non-null foreign key to `taxonomy_nodes.id`.
@@ -79,20 +94,22 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - inner nodes come from `node_taxonomy_assignments`.
   - outer nodes are derived at read time from the endpoints of the projected edges after subtracting the inner node set.
 - Incremental-maintenance rule:
-  - assigning a node to a leaf inserts projection rows for that node's adjacent `edge_id` values into that leaf.
+  - assigning or moving a node refreshes projection rows for affected source and target leaves.
   - creating an edge inserts projection rows for the leaf of each endpoint node, resulting in one row when both endpoints share a leaf and at most two rows otherwise.
   - mutable edge fields such as `strength` are read from `edges` at query time through `edge_id` and are not copied into the projection.
 
 ### Trigger Rule
 - Inserts and updates on `node_taxonomy_assignments` must be rejected unless `taxonomy_node_id` points to `taxonomy_nodes.is_leaf = true`.
-- Trigger/function DDL is maintained by one dedicated migration scoped only to this trigger concern.
+- Root-shape and leaf-only trigger/function or index DDL is maintained by dedicated migrations scoped to taxonomy integrity concerns.
 
-## Import Boundary
-- Taxonomy bootstrap runs through a dedicated operator script.
-- The import script reads `human_workspace/LCC.yaml`, computes `depth`, computes `is_leaf`, and inserts taxonomy rows.
-- The import script fails immediately when taxonomy storage is non-empty.
-- The import script does not merge or update existing taxonomy rows.
-- Database initialization and migration flows do not auto-import taxonomy content.
+## Operator Structure Mutation Boundary
+- Taxonomy structure mutation runs through dedicated operator scripts backed by taxonomy-owned services.
+- The root creation/import path creates one `Root` node and `Root -> Unclassified`.
+- Operator scripts may create one or more regular direct children under an existing scope node.
+- Creating a regular child category also creates that child category's direct `Unclassified` leaf.
+- Operator scripts reject duplicate sibling names under the same parent.
+- Operator scripts reject direct human creation of duplicate `Unclassified` children.
+- Database initialization and migration flows do not auto-import operator taxonomy content.
 
 ## API Contract
 
@@ -101,7 +118,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 - Success payload:
   - no `current_node` field.
   - `breadcrumb` is an empty array.
-  - `children` array for top-level taxonomy nodes (`parent_id is null`) with `descendant_card_count > 0`; each item:
+  - `children` array for direct children of the real `Root` node; each item:
     - `id`
     - `parent_id`
     - `name`
@@ -109,7 +126,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
     - `is_leaf`
     - `descendant_card_count`
 - Failure behavior:
-  - `404` when taxonomy store has no root node (for example, taxonomy not imported yet).
+  - `404` when the real `Root` node is unavailable.
 
 ### Node View Endpoint
 - Route: `GET /api/v1/taxonomy/view/nodes/{node_id}`
@@ -129,7 +146,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
       - `depth`
       - `is_leaf`
   - branch case (`node_kind=branch`):
-    - `children` (direct children only) with `descendant_card_count > 0`, using the same child item shape as root endpoint
+    - `children` (direct children only) using the same child item shape as root endpoint
   - leaf case (`node_kind=leaf`):
     - `nodes` array, each item:
       - `id`
@@ -138,7 +155,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
       - numeric tuple `[source_node_id, target_node_id, strength]`
 - Failure behavior:
   - `404` when taxonomy node id is unknown.
-  - `404` when taxonomy store is empty.
+  - `404` when taxonomy root is unavailable.
   - request-shape errors follow global error-governance behavior.
 
 ### Leaf Detail Endpoint
@@ -152,7 +169,7 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
     - `content`
 - Failure behavior:
   - `404` when taxonomy leaf id is unknown.
-  - `404` when the taxonomy store is empty.
+  - `404` when taxonomy root is unavailable.
   - `400` when `node_id` is not a leaf taxonomy node.
   - `400` when `node_ids` is empty, contains duplicates, or references a node outside the active leaf one-hop graph.
 
@@ -164,21 +181,25 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 - every leaf `edges` tuple uses canonical undirected endpoint ordering with `source_node_id < target_node_id`.
 - leaf detail `nodes` are ordered to match request `node_ids`.
 
-## Read Responsibilities
+## Read And Write Responsibilities
 - The taxonomy module provides:
   - complete taxonomy-tree reads and direct-child reads;
-  - final assignment lookup for one knowledge node;
+  - root and `Unclassified` bucket lookup;
+  - current assignment lookup for one knowledge node;
+  - default assignment to `Root -> Unclassified`;
+  - assignment movement between valid leaves;
+  - regular child category creation with automatic `Unclassified` child creation;
   - aggregate descendant counts for branch view payloads;
   - branch/leaf drill-down view payloads with breadcrumb context;
   - leaf node-detail hydration for explicit node-id batches within one active leaf graph.
 - The taxonomy module does not provide:
-  - candidate generation workflows;
+  - AI classification job submission or result consumption;
   - confidence scoring workflows;
-  - semantic-map snapshot/tile contracts.
+  - semantic-map snapshot/tile contracts;
   - authoritative node positions for frontend graph layout.
 
 ## Query Performance Projection
-- Root and branch descendant counts are computed from persisted final assignments, but leaf-specific read paths do not load the full assignment table when one leaf id is already known.
+- Root and branch descendant counts are computed from persisted current assignments, but leaf-specific read paths do not load the full assignment table when one leaf id is already known.
 - The repository layer exposes a leaf-scoped assignment read that returns only the node ids assigned to one taxonomy leaf.
 - Leaf graph edge expansion reads `edge_id` membership from `taxonomy_leaf_projection_edges` for the active `leaf_id`, then joins to `edges` to obtain current endpoints and `strength`.
 - Leaf graph node scope is reconstructed from two sources only: inner membership from `node_taxonomy_assignments` and projected edge endpoints from `taxonomy_leaf_projection_edges`.
@@ -188,12 +209,16 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
 
 ## Validation
 - **Checks:**
-  - Taxonomy import succeeds only when taxonomy store is empty.
-  - Imported rows have correct `depth` and `is_leaf`.
+  - Taxonomy bootstrap creates exactly one `Root` node and `Root -> Unclassified`.
+  - Storage rejects a second `taxonomy_nodes` row with `parent_id IS NULL`.
+  - Storage rejects a root row shape that is not `name='Root'`, `depth=0`, and `is_leaf=false`.
+  - Regular child creation creates the requested category nodes and each child's `Unclassified` leaf.
   - Sibling reads return `ORDER BY name ASC`.
-  - One knowledge node cannot have multiple assignments.
+  - One knowledge node has exactly one current assignment row.
+  - Assignment moves update the current leaf without creating duplicate rows.
+  - New ingestion-created nodes receive assignment to `Root -> Unclassified`.
   - Non-leaf assignment writes are rejected by trigger.
-  - `GET /api/v1/taxonomy/view/root` returns top-level children list with `breadcrumb=[]`.
+  - `GET /api/v1/taxonomy/view/root` returns direct children of `Root` with `breadcrumb=[]`.
   - `GET /api/v1/taxonomy/view/nodes/{id}` returns correct discriminated payload for branch/leaf.
   - Leaf skeleton payload excludes `outer-outer` edges and includes `scope` markers.
   - `POST /api/v1/taxonomy/view/leaves/{id}/details` returns `title/content` only for requested node ids inside the active leaf graph.
@@ -201,4 +226,4 @@ out_of_scope: LLM classification orchestration internals, candidate ranking poli
   - Leaf detail hydration does not require loading title/content for every node in the expanded one-hop graph.
   - Leaf-scoped assignment lookups use indexed access by `taxonomy_node_id`.
 - **Evidence:**
-  - Passing import/repository/service tests and API contract tests for taxonomy view endpoints.
+  - Passing import/repository/service tests and API contract tests for taxonomy structure, assignment movement, and taxonomy view endpoints.

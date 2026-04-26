@@ -76,7 +76,7 @@ apps/api/
 ## API Module Content Ownership
 - `modules/knowledge_graph`: graph persistence truth (`model.py`, `repo.py`, `service.py`, `dto.py`, `ports.py`, `builders.py`).
 - `modules/taxonomy`: taxonomy persistence ownership, import orchestration, taxonomy view API contracts and service/repo logic.
-- `modules/taxonomy_classification`: operator-triggered classification orchestration and Cursor session adapters.
+- `modules/taxonomy_classification`: operator-triggered classification job submission, job-queue result consumption, webhook/reconcile state, and assignment-move orchestration.
 - `modules/search`: read-side HTTP contract and read orchestration.
 - `modules/ingestion`: write-side HTTP contract/orchestration, queue adapter, and worker job-processing primitives.
 - `entrypoints`: composition and process bootstrap layer.
@@ -161,7 +161,7 @@ packages/contracts/
 7. `apps/api/src/modules/knowledge_graph` remains sole owner of graph persistence models/repositories.
 8. `apps/api/src/modules/search`, `apps/api/src/modules/ingestion`, and `apps/api/src/modules/taxonomy` access graph truth through service ports only.
 9. `apps/api/src/modules/taxonomy` owns taxonomy persistence plus taxonomy view API contracts.
-10. `apps/api/src/modules/taxonomy_classification` owns classification orchestration and does not own graph/taxonomy persistence projections.
+10. `apps/api/src/modules/taxonomy_classification` owns job-queue-backed classification orchestration and does not own graph/taxonomy persistence projections.
 11. `apps/api/src/modules/**` must not import `apps/api/src/entrypoints/**`.
 12. `apps/cli` owns local review/submission flow and must not own backend persistence/runtime concerns.
 13. `human_workspace` assets are not authoritative online API/runtime contracts.

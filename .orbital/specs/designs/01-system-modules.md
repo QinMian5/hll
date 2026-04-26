@@ -72,9 +72,12 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### taxonomy Module
 - **Responsibilities:**
-  - Own authoritative persisted LCC taxonomy tree.
-  - Own final knowledge-node to taxonomy-leaf assignment truth.
-  - Own taxonomy import orchestration from operator-supplied YAML.
+  - Own authoritative persisted operator-managed taxonomy tree.
+  - Own the real single `Root` node and system-created `Unclassified` leaf buckets.
+  - Own current knowledge-node to taxonomy-leaf assignment truth.
+  - Own taxonomy import and operator structure mutation orchestration.
+  - Own default assignment of newly created knowledge nodes to `Root -> Unclassified`.
+  - Own assignment movement between valid taxonomy leaves.
   - Own taxonomy drill-down view read contracts:
     - `GET /api/v1/taxonomy/view/root`
     - `GET /api/v1/taxonomy/view/nodes/{node_id}`
@@ -89,13 +92,18 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### taxonomy_classification Module
 - **Responsibilities:**
-  - Own operator-triggered incremental classification orchestration for unassigned nodes.
-  - Run one Cursor session per selected node with session-local traversal.
+  - Own operator-triggered job submission for cards in a scope node's `Unclassified` leaf.
+  - Own job-queue-backed classification runtime state and result consumption.
+  - Submit one `taxonomy_classification` queue job per selected card.
+  - Consume notification-only webhooks and low-frequency reconcile for queue results.
+  - Read accepted queue results through `job-queue-mcp` result surfaces.
+  - Validate worker target decisions against taxonomy-owned current truth.
+  - Move assignments through taxonomy-owned services.
   - Consume `knowledge_graph` and `taxonomy` service ports.
-  - Persist final classification through taxonomy first-write boundary.
 - **Non-responsibilities:**
   - Taxonomy persistence model ownership.
   - Knowledge-node persistence ownership.
+  - Worker-side execution mechanics for queued jobs.
   - HTTP-triggered classification job APIs.
 
 ### search Module
@@ -160,7 +168,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Runtime Infrastructure Dependencies
 - Redis + Dramatiq for ingestion asynchronous workflows.
-- `job-queue-mcp` for `page-to-card` and `card-review` step dispatch plus accepted-result retrieval.
+- `job-queue-mcp` for `page-to-card`, `card-review`, `card-repair`, and `taxonomy_classification` job dispatch plus accepted-result retrieval.
 - OpenAI Embeddings API for ingestion worker and search query embedding.
 - PostgreSQL as persistent truth store for graph and taxonomy, plus dedicated app-local PostgreSQL services for `knowledge_corpus` and `source_pipeline`.
 
@@ -170,7 +178,8 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Background taxonomy bootstrap -> taxonomy -> Database`
-- `Background taxonomy classification -> taxonomy_classification -> taxonomy + knowledge_graph -> Database`
+- `Background taxonomy classification -> taxonomy_classification -> job-queue-mcp -> external workers`
+- `Background taxonomy classification result application -> taxonomy_classification -> taxonomy + knowledge_graph -> Database`
 - `External source adapter -> Source Pipeline App(pipeline_intake) -> Database`
 - `Source Pipeline App(pipeline_runtime) -> job-queue-mcp -> external workers`
 - `core` is inbound-only; it does not import `entrypoints/modules/shared`.
