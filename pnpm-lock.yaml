@@ -41,6 +41,9 @@ importers:
       '@logto/express':
         specifier: ^3.0.15
         version: 3.0.15(express@5.2.1)
+      '@logto/node':
+        specifier: ^3.1.10
+        version: 3.1.10
       '@tanstack/react-form':
         specifier: ^1.28.6
         version: 1.28.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)

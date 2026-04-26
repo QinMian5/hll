@@ -4,10 +4,13 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import { Router } from "express";
 import { createServer as createViteServer } from "vite";
 
 import { createApp, type WebAppRuntime } from "./app.js";
+import { createAuthRouter } from "./auth/routes.js";
 import { loadWebServerConfig } from "./config.js";
+import { createRedisSessionMiddleware } from "./session/redisSessionStore.js";
 import { loadProductionRuntime } from "./staticAssets.js";
 
 async function createRuntime(): Promise<WebAppRuntime> {
@@ -36,7 +39,15 @@ async function createRuntime(): Promise<WebAppRuntime> {
 async function main(): Promise<void> {
   const config = loadWebServerConfig();
   const runtime = await createRuntime();
-  const app = await createApp({ config, runtime });
+  const webApiRouter = Router();
+  webApiRouter.use("/auth", createAuthRouter({ config }));
+
+  const app = await createApp({
+    config,
+    runtime,
+    sessionMiddleware: await createRedisSessionMiddleware(config),
+    webApiRouter,
+  });
 
   const server = app.listen(config.port, config.host, () => {
     console.info(`web BFF listening on ${config.host}:${config.port}`);
