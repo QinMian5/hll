@@ -73,6 +73,22 @@ services:
   worker:
     image: knowledge-api:dev
 
+  taxonomy_classification_runtime:
+    image: knowledge-api:dev
+    profiles: ["taxonomy_classification_runtime"]
+    volumes:
+      - ../../apps/api/src:/app/apps/api/src
+      - ../../apps/api/alembic:/app/apps/api/alembic
+      - ../../apps/api/alembic.ini:/app/apps/api/alembic.ini
+
+  taxonomy_classification_webhook_receiver:
+    image: knowledge-api:dev
+    profiles: ["taxonomy_classification_webhook_receiver"]
+    volumes:
+      - ../../apps/api/src:/app/apps/api/src
+      - ../../apps/api/alembic:/app/apps/api/alembic
+      - ../../apps/api/alembic.ini:/app/apps/api/alembic.ini
+
   orchestrator:
     image: knowledge-source-pipeline:dev
     profiles: ["orchestrator"]

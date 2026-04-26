@@ -54,7 +54,7 @@ async def test_assignment_to_non_leaf_taxonomy_node_is_rejected(
     knowledge_node = await _create_knowledge_node(db_session)
     parent = await _create_taxonomy_node(
         db_session,
-        name="Science",
+        name="Root",
         depth=0,
         is_leaf=False,
     )
@@ -80,7 +80,7 @@ async def test_assignment_to_leaf_taxonomy_node_is_accepted(
     knowledge_node = await _create_knowledge_node(db_session)
     parent = await _create_taxonomy_node(
         db_session,
-        name="Science",
+        name="Root",
         depth=0,
         is_leaf=False,
     )

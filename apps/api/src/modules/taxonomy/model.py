@@ -28,6 +28,12 @@ class TaxonomyNode(Base):
     __table_args__ = (
         CheckConstraint("depth >= 0", name="depth_non_negative"),
         UniqueConstraint("parent_id", "name", name="uq_taxonomy_nodes_parent_name"),
+        Index(
+            "uq_taxonomy_nodes_single_root",
+            text("(COALESCE(parent_id, 0))"),
+            unique=True,
+            postgresql_where=text("parent_id IS NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

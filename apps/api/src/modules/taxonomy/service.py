@@ -52,14 +52,18 @@ class TaxonomyRepoProtocol(Protocol):
         edge_ids: list[int],
     ) -> None: ...
 
+    async def clear_projected_edge_ids_for_leaf(self, *, leaf_id: int) -> None: ...
+
     async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]: ...
 
-    async def set_final_assignment(
+    async def set_current_assignment(
         self,
         *,
         node_id: int,
         taxonomy_node_id: int,
     ) -> TaxonomyAssignmentRecord: ...
+
+    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int: ...
 
     async def commit(self) -> None: ...
 
@@ -159,8 +163,9 @@ class TaxonomyService:
             node_by_id=node_by_id,
             child_ids_by_parent=child_ids_by_parent,
         )
-        root_ids = sorted(
-            child_ids_by_parent.get(None, []),
+        root = _require_single_root(node_by_id=node_by_id, child_ids_by_parent=child_ids_by_parent)
+        root_child_ids = sorted(
+            child_ids_by_parent.get(root.id, []),
             key=lambda node_id: (node_by_id[node_id].name, node_by_id[node_id].id),
         )
         children = [
@@ -172,8 +177,7 @@ class TaxonomyService:
                 is_leaf=node_by_id[node_id].is_leaf,
                 descendant_card_count=descendant_counts[node_id],
             )
-            for node_id in root_ids
-            if descendant_counts[node_id] > 0
+            for node_id in root_child_ids
         ]
         return TaxonomyRootViewResponse(breadcrumb=[], children=children)
 
@@ -225,7 +229,6 @@ class TaxonomyService:
                     descendant_card_count=descendant_counts[child_node_id],
                 )
                 for child_node_id in child_ids
-                if descendant_counts[child_node_id] > 0
             ]
             return TaxonomyNodeBranchViewResponse(
                 node_kind="branch",
@@ -349,29 +352,51 @@ class TaxonomyService:
             ]
         )
 
-    async def set_final_assignment(
+    async def set_current_assignment(
         self,
         *,
         node_id: int,
         taxonomy_node_id: int,
     ) -> TaxonomyAssignmentRecord:
         try:
-            assignment = await self._repo.set_final_assignment(
+            previous_assignment = await self._repo.get_assignment_for_node(node_id=node_id)
+            previous_leaf_id = (
+                None if previous_assignment is None else previous_assignment.taxonomy_node.id
+            )
+            assignment = await self._repo.set_current_assignment(
                 node_id=node_id,
                 taxonomy_node_id=taxonomy_node_id,
             )
             if self._knowledge_projection_port is not None:
-                adjacent_edge_ids = (
-                    await self._knowledge_projection_port.list_adjacent_edge_ids_for_node_ids(
-                        node_ids=[node_id]
-                    )
-                )
-                await self._repo.add_projected_edge_ids_for_leaf(
-                    leaf_id=taxonomy_node_id,
-                    edge_ids=adjacent_edge_ids,
-                )
+                leaf_ids = {taxonomy_node_id}
+                if previous_leaf_id is not None:
+                    leaf_ids.add(previous_leaf_id)
+                for leaf_id in sorted(leaf_ids):
+                    await self._refresh_leaf_projection(leaf_id=leaf_id)
             await self._repo.commit()
             return assignment
+        except Exception:
+            await self._repo.rollback()
+            raise
+
+    async def set_final_assignment(
+        self,
+        *,
+        node_id: int,
+        taxonomy_node_id: int,
+    ) -> TaxonomyAssignmentRecord:
+        return await self.set_current_assignment(
+            node_id=node_id,
+            taxonomy_node_id=taxonomy_node_id,
+        )
+
+    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int:
+        try:
+            leaf_id = await self._repo.assign_node_to_root_unclassified(node_id=node_id)
+            if self._knowledge_projection_port is not None:
+                await self._refresh_leaf_projection(leaf_id=leaf_id)
+            await self._repo.commit()
+            return leaf_id
         except Exception:
             await self._repo.rollback()
             raise
@@ -427,6 +452,21 @@ class TaxonomyService:
             },
         )
 
+    async def _refresh_leaf_projection(self, *, leaf_id: int) -> None:
+        if self._knowledge_projection_port is None:
+            return
+        inner_node_ids = await self._repo.list_assigned_node_ids_for_leaf(leaf_id=leaf_id)
+        adjacent_edge_ids = (
+            await self._knowledge_projection_port.list_adjacent_edge_ids_for_node_ids(
+                node_ids=inner_node_ids
+            )
+        )
+        await self._repo.clear_projected_edge_ids_for_leaf(leaf_id=leaf_id)
+        await self._repo.add_projected_edge_ids_for_leaf(
+            leaf_id=leaf_id,
+            edge_ids=adjacent_edge_ids,
+        )
+
 
 def _index_tree(
     tree_nodes: list[TaxonomyNodeRecord],
@@ -436,6 +476,21 @@ def _index_tree(
     for node in tree_nodes:
         child_ids_by_parent[node.parent_id].append(node.id)
     return (node_by_id, child_ids_by_parent)
+
+
+def _require_single_root(
+    *,
+    node_by_id: dict[int, TaxonomyNodeRecord],
+    child_ids_by_parent: dict[int | None, list[int]],
+) -> TaxonomyNodeRecord:
+    root_ids = child_ids_by_parent.get(None, [])
+    if len(root_ids) != 1:
+        raise DomainError(
+            code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+            message="Taxonomy root is not available.",
+            hint="Ensure exactly one Root taxonomy node exists and retry.",
+        )
+    return node_by_id[root_ids[0]]
 
 
 def _build_breadcrumb(

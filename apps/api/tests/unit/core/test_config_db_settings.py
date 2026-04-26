@@ -40,6 +40,23 @@ ALL_SETTINGS_KEYS = (
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_TIMEOUT_SECONDS",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_MAX_RETRIES",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_MAX_WORKERS",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_BASE_URL",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_TOKEN_URL",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_ID",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_RESOURCE",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_SCOPES",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_ISSUER",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_RESOURCE",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_DISCOVERY_URL",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_HTTP_TIMEOUT_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_PUBLIC_PATH",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_POLL_INTERVAL_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_POLL_BATCH_SIZE",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_INTERVAL_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_BATCH_SIZE",
         "AN_UNRELATED_KEY",
     }
 )
@@ -125,6 +142,115 @@ def test_load_settings_applies_logging_defaults_when_optional_keys_absent(
     assert settings.log_level == "INFO"
     assert settings.log_file_max_bytes == 10_485_760
     assert settings.log_file_backup_count == 5
+
+
+def test_shared_settings_exclude_taxonomy_classification_job_queue_and_webhook_fields(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        RUNTIME_REQUIRED_ENV
+        | {
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME": "taxonomy_classification",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_BASE_URL": "http://job-queue/api",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_TOKEN_URL": "http://logto/oidc/token",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_ID": "taxonomy-runtime",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET": "runtime-secret",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_RESOURCE": "https://job-queue",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID": (
+                "job-queue-delivery"
+            ),
+        },
+    )
+
+    settings = config_module.Settings()
+
+    assert not hasattr(settings, "taxonomy_classification_queue_name")
+    assert not hasattr(settings, "taxonomy_classification_job_queue_client_secret")
+    assert not hasattr(settings, "taxonomy_classification_webhook_allowed_client_id")
+
+
+def test_taxonomy_classification_runtime_settings_require_job_queue_secret(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        {
+            "KNOWLEDGE_API_DATABASE_URL": RUNTIME_REQUIRED_ENV["KNOWLEDGE_API_DATABASE_URL"],
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_BASE_URL": "http://job-queue/api",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_TOKEN_URL": "http://logto/oidc/token",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_ID": "taxonomy-runtime",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_RESOURCE": "https://job-queue",
+        },
+    )
+
+    with pytest.raises(ValidationError, match="job_queue_client_secret"):
+        config_module.TaxonomyClassificationRuntimeSettings()
+
+
+def test_taxonomy_classification_webhook_settings_do_not_expose_job_queue_secret(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        {
+            "KNOWLEDGE_API_DATABASE_URL": RUNTIME_REQUIRED_ENV["KNOWLEDGE_API_DATABASE_URL"],
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_ISSUER": "https://knowledge-logto",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_RESOURCE": "https://knowledge-api",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_DISCOVERY_URL": "http://logto/.well-known/openid-configuration",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID": "job-queue-delivery",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_PUBLIC_PATH": (
+                "/taxonomy-classification/webhooks/job-queue"
+            ),
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET": "runtime-secret",
+        },
+    )
+
+    settings = config_module.TaxonomyClassificationWebhookReceiverSettings()
+
+    assert settings.taxonomy_classification_webhook_allowed_client_id == "job-queue-delivery"
+    assert not hasattr(settings, "taxonomy_classification_job_queue_client_secret")
+
+
+def test_taxonomy_classification_runtime_settings_are_role_scoped(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        {
+            "KNOWLEDGE_API_DATABASE_URL": RUNTIME_REQUIRED_ENV["KNOWLEDGE_API_DATABASE_URL"],
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_BASE_URL": "http://job-queue/api",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_TOKEN_URL": "http://logto/oidc/token",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_ID": "taxonomy-runtime",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET": "runtime-secret",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_RESOURCE": "https://job-queue",
+        },
+    )
+
+    settings = config_module.TaxonomyClassificationRuntimeSettings()
+
+    assert settings.taxonomy_classification_queue_name == "taxonomy_classification"
+    assert settings.taxonomy_classification_job_queue_client_secret == "runtime-secret"
+
+
+def test_taxonomy_classification_webhook_receiver_settings_are_role_scoped(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        {
+            "KNOWLEDGE_API_DATABASE_URL": RUNTIME_REQUIRED_ENV["KNOWLEDGE_API_DATABASE_URL"],
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_ISSUER": "https://knowledge-logto",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_RESOURCE": "https://knowledge-api",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_DISCOVERY_URL": "http://logto/oidc/.well-known/openid-configuration",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID": "delivery",
+        },
+    )
+
+    settings = config_module.TaxonomyClassificationWebhookReceiverSettings()
+
+    assert settings.taxonomy_classification_webhook_allowed_client_id == "delivery"
+    assert not hasattr(settings, "taxonomy_classification_job_queue_client_secret")
 
 
 def test_load_settings_from_process_environment_only(

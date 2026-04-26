@@ -6,6 +6,8 @@ WORKDIR /app
 
 COPY pyproject.toml /app/pyproject.toml
 COPY uv.lock /app/uv.lock
+COPY packages/job_queue_integration/pyproject.toml /app/packages/job_queue_integration/pyproject.toml
+COPY packages/job_queue_integration/src /app/packages/job_queue_integration/src
 COPY apps/source_pipeline/pyproject.toml /app/apps/source_pipeline/pyproject.toml
 COPY apps/source_pipeline/src /app/apps/source_pipeline/src
 COPY apps/source_pipeline/alembic.ini /app/apps/source_pipeline/alembic.ini

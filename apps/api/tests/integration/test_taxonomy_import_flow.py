@@ -37,12 +37,18 @@ async def test_importer_persists_depth_and_leaf_flags_into_empty_store(
     )
     rows = list(result.scalars())
 
-    assert imported_count == 4
+    assert imported_count == 10
     assert [(row.name, row.depth, row.is_leaf) for row in rows] == [
-        ("Science", 0, False),
-        ("Mathematics", 1, False),
-        ("Algebra", 2, True),
-        ("General", 2, True),
+        ("Root", 0, False),
+        ("Science", 1, False),
+        ("Unclassified", 1, True),
+        ("Mathematics", 2, False),
+        ("Unclassified", 2, True),
+        ("Algebra", 3, False),
+        ("General", 3, False),
+        ("Unclassified", 3, True),
+        ("Unclassified", 4, True),
+        ("Unclassified", 4, True),
     ]
 
 
@@ -55,9 +61,9 @@ async def test_importer_fails_when_taxonomy_store_is_not_empty(
     db_session.add(
         TaxonomyNode(
             parent_id=None,
-            name="Existing",
+            name="Root",
             depth=0,
-            is_leaf=True,
+            is_leaf=False,
         )
     )
     await db_session.flush()

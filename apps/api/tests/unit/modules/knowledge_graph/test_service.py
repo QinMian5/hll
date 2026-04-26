@@ -175,10 +175,13 @@ class _StubRepo:
 class _StubTaxonomyProjectionPort:
     leaf_lookup_by_node_id: dict[int, int]
     add_calls: list[tuple[int, list[int]]] = None  # type: ignore[assignment]
+    root_assignment_calls: list[int] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         if self.add_calls is None:
             self.add_calls = []
+        if self.root_assignment_calls is None:
+            self.root_assignment_calls = []
 
     async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]:
         return {
@@ -189,6 +192,10 @@ class _StubTaxonomyProjectionPort:
 
     async def add_projected_edge_ids_for_leaf(self, *, leaf_id: int, edge_ids: list[int]) -> None:
         self.add_calls.append((leaf_id, list(edge_ids)))
+
+    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int:
+        self.root_assignment_calls.append(node_id)
+        return self.leaf_lookup_by_node_id[node_id]
 
 
 @pytest.mark.anyio
@@ -305,6 +312,7 @@ async def test_materialize_card_from_ingestion_creates_node_and_threshold_edges(
 
     assert node_id == 99
     assert repo.created_nodes == [("Card X", "Gamma", [0.3, 0.2, 0.1])]
+    assert taxonomy_projection_port.root_assignment_calls == [99]
     assert repo.created_edges == [
         (99, 4, 0.91),
         (99, 11, 0.5),
@@ -344,6 +352,7 @@ async def test_materialize_card_from_ingestion_rolls_back_and_reraises() -> None
 
     assert repo.committed is False
     assert repo.rolled_back is True
+    assert taxonomy_projection_port.root_assignment_calls == [99]
     assert taxonomy_projection_port.add_calls == [
         (4, [500]),
         (8, [500]),

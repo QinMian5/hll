@@ -66,5 +66,66 @@ def load_settings() -> Settings:
     return Settings.model_validate(EnvSettingsSource(Settings)())
 
 
+class TaxonomyClassificationRuntimeSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="KNOWLEDGE_API_",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    database_url: str
+    taxonomy_classification_queue_name: str = Field(
+        default="taxonomy_classification",
+        min_length=1,
+    )
+    taxonomy_classification_job_queue_base_url: str = Field(min_length=1)
+    taxonomy_classification_job_queue_token_url: str = Field(min_length=1)
+    taxonomy_classification_job_queue_client_id: str = Field(min_length=1)
+    taxonomy_classification_job_queue_client_secret: str = Field(min_length=1)
+    taxonomy_classification_job_queue_resource: str = Field(min_length=1)
+    taxonomy_classification_job_queue_scopes: str = "jobs:create results:read"
+    taxonomy_classification_poll_interval_seconds: float = Field(default=5.0, gt=0)
+    taxonomy_classification_poll_batch_size: int = Field(default=100, ge=1)
+    taxonomy_classification_reconcile_interval_seconds: float = Field(default=3600, gt=0)
+    taxonomy_classification_reconcile_batch_size: int = Field(default=100, ge=1)
+
+
+class TaxonomyClassificationWebhookReceiverSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="KNOWLEDGE_API_",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    database_url: str
+    taxonomy_classification_queue_name: str = Field(
+        default="taxonomy_classification",
+        min_length=1,
+    )
+    taxonomy_classification_webhook_auth_issuer: str = Field(min_length=1)
+    taxonomy_classification_webhook_auth_resource: str = Field(min_length=1)
+    taxonomy_classification_webhook_auth_discovery_url: str = Field(min_length=1)
+    taxonomy_classification_webhook_allowed_client_id: str = Field(min_length=1)
+    taxonomy_classification_webhook_auth_http_timeout_seconds: float = Field(default=5.0, gt=0)
+    taxonomy_classification_webhook_public_path: str = Field(
+        default="/taxonomy-classification/webhooks/job-queue",
+        min_length=1,
+    )
+
+
+def load_taxonomy_classification_runtime_settings() -> TaxonomyClassificationRuntimeSettings:
+    return TaxonomyClassificationRuntimeSettings.model_validate(
+        EnvSettingsSource(TaxonomyClassificationRuntimeSettings)()
+    )
+
+
+def load_taxonomy_classification_webhook_receiver_settings() -> (
+    TaxonomyClassificationWebhookReceiverSettings
+):
+    return TaxonomyClassificationWebhookReceiverSettings.model_validate(
+        EnvSettingsSource(TaxonomyClassificationWebhookReceiverSettings)()
+    )
+
+
 def load_migration_settings() -> MigrationSettings:
     return MigrationSettings.model_validate(EnvSettingsSource(MigrationSettings)())

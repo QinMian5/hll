@@ -32,6 +32,16 @@ def _image_lines(path: Path) -> list[str]:
     return [line.strip() for line in _read(path).splitlines() if line.lstrip().startswith("image:")]
 
 
+def _service_block(path: Path, service_name: str) -> str:
+    content = _read(path)
+    match = re.search(
+        rf"(?ms)^  {re.escape(service_name)}:\n(?P<body>.*?)(?=^  [a-zA-Z0-9_-]+:|\Z)",
+        content,
+    )
+    assert match is not None, f"{service_name} service must exist in {path}"
+    return match.group("body")
+
+
 def test_environment_overlays_own_compose_project_names() -> None:
     assert _top_level_name(BASE_COMPOSE) is None
     assert _top_level_name(DEV_COMPOSE) == "knowledge-dev"
@@ -83,3 +93,31 @@ def test_dev_compose_keeps_orchestrator_out_of_default_startup() -> None:
     assert "orchestrator:" in dev
     assert 'profiles: ["orchestrator"]' in dev
     assert "proxy" not in dev
+
+
+def test_base_compose_defines_taxonomy_classification_runtime_with_job_queue_secret() -> None:
+    runtime = _service_block(BASE_COMPOSE, "taxonomy_classification_runtime")
+
+    assert 'command: ["/app/bin/run-taxonomy-classification-runtime.sh"]' in runtime
+    assert "KNOWLEDGE_API_ROLE" not in runtime
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME" in runtime
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET" in runtime
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID" not in runtime
+
+
+def test_base_compose_defines_taxonomy_classification_webhook_without_job_queue_secret() -> None:
+    receiver = _service_block(BASE_COMPOSE, "taxonomy_classification_webhook_receiver")
+
+    assert 'command: ["/app/bin/run-taxonomy-classification-webhook-receiver.sh"]' in receiver
+    assert "KNOWLEDGE_API_ROLE" not in receiver
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME" in receiver
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID" in receiver
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET" not in receiver
+
+
+def test_dev_compose_keeps_taxonomy_classification_services_out_of_default_startup() -> None:
+    runtime = _service_block(DEV_COMPOSE, "taxonomy_classification_runtime")
+    receiver = _service_block(DEV_COMPOSE, "taxonomy_classification_webhook_receiver")
+
+    assert 'profiles: ["taxonomy_classification_runtime"]' in runtime
+    assert 'profiles: ["taxonomy_classification_webhook_receiver"]' in receiver

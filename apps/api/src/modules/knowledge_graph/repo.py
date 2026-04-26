@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import case, column, select, table
+from sqlalchemy import case, column, delete, insert, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.dto import (
@@ -18,6 +18,7 @@ from modules.knowledge_graph.dto import (
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
 )
+from modules.knowledge_graph.edge_rebuild import PlannedEdge, RebuildNodeEmbedding
 from modules.knowledge_graph.model import Adjacency, Edge, Node
 
 _NODE_TAXONOMY_ASSIGNMENTS = table(
@@ -241,6 +242,16 @@ class KnowledgeRepo:
         await self._session.flush()
         return node.id
 
+    async def fetch_node_ids_in_rebuild_order(self) -> list[int]:
+        rows = (await self._session.execute(select(Node.id).order_by(Node.id.asc()))).all()
+        return [row.id for row in rows]
+
+    async def fetch_rebuild_nodes_with_embeddings(self) -> list[RebuildNodeEmbedding]:
+        nodes = await self._session.scalars(select(Node).order_by(Node.id.asc()))
+        return [
+            RebuildNodeEmbedding(node_id=node.id, embedding=node.embedding) for node in nodes.all()
+        ]
+
     async def search_similarity_candidates(
         self,
         *,
@@ -266,6 +277,37 @@ class KnowledgeRepo:
             for row in rows
         ]
 
+    async def search_historical_similarity_candidates(
+        self,
+        *,
+        source_node_id: int,
+    ) -> list[SimilarNodeCandidate]:
+        source_node = await self._session.scalar(
+            select(Node).where(Node.id == source_node_id).limit(1)
+        )
+        if source_node is None:
+            return []
+
+        neg_inner_product = Node.embedding.max_inner_product(source_node.embedding).label(
+            "neg_inner_product"
+        )
+        statement = (
+            select(Node.id, neg_inner_product)
+            .where(Node.id < source_node_id)
+            .order_by(
+                neg_inner_product.asc(),
+                Node.id.asc(),
+            )
+        )
+        rows = (await self._session.execute(statement)).all()
+        return [
+            SimilarNodeCandidate(
+                node_id=row.id,
+                similarity=_dot_product_to_similarity(-float(row.neg_inner_product)),
+            )
+            for row in rows
+        ]
+
     async def create_edge_with_adjacency(
         self,
         *,
@@ -286,6 +328,42 @@ class KnowledgeRepo:
         )
         await self._session.flush()
         return edge.id
+
+    async def clear_edges_with_adjacency(self) -> None:
+        await self._session.execute(delete(Adjacency))
+        await self._session.execute(delete(Edge))
+        await self._session.flush()
+
+    async def replace_edges_with_adjacency(
+        self,
+        *,
+        planned_edges: Sequence[PlannedEdge],
+    ) -> int:
+        await self.clear_edges_with_adjacency()
+        if not planned_edges:
+            return 0
+
+        edge_rows = [
+            {
+                "node_a_id": edge.related_node_id,
+                "node_b_id": edge.source_node_id,
+                "strength": edge.strength,
+            }
+            for edge in planned_edges
+        ]
+        edge_result = await self._session.execute(
+            insert(Edge).returning(Edge.id, Edge.node_a_id, Edge.node_b_id),
+            edge_rows,
+        )
+        inserted_edges = edge_result.all()
+        adjacency_rows = [
+            {"node_id": node_id, "edge_id": edge.id}
+            for edge in inserted_edges
+            for node_id in (edge.node_a_id, edge.node_b_id)
+        ]
+        await self._session.execute(insert(Adjacency), adjacency_rows)
+        await self._session.flush()
+        return len(inserted_edges)
 
     async def commit(self) -> None:
         await self._session.commit()

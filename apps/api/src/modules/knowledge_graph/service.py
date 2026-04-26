@@ -98,6 +98,8 @@ class KnowledgeGraphRepoProtocol(Protocol):
 
 
 class KnowledgeGraphTaxonomyProjectionPort(Protocol):
+    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int: ...
+
     async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]: ...
 
     async def add_projected_edge_ids_for_leaf(
@@ -225,6 +227,10 @@ class KnowledgeGraphService:
                 content=content,
                 embedding=embedding,
             )
+            if self._taxonomy_projection_port is not None:
+                await self._taxonomy_projection_port.assign_node_to_root_unclassified(
+                    node_id=node_id,
+                )
             candidates = await self._repo.search_similarity_candidates(
                 query_embedding=embedding,
                 excluded_node_ids=[node_id],

@@ -10,4 +10,5 @@ members = [
     "apps/cli",
     "apps/knowledge_corpus",
     "apps/source_pipeline",
+    "packages/job_queue_integration",
 ]

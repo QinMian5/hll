@@ -26,6 +26,13 @@ def test_prod_nginx_routes_source_pipeline_webhook_to_receiver() -> None:
     assert "proxy_pass http://source_pipeline_webhook_receiver:8080;" in config
 
 
+def test_prod_nginx_routes_taxonomy_classification_webhook_to_receiver() -> None:
+    config = NGINX_CONFIG.read_text(encoding="utf-8")
+
+    assert "location = /taxonomy-classification/webhooks/job-queue" in config
+    assert "proxy_pass http://taxonomy_classification_webhook_receiver:8080;" in config
+
+
 def test_prod_nginx_routes_knowledge_logto_hosts() -> None:
     config = NGINX_CONFIG.read_text(encoding="utf-8")
 

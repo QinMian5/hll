@@ -36,7 +36,7 @@ class TaxonomyClassificationSessionTaxonomyPort(Protocol):
 
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None: ...
 
-    async def set_final_assignment(
+    async def set_current_assignment(
         self,
         *,
         node_id: int,

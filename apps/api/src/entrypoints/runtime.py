@@ -15,6 +15,7 @@ from core.config import Settings, load_settings
 from modules.ingestion import model as ingestion_model
 from modules.knowledge_graph import model as knowledge_graph_model
 from modules.taxonomy import model as taxonomy_model
+from modules.taxonomy_classification import model as taxonomy_classification_model
 from shared.db.session import (
     build_async_engine,
     build_async_session_factory,
@@ -22,7 +23,12 @@ from shared.db.session import (
 )
 from shared.integrations import EmbeddingClient, build_embedding_client
 
-REGISTERED_MODEL_MODULES = (knowledge_graph_model, taxonomy_model, ingestion_model)
+REGISTERED_MODEL_MODULES = (
+    knowledge_graph_model,
+    taxonomy_model,
+    ingestion_model,
+    taxonomy_classification_model,
+)
 
 _engine: AsyncEngine | None = None
 _async_session_factory: async_sessionmaker[AsyncSession] | None = None

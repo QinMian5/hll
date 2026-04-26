@@ -23,7 +23,7 @@ class TaxonomyViewNodeResponse(TaxonomyViewResponseModel):
 
 
 class TaxonomyViewChildResponse(TaxonomyViewNodeResponse):
-    descendant_card_count: int = Field(ge=1)
+    descendant_card_count: int = Field(ge=0)
 
 
 class TaxonomyRootViewResponse(TaxonomyViewResponseModel):

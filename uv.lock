@@ -6,6 +6,7 @@ requires-python = ">=3.14"
 members = [
     "api",
     "cli",
+    "job-queue-integration",
     "knowledge",
     "knowledge-corpus",
     "source-pipeline",
@@ -180,10 +181,12 @@ dependencies = [
     { name = "dramatiq", extra = ["redis"] },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "job-queue-integration" },
     { name = "pgvector" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "pytest" },
     { name = "pyyaml" },
     { name = "redis" },
@@ -209,10 +212,12 @@ requires-dist = [
     { name = "dramatiq", extras = ["redis"], specifier = ">=1.18.0" },
     { name = "fastapi", specifier = ">=0.135.2" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "job-queue-integration", editable = "packages/job_queue_integration" },
     { name = "pgvector", specifier = ">=0.4.2" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.3" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.13.1" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.1" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "redis", specifier = ">=7.4.0" },
@@ -1156,6 +1161,35 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d3/59/322338183ecda247fb5d1763a6cbe46eff7222eaeebafd9fa65d4bf5cb11/jmespath-1.1.0.tar.gz", hash = "sha256:472c87d80f36026ae83c6ddd0f1d05d4e510134ed462851fd5f754c8c3cbb88d", size = 27377, upload-time = "2026-01-22T16:35:26.279Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl", hash = "sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64", size = 20419, upload-time = "2026-01-22T16:35:24.919Z" },
+]
+
+[[package]]
+name = "job-queue-integration"
+version = "0.1.0"
+source = { editable = "packages/job_queue_integration" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "pyjwt", extra = ["crypto"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+    { name = "ty" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ruff", specifier = ">=0.15.8" },
+    { name = "ty", specifier = ">=0.0.27" },
 ]
 
 [[package]]
@@ -2511,6 +2545,7 @@ dependencies = [
     { name = "alembic" },
     { name = "fastapi" },
     { name = "httpx" },
+    { name = "job-queue-integration" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
     { name = "pydantic-settings" },
@@ -2532,6 +2567,7 @@ requires-dist = [
     { name = "alembic", specifier = ">=1.18.4" },
     { name = "fastapi", specifier = ">=0.135.2" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "job-queue-integration", editable = "packages/job_queue_integration" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.3.3" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.13.1" },

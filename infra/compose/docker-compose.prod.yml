@@ -30,6 +30,18 @@ services:
   worker:
     image: knowledge-api:prod
 
+  taxonomy_classification_runtime:
+    image: knowledge-api:prod
+    networks:
+      - backend
+      - proxy
+
+  taxonomy_classification_webhook_receiver:
+    image: knowledge-api:prod
+    networks:
+      - backend
+      - edge
+
   redis:
     image: redis:7-bookworm
 
@@ -70,6 +82,8 @@ services:
       api:
         condition: service_started
       source_pipeline_webhook_receiver:
+        condition: service_started
+      taxonomy_classification_webhook_receiver:
         condition: service_started
     volumes:
       - ../../infra/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro

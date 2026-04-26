@@ -10,7 +10,6 @@ from datetime import UTC, datetime
 
 import pytest
 
-from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
     TaxonomyNode,
@@ -130,7 +129,7 @@ async def test_get_assignment_for_node_returns_leaf_assignment_details() -> None
 
 
 @pytest.mark.anyio
-async def test_set_final_assignment_raises_when_assignment_already_exists() -> None:
+async def test_set_current_assignment_moves_existing_assignment() -> None:
     existing_assignment = NodeTaxonomyAssignment(
         id=7,
         node_id=99,
@@ -139,21 +138,35 @@ async def test_set_final_assignment_raises_when_assignment_already_exists() -> N
     )
     session = _StubSession(
         scalar_results=[existing_assignment],
+        execute_results=[
+            _StubExecuteResult(
+                (
+                    existing_assignment,
+                    TaxonomyNode(
+                        id=8,
+                        parent_id=3,
+                        name="Unclassified",
+                        depth=2,
+                        is_leaf=True,
+                    ),
+                )
+            )
+        ],
     )
     repo = TaxonomyRepo(session=session)
 
-    with pytest.raises(TaxonomyAssignmentAlreadyExistsError):
-        await repo.set_final_assignment(
-            node_id=99,
-            taxonomy_node_id=8,
-        )
+    assignment = await repo.set_current_assignment(
+        node_id=99,
+        taxonomy_node_id=8,
+    )
 
-    assert existing_assignment.taxonomy_node_id == 3
-    assert session.flushed is False
+    assert existing_assignment.taxonomy_node_id == 8
+    assert assignment.taxonomy_node.id == 8
+    assert session.flushed is True
 
 
 @pytest.mark.anyio
-async def test_set_final_assignment_creates_when_assignment_missing() -> None:
+async def test_set_current_assignment_creates_when_assignment_missing() -> None:
     assigned_at = datetime(2026, 4, 5, 2, 30, tzinfo=UTC)
     persisted_assignment = NodeTaxonomyAssignment(
         id=17,
@@ -180,7 +193,7 @@ async def test_set_final_assignment_creates_when_assignment_missing() -> None:
     )
     repo = TaxonomyRepo(session=session)
 
-    assignment = await repo.set_final_assignment(
+    assignment = await repo.set_current_assignment(
         node_id=99,
         taxonomy_node_id=8,
     )

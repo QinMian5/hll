@@ -7,6 +7,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from job_queue_integration.client import JobQueueClient
+from job_queue_integration.token import ClientCredentialsTokenProvider
+from job_queue_integration.webhook_auth import WebhookAuthVerifier
+
+from source_pipeline.pipeline_runtime.job_queue_client import JobQueueClient as SourceJobQueueClient
+from source_pipeline.pipeline_runtime.job_queue_token import (
+    ClientCredentialsTokenProvider as SourceTokenProvider,
+)
+from source_pipeline.pipeline_webhook.auth import WebhookAuthVerifier as SourceWebhookAuthVerifier
+
 SOURCE_PIPELINE_SRC = Path(__file__).resolve().parents[2] / "src" / "source_pipeline"
 
 
@@ -54,3 +64,9 @@ def test_source_pipeline_does_not_write_knowledge_graph_tables_directly() -> Non
                 violations.append(f"{path.relative_to(SOURCE_PIPELINE_SRC)}: {fragment}")
 
     assert violations == []
+
+
+def test_source_pipeline_reuses_shared_job_queue_helpers() -> None:
+    assert SourceJobQueueClient is JobQueueClient
+    assert SourceTokenProvider is ClientCredentialsTokenProvider
+    assert SourceWebhookAuthVerifier is WebhookAuthVerifier

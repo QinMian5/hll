@@ -17,7 +17,6 @@ from modules.taxonomy.dto import (
     TaxonomyLeafAssignment,
     TaxonomyNodeRecord,
 )
-from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
 from modules.taxonomy.schema import (
     TaxonomyNodeBranchViewResponse,
     TaxonomyNodeLeafViewResponse,
@@ -38,7 +37,6 @@ class _StubRepo:
     committed: bool = False
     rolled_back: bool = False
     fail_on_set: bool = False
-    fail_on_assignment_exists: bool = False
     list_final_assignments_called: bool = False
     list_assigned_node_ids_for_leaf_called_with: list[int] = field(default_factory=list)
     list_projected_edge_ids_for_leaf_called_with: list[int] = field(default_factory=list)
@@ -77,6 +75,9 @@ class _StubRepo:
     async def add_projected_edge_ids_for_leaf(self, *, leaf_id: int, edge_ids: list[int]) -> None:
         self.add_projected_edge_batches.append((leaf_id, list(edge_ids)))
 
+    async def clear_projected_edge_ids_for_leaf(self, *, leaf_id: int) -> None:
+        assert leaf_id in (9,)
+
     async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]:
         return {
             node_id: self.leaf_lookup_by_node_id[node_id]
@@ -84,7 +85,7 @@ class _StubRepo:
             if node_id in self.leaf_lookup_by_node_id
         }
 
-    async def set_final_assignment(
+    async def set_current_assignment(
         self,
         *,
         node_id: int,
@@ -92,12 +93,14 @@ class _StubRepo:
     ) -> TaxonomyAssignmentRecord:
         assert node_id == 41
         assert taxonomy_node_id == 9
-        if self.fail_on_assignment_exists:
-            raise TaxonomyAssignmentAlreadyExistsError("node already has final taxonomy assignment")
         if self.fail_on_set:
             raise RuntimeError("assignment write failed")
         assert self.set_result is not None
         return self.set_result
+
+    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int:
+        assert node_id == 41
+        return 9
 
     async def commit(self) -> None:
         self.committed = True
@@ -203,12 +206,12 @@ async def test_get_assignment_for_node_returns_leaf_assignment() -> None:
 
 
 @pytest.mark.anyio
-async def test_set_final_assignment_commits_written_assignment() -> None:
-    repo = _StubRepo(set_result=_leaf_assignment())
+async def test_set_current_assignment_commits_written_assignment() -> None:
+    repo = _StubRepo(set_result=_leaf_assignment(), assigned_leaf_node_ids=[41])
     projection_port = _StubProjectionPort(nodes=[], edges=[], adjacent_edge_ids=[71, 72])
     service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
 
-    assignment = await service.set_final_assignment(
+    assignment = await service.set_current_assignment(
         node_id=41,
         taxonomy_node_id=9,
     )
@@ -221,12 +224,12 @@ async def test_set_final_assignment_commits_written_assignment() -> None:
 
 
 @pytest.mark.anyio
-async def test_set_final_assignment_rolls_back_and_reraises() -> None:
+async def test_set_current_assignment_rolls_back_and_reraises() -> None:
     repo = _StubRepo(fail_on_set=True)
     service = TaxonomyService(repo=repo)
 
     with pytest.raises(RuntimeError, match="assignment write failed"):
-        await service.set_final_assignment(
+        await service.set_current_assignment(
             node_id=41,
             taxonomy_node_id=9,
         )
@@ -236,33 +239,16 @@ async def test_set_final_assignment_rolls_back_and_reraises() -> None:
 
 
 @pytest.mark.anyio
-async def test_set_final_assignment_rolls_back_and_reraises_assignment_exists() -> None:
-    repo = _StubRepo(fail_on_assignment_exists=True)
-    service = TaxonomyService(repo=repo)
-
-    with pytest.raises(
-        TaxonomyAssignmentAlreadyExistsError,
-        match="already has final taxonomy assignment",
-    ):
-        await service.set_final_assignment(
-            node_id=41,
-            taxonomy_node_id=9,
-        )
-
-    assert repo.committed is False
-    assert repo.rolled_back is True
-
-
-@pytest.mark.anyio
-async def test_get_root_view_returns_only_children_with_descendant_cards() -> None:
+async def test_get_root_view_returns_direct_children_of_single_root_even_when_empty() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="A", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=None, name="B", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=3, parent_id=1, name="A1", depth=1, is_leaf=True),
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            TaxonomyNodeRecord(id=3, parent_id=1, name="Unclassified", depth=1, is_leaf=True),
+            TaxonomyNodeRecord(id=4, parent_id=2, name="Unclassified", depth=2, is_leaf=True),
         ],
         assigned_leaf_assignments=[
-            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=3),
+            TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=4),
         ],
     )
     service = TaxonomyService(repo=repo)
@@ -271,8 +257,8 @@ async def test_get_root_view_returns_only_children_with_descendant_cards() -> No
 
     assert isinstance(view, TaxonomyRootViewResponse)
     assert view.breadcrumb == []
-    assert [child.id for child in view.children] == [1]
-    assert view.children[0].descendant_card_count == 1
+    assert [child.id for child in view.children] == [2, 3]
+    assert [child.descendant_card_count for child in view.children] == [1, 0]
 
 
 @pytest.mark.anyio

@@ -14,6 +14,7 @@ import yaml
 from modules.taxonomy.dto import TaxonomyImportNode
 from modules.taxonomy.errors import TaxonomyImportError
 from modules.taxonomy.ports import TaxonomyImportPort
+from modules.taxonomy.repo import ROOT_NODE_NAME, UNCLASSIFIED_NODE_NAME
 
 TaxonomyYamlMapping = Mapping[str, Any]
 
@@ -28,23 +29,46 @@ class TaxonomyImporter:
 
         nodes = parse_taxonomy_yaml(yaml_text)
         path_to_id: dict[tuple[str, ...], int] = {}
+        imported_count = 0
 
         try:
+            root_id = await self._repo.create_taxonomy_node(
+                parent_id=None,
+                name=ROOT_NODE_NAME,
+                depth=0,
+                is_leaf=False,
+            )
+            imported_count += 1
+            await self._repo.create_taxonomy_node(
+                parent_id=root_id,
+                name=UNCLASSIFIED_NODE_NAME,
+                depth=1,
+                is_leaf=True,
+            )
+            imported_count += 1
             for node in nodes:
-                parent_id = None if node.parent_path is None else path_to_id[node.parent_path]
+                parent_id = root_id if node.parent_path is None else path_to_id[node.parent_path]
                 node_id = await self._repo.create_taxonomy_node(
                     parent_id=parent_id,
                     name=node.name,
-                    depth=node.depth,
-                    is_leaf=node.is_leaf,
+                    depth=node.depth + 1,
+                    is_leaf=False,
                 )
+                imported_count += 1
+                await self._repo.create_taxonomy_node(
+                    parent_id=node_id,
+                    name=UNCLASSIFIED_NODE_NAME,
+                    depth=node.depth + 2,
+                    is_leaf=True,
+                )
+                imported_count += 1
                 path_to_id[node.path] = node_id
             await self._repo.commit()
         except Exception:
             await self._repo.rollback()
             raise
 
-        return len(nodes)
+        return imported_count
 
     async def import_yaml_file(self, yaml_path: Path) -> int:
         return await self.import_yaml_text(yaml_path.read_text(encoding="utf-8"))

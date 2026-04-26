@@ -34,6 +34,16 @@ def test_taxonomy_nodes_projection_contains_parent_depth_and_leaf_flag() -> None
     assert table.c.is_leaf.nullable is False
 
 
+def test_taxonomy_nodes_projection_contains_single_root_partial_index() -> None:
+    table = cast(Table, TaxonomyNode.__table__)
+    indexes = [constraint for constraint in table.indexes if isinstance(constraint, Index)]
+    root_indexes = [index for index in indexes if index.name == "uq_taxonomy_nodes_single_root"]
+
+    assert root_indexes
+    assert root_indexes[0].unique is True
+    assert str(root_indexes[0].dialect_options["postgresql"]["where"]) == "parent_id IS NULL"
+
+
 def test_node_taxonomy_assignments_projection_contains_unique_node_constraint() -> None:
     table = cast(Table, NodeTaxonomyAssignment.__table__)
     unique_constraints = [

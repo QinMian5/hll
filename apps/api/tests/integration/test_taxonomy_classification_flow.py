@@ -60,7 +60,7 @@ async def _create_taxonomy_node(
 async def test_classification_flow_assigns_leaf_and_keeps_failed_node_unassigned(
     db_session: AsyncSession,
 ) -> None:
-    root = await _create_taxonomy_node(db_session, name="Science", depth=0, is_leaf=False)
+    root = await _create_taxonomy_node(db_session, name="Root", depth=0, is_leaf=False)
     leaf = await _create_taxonomy_node(
         db_session,
         name="Mathematics",
@@ -110,10 +110,10 @@ async def test_classification_flow_assigns_leaf_and_keeps_failed_node_unassigned
 @pytest.mark.integration
 @pytest.mark.db
 @pytest.mark.anyio
-async def test_second_assign_leaf_attempt_is_rejected_without_overwrite(
+async def test_second_assign_leaf_attempt_moves_current_assignment(
     db_session: AsyncSession,
 ) -> None:
-    root = await _create_taxonomy_node(db_session, name="Science", depth=0, is_leaf=False)
+    root = await _create_taxonomy_node(db_session, name="Root", depth=0, is_leaf=False)
     first_leaf = await _create_taxonomy_node(
         db_session,
         name="Physics",
@@ -141,5 +141,5 @@ async def test_second_assign_leaf_attempt_is_rejected_without_overwrite(
     second = await tool.assign_leaf(node_id=node.id, leaf_id=second_leaf.id)
 
     assert first.result == "assigned"
-    assert second.result == "already_assigned"
-    assert second.assignment.taxonomy_node.id == first_leaf.id
+    assert second.result == "assigned"
+    assert second.assignment.taxonomy_node.id == second_leaf.id

@@ -6,6 +6,8 @@ Out of scope: YAML parsing and HTTP transport wiring.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,12 +17,14 @@ from modules.taxonomy.dto import (
     TaxonomyLeafAssignment,
     TaxonomyNodeRecord,
 )
-from modules.taxonomy.errors import TaxonomyAssignmentAlreadyExistsError
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
     TaxonomyLeafProjectionEdge,
     TaxonomyNode,
 )
+
+ROOT_NODE_NAME = "Root"
+UNCLASSIFIED_NODE_NAME = "Unclassified"
 
 
 def _taxonomy_node_record_from_model(node: TaxonomyNode) -> TaxonomyNodeRecord:
@@ -53,6 +57,30 @@ class TaxonomyRepo:
         result = await self._session.execute(select(TaxonomyNode.id).limit(1))
         return result.scalar_one_or_none() is not None
 
+    async def get_root_node(self) -> TaxonomyNodeRecord | None:
+        node = await self._session.scalar(
+            select(TaxonomyNode).where(TaxonomyNode.parent_id.is_(None)).limit(1)
+        )
+        if node is None:
+            return None
+        return _taxonomy_node_record_from_model(node)
+
+    async def get_child_by_name(
+        self,
+        *,
+        parent_id: int,
+        name: str,
+    ) -> TaxonomyNodeRecord | None:
+        node = await self._session.scalar(
+            select(TaxonomyNode)
+            .where(TaxonomyNode.parent_id == parent_id)
+            .where(TaxonomyNode.name == name)
+            .limit(1)
+        )
+        if node is None:
+            return None
+        return _taxonomy_node_record_from_model(node)
+
     async def create_taxonomy_node(
         self,
         *,
@@ -70,6 +98,68 @@ class TaxonomyRepo:
         self._session.add(taxonomy_node)
         await self._session.flush()
         return taxonomy_node.id
+
+    async def ensure_root_with_unclassified(self) -> tuple[TaxonomyNodeRecord, TaxonomyNodeRecord]:
+        root = await self.get_root_node()
+        if root is None:
+            root_id = await self.create_taxonomy_node(
+                parent_id=None,
+                name=ROOT_NODE_NAME,
+                depth=0,
+                is_leaf=False,
+            )
+            root = await self.get_node_by_id(node_id=root_id)
+            if root is None:
+                raise RuntimeError("Root taxonomy node was not readable after creation.")
+
+        unclassified = await self.get_child_by_name(
+            parent_id=root.id,
+            name=UNCLASSIFIED_NODE_NAME,
+        )
+        if unclassified is None:
+            unclassified_id = await self.create_taxonomy_node(
+                parent_id=root.id,
+                name=UNCLASSIFIED_NODE_NAME,
+                depth=root.depth + 1,
+                is_leaf=True,
+            )
+            unclassified = await self.get_node_by_id(node_id=unclassified_id)
+            if unclassified is None:
+                raise RuntimeError("Root Unclassified taxonomy node was not readable.")
+
+        return (root, unclassified)
+
+    async def create_regular_child_with_unclassified(
+        self,
+        *,
+        parent_id: int,
+        name: str,
+    ) -> tuple[TaxonomyNodeRecord, TaxonomyNodeRecord]:
+        parent = await self.get_node_by_id(node_id=parent_id)
+        if parent is None:
+            raise ValueError(f"Taxonomy parent node {parent_id} does not exist.")
+        if parent.is_leaf:
+            raise ValueError("Cannot create a regular child below a leaf taxonomy node.")
+        if name == UNCLASSIFIED_NODE_NAME:
+            raise ValueError("Unclassified children are system-created.")
+
+        child_id = await self.create_taxonomy_node(
+            parent_id=parent.id,
+            name=name,
+            depth=parent.depth + 1,
+            is_leaf=False,
+        )
+        unclassified_id = await self.create_taxonomy_node(
+            parent_id=child_id,
+            name=UNCLASSIFIED_NODE_NAME,
+            depth=parent.depth + 2,
+            is_leaf=True,
+        )
+        child = await self.get_node_by_id(node_id=child_id)
+        unclassified = await self.get_node_by_id(node_id=unclassified_id)
+        if child is None or unclassified is None:
+            raise RuntimeError("Created taxonomy child nodes were not readable.")
+        return (child, unclassified)
 
     async def list_tree_nodes(self) -> list[TaxonomyNodeRecord]:
         result = await self._session.scalars(
@@ -195,7 +285,13 @@ class TaxonomyRepo:
         await self._session.execute(delete(TaxonomyLeafProjectionEdge))
         await self._session.flush()
 
-    async def set_final_assignment(
+    async def clear_projected_edge_ids_for_leaf(self, *, leaf_id: int) -> None:
+        await self._session.execute(
+            delete(TaxonomyLeafProjectionEdge).where(TaxonomyLeafProjectionEdge.leaf_id == leaf_id)
+        )
+        await self._session.flush()
+
+    async def set_current_assignment(
         self,
         *,
         node_id: int,
@@ -204,20 +300,40 @@ class TaxonomyRepo:
         assignment = await self._session.scalar(
             select(NodeTaxonomyAssignment).where(NodeTaxonomyAssignment.node_id == node_id).limit(1)
         )
-        if assignment is not None:
-            raise TaxonomyAssignmentAlreadyExistsError("node already has final taxonomy assignment")
-
-        assignment = NodeTaxonomyAssignment(
-            node_id=node_id,
-            taxonomy_node_id=taxonomy_node_id,
-        )
-        self._session.add(assignment)
+        if assignment is None:
+            assignment = NodeTaxonomyAssignment(
+                node_id=node_id,
+                taxonomy_node_id=taxonomy_node_id,
+            )
+            self._session.add(assignment)
+        else:
+            assignment.taxonomy_node_id = taxonomy_node_id
+            assignment.assigned_at = datetime.now(UTC)
 
         await self._session.flush()
         stored_assignment = await self.get_assignment_for_node(node_id=node_id)
         if stored_assignment is None:
-            raise RuntimeError("Final taxonomy assignment was not readable after persistence.")
+            raise RuntimeError("Current taxonomy assignment was not readable after persistence.")
         return stored_assignment
+
+    async def set_final_assignment(
+        self,
+        *,
+        node_id: int,
+        taxonomy_node_id: int,
+    ) -> TaxonomyAssignmentRecord:
+        return await self.set_current_assignment(
+            node_id=node_id,
+            taxonomy_node_id=taxonomy_node_id,
+        )
+
+    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int:
+        _root, unclassified = await self.ensure_root_with_unclassified()
+        await self.set_current_assignment(
+            node_id=node_id,
+            taxonomy_node_id=unclassified.id,
+        )
+        return unclassified.id
 
     async def commit(self) -> None:
         await self._session.commit()
