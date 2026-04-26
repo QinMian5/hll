@@ -13,10 +13,10 @@ out_of_scope: Taxonomy API payload semantics, page-shell chrome structure, and r
 ## Context
 - **Purpose:** Define the accepted layout behavior and visual language for branch and leaf browsing inside the taxonomy page canvas so branch navigation and leaf relation reading each use fit-for-purpose geometry while aligning to the approved Figma presentation for both branch and leaf modes.
 - **Scope/Boundaries:** Covers branch bubble sizing and placement, leaf graph level-of-detail behavior, Figma-aligned bubble composition, hover-content behavior, typography, Tailwind-first styling boundaries, viewport-driven hydration, and layout-stability rules for `apps/web`. Excludes taxonomy payload ownership, page-shell header and overlay structure, and backend graph semantics beyond the consumed skeleton/detail contracts.
-- **Related Requirements:** R-001, R-003, R-004, R-006.
+- **Related Requirements:** R-001, R-003, R-004, R-006, R-007.
 
 ## Constraint Projection
-- **Governing Constraints:** Frontend behavior stays within the unified web client, consumes generated taxonomy contracts without ad hoc HTTP access, preserves explicit module boundaries, and keeps behavior-changing layout decisions synchronized in active specs.
+- **Governing Constraints:** Frontend behavior stays within the unified web client, consumes taxonomy view data through BFF-owned web data adapters, preserves explicit module boundaries, and keeps behavior-changing layout decisions synchronized in active specs.
 - **Detail Commitments:** Branch and leaf views use separate layout and rendering pipelines inside the same taxonomy canvas host. Branch layout is a weighted floating bubble field derived from the current layer's taxonomy children and is rendered through the branch React Flow scene. Leaf layout is a two-stage one-hop relation browser rendered through a dedicated deck.gl scene: point-mode skeleton first, then viewport-scoped card hydration after zoom activation. Branch nodes keep the approved bubble treatment, while hydrated leaf nodes upgrade into Figma-aligned cards centered on their point anchors. Page-owned styling is expressed primarily through Tailwind utility classes.
 - **Update Rule:** Requirements remain stable at the repository-governance layer while branch and leaf layout rules, geometry constraints, and interaction-facing visual behavior are maintained in this design document.
 

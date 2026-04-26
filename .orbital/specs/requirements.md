@@ -34,12 +34,12 @@ file paths, and implementation-facing decisions are projected into design docume
 3. Contract updates SHALL remain auditable in version control.
 
 ### R-003 Contract-Driven Client Integration
-**User Story:** As a frontend engineer, I want enforced contract-driven API access so that client behavior stays aligned with server interfaces.
+**User Story:** As an application engineer, I want enforced contract-driven backend API access so that cross-process integration stays aligned with server interfaces.
 
 #### Acceptance Criteria (EARS)
-1. Client application code SHALL access backend APIs through generated contract artifacts.
-2. Direct ad hoc HTTP integration patterns that bypass the generated contract SHALL be disallowed by project governance.
-3. The project SHALL provide validation gates that detect contract/client drift before merge.
+1. Repository-owned integration code that calls backend APIs SHALL access those APIs through generated contract artifacts.
+2. Direct ad hoc backend HTTP integration patterns that bypass the generated contract SHALL be disallowed by project governance.
+3. The project SHALL provide validation gates that detect backend contract/client drift before merge.
 
 ### R-004 Clear Module Boundaries
 **User Story:** As a maintainer, I want explicit module boundaries so that change impact remains local and understandable.
@@ -64,3 +64,11 @@ file paths, and implementation-facing decisions are projected into design docume
 1. Behavior-changing repository governance or structure updates SHALL include synchronized spec updates.
 2. Active specs SHALL describe only current accepted decisions.
 3. Detail-level changes SHALL be recorded in the corresponding design module while governing constraints remain stable here.
+
+### R-007 Public Access Boundary Governance
+**User Story:** As a product operator, I want public access surfaces separated from internal service APIs so that user-facing and programmatic access can be governed independently.
+
+#### Acceptance Criteria (EARS)
+1. The system SHALL expose external user and programmatic capabilities only through explicitly designated public surfaces.
+2. Internal service APIs SHALL remain private implementation interfaces rather than public product interfaces.
+3. Public access surfaces SHALL own authentication, session, and quota enforcement appropriate to their audience.

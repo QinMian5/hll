@@ -13,10 +13,10 @@ out_of_scope: Shared app-shell navigation, taxonomy API payload semantics, rende
 ## Context
 - **Purpose:** Define the active content-shell and layout behavior for the `Graph View` route so taxonomy browsing uses one stable canvas host inside the shared web app shell without changing the taxonomy drill-down contract.
 - **Scope/Boundaries:** Covers the primary canvas container, Figma panel treatment, breadcrumb presentation, overlay placement, status presentation, and graph-route content responsiveness for `apps/web`. Excludes shared top navigation, backend payload shape, graph data derivation, and auth/repository integration.
-- **Related Requirements:** R-001, R-003, R-004, R-006.
+- **Related Requirements:** R-001, R-003, R-004, R-006, R-007.
 
 ## Constraint Projection
-- **Governing Constraints:** Frontend behavior remains within the unified web client boundary, consumes generated taxonomy contracts without ad hoc API access, preserves explicit module boundaries, and keeps behavior-changing graph-route shell decisions synchronized in active specs.
+- **Governing Constraints:** Frontend behavior remains within the unified web client boundary, consumes Graph View data through BFF-owned web data adapters, preserves explicit module boundaries, and keeps behavior-changing graph-route shell decisions synchronized in active specs.
 - **Detail Commitments:** The `Graph View` route renders inside the shared app shell defined by `web-app-shell-navigation.md` and owns one stable taxonomy canvas host wrapped by a Figma-matched panel surface. Breadcrumb, loading, and error UI render as overlays inside the canvas instead of separate page sections. The host can mount the branch React Flow renderer or the leaf deck.gl renderer without changing content-shell geometry. Graph-route content styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS. Approved Figma frames remain the primary source of truth for graph-route shell composition: branch view follows node `6:3`, and leaf point mode follows node `91:227`.
 - **Update Rule:** Requirement-level repository and contract constraints remain stable while graph-route content-shell structure, overlay rules, and visual layout behavior are maintained in this design document.
 

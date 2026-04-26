@@ -13,7 +13,7 @@ out_of_scope: Module-level exhaustive error-code catalogs, advanced CI matrices,
 ## Context
 - Purpose: define the minimum enforceable architecture constraints for the current MVP phase.
 - Scope/Boundaries: layering, dependency direction, naming, configuration, error handling, and minimal quality gates.
-- Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006.
+- Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006, R-007.
 
 ## Layering and Dependency Direction
 - Backend runtime layering is fixed to `entrypoints -> modules -> shared`.
@@ -24,12 +24,14 @@ out_of_scope: Module-level exhaustive error-code catalogs, advanced CI matrices,
 - Backend cross-module interaction must go through the target module `service`.
 - Cross-process entrypoint imports are forbidden (`entrypoints.api` must not import `entrypoints.worker`, and `entrypoints.worker` must not import `entrypoints.api`).
 - Inter-process collaboration between API and worker must go through module-owned queue contracts and broker transport, not entrypoint-level direct imports.
-- Frontend flow is fixed to `UI/page -> feature service -> generated contract client`.
+- Browser-side frontend data flow is fixed to `UI/page -> feature service -> web API adapter -> apps/web BFF endpoint`.
+- The `apps/web` BFF calls internal backend APIs through generated contract artifacts.
+- Browser-side code must not call internal FastAPI APIs directly and must not own internal backend service URLs.
 - Frontend UI/component layer direct backend HTTP calls are forbidden.
 
 ## Naming Constraints
 - Backend file names MUST express layer intent and module ownership.
-- HTTP transport models MUST stay under the owning API-orchestration module (`search` or `ingestion`).
+- HTTP transport models MUST stay under the owning API-orchestration module.
 - Knowledge-graph domain DTOs MUST stay under `modules/knowledge_graph` and MUST NOT be named as HTTP transport schemas.
 - Domain ports MAY use role-specific names (`ports.py`, `dto.py`) when they improve boundary clarity.
 - Names must keep transport semantics and persistence semantics clearly separated.

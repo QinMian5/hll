@@ -12,7 +12,7 @@ out_of_scope: Domain behavior semantics, detailed error taxonomy, and advanced C
 ## Context
 - Purpose: define canonical monorepo layout and directory ownership for MVP.
 - Scope/Boundaries: top-level topology, application/package placement, and path-level ownership boundaries.
-- Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006.
+- Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006, R-007.
 
 ## Repository Topology
 ```text
@@ -41,7 +41,7 @@ repo/
 - `apps/cli`: local operator-facing CLI source.
 - `apps/knowledge_corpus`: local/offline corpus app source and app-local DB lifecycle assets.
 - `apps/source_pipeline`: project-owned source-processing runtime, queue orchestration, and pipeline state.
-- `apps/web`: React web client source.
+- `apps/web`: React web client source, Express BFF server, public web API endpoints, server-side web session handling, and web access-control state.
 - `packages/contracts`: OpenAPI snapshot, generated clients/types, contracts scripts.
 - `infra`: deployment/environment templates.
 - `scripts`: repository automation scripts.
@@ -84,10 +84,15 @@ apps/api/
 ## Web Application Layout (`apps/web`)
 ```text
 apps/web/
+  server/
+    auth/
+    internal-api/
+    rate-limit/
+    routes/
   src/
     app/
     features/
-      taxonomy/
+      taxonomy-view/
       knowledge/
       search/
     shared/
@@ -149,7 +154,8 @@ packages/contracts/
 ## Contract Integration
 - Backend exports OpenAPI to `packages/contracts/openapi/openapi.json`.
 - Generated artifacts under `packages/contracts/generated` are versioned.
-- Frontend consumes backend APIs only through generated contract artifacts.
+- Repository-owned code that calls internal backend APIs consumes those APIs only through generated contract artifacts.
+- Browser-side web code consumes public web API endpoints owned by `apps/web` and does not call internal backend APIs directly.
 
 ## Boundary Rules
 1. Repository-root configuration files own cross-member tooling/workspace behavior.
@@ -169,6 +175,7 @@ packages/contracts/
 15. `apps/source_pipeline` owns project-level source-processing runtime and remains source-agnostic within this repository boundary.
 16. `apps/source_pipeline` must not import `apps/api/src/entrypoints/**`.
 17. `apps/source_pipeline` interacts with the online knowledge system only through accepted HTTP contracts and must not import `apps/api/src/modules/ingestion/**`, `apps/api/src/modules/knowledge_graph/**`, or write knowledge database tables directly.
+18. `apps/web` owns public web HTTP endpoints and must not import `apps/api/src/**`; it interacts with `apps/api` through the generated internal API client over Docker-network HTTP.
 
 ## Governance Anchors
 - Architecture constraints: `03-architecture-constraints`.

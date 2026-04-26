@@ -1,5 +1,5 @@
 ---
-abstract: Module boundary and responsibility definition for the V1 API-first open knowledge network plus the project-owned source-processing pipeline.
+abstract: Module boundary and responsibility definition for the V1 public web, private API, and project-owned source-processing pipeline.
 out_of_scope: Detailed implementation, framework-specific wiring, and storage-engine internals.
 ---
 
@@ -11,8 +11,8 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
-- **Scope/Boundaries:** Covers ownership for frontend, backend API, operator CLI, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, source_pipeline, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
-- **Related Requirements:** R-001, R-004, R-005, R-006.
+- **Scope/Boundaries:** Covers ownership for browser frontend, web BFF, backend API, operator CLI, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, source_pipeline, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
+- **Related Requirements:** R-001, R-003, R-004, R-005, R-006, R-007.
 
 ## Module Responsibilities
 
@@ -22,23 +22,39 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Render branch view as direct child category bubbles.
   - Render leaf view as one-hop scoped relation graph (`inner` + pulled `outer` nodes).
   - Provide breadcrumb navigation for ancestor jumps.
-  - Consume search and taxonomy view APIs through generated contracts.
+  - Consume Search and Graph View data through browser-visible web API adapters owned by `apps/web`.
   - Own graph layout calculation for branch and leaf views.
+  - Render anonymous and logged-in session state exposed by the web BFF.
 - **Non-responsibilities:**
   - Graph persistence ownership.
   - Relation computation logic.
   - Taxonomy assignment ownership.
-  - Backend persistence or infrastructure policy.
+  - Backend persistence, Logto session material, quota counters, or infrastructure policy.
+
+### Web BFF
+- **Responsibilities:**
+  - Serve the public React web application.
+  - Own browser-visible web data endpoints for Search and Graph View.
+  - Own server-side Logto session handling for web users.
+  - Own anonymous identity cookies and web quota enforcement.
+  - Call private backend APIs through generated contract artifacts over Docker-network HTTP.
+- **Non-responsibilities:**
+  - Backend domain logic.
+  - Graph persistence ownership.
+  - Taxonomy persistence ownership.
+  - Public programmatic MCP access.
 
 ### Backend API
 - **Responsibilities:**
-  - Expose V1 search read endpoint.
-  - Expose V1 taxonomy drill-down read endpoints.
-  - Expose V1 ingestion accept endpoint.
+  - Expose private V1 search read endpoint.
+  - Expose private V1 taxonomy drill-down read endpoints.
+  - Expose private V1 ingestion accept endpoint for accepted internal and operator workflows.
   - Validate request inputs and normalize response outputs.
   - Publish the authoritative OpenAPI contract boundary.
 - **Non-responsibilities:**
   - Frontend rendering behavior ownership.
+  - Browser session ownership.
+  - Public web quota enforcement.
   - Semantic-map snapshot/tile APIs.
   - Storage-engine implementation ownership.
 
@@ -173,8 +189,8 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - PostgreSQL as persistent truth store for graph and taxonomy, plus dedicated app-local PostgreSQL services for `knowledge_corpus` and `source_pipeline`.
 
 ## Dependency Direction
-- `Frontend -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`
-- `Frontend -> Backend API(taxonomy view) -> entrypoints.api -> taxonomy -> knowledge_graph + taxonomy -> Database`
+- `Frontend -> Web BFF(search) -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`
+- `Frontend -> Web BFF(taxonomy view) -> Backend API(taxonomy view) -> entrypoints.api -> taxonomy -> knowledge_graph + taxonomy -> Database`
 - `Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Background taxonomy bootstrap -> taxonomy -> Database`

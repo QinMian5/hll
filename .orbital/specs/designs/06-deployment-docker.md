@@ -13,52 +13,55 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 ## Context
 - Purpose: define a reproducible Docker deployment model for dev and prod with explicit startup order and migration gating.
 - Scope/Boundaries: compose layering, network exposure, migration workflow, PostgreSQL image strategy, extension enablement, repository-managed accepted service provisioning, and failure policy.
-- Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006.
+- Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006, R-007.
 
 ## Deployment Topology (MVP)
-- Production external exposure is restricted to the shared host-level reverse proxy on `80/443`.
+- Production external exposure is restricted to the shared host-level reverse proxy on `80/443`, routed through the project-local `nginx` app gateway to explicitly public web, Logto, and webhook surfaces.
 - Development exposes `web` on `5174`, `api` on `8001`, and `db` on host `5432` for local debugging and SQL tooling.
-- `db` remains internal-only in production.
+- `api`, `db`, and `redis` remain internal-only in production.
 - Knowledge corpus uses its own dedicated PostgreSQL service and does not share the online graph database service.
 - Source pipeline uses its own dedicated PostgreSQL service and does not share the online graph database service.
 - Development may expose the knowledge corpus PostgreSQL service on a separate host port for local tooling; it must not reuse the online database host port.
 - Development may expose the source pipeline PostgreSQL service on a separate host port for local tooling; it must not reuse the online database or knowledge corpus host ports.
 - `redis` remains internal-only in both environments and is provided by a project-managed service definition.
-- Production runtime process topology includes one `api` container, one `worker` container, one source-pipeline `orchestrator` container, one source-pipeline webhook receiver container, one taxonomy-classification runtime container, and one taxonomy-classification webhook receiver container. The production identity topology additionally includes self-hosted `logto-postgres`, `logto-seed`, and `logto` services for the `knowledge` OAuth authority.
-- Development starts `api` and `worker` by default; source-pipeline and taxonomy-classification queue-connected runtimes are explicit opt-in profiles because local development must not accidentally submit jobs to the shared queue or expose webhook intake unintentionally.
+- Production runtime process topology includes one private `api` container, one `worker` container, one public `web` BFF container, one source-pipeline `orchestrator` container, one source-pipeline webhook receiver container, one taxonomy-classification runtime container, and one taxonomy-classification webhook receiver container. The production identity topology additionally includes self-hosted `logto-postgres`, `logto-seed`, and `logto` services for the `knowledge` OAuth authority.
+- Development starts `api` and `worker` by default. Development also includes source-pipeline data and migration services as default app-local infrastructure. Source-pipeline and taxonomy-classification queue-connected runtimes are explicit opt-in profiles because local development must not accidentally submit jobs to the shared queue or expose webhook intake unintentionally.
 - Horizontal scaling is not an MVP requirement for `api`, `worker`, source-pipeline runtimes, or taxonomy-classification runtimes; production baseline keeps one running container per role.
-- Production search read chain is `shared proxy -> nginx -> web -> api -> OpenAI Embeddings API + db`.
+- Production search read chain is `shared proxy -> nginx -> web BFF -> api -> OpenAI Embeddings API + db`.
 - Production ingestion write chain is `api -> redis -> worker -> OpenAI Embeddings API + db`.
-- Development search read chain is `web -> api -> OpenAI Embeddings API + db`.
+- Development search read chain is `web BFF -> api -> OpenAI Embeddings API + db`.
 - Development ingestion write chain is `api -> redis -> worker -> OpenAI Embeddings API + db`.
 - Migration is a dedicated one-shot job and not part of API startup.
 
 ## Network Boundaries
-- `backend` network is internal-only and contains `db`, repository-managed data services, one-shot migration jobs, `redis`, self-hosted Logto services, `api`, `worker`, production or explicitly enabled source-pipeline runtimes, and production or explicitly enabled taxonomy-classification runtimes.
+- `backend` network is internal-only and contains `db`, repository-managed data services, one-shot migration jobs, `redis`, self-hosted Logto services, `api`, `web`, `worker`, production or explicitly enabled source-pipeline runtimes, and production or explicitly enabled taxonomy-classification runtimes.
 - Knowledge corpus PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
 - Accepted first-version service names for the knowledge corpus database path are `knowledge_corpus_db` and `knowledge_corpus_migrate`.
 - Source pipeline PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
 - Accepted first-version service names for the source pipeline database path are `source_pipeline_db` and `source_pipeline_migrate`.
-- `edge` network contains `web`, `api`, `worker`, self-hosted Logto, enabled webhook receiver roles, and the project-local `nginx` app gateway.
+- `edge` network contains `web`, self-hosted Logto, enabled webhook receiver roles, and the project-local `nginx` app gateway.
 - Production connects the project-local `nginx` app gateway to the external shared `proxy` network with stable `knowledge-nginx`, `knowledge.orbitalis.org`, `knowledge-logto.orbitalis.org`, and `admin.knowledge-logto.internal.home.arpa` aliases. It must not publish host `80/443` ports directly.
 - Production connects source-pipeline and taxonomy-classification result-consuming runtimes to the external shared `proxy` network only for `job-queue-mcp` reverse-proxy hostnames. Development does not connect these runtimes to `proxy` by default.
+- Production `nginx` routes the public application host to `web` and does not route public `/api/` paths to the private `api` container.
 - Production exposes webhook receiver roles through the project-local `nginx` app gateway on dedicated webhook paths. Receiver containers remain container-only and must not publish host ports directly.
 - Development adds `db` to `edge` for host port publishing while keeping service-to-service database access on `backend`.
 - Cross-service access must follow network boundaries rather than host port access.
 - Development host access to PostgreSQL is for local tooling only; container-to-container database access still uses Docker service DNS (`postgres`) on `backend`.
+- Web BFF access to the private API uses Docker service DNS (`api`) on `backend`, not public hostnames.
 - API and worker access Redis through Docker service DNS (`redis`) on `backend`, not host-local `localhost`.
+- Web BFF access to Redis uses Docker service DNS (`redis`) on `backend`, not host-local `localhost`.
 - API and worker require outbound HTTPS egress for OpenAI Embeddings API access.
 
 ## Compose Layering Strategy
 - `compose.base.yml`: shared service definitions plus logical network and volume keys. It must not own the compose project name, environment-specific image tags, explicit Docker volume names, or explicit Docker network names.
-- `compose.dev.yml`: development-only overrides with project name `knowledge-dev`, development image tags, source mounts, debug commands, direct local port exposure, no `nginx` service, and opt-in `orchestrator` profile.
-- `compose.prod.yml`: production-only overrides with project name `knowledge-prod`, production image tags, runtime restart policy, project-local `nginx` app gateway, shared `proxy` network attachment, and production external volume bindings.
+- `compose.dev.yml`: development-only overrides with project name `knowledge-dev`, development image tags, source mounts, debug commands, direct local port exposure, no `nginx` service, default source-pipeline `source_pipeline_db` and `source_pipeline_migrate` services, and explicit opt-in profiles for `orchestrator`, `source_pipeline_webhook_receiver`, `taxonomy_classification_runtime`, and `taxonomy_classification_webhook_receiver`.
+- `compose.prod.yml`: production-only overrides with project name `knowledge-prod`, production image tags, runtime restart policy, project-local `nginx` app gateway, public web BFF routing, shared `proxy` network attachment, and production external volume bindings.
 - `compose.test.yml`: isolated test topology with project name `knowledge-test` and test image tags.
 - `compose.prod.yml` must override accepted long-running and one-shot source-pipeline services with production image tags and production external volume binding for source-pipeline data.
 - Migration autogeneration uses the same base+dev layering and does not use a dedicated compose overlay file.
 - Repository-managed local/offline apps may add dedicated infrastructure services when those services are part of accepted repository app boundaries; knowledge corpus PostgreSQL is one such service.
 - The accepted first-version compose baseline includes `knowledge_corpus_db` as a dedicated PostgreSQL service and `knowledge_corpus_migrate` as a dedicated one-shot migration job for `apps/knowledge_corpus`.
-- The accepted first-version compose baseline includes `source_pipeline_db` as a dedicated PostgreSQL service, `source_pipeline_migrate` as a dedicated one-shot migration job, `orchestrator` as the dedicated long-running runtime for `apps/source_pipeline`, and `source_pipeline_webhook_receiver` as the dedicated webhook intake runtime for `apps/source_pipeline`.
+- The accepted first-version compose baseline includes `source_pipeline_db` as a dedicated PostgreSQL service, `source_pipeline_migrate` as a dedicated one-shot migration job, `orchestrator` as the dedicated long-running runtime for `apps/source_pipeline`, and `source_pipeline_webhook_receiver` as the dedicated webhook intake runtime for `apps/source_pipeline`. In development, `source_pipeline_db` and `source_pipeline_migrate` are default services, while `orchestrator` and `source_pipeline_webhook_receiver` are profile-gated runtimes.
 - The accepted taxonomy-classification compose baseline uses the API database and API image with dedicated role commands for `taxonomy_classification_runtime` and `taxonomy_classification_webhook_receiver`.
 
 ## Volume Lifecycle Policy
@@ -80,7 +83,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - The API image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - The source-pipeline image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - `redis` uses fixed-tag official image `redis:7-bookworm`.
-- `web` uses a custom Dockerfile with separate dev/prod targets.
+- `web` uses a custom Dockerfile with separate dev/prod targets; the production target builds Vite assets and runs the Express BFF server.
 - `nginx` uses a fixed-tag official image in production and does not use a custom Dockerfile.
 
 ## Process Role Command Contract
@@ -90,6 +93,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Compose files must reference role startup commands. Long inline runtime invocation details stay out of environment-specific compose service definitions.
 - API role command owns API logging bootstrap and then starts FastAPI serving.
 - Worker role command owns worker logging bootstrap and then starts Dramatiq worker serving.
+- Web role command starts the Express BFF server and serves the built Vite assets from the same process.
 - Orchestrator role command owns source-pipeline runtime bootstrap and then starts the long-running local event and reconcile loop.
 - Source-pipeline webhook receiver role command owns source-pipeline webhook HTTP bootstrap and then starts the authenticated notification receiver.
 - Taxonomy-classification runtime role command owns taxonomy-classification runtime bootstrap and then starts the long-running local event and reconcile loop.
@@ -101,7 +105,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   2. `migrate` one-shot job runs and exits successfully.
   3. `api` and `worker` start.
   4. `web` starts.
-  5. Production `nginx` starts after `api` and `web` are started.
+  5. Production `nginx` starts after `web`, enabled webhook receiver roles, and Logto are available.
 - Knowledge corpus startup/migration order is separate from the online stack:
   1. `knowledge_corpus_db` reaches healthy state.
   2. `knowledge_corpus_migrate` one-shot job runs and exits successfully.
@@ -109,7 +113,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Source pipeline startup/migration order is separate from the online stack:
   1. `source_pipeline_db` reaches healthy state.
   2. `source_pipeline_migrate` one-shot job runs and exits successfully.
-  3. Production `orchestrator` and `source_pipeline_webhook_receiver`, or development source-pipeline services when their profiles are explicitly enabled, start against the migrated source-pipeline database.
+  3. Production `orchestrator` and `source_pipeline_webhook_receiver`, or development `orchestrator` and `source_pipeline_webhook_receiver` when their profiles are explicitly enabled, start against the migrated source-pipeline database.
 - Taxonomy-classification queue runtime startup uses the online API database migration gate:
   1. `db` reaches healthy state.
   2. `migrate` one-shot job runs and exits successfully.
@@ -157,7 +161,8 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   - `KNOWLEDGE_API_EMBEDDING_API_URL` using OpenAI embeddings endpoint
   - `KNOWLEDGE_API_EMBEDDING_MODEL` set to `text-embedding-3-small`
   - `KNOWLEDGE_API_EMBEDDING_API_KEY` from runtime secret injection
-- Production web runtime configuration sets `VITE_API_BASE_URL` to the same-origin `/api` path served by the project-local `nginx` app gateway.
+- Production web runtime configuration provides BFF settings for the internal API base URL, Redis URL, Logto application credentials, callback base URL, session cookie secret, secure-cookie policy, anonymous identity cookie policy, and web quota limits.
+- Browser runtime configuration does not include the private API base URL.
 - Database runtime configuration uses direct URL fields:
   - `KNOWLEDGE_API_DATABASE_URL` for API and worker runtime database access
   - `KNOWLEDGE_API_MIGRATION_DATABASE_URL` for migration-role execution paths

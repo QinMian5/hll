@@ -12,12 +12,12 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 ## Context
 - Purpose: select a modern stack that maximizes delivery speed while preserving long-term extensibility.
 - Scope/Boundaries: backend stack, frontend stack, infrastructure stack, and phase-1 defer decisions.
-- Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006.
+- Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006, R-007.
 
 ## Selection Principles
 - Prefer mature defaults with low integration risk.
 - Keep phase-1 operational complexity minimal.
-- Keep contract-driven integration (`OpenAPI -> generated client`).
+- Keep contract-driven internal backend integration (`OpenAPI -> generated client`).
 - Defer non-essential runtime components.
 
 ## Selected Stack (Phase-1)
@@ -48,41 +48,46 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 ### Frontend
 - Workspace/package manager: root `pnpm` workspace
 - Build tool: `Vite`
+- Web server/BFF runtime: `Node.js` + `Express`
 - UI framework: `React` + `TypeScript`
+- Client routing: `TanStack Router`
 - Graph rendering engines: `React Flow` for branch taxonomy browsing and `deck.gl` for leaf relation rendering
 - Layout engine: `d3-force`
 - Server-state management: `TanStack Query`
-- Contract consumption: generated TypeScript client from repository OpenAPI artifacts
+- Internal backend contract consumption: generated TypeScript client from repository OpenAPI artifacts, used by the web BFF
 - Styling: `Tailwind CSS`
 - Component baseline: `shadcn/ui`
+- Web identity provider: `Logto`
+- Web session and quota state: Redis-backed server-side state with secure browser cookies
 - Tooling: `Biome`, `TypeScript`, `Commitlint`
 
 #### Why selected
 - Fast iteration and low boilerplate.
 - Strong compatibility with generated OpenAPI client.
+- Express keeps the web runtime close to the existing Vite/React app while adding a server-owned BFF boundary for session, quota, and internal API calls.
 - `React Flow` keeps the branch drill-down surface simple for lower-count bubble navigation.
 - `deck.gl` provides GPU-backed rendering for dense leaf point, edge, and card visualization under the same frontend-owned layout model.
 - `d3-force` keeps branch and leaf geometry frontend-owned and deterministic without pushing coordinates into backend contracts.
 - No dependency on semantic-map tile/snapshot rendering stack.
 - Layout remains frontend-owned, so backend contracts stay semantic and avoid coordinate persistence coupling.
+- Logto provides the accepted web identity authority while the BFF keeps access tokens out of browser runtime state.
 
 ### Infrastructure
 - Containerization: `Docker`
 - Local orchestration: `Docker Compose`
 - Primary datastore: `PostgreSQL`
-- Queue broker: `Redis` via project-managed container image `redis:7-bookworm`
+- Queue broker, web session store, and web quota counter store: `Redis` via project-managed container image `redis:7-bookworm`
 - Runtime external integration: OpenAI Embeddings API with model `text-embedding-3-small`
 
 ## Installed but Deferred for Runtime Use
-- `TanStack Router`
 - `Zustand`
 - `TanStack Form`
 - `Zod`
-- `Logto`
 
 ## Explicit Non-Goals for Phase-1
 - Semantic-map snapshot/tile architecture.
-- Authentication/authorization flows.
 - Cache runtime dependency.
 - Keyword or hybrid retrieval runtime dependency.
 - Additional backend service decomposition.
+- Public REST API access for external users or external programmatic clients.
+- MCP search implementation.

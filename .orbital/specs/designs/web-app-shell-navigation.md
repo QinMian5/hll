@@ -1,6 +1,6 @@
 ---
-abstract: Shared frontend app shell design for the web client with Figma-first top navigation and Search route composition.
-out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and authentication or repository-link behavior.
+abstract: Shared frontend app shell design for the web client with Figma-first top navigation, Search route composition, and an auth action slot.
+out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and Logto session implementation.
 ---
 
 # Design: web-app-shell-navigation
@@ -12,24 +12,24 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
 
 ## Context
 - **Purpose:** Define the shared web app shell for the frontend so `Overview`, `Graph View`, and `Search` render inside one consistent top-level layout with route-driven navigation and Figma-first visual structure.
-- **Scope/Boundaries:** Covers route ownership, default entry routing, shared top navigation, shared body spacing, Search page empty/results composition, and shell-level visual behavior for `apps/web`. Excludes taxonomy graph rendering rules, backend search semantics, and button action behavior for repository or auth integrations.
-- **Related Requirements:** R-001, R-003, R-004, R-006.
+- **Scope/Boundaries:** Covers route ownership, default entry routing, shared top navigation, shared body spacing, Search page empty/results composition, and shell-level visual behavior for `apps/web`. Excludes taxonomy graph rendering rules, backend search semantics, and Logto session implementation.
+- **Related Requirements:** R-001, R-003, R-004, R-006, R-007.
 
 ## Constraint Projection
-- **Governing Constraints:** Frontend behavior remains within the unified web client boundary, consumes generated contracts instead of ad hoc API access, preserves explicit module boundaries, and keeps behavior-changing page-structure decisions synchronized in active specs.
-- **Detail Commitments:** The frontend uses one shared app shell for `Overview`, `Graph View`, and `Search`. The root route redirects to `Overview`. The shared top navigation displays `Overview`, `Graph View`, and `Search` in the center, with a left-side brand block and disabled `GitHub` and `Login` buttons on the right. The top navigation and Search results route follow Figma file `WBYs6P9HMxe21TSYQL637r`, node `136:119`. Shell styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS. Approved Figma auto-layout and grid structure is the primary source of truth for page composition; implementation should translate those structures directly instead of approximating them through unrelated wrappers or ad hoc spacing offsets.
+- **Governing Constraints:** Frontend behavior remains within the unified web client boundary, uses BFF-owned web data adapters for browser-visible application data, preserves explicit module boundaries, and keeps behavior-changing page-structure decisions synchronized in active specs.
+- **Detail Commitments:** The frontend uses one shared app shell for `Overview`, `Graph View`, and `Search`. The root route redirects to `Overview`. The shared top navigation displays `Overview`, `Graph View`, and `Search` in the center, with a left-side brand block and a right-side action group containing the `GitHub` placeholder and the auth action slot. The top navigation and Search results route follow Figma file `WBYs6P9HMxe21TSYQL637r`, node `136:119`. Shell styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS. Approved Figma auto-layout and grid structure is the primary source of truth for page composition; implementation should translate those structures directly instead of approximating them through unrelated wrappers or ad hoc spacing offsets.
 - **Update Rule:** Requirements remain stable at the repository-governance layer while route ownership, shell structure, navigation state rules, and Search page presentation stay in this design document.
 
 ## Inputs & Outputs
 - **Inputs:**
   - Shared browser entrypoint and route mounting in `apps/web`.
   - Approved Figma reference for shared top navigation and Search results composition: file `WBYs6P9HMxe21TSYQL637r`, node `136:119`.
-  - Existing taxonomy graph page that will move under the shared shell as the `Graph View` route.
+  - Taxonomy graph page mounted under the shared shell as the `Graph View` route.
 - **Outputs:**
   - One shared shell with top navigation and body container.
   - One route set for `/overview`, `/graph`, and `/search`, with `/` redirecting to `/overview`.
   - One Search page with URL-driven empty/results state behavior.
-  - One disabled top-right action group for `GitHub` and `Login`.
+  - One top-right action group for the `GitHub` placeholder and auth action slot.
 - **Artifacts:**
   - `apps/web/src/main.tsx`
   - `apps/web/src/App.tsx`
@@ -43,7 +43,7 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
 - **Key Elements:**
   - **Route ownership:** The frontend exposes `/overview`, `/graph`, and `/search`. The root route redirects to `/overview`.
   - **Shared shell:** Every page renders within one shell that owns the top navigation, horizontal spacing, and vertical viewport composition.
-  - **Top navigation:** The shell header follows the approved Figma top-nav structure: `64px` height, left brand group with a `48px` icon block and `15px` brand text, center nav as an equal-width three-column grid, and right-side disabled action buttons sized to the approved Figma button dimensions. Navigation highlight is route-driven: the active item uses darker text and a bottom underline, and inactive items use one consistent muted gray treatment.
+  - **Top navigation:** The shell header follows the approved Figma top-nav structure: `64px` height, left brand group with a `48px` icon block and `15px` brand text, center nav as an equal-width three-column grid, and right-side action controls sized to the approved Figma button dimensions. Navigation highlight is route-driven: the active item uses darker text and a bottom underline, and inactive items use one consistent muted gray treatment.
   - **Overview route:** `Overview` renders as a true page route inside the shared shell. The first version is a placeholder page and does not define future Overview feature structure beyond that route-owned placeholder state.
   - **Graph View route:** `Graph View` renders the taxonomy browsing experience inside the shared shell body. Graph-specific layout rules remain governed by taxonomy design documents.
   - **Search route:** `Search` renders a Figma-aligned page rather than a graph canvas. It supports two states within one route:
@@ -59,14 +59,15 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
   - Navigating between `Overview`, `Graph View`, and `Search` uses route changes rather than local tab state.
   - Browser refresh and deep linking preserve the active route.
   - Search query updates preserve the `/search` route and change only URL query state plus in-page layout state.
-  - Disabled `GitHub` and `Login` buttons do not trigger navigation, mutation, or placeholder actions.
+  - The `GitHub` placeholder does not trigger navigation or mutation.
+  - The auth action slot renders login/session actions defined by `web-bff-auth-access-control.md`.
 
 ## Validation
 - **Checks:**
   - The frontend uses one shared shell for `Overview`, `Graph View`, and `Search`.
   - Visiting `/` lands on `/overview`.
   - The top navigation contains `Overview`, `Graph View`, and `Search`, with only the active route highlighted.
-  - The top navigation uses the approved Figma header sizing, typography, button sizing, and centered three-column nav structure.
+  - The top navigation uses the approved Figma header sizing, typography, action sizing, and centered three-column nav structure.
   - `Overview` exists as a true routed placeholder page.
   - `Graph View` renders within the shared shell rather than owning a separate top-level header.
   - `Search` uses one route with URL-driven empty/results state switching instead of separate routes for each visual state.
