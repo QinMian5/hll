@@ -1,23 +1,127 @@
 // abstract: Unit tests for taxonomy query adapters and contract normalization.
 // out_of_scope: React Flow rendering and page-level interaction behavior.
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mockGet = vi.fn();
+import {
+  type TaxonomyNodeView,
+  taxonomyLeafNodeDetailsQueryOptions,
+  taxonomyNodeViewQueryOptions,
+  taxonomyRootViewQueryOptions,
+} from "./taxonomyViewQueries";
 
-vi.mock("../../../shared/api/contractsClient", () => ({
-  getContractsClient: () => ({
-    GET: mockGet,
-    POST: vi.fn(),
-  }),
-}));
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { "Content-Type": "application/json" },
+    status,
+  });
+}
 
-import { taxonomyNodeViewQueryOptions } from "./taxonomyViewQueries";
+async function runQuery<TResult>(
+  queryOptions: ReturnType<
+    | typeof taxonomyLeafNodeDetailsQueryOptions
+    | typeof taxonomyNodeViewQueryOptions
+    | typeof taxonomyRootViewQueryOptions
+  >,
+): Promise<TResult> {
+  const queryFn = queryOptions.queryFn;
+
+  if (!queryFn) {
+    throw new Error("Expected taxonomy query options to expose a queryFn.");
+  }
+
+  return (await queryFn({
+    client: undefined,
+    meta: undefined,
+    queryKey: queryOptions.queryKey,
+    signal: new AbortController().signal,
+  } as never)) as TResult;
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("taxonomyNodeViewQueryOptions", () => {
+  it("calls the same-origin BFF taxonomy root endpoint", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        root_node_id: 1,
+        title: "Science",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runQuery(taxonomyRootViewQueryOptions());
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/web-api/taxonomy/view/root",
+      expect.objectContaining({
+        credentials: "include",
+        method: "GET",
+      }),
+    );
+    expect(result).toEqual({
+      root_node_id: 1,
+      title: "Science",
+    });
+  });
+
+  it("calls the same-origin BFF taxonomy node endpoint", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        edges: [],
+        node_id: 42,
+        node_kind: "branch",
+        nodes: [],
+        title: "Physics",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runQuery(taxonomyNodeViewQueryOptions(42));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/web-api/taxonomy/view/nodes/42",
+      expect.objectContaining({
+        credentials: "include",
+        method: "GET",
+      }),
+    );
+    expect(result).toMatchObject({
+      node_id: 42,
+      title: "Physics",
+    });
+  });
+
+  it("calls the same-origin BFF leaf detail endpoint", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        nodes: [{ content: "Card content", node_id: 10, title: "Card" }],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runQuery(
+      taxonomyLeafNodeDetailsQueryOptions(59, [11, 10]),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/web-api/taxonomy/view/leaves/59/details",
+      expect.objectContaining({
+        body: JSON.stringify({ node_ids: [10, 11] }),
+        credentials: "include",
+        method: "POST",
+      }),
+    );
+    expect(result).toEqual({
+      nodes: [{ content: "Card content", node_id: 10, title: "Card" }],
+    });
+  });
+
   it("normalizes leaf edge tuples from the generated client payload", async () => {
-    mockGet.mockResolvedValueOnce({
-      data: {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
         breadcrumb: [],
         current_node: {
           depth: 2,
@@ -36,25 +140,13 @@ describe("taxonomyNodeViewQueryOptions", () => {
           { id: 11, scope: "outer" },
           { id: 12, scope: "outer" },
         ],
-      },
-      response: { ok: true, status: 200 },
-    });
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
 
-    const queryOptions = taxonomyNodeViewQueryOptions(59);
-    const queryFn = queryOptions.queryFn;
-
-    if (!queryFn) {
-      throw new Error(
-        "Expected taxonomy node query options to expose a queryFn.",
-      );
-    }
-
-    const result = await queryFn({
-      client: undefined,
-      meta: undefined,
-      queryKey: queryOptions.queryKey,
-      signal: new AbortController().signal,
-    } as never);
+    const result = await runQuery<TaxonomyNodeView>(
+      taxonomyNodeViewQueryOptions(59),
+    );
 
     expect(result.node_kind).toBe("leaf");
     if (result.node_kind !== "leaf") {
@@ -68,8 +160,8 @@ describe("taxonomyNodeViewQueryOptions", () => {
   });
 
   it("rejects malformed leaf edge payloads", async () => {
-    mockGet.mockResolvedValueOnce({
-      data: {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
         breadcrumb: [],
         current_node: {
           depth: 2,
@@ -81,27 +173,11 @@ describe("taxonomyNodeViewQueryOptions", () => {
         edges: [[10, 11]],
         node_kind: "leaf",
         nodes: [{ id: 10, scope: "inner" }],
-      },
-      response: { ok: true, status: 200 },
-    });
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
 
-    const queryOptions = taxonomyNodeViewQueryOptions(59);
-    const queryFn = queryOptions.queryFn;
-
-    if (!queryFn) {
-      throw new Error(
-        "Expected taxonomy node query options to expose a queryFn.",
-      );
-    }
-
-    await expect(
-      queryFn({
-        client: undefined,
-        meta: undefined,
-        queryKey: queryOptions.queryKey,
-        signal: new AbortController().signal,
-      } as never),
-    ).rejects.toThrow(
+    await expect(runQuery(taxonomyNodeViewQueryOptions(59))).rejects.toThrow(
       "Taxonomy leaf edge payload must contain 3 numeric values.",
     );
   });

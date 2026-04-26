@@ -13,6 +13,20 @@ vi.mock("../features/taxonomy-view/page/TaxonomyViewPage", () => ({
   TaxonomyViewPage: () => <div data-testid="mock-graph-page">Graph page</div>,
 }));
 
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { "Content-Type": "application/json" },
+    status: 200,
+  });
+}
+
+function stubSessionResponse(body: unknown) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => jsonResponse(body)),
+  );
+}
+
 function renderWithRoute(pathname: string) {
   const router = createAppRouter({
     initialEntries: [pathname],
@@ -25,10 +39,12 @@ function renderWithRoute(pathname: string) {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 beforeEach(() => {
   window.scrollTo = vi.fn();
+  stubSessionResponse({ status: "anonymous" });
 });
 
 describe("AppShell", () => {
@@ -54,7 +70,7 @@ describe("AppShell", () => {
     );
   });
 
-  it("renders the shared top navigation with disabled actions", async () => {
+  it("renders the shared top navigation with anonymous sign-in action", async () => {
     renderWithRoute("/graph");
 
     await waitFor(() =>
@@ -70,6 +86,38 @@ describe("AppShell", () => {
     );
     expect(screen.getByRole("link", { name: "Search" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "GitHub" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Login" })).toBeDisabled();
+    const signInButton = screen.getByRole("button", { name: "Sign in" });
+
+    expect(signInButton).toBeEnabled();
+    expect(signInButton.closest("form")).toHaveAttribute(
+      "action",
+      "/web-api/auth/sign-in",
+    );
+    expect(signInButton.closest("form")).toHaveAttribute("method", "post");
+  });
+
+  it("renders authenticated user state with sign-out action", async () => {
+    stubSessionResponse({
+      status: "authenticated",
+      user: {
+        email: "ada@example.com",
+        id: "user-1",
+        name: "Ada Lovelace",
+      },
+    });
+
+    renderWithRoute("/overview");
+
+    await waitFor(() =>
+      expect(screen.getByText("Ada Lovelace")).toBeInTheDocument(),
+    );
+    const signOutButton = screen.getByRole("button", { name: "Sign out" });
+
+    expect(signOutButton).toBeEnabled();
+    expect(signOutButton.closest("form")).toHaveAttribute(
+      "action",
+      "/web-api/auth/sign-out",
+    );
+    expect(signOutButton.closest("form")).toHaveAttribute("method", "post");
   });
 });

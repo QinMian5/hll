@@ -1,10 +1,10 @@
 // abstract: TanStack Query adapters for taxonomy root/node drill-down view contracts.
 // out_of_scope: Frontend renderer selection, viewport ownership, and interaction-state orchestration.
 
-import type { components, paths } from "@knowledge/contracts/generated/types";
+import type { components } from "@knowledge/contracts/generated/types";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 
-import { getContractsClient } from "../../../shared/api/contractsClient";
+import { fetchWebApiJson } from "../../../shared/web-api/client";
 
 type TaxonomyRootViewContract =
   components["schemas"]["TaxonomyRootViewResponse"];
@@ -39,18 +39,12 @@ export type LeafSkeletonOmitsTitle = Assert<
 export type LeafSkeletonOmitsContent = Assert<
   HasProperty<TaxonomyLeafSkeletonNode, "content"> extends false ? true : false
 >;
-export type LeafDetailPathExists = Assert<
-  "/api/v1/taxonomy/view/leaves/{node_id}/details" extends keyof paths
-    ? true
-    : false
->;
 export type LeafEdgeTupleShape = Assert<
   TaxonomyLeafEdgeTuple extends readonly [number, number, number] ? true : false
 >;
 export type TaxonomyLeafContractChecks = [
   LeafSkeletonOmitsTitle,
   LeafSkeletonOmitsContent,
-  LeafDetailPathExists,
   LeafEdgeTupleShape,
 ];
 
@@ -102,16 +96,6 @@ function normalizeTaxonomyNodeViewPayload(data: unknown): TaxonomyNodeView {
   };
 }
 
-class TaxonomyViewRequestError extends Error {
-  readonly status: number;
-
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "TaxonomyViewRequestError";
-    this.status = status;
-  }
-}
-
 const taxonomyViewQueryKeys = {
   leafDetails: (leafId: number, nodeIds: readonly number[]) =>
     ["taxonomy-view", "leaf-details", leafId, ...nodeIds] as const,
@@ -120,44 +104,17 @@ const taxonomyViewQueryKeys = {
 };
 
 async function fetchTaxonomyRootView(): Promise<TaxonomyRootView> {
-  const result = await getContractsClient().GET("/api/v1/taxonomy/view/root");
-
-  if (!result.response.ok) {
-    throw new TaxonomyViewRequestError(
-      `Taxonomy root view request failed with status ${result.response.status}.`,
-      result.response.status,
-    );
-  }
-
-  if (!result.data) {
-    throw new Error("Taxonomy root view response did not include a payload.");
-  }
-
-  return result.data;
+  return await fetchWebApiJson<TaxonomyRootView>("/web-api/taxonomy/view/root");
 }
 
 async function fetchTaxonomyNodeView(
   nodeId: number,
 ): Promise<TaxonomyNodeView> {
-  const result = await getContractsClient().GET(
-    "/api/v1/taxonomy/view/nodes/{node_id}",
-    {
-      params: { path: { node_id: nodeId } },
-    },
+  const result = await fetchWebApiJson<unknown>(
+    `/web-api/taxonomy/view/nodes/${nodeId}`,
   );
 
-  if (!result.response.ok) {
-    throw new TaxonomyViewRequestError(
-      `Taxonomy node view request failed with status ${result.response.status}.`,
-      result.response.status,
-    );
-  }
-
-  if (!result.data) {
-    throw new Error("Taxonomy node view response did not include a payload.");
-  }
-
-  return normalizeTaxonomyNodeViewPayload(result.data);
+  return normalizeTaxonomyNodeViewPayload(result);
 }
 
 function normalizeLeafDetailNodeIds(nodeIds: readonly number[]) {
@@ -169,26 +126,13 @@ async function fetchTaxonomyLeafNodeDetails(
   nodeIds: readonly number[],
 ): Promise<TaxonomyLeafNodeDetailsResponse> {
   const normalizedNodeIds = normalizeLeafDetailNodeIds(nodeIds);
-  const result = await getContractsClient().POST(
-    "/api/v1/taxonomy/view/leaves/{node_id}/details",
+  return await fetchWebApiJson<TaxonomyLeafNodeDetailsResponse>(
+    `/web-api/taxonomy/view/leaves/${leafId}/details`,
     {
       body: { node_ids: normalizedNodeIds },
-      params: { path: { node_id: leafId } },
+      method: "POST",
     },
   );
-
-  if (!result.response.ok) {
-    throw new TaxonomyViewRequestError(
-      `Taxonomy leaf detail request failed with status ${result.response.status}.`,
-      result.response.status,
-    );
-  }
-
-  if (!result.data) {
-    throw new Error("Taxonomy leaf detail response did not include a payload.");
-  }
-
-  return result.data;
 }
 
 export function taxonomyRootViewQueryOptions() {

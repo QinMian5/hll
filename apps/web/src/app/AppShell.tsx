@@ -2,12 +2,81 @@
 // out_of_scope: Feature-specific page content and backend data orchestration.
 
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+
+import {
+  fetchWebSession,
+  type WebSessionResponse,
+} from "../shared/web-api/session";
 
 const navItems = [
   { label: "Overview", to: "/overview" as const },
   { label: "Graph View", to: "/graph" as const },
   { label: "Search", to: "/search" as const },
 ];
+
+const buttonClasses =
+  "inline-flex h-10 w-[92px] items-center justify-center rounded-[10px] border border-[rgba(38,48,69,0.84)] bg-[rgba(20,28,46,0.96)] px-4 text-[14px] leading-[15.6px] font-medium text-[rgba(250,252,255,0.96)]";
+const disabledButtonClasses = `${buttonClasses} cursor-not-allowed disabled:opacity-100`;
+const activeButtonClasses = `${buttonClasses} cursor-pointer`;
+
+function useWebSession(): WebSessionResponse {
+  const [session, setSession] = useState<WebSessionResponse>({
+    status: "anonymous",
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetchWebSession()
+      .then((nextSession) => {
+        if (isMounted) {
+          setSession(nextSession);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSession({ status: "anonymous" });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  return session;
+}
+
+function ShellAuthAction() {
+  const session = useWebSession();
+
+  if (session.status === "authenticated") {
+    const displayName =
+      session.user.name ?? session.user.email ?? session.user.id;
+
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="max-w-[112px] truncate text-right text-[13px] leading-5 font-medium text-[rgba(38,48,71,0.82)]">
+          {displayName}
+        </span>
+        <form action="/web-api/auth/sign-out" method="post">
+          <button className={activeButtonClasses} type="submit">
+            Sign out
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <form action="/web-api/auth/sign-in" method="post">
+      <button className={activeButtonClasses} type="submit">
+        Sign in
+      </button>
+    </form>
+  );
+}
 
 export function AppShell() {
   const pathname = useRouterState({
@@ -57,21 +126,11 @@ export function AppShell() {
             );
           })}
         </nav>
-        <div className="flex h-10 w-[196px] items-center gap-3">
-          <button
-            className="inline-flex h-10 w-[92px] cursor-not-allowed items-center justify-center rounded-[10px] border border-[rgba(38,48,69,0.84)] bg-[rgba(20,28,46,0.96)] px-4 text-[14px] leading-[15.6px] font-medium text-[rgba(250,252,255,0.96)] disabled:opacity-100"
-            disabled
-            type="button"
-          >
+        <div className="flex h-10 w-[316px] items-center justify-end gap-3">
+          <button className={disabledButtonClasses} disabled type="button">
             GitHub
           </button>
-          <button
-            className="inline-flex h-10 w-[92px] cursor-not-allowed items-center justify-center rounded-[10px] border border-[rgba(38,48,69,0.84)] bg-[rgba(20,28,46,0.96)] px-4 text-[14px] leading-[15.6px] font-medium text-[rgba(250,252,255,0.96)] disabled:opacity-100"
-            disabled
-            type="button"
-          >
-            Login
-          </button>
+          <ShellAuthAction />
         </div>
       </header>
       <div className="min-h-0 flex-1">

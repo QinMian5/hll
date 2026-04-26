@@ -1,24 +1,16 @@
-// abstract: Behavior tests for shared API-base-url resolution rules.
+// abstract: Behavior tests for shared browser runtime configuration rules.
 // out_of_scope: React rendering behavior and Vite dev-server proxy wiring.
 
 import { describe, expect, it } from "vitest";
 
-import { resolveApiBaseUrl } from "./index";
+import { resolveBrowserRuntimeConfig } from "./index";
 
-describe("resolveApiBaseUrl", () => {
-  it("prefers an explicitly configured API base URL", () => {
+describe("resolveBrowserRuntimeConfig", () => {
+  it("does not expose a backend API origin to browser code", () => {
     expect(
-      resolveApiBaseUrl({
-        VITE_API_BASE_URL: "https://api.example.com/",
+      resolveBrowserRuntimeConfig({
+        PRIVATE_API_BASE_URL: "https://api.example.com/",
       }),
-    ).toBe("https://api.example.com");
-  });
-
-  it("uses relative requests when no explicit base URL is set", () => {
-    expect(
-      resolveApiBaseUrl({
-        VITE_API_BASE_URL: "   ",
-      }),
-    ).toBeUndefined();
+    ).toEqual({});
   });
 });
