@@ -26,6 +26,24 @@ services:
       - backend
     restart: unless-stopped
 
+  logto-postgres:
+    image: postgres:18.3-bookworm
+    environment:
+      POSTGRES_DB: ${KNOWLEDGE_LOGTO_POSTGRES_DB:?KNOWLEDGE_LOGTO_POSTGRES_DB is required}
+      POSTGRES_USER: ${KNOWLEDGE_LOGTO_POSTGRES_USER:?KNOWLEDGE_LOGTO_POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${KNOWLEDGE_LOGTO_POSTGRES_PASSWORD:?KNOWLEDGE_LOGTO_POSTGRES_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    volumes:
+      - knowledge_logto_postgres_data:/var/lib/postgresql
+    networks:
+      - backend
+    restart: unless-stopped
+
   knowledge_corpus_db:
     build:
       context: ../..
@@ -87,6 +105,60 @@ services:
       - knowledge_redis_data:/data
     networks:
       - backend
+    restart: unless-stopped
+
+  logto-seed:
+    image: svhd/logto:${KNOWLEDGE_LOGTO_TAG:-latest}
+    depends_on:
+      logto-postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: postgres://${KNOWLEDGE_LOGTO_POSTGRES_USER:?KNOWLEDGE_LOGTO_POSTGRES_USER is required}:${KNOWLEDGE_LOGTO_POSTGRES_PASSWORD:?KNOWLEDGE_LOGTO_POSTGRES_PASSWORD is required}@logto-postgres:5432/${KNOWLEDGE_LOGTO_POSTGRES_DB:?KNOWLEDGE_LOGTO_POSTGRES_DB is required}
+      ENDPOINT: ${KNOWLEDGE_LOGTO_ENDPOINT:-}
+      ADMIN_ENDPOINT: ${KNOWLEDGE_LOGTO_ADMIN_ENDPOINT:-}
+      TRUST_PROXY_HEADER: ${KNOWLEDGE_LOGTO_TRUST_PROXY_HEADER:-1}
+      DATABASE_STATEMENT_TIMEOUT: ${KNOWLEDGE_LOGTO_DATABASE_STATEMENT_TIMEOUT:-}
+    entrypoint:
+      [
+        "sh",
+        "-lc",
+        "npm run cli db seed -- --db-url \"$$DB_URL\" --swe",
+      ]
+    networks:
+      - backend
+    restart: "no"
+
+  logto:
+    image: svhd/logto:${KNOWLEDGE_LOGTO_TAG:-latest}
+    depends_on:
+      logto-postgres:
+        condition: service_healthy
+      logto-seed:
+        condition: service_completed_successfully
+    environment:
+      DB_URL: postgres://${KNOWLEDGE_LOGTO_POSTGRES_USER:?KNOWLEDGE_LOGTO_POSTGRES_USER is required}:${KNOWLEDGE_LOGTO_POSTGRES_PASSWORD:?KNOWLEDGE_LOGTO_POSTGRES_PASSWORD is required}@logto-postgres:5432/${KNOWLEDGE_LOGTO_POSTGRES_DB:?KNOWLEDGE_LOGTO_POSTGRES_DB is required}
+      ENDPOINT: ${KNOWLEDGE_LOGTO_ENDPOINT:-}
+      ADMIN_ENDPOINT: ${KNOWLEDGE_LOGTO_ADMIN_ENDPOINT:-}
+      TRUST_PROXY_HEADER: ${KNOWLEDGE_LOGTO_TRUST_PROXY_HEADER:-1}
+      DATABASE_STATEMENT_TIMEOUT: ${KNOWLEDGE_LOGTO_DATABASE_STATEMENT_TIMEOUT:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3001/oidc/.well-known/openid-configuration', (response) => process.exit(response.statusCode && response.statusCode >= 200 && response.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    expose:
+      - "3001"
+      - "3002"
+    networks:
+      - backend
+      - edge
     restart: unless-stopped
 
   migrate:
@@ -221,9 +293,36 @@ services:
       SOURCE_PIPELINE_JOB_QUEUE_SCOPES: ${SOURCE_PIPELINE_JOB_QUEUE_SCOPES:-jobs:create results:read}
       SOURCE_PIPELINE_POLL_INTERVAL_SECONDS: ${SOURCE_PIPELINE_POLL_INTERVAL_SECONDS:-5}
       SOURCE_PIPELINE_POLL_BATCH_SIZE: ${SOURCE_PIPELINE_POLL_BATCH_SIZE:-100}
+      SOURCE_PIPELINE_RECONCILE_INTERVAL_SECONDS: ${SOURCE_PIPELINE_RECONCILE_INTERVAL_SECONDS:-3600}
+      SOURCE_PIPELINE_RECONCILE_BATCH_SIZE: ${SOURCE_PIPELINE_RECONCILE_BATCH_SIZE:-100}
     command: ["/app/bin/run-orchestrator.sh"]
     networks:
       - backend
+    restart: unless-stopped
+
+  source_pipeline_webhook_receiver:
+    depends_on:
+      source_pipeline_db:
+        condition: service_healthy
+      source_pipeline_migrate:
+        condition: service_completed_successfully
+      logto:
+        condition: service_healthy
+    environment:
+      SOURCE_PIPELINE_ROLE: webhook_receiver
+      SOURCE_PIPELINE_DATABASE_URL: ${SOURCE_PIPELINE_DATABASE_URL:?SOURCE_PIPELINE_DATABASE_URL is required}
+      SOURCE_PIPELINE_WEBHOOK_AUTH_ISSUER: ${SOURCE_PIPELINE_WEBHOOK_AUTH_ISSUER:?SOURCE_PIPELINE_WEBHOOK_AUTH_ISSUER is required}
+      SOURCE_PIPELINE_WEBHOOK_AUTH_RESOURCE: ${SOURCE_PIPELINE_WEBHOOK_AUTH_RESOURCE:?SOURCE_PIPELINE_WEBHOOK_AUTH_RESOURCE is required}
+      SOURCE_PIPELINE_WEBHOOK_AUTH_DISCOVERY_URL: ${SOURCE_PIPELINE_WEBHOOK_AUTH_DISCOVERY_URL:?SOURCE_PIPELINE_WEBHOOK_AUTH_DISCOVERY_URL is required}
+      SOURCE_PIPELINE_WEBHOOK_ALLOWED_CLIENT_ID: ${SOURCE_PIPELINE_WEBHOOK_ALLOWED_CLIENT_ID:?SOURCE_PIPELINE_WEBHOOK_ALLOWED_CLIENT_ID is required}
+      SOURCE_PIPELINE_WEBHOOK_AUTH_HTTP_TIMEOUT_SECONDS: ${SOURCE_PIPELINE_WEBHOOK_AUTH_HTTP_TIMEOUT_SECONDS:-5}
+      SOURCE_PIPELINE_WEBHOOK_PUBLIC_PATH: ${SOURCE_PIPELINE_WEBHOOK_PUBLIC_PATH:-/source-pipeline/webhooks/job-queue}
+    command: ["/app/bin/run-webhook-receiver.sh"]
+    expose:
+      - "8080"
+    networks:
+      - backend
+      - edge
     restart: unless-stopped
 
   web:
@@ -242,6 +341,7 @@ services:
 
 volumes:
   knowledge_postgres_data:
+  knowledge_logto_postgres_data:
   knowledge_corpus_postgres_data:
   source_pipeline_postgres_data:
   knowledge_redis_data:

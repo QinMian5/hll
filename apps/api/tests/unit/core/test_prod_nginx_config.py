@@ -17,3 +17,19 @@ def test_prod_nginx_preserves_api_prefix_for_contract_paths() -> None:
     assert "location /api/" in config
     assert "proxy_pass http://api:8000;" in config
     assert "proxy_pass http://api:8000/;" not in config
+
+
+def test_prod_nginx_routes_source_pipeline_webhook_to_receiver() -> None:
+    config = NGINX_CONFIG.read_text(encoding="utf-8")
+
+    assert "location = /source-pipeline/webhooks/job-queue" in config
+    assert "proxy_pass http://source_pipeline_webhook_receiver:8080;" in config
+
+
+def test_prod_nginx_routes_knowledge_logto_hosts() -> None:
+    config = NGINX_CONFIG.read_text(encoding="utf-8")
+
+    assert "server_name knowledge-logto.orbitalis.org;" in config
+    assert "proxy_pass http://logto:3001/;" in config
+    assert "server_name admin.knowledge-logto.internal.home.arpa;" in config
+    assert "proxy_pass http://logto:3002/;" in config

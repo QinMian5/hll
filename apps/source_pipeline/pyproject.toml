@@ -5,11 +5,14 @@ description = "Project-owned source-pipeline orchestrator app."
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.18.4",
+    "fastapi>=0.135.2",
     "httpx>=0.28.1",
+    "pyjwt[crypto]>=2.10.1",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.13.1",
     "psycopg[binary]>=3.3.3",
     "sqlalchemy[asyncio]>=2.0.48",
+    "uvicorn[standard]>=0.42.0",
 ]
 
 [build-system]

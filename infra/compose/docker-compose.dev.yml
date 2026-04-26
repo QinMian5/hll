@@ -11,6 +11,14 @@ services:
     ports:
       - "5432:5432"
 
+  logto-postgres:
+    image: postgres:18.3-bookworm
+
+  logto:
+    ports:
+      - "3011:3001"
+      - "3012:3002"
+
   knowledge_corpus_db:
     image: knowledge-corpus-postgres:dev
     command:
@@ -68,6 +76,14 @@ services:
   orchestrator:
     image: knowledge-source-pipeline:dev
     profiles: ["orchestrator"]
+
+  source_pipeline_webhook_receiver:
+    image: knowledge-source-pipeline:dev
+    profiles: ["webhook_receiver"]
+    volumes:
+      - ../../apps/source_pipeline/src:/app/apps/source_pipeline/src
+      - ../../apps/source_pipeline/alembic:/app/apps/source_pipeline/alembic
+      - ../../apps/source_pipeline/alembic.ini:/app/apps/source_pipeline/alembic.ini
 
   web:
     build:

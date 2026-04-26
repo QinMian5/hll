@@ -24,7 +24,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Development may expose the knowledge corpus PostgreSQL service on a separate host port for local tooling; it must not reuse the online database host port.
 - Development may expose the source pipeline PostgreSQL service on a separate host port for local tooling; it must not reuse the online database or knowledge corpus host ports.
 - `redis` remains internal-only in both environments and is provided by a project-managed service definition.
-- Production runtime process topology is fixed to four backend process containers: one `api` container, one `worker` container, one `orchestrator` container, and one source-pipeline webhook receiver container.
+- Production runtime process topology is fixed to four application backend process containers: one `api` container, one `worker` container, one `orchestrator` container, and one source-pipeline webhook receiver container. The production identity topology additionally includes self-hosted `logto-postgres`, `logto-seed`, and `logto` services for the `knowledge` OAuth authority.
 - Development starts `api` and `worker` by default; `orchestrator` and the source-pipeline webhook receiver are explicit opt-in profiles because local development must not accidentally submit source-pipeline jobs to the shared queue or expose webhook intake unintentionally.
 - Horizontal scaling is not an MVP requirement for `api`, `worker`, `orchestrator`, or the source-pipeline webhook receiver; production baseline keeps one running container per role.
 - Production search read chain is `shared proxy -> nginx -> web -> api -> OpenAI Embeddings API + db`.
@@ -34,13 +34,13 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Migration is a dedicated one-shot job and not part of API startup.
 
 ## Network Boundaries
-- `backend` network is internal-only and contains `db`, repository-managed data services, one-shot migration jobs, `redis`, `api`, `worker`, production or explicitly enabled `orchestrator`, and production or explicitly enabled source-pipeline webhook receiver.
+- `backend` network is internal-only and contains `db`, repository-managed data services, one-shot migration jobs, `redis`, self-hosted Logto services, `api`, `worker`, production or explicitly enabled `orchestrator`, and production or explicitly enabled source-pipeline webhook receiver.
 - Knowledge corpus PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
 - Accepted first-version service names for the knowledge corpus database path are `knowledge_corpus_db` and `knowledge_corpus_migrate`.
 - Source pipeline PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
 - Accepted first-version service names for the source pipeline database path are `source_pipeline_db` and `source_pipeline_migrate`.
-- `edge` network contains `web`, `api`, `worker`, the source-pipeline webhook receiver when enabled, and the project-local `nginx` app gateway.
-- Production connects the project-local `nginx` app gateway to the external shared `proxy` network with a stable `knowledge-nginx` alias. It must not publish host `80/443` ports directly.
+- `edge` network contains `web`, `api`, `worker`, self-hosted Logto, the source-pipeline webhook receiver when enabled, and the project-local `nginx` app gateway.
+- Production connects the project-local `nginx` app gateway to the external shared `proxy` network with stable `knowledge-nginx`, `knowledge.orbitalis.org`, `knowledge-logto.orbitalis.org`, and `admin.knowledge-logto.internal.home.arpa` aliases. It must not publish host `80/443` ports directly.
 - Production connects `orchestrator` to the external shared `proxy` network only for `job-queue-mcp` reverse-proxy hostnames. Development does not connect `orchestrator` to `proxy` by default.
 - Production exposes the source-pipeline webhook receiver through the project-local `nginx` app gateway on a dedicated source-pipeline webhook path. The receiver itself remains container-only and must not publish host ports directly.
 - Development adds `db` to `edge` for host port publishing while keeping service-to-service database access on `backend`.
@@ -69,6 +69,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 
 ## Container Build Strategy
 - `db` uses a custom PostgreSQL Dockerfile and is the extension package baseline owner.
+- `logto-postgres` uses the fixed official PostgreSQL image because Logto owns its own schema and does not use the repository app/migration role initialization script.
 - `api` uses a custom Dockerfile.
 - `worker` reuses the same API image with role-specific command override.
 - `orchestrator` and `source_pipeline_webhook_receiver` use the same custom Dockerfile built from `apps/source_pipeline`.
@@ -168,7 +169,9 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   - `SOURCE_PIPELINE_WEBHOOK_AUTH_DISCOVERY_URL` for container-to-container discovery when it differs from the public issuer URL
   - `SOURCE_PIPELINE_WEBHOOK_ALLOWED_CLIENT_ID` for the dedicated `job-queue-mcp` delivery client identity allowed to call the receiver
   - `SOURCE_PIPELINE_WEBHOOK_PUBLIC_PATH` for the project-local nginx path that routes to the receiver
+- The source-pipeline webhook receiver does not receive the source-pipeline Job Queue producer/result-reader client secret because receiving webhook notifications does not require creating jobs or reading accepted results.
 - Knowledge Logto provisioning includes a dedicated machine-to-machine application for `job-queue-mcp` webhook delivery. Its client credential is consumed by `job-queue-mcp` webhook subscription configuration, while the source-pipeline receiver stores only validation settings and the allowed delivery client identity.
+- Knowledge Logto production routing uses `https://knowledge-logto.orbitalis.org` for the auth endpoint and `https://admin.knowledge-logto.internal.home.arpa` for the admin console, both routed through the project-local `nginx` app gateway.
 - Tracked environment files must carry the knowledge corpus and source pipeline URL fields alongside the online stack URL fields when those repository-managed app services are enabled.
 
 ## Failure Policy

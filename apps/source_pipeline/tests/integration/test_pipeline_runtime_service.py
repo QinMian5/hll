@@ -21,6 +21,8 @@ from source_pipeline.page_to_card.contracts import CardDraft
 from source_pipeline.page_to_card.instruction import build_page_to_card_instruction
 from source_pipeline.pipeline_runtime.job_queue_client import AcceptedJobResult, NotReadyJobResult
 from source_pipeline.pipeline_runtime.service import PipelineRuntimeService
+from source_pipeline.pipeline_webhook.contracts import JobQueueWebhookPayload
+from source_pipeline.pipeline_webhook.repository import JobQueueWebhookEventRepository
 
 pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.anyio]
 
@@ -138,6 +140,31 @@ async def list_candidates(db_session: AsyncSession, unit: WorkflowUnit) -> list[
     )
 
 
+async def record_webhook_event(
+    db_session: AsyncSession,
+    *,
+    job_id: int,
+    event_id: str | None = None,
+    event_type: str = "result.accepted",
+) -> None:
+    await JobQueueWebhookEventRepository(db_session).record_event(
+        JobQueueWebhookPayload.model_validate(
+            {
+                "event_id": event_id or f"evt-{job_id}-{event_type}",
+                "event_type": event_type,
+                "job_id": job_id,
+                "queue_name": "source-pipeline",
+                "occurred_at": datetime(2026, 4, 25, 15, 1, tzinfo=UTC),
+                "submission_id": job_id + 100 if event_type == "result.accepted" else None,
+                "terminal_state": "DEAD_LETTER"
+                if event_type == "job.terminal_non_accepted"
+                else None,
+            }
+        )
+    )
+    await db_session.commit()
+
+
 async def test_tick_submits_page_to_card_when_job_id_missing(db_session: AsyncSession) -> None:
     unit = await create_workflow_unit(db_session)
     client = FakeJobQueueClient(create_job_ids=[12])
@@ -236,12 +263,32 @@ async def test_tick_prioritizes_missing_page_jobs_before_result_polling(
     assert client.requested_result_job_ids == []
 
 
+async def test_tick_without_webhook_event_does_not_poll_outstanding_jobs(
+    db_session: AsyncSession,
+) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    await db_session.commit()
+    client = FakeJobQueueClient(results_by_job_id={12: build_page_result(("Card A", "A body"))})
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+    )
+
+    await service.tick()
+
+    assert client.requested_result_job_ids == []
+    assert await list_candidates(db_session, unit) == []
+
+
 async def test_tick_creates_candidates_and_review_jobs_from_page_result(
     db_session: AsyncSession,
 ) -> None:
     unit = await create_workflow_unit(db_session)
     unit.page_to_card_job_id = 12
     await db_session.commit()
+    await record_webhook_event(db_session, job_id=12)
 
     client = FakeJobQueueClient(
         create_job_ids=[21, 22],
@@ -274,6 +321,7 @@ async def test_tick_with_empty_page_cards_creates_no_candidates_or_review_jobs(
     unit = await create_workflow_unit(db_session)
     unit.page_to_card_job_id = 12
     await db_session.commit()
+    await record_webhook_event(db_session, job_id=12)
     client = FakeJobQueueClient(results_by_job_id={12: build_page_result()})
     service = PipelineRuntimeService(
         db_session,
@@ -302,10 +350,10 @@ async def test_tick_hands_off_passed_review_and_marks_candidate_done(
     )
     db_session.add(candidate)
     await db_session.commit()
+    await record_webhook_event(db_session, job_id=21)
 
     client = FakeJobQueueClient(
         results_by_job_id={
-            12: build_page_result(("Card A", "A body")),
             21: build_review_result(job_id=21, passed=True),
         }
     )
@@ -338,11 +386,11 @@ async def test_tick_submits_repair_job_for_failed_review_once(db_session: AsyncS
     )
     db_session.add(candidate)
     await db_session.commit()
+    await record_webhook_event(db_session, job_id=21)
 
     client = FakeJobQueueClient(
         create_job_ids=[31],
         results_by_job_id={
-            12: build_page_result(("bad title", "A body")),
             21: build_review_result(job_id=21, passed=False),
             31: not_ready(job_id=31),
         },
@@ -379,11 +427,10 @@ async def test_tick_repair_empty_cards_stops_lineage(db_session: AsyncSession) -
     )
     db_session.add(candidate)
     await db_session.commit()
+    await record_webhook_event(db_session, job_id=31)
 
     client = FakeJobQueueClient(
         results_by_job_id={
-            12: build_page_result(("bad title", "A body")),
-            21: build_review_result(job_id=21, passed=False),
             31: build_repair_result(),
         }
     )
@@ -414,12 +461,11 @@ async def test_tick_repair_cards_create_child_candidates_that_reenter_review(
     )
     db_session.add(candidate)
     await db_session.commit()
+    await record_webhook_event(db_session, job_id=31)
 
     client = FakeJobQueueClient(
         create_job_ids=[41, 42],
         results_by_job_id={
-            12: build_page_result(("bad title", "A body")),
-            21: build_review_result(job_id=21, passed=False),
             31: build_repair_result(("Card A", "A body"), ("Card B", "B body")),
             41: not_ready(job_id=41),
             42: not_ready(job_id=42),
@@ -448,7 +494,12 @@ async def test_terminal_non_accepted_page_result_stops_fanout(
     unit = await create_workflow_unit(db_session)
     unit.page_to_card_job_id = 12
     await db_session.commit()
-    client = FakeJobQueueClient(results_by_job_id={12: not_ready(job_id=12, state="DEAD_LETTER")})
+    await record_webhook_event(
+        db_session,
+        job_id=12,
+        event_type="job.terminal_non_accepted",
+    )
+    client = FakeJobQueueClient()
     service = PipelineRuntimeService(
         db_session,
         job_queue_client=client,
@@ -464,7 +515,7 @@ async def test_terminal_non_accepted_page_result_stops_fanout(
 
     await service.tick()
 
-    assert client.requested_result_job_ids == [12]
+    assert client.requested_result_job_ids == []
 
 
 async def test_terminal_non_accepted_review_result_stops_repair_and_handoff(
@@ -482,13 +533,13 @@ async def test_terminal_non_accepted_review_result_stops_repair_and_handoff(
     )
     db_session.add(candidate)
     await db_session.commit()
-    handoff = FakeAcceptedCardHandoff()
-    client = FakeJobQueueClient(
-        results_by_job_id={
-            12: build_page_result(("Card A", "A body")),
-            21: not_ready(job_id=21, state="DEAD_LETTER"),
-        }
+    await record_webhook_event(
+        db_session,
+        job_id=21,
+        event_type="job.terminal_non_accepted",
     )
+    handoff = FakeAcceptedCardHandoff()
+    client = FakeJobQueueClient()
     service = PipelineRuntimeService(db_session, job_queue_client=client, card_handoff=handoff)
 
     await service.tick()
@@ -501,7 +552,7 @@ async def test_terminal_non_accepted_review_result_stops_repair_and_handoff(
 
     await service.tick()
 
-    assert client.requested_result_job_ids.count(21) == 1
+    assert client.requested_result_job_ids.count(21) == 0
 
 
 async def test_terminal_non_accepted_repair_result_stops_child_candidate_creation(
@@ -520,13 +571,12 @@ async def test_terminal_non_accepted_repair_result_stops_child_candidate_creatio
     )
     db_session.add(candidate)
     await db_session.commit()
-    client = FakeJobQueueClient(
-        results_by_job_id={
-            12: build_page_result(("bad title", "A body")),
-            21: build_review_result(job_id=21, passed=False),
-            31: not_ready(job_id=31, state="DEAD_LETTER"),
-        }
+    await record_webhook_event(
+        db_session,
+        job_id=31,
+        event_type="job.terminal_non_accepted",
     )
+    client = FakeJobQueueClient()
     service = PipelineRuntimeService(
         db_session,
         job_queue_client=client,
@@ -541,4 +591,44 @@ async def test_terminal_non_accepted_repair_result_stops_child_candidate_creatio
 
     await service.tick()
 
-    assert client.requested_result_job_ids.count(31) == 1
+    assert client.requested_result_job_ids.count(31) == 0
+
+
+async def test_low_frequency_reconcile_polls_outstanding_jobs_only_after_interval(
+    db_session: AsyncSession,
+) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    await db_session.commit()
+    now_values = [
+        datetime(2026, 4, 25, 15, 0, tzinfo=UTC),
+        datetime(2026, 4, 25, 15, 1, tzinfo=UTC),
+        datetime(2026, 4, 25, 16, 1, tzinfo=UTC),
+    ]
+
+    def clock() -> datetime:
+        return now_values.pop(0)
+
+    client = FakeJobQueueClient(
+        create_job_ids=[21],
+        results_by_job_id={12: build_page_result(("Card A", "A body"))},
+    )
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+        reconcile_interval_seconds=3600,
+        reconcile_batch_size=1,
+        clock=clock,
+    )
+
+    await service.tick()
+    await service.tick()
+    assert client.requested_result_job_ids == []
+
+    await service.tick()
+
+    assert client.requested_result_job_ids == [12]
+    candidates = await list_candidates(db_session, unit)
+    assert [candidate.card_payload["title"] for candidate in candidates] == ["Card A"]
+    assert [candidate.review_job_id for candidate in candidates] == [21]

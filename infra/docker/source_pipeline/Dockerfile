@@ -11,8 +11,9 @@ COPY apps/source_pipeline/src /app/apps/source_pipeline/src
 COPY apps/source_pipeline/alembic.ini /app/apps/source_pipeline/alembic.ini
 COPY apps/source_pipeline/alembic /app/apps/source_pipeline/alembic
 COPY infra/docker/source_pipeline/run-orchestrator.sh /app/bin/
+COPY infra/docker/source_pipeline/run-webhook-receiver.sh /app/bin/
 
-RUN chmod +x /app/bin/run-orchestrator.sh && uv sync --frozen --package source-pipeline --group dev
+RUN chmod +x /app/bin/run-orchestrator.sh /app/bin/run-webhook-receiver.sh && uv sync --frozen --package source-pipeline --group dev
 
 ENV PATH="/app/.venv/bin:${PATH}"
 

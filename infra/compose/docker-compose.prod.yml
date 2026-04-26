@@ -6,6 +6,9 @@ services:
   postgres:
     image: knowledge-postgres:prod
 
+  logto-postgres:
+    image: postgres:18.3-bookworm
+
   knowledge_corpus_db:
     image: knowledge-corpus-postgres:prod
 
@@ -30,11 +33,26 @@ services:
   redis:
     image: redis:7-bookworm
 
+  logto:
+    environment:
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/knowledge-logto-extra-ca.crt
+    volumes:
+      - ${KNOWLEDGE_LOGTO_EXTRA_CA_CERT_PATH:?KNOWLEDGE_LOGTO_EXTRA_CA_CERT_PATH is required}:/etc/ssl/certs/knowledge-logto-extra-ca.crt:ro
+    networks:
+      - backend
+      - edge
+
   orchestrator:
     image: knowledge-source-pipeline:prod
     networks:
       - backend
       - proxy
+
+  source_pipeline_webhook_receiver:
+    image: knowledge-source-pipeline:prod
+    networks:
+      - backend
+      - edge
 
   web:
     image: knowledge-web:prod
@@ -43,10 +61,15 @@ services:
 
   nginx:
     image: nginx:1.29-bookworm
+    restart: unless-stopped
     depends_on:
+      logto:
+        condition: service_healthy
       web:
         condition: service_started
       api:
+        condition: service_started
+      source_pipeline_webhook_receiver:
         condition: service_started
     volumes:
       - ../../infra/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
@@ -55,11 +78,17 @@ services:
       proxy:
         aliases:
           - knowledge-nginx
+          - knowledge.orbitalis.org
+          - knowledge-logto.orbitalis.org
+          - admin.knowledge-logto.internal.home.arpa
 
 volumes:
   knowledge_postgres_data:
     external: true
     name: knowledge_postgres_prod_data
+  knowledge_logto_postgres_data:
+    external: true
+    name: knowledge_logto_postgres_prod_data
   knowledge_corpus_postgres_data:
     external: true
     name: knowledge_corpus_postgres_prod_data

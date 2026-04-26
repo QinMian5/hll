@@ -27,6 +27,12 @@ class OrchestratorRuntime:
     card_handoff: KnowledgeIngestionHandoff
 
 
+def _required_setting(value: str | None, name: str) -> str:
+    if value in (None, ""):
+        raise RuntimeError(f"Expected source-pipeline setting {name} to be configured.")
+    return value
+
+
 def build_runtime() -> OrchestratorRuntime:
     settings = load_settings()
     engine, session_factory = build_session_factory(settings)
@@ -35,16 +41,30 @@ def build_runtime() -> OrchestratorRuntime:
         engine=engine,
         session_factory=session_factory,
         job_queue_client=JobQueueClient(
-            base_url=settings.job_queue_base_url,
+            base_url=_required_setting(settings.job_queue_base_url, "job_queue_base_url"),
             token_provider=ClientCredentialsTokenProvider(
-                token_url=settings.job_queue_token_url,
-                client_id=settings.job_queue_client_id,
-                client_secret=settings.job_queue_client_secret,
-                resource=settings.job_queue_resource,
+                token_url=_required_setting(
+                    settings.job_queue_token_url,
+                    "job_queue_token_url",
+                ),
+                client_id=_required_setting(
+                    settings.job_queue_client_id,
+                    "job_queue_client_id",
+                ),
+                client_secret=_required_setting(
+                    settings.job_queue_client_secret,
+                    "job_queue_client_secret",
+                ),
+                resource=_required_setting(settings.job_queue_resource, "job_queue_resource"),
                 scope=settings.job_queue_scopes,
             ),
         ),
-        card_handoff=KnowledgeIngestionHandoff(base_url=settings.knowledge_api_base_url),
+        card_handoff=KnowledgeIngestionHandoff(
+            base_url=_required_setting(
+                settings.knowledge_api_base_url,
+                "knowledge_api_base_url",
+            )
+        ),
     )
 
 
@@ -57,6 +77,8 @@ async def run_forever(runtime: OrchestratorRuntime) -> None:
                     job_queue_client=runtime.job_queue_client,
                     card_handoff=runtime.card_handoff,
                     poll_batch_size=runtime.settings.poll_batch_size,
+                    reconcile_interval_seconds=runtime.settings.reconcile_interval_seconds,
+                    reconcile_batch_size=runtime.settings.reconcile_batch_size,
                 )
                 await service.tick()
 
