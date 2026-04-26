@@ -38,7 +38,7 @@ out_of_scope: MCP server implementation, backend domain ranking semantics, and L
   - `apps/web` server runtime source.
   - `apps/web` React client adapters for `/web-api/*`.
   - `infra/docker/web/Dockerfile`.
-  - `infra/compose/compose.base.yml`, `infra/compose/compose.dev.yml`, `infra/compose/compose.prod.yml`, and environment templates.
+  - `infra/compose/docker-compose.base.yml`, `infra/compose/docker-compose.dev.yml`, `infra/compose/docker-compose.prod.yml`, and environment templates.
   - `infra/docker/nginx/default.conf`.
 
 ## Design Approach
