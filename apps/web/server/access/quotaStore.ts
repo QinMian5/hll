@@ -1,6 +1,10 @@
 // abstract: Quota consumption storage contract and Redis implementation.
 // out_of_scope: Principal derivation and Express middleware response handling.
 
+import { createClient } from "redis";
+
+import type { WebServerConfig } from "../config.js";
+
 export type QuotaScope = "ip" | "principal";
 export type QuotaWindowName = "burst" | "total";
 
@@ -57,4 +61,13 @@ export class RedisQuotaStore implements QuotaStore {
       retryAfterSeconds,
     };
   }
+}
+
+export async function createRedisQuotaStore(
+  config: WebServerConfig,
+): Promise<QuotaStore> {
+  const redisClient = createClient({ url: config.redisUrl });
+  await redisClient.connect();
+
+  return new RedisQuotaStore(redisClient);
 }

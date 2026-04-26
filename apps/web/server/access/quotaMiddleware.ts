@@ -1,7 +1,7 @@
 // abstract: Express middleware for BFF anonymous/authenticated quota enforcement.
 // out_of_scope: Feature route forwarding and Redis client lifecycle ownership.
 
-import type { Request, RequestHandler } from "express";
+import type { Request, RequestHandler, Response } from "express";
 
 import type { WebSessionResponse } from "../auth/sessionState.js";
 import type { WebServerConfig } from "../config.js";
@@ -17,7 +17,10 @@ export interface CreateQuotaMiddlewareOptions {
   readonly anonymousIdentity?: AnonymousIdentityOptions;
   readonly config: WebServerConfig;
   readonly cost?: number;
-  readonly getSession?: (request: Request) => Promise<WebSessionResponse>;
+  readonly getSession?: (
+    request: Request,
+    response: Response,
+  ) => Promise<WebSessionResponse>;
   readonly routeGroup: string;
   readonly store: QuotaStore;
 }
@@ -31,7 +34,7 @@ export function createQuotaMiddleware(
 ): RequestHandler {
   return async (request, response, next) => {
     try {
-      const session = await (options.getSession?.(request) ??
+      const session = await (options.getSession?.(request, response) ??
         Promise.resolve({ status: "anonymous" as const }));
       const anonymousId =
         session.status === "anonymous"
