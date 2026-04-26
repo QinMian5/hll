@@ -1,0 +1,72 @@
+// abstract: Contract tests for the Express web BFF application shell.
+// out_of_scope: Auth route behavior, quota enforcement, and backend API forwarding.
+// @vitest-environment node
+
+import request from "supertest";
+import { describe, expect, it } from "vitest";
+
+import { createApp } from "./app.js";
+import { loadWebServerConfig } from "./config.js";
+
+const TEST_ENV = {
+  KNOWLEDGE_WEB_COOKIE_SECURE: "false",
+  KNOWLEDGE_WEB_INTERNAL_API_BASE_URL: "http://api:8000",
+  KNOWLEDGE_WEB_LOGTO_APP_ID: "test-app",
+  KNOWLEDGE_WEB_LOGTO_APP_SECRET: "test-secret",
+  KNOWLEDGE_WEB_LOGTO_ENDPOINT: "http://logto:3001",
+  KNOWLEDGE_WEB_PUBLIC_BASE_URL: "http://localhost:5173",
+  KNOWLEDGE_WEB_REDIS_URL: "redis://redis:6379/0",
+  KNOWLEDGE_WEB_SESSION_SECRET: "test-session-secret-with-enough-length",
+};
+
+describe("createApp", () => {
+  it("returns JSON 404 for unmatched web API routes instead of the SPA fallback", async () => {
+    const app = await createApp({
+      config: loadWebServerConfig(TEST_ENV),
+      runtime: {
+        indexHtml: '<html><body><div id="root"></div></body></html>',
+        kind: "production",
+      },
+    });
+
+    const response = await request(app).get("/web-api/missing");
+
+    expect(response.status).toBe(404);
+    expect(response.type).toBe("application/json");
+    expect(response.body).toEqual({
+      error: {
+        code: "web_api_route_not_found",
+        message: "Web API route not found.",
+      },
+    });
+  });
+
+  it("serves the client HTML fallback for non-API routes", async () => {
+    const app = await createApp({
+      config: loadWebServerConfig(TEST_ENV),
+      runtime: {
+        indexHtml:
+          '<html><body><div id="root">Knowledge App</div></body></html>',
+        kind: "production",
+      },
+    });
+
+    const response = await request(app).get("/graph");
+
+    expect(response.status).toBe(200);
+    expect(response.type).toBe("text/html");
+    expect(response.text).toContain("Knowledge App");
+  });
+});
+
+describe("loadWebServerConfig", () => {
+  it("does not require the old browser API proxy variables", () => {
+    const config = loadWebServerConfig({
+      ...TEST_ENV,
+      API_PROXY_TARGET: "",
+      VITE_API_BASE_URL: "",
+    });
+
+    expect(config.internalApiBaseUrl).toBe("http://api:8000");
+  });
+});
