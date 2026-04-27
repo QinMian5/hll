@@ -26,6 +26,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - **Module ownership:** `apps/api/src/modules/taxonomy_classification` owns classification job submission, job linkage persistence, result event processing, low-frequency reconcile, accepted-result validation, and assignment-move orchestration.
   - **Dependency boundary:** `taxonomy_classification` consumes `knowledge_graph` service ports for card input data and consumes `taxonomy` service ports for scope lookup, child lookup, and assignment movement.
   - **Queue boundary:** Classification jobs are submitted to the `taxonomy_classification` queue in `job-queue-mcp`.
+  - **Producer/result-reader SDK boundary:** `taxonomy_classification` uses the upstream `job_queue_mcp_client.producer.AsyncClient` and `job_queue_mcp_client.auth.ClientCredentialsTokenProvider` public facades directly for job submission, result reads, and machine-to-machine token acquisition. The module owns classification payload construction, output schema export, local linkage persistence, result validation, and assignment movement.
   - **Single-card job rule:** One knowledge card is processed by exactly one queue job for one scope classification attempt.
   - **Node context contract:** The worker receives only the selected card's `node_id`, `title`, and `content`, plus the current scope and available target child categories.
   - **Human-structure rule:** The worker must choose among existing human-created direct child categories or keep the card in the current scope's `Unclassified` leaf. The worker cannot create or request new taxonomy nodes.
@@ -100,6 +101,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - The webhook receiver does not move assignments or read result payloads. It returns after authenticated idempotent event persistence.
 - The webhook receiver rejects authenticated notifications whose `queue_name` does not match the configured taxonomy-classification queue before writing any local event.
 - The background runtime owns event processing, result reads, validation, assignment movement, terminal checkpoint updates, and processed/error markers.
+- Webhook receiver authentication remains module-owned and validates incoming delivery tokens against the `knowledge` Logto authority. The job-queue producer/result-reader SDK is not the authority for incoming webhook delivery-token validation.
 
 ## Assignment Move Flow
 1. Operator creates direct child categories for a scope node.

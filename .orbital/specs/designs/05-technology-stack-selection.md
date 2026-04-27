@@ -31,6 +31,7 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Database: `PostgreSQL`
 - Vector extension: `pgvector`
 - Async worker framework: `Dramatiq`
+- External job-queue integration: upstream `job-queue-mcp-client` Python SDK for producer/result-reader calls and machine-to-machine token acquisition
 
 #### Why selected
 - Aligned with API-first development and deterministic contract export.

@@ -8,16 +8,15 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 
+import httpx
+from job_queue_mcp_client.auth import ClientCredentialsTokenProvider
+from job_queue_mcp_client.producer import AsyncClient as TaxonomyClassificationJobQueueClient
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from core.config import (
     TaxonomyClassificationRuntimeSettings,
     load_taxonomy_classification_runtime_settings,
 )
-from modules.taxonomy_classification.job_queue_client import (
-    TaxonomyClassificationJobQueueClient,
-)
-from modules.taxonomy_classification.job_queue_token import ClientCredentialsTokenProvider
 from modules.taxonomy_classification.runtime import TaxonomyClassificationRuntimeService
 from shared.db.session import build_async_engine, build_async_session_factory
 
@@ -28,6 +27,7 @@ class TaxonomyClassificationRuntime:
     engine: AsyncEngine
     session_factory: async_sessionmaker[AsyncSession]
     job_queue_client: TaxonomyClassificationJobQueueClient
+    job_queue_token_http_client: httpx.AsyncClient
 
 
 def _required_setting(value: str | None, name: str) -> str:
@@ -40,6 +40,7 @@ def build_runtime() -> TaxonomyClassificationRuntime:
     settings = load_taxonomy_classification_runtime_settings()
     engine = build_async_engine(database_url=settings.database_url)
     session_factory = build_async_session_factory(engine=engine)
+    job_queue_token_http_client = httpx.AsyncClient()
     return TaxonomyClassificationRuntime(
         settings=settings,
         engine=engine,
@@ -67,8 +68,10 @@ def build_runtime() -> TaxonomyClassificationRuntime:
                     "taxonomy_classification_job_queue_resource",
                 ),
                 scope=settings.taxonomy_classification_job_queue_scopes,
+                http_client=job_queue_token_http_client,
             ),
         ),
+        job_queue_token_http_client=job_queue_token_http_client,
     )
 
 
@@ -92,6 +95,7 @@ async def run_forever(runtime: TaxonomyClassificationRuntime) -> None:
             await asyncio.sleep(runtime.settings.taxonomy_classification_poll_interval_seconds)
     finally:
         await runtime.job_queue_client.aclose()
+        await runtime.job_queue_token_http_client.aclose()
         await runtime.engine.dispose()
 
 

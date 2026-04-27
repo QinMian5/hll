@@ -10,5 +10,7 @@ members = [
     "apps/cli",
     "apps/knowledge_corpus",
     "apps/source_pipeline",
-    "packages/job_queue_integration",
 ]
+
+[tool.uv.sources]
+job-queue-mcp-client = { path = "/Users/mianqin/Code/job-queue-mcp/packages/python-client" }

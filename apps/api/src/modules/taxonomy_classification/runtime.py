@@ -9,6 +9,8 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
+from job_queue_mcp_client.errors import ResultNotReadyError
+from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,11 +18,6 @@ from modules.knowledge_graph.repo import KnowledgeRepo
 from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
 from modules.taxonomy.repo import UNCLASSIFIED_NODE_NAME, TaxonomyRepo
 from modules.taxonomy_classification.contracts import TaxonomyClassificationAcceptedResult
-from modules.taxonomy_classification.job_queue_client import (
-    AcceptedTaxonomyClassificationJobResult,
-    NotReadyTaxonomyClassificationJobResult,
-    TaxonomyClassificationJobResult,
-)
 from modules.taxonomy_classification.model import (
     TaxonomyClassificationJob,
     TaxonomyClassificationWebhookEvent,
@@ -31,7 +28,7 @@ TERMINAL_NON_ACCEPTED_STATES = frozenset({"CANCELLED", "DEAD_LETTER", "FAILED", 
 
 
 class TaxonomyClassificationJobQueueClientPort(Protocol):
-    async def get_result(self, *, job_id: int) -> TaxonomyClassificationJobResult: ...
+    async def get_result(self, job_id: int) -> AcceptedTaxonomyClassificationJobResult: ...
 
 
 class TaxonomyClassificationRuntimeService:
@@ -110,10 +107,11 @@ class TaxonomyClassificationRuntimeService:
         for job in jobs:
             if job.job_id is None:
                 continue
-            result = await self._job_queue_client.get_result(job_id=job.job_id)
-            if isinstance(result, NotReadyTaxonomyClassificationJobResult):
-                if result.state in TERMINAL_NON_ACCEPTED_STATES:
-                    self._mark_job_terminal(job=job, terminal_state=result.state, now=now)
+            try:
+                result = await self._job_queue_client.get_result(job.job_id)
+            except ResultNotReadyError as exc:
+                if exc.state in TERMINAL_NON_ACCEPTED_STATES:
+                    self._mark_job_terminal(job=job, terminal_state=exc.state, now=now)
                 continue
             await self._process_accepted_result(job=job, result=result, now=now)
 
@@ -141,10 +139,12 @@ class TaxonomyClassificationRuntimeService:
         raise ValueError(f"Unsupported webhook event type: {event.event_type}")
 
     async def _accepted_result(self, *, job_id: int) -> AcceptedTaxonomyClassificationJobResult:
-        result = await self._job_queue_client.get_result(job_id=job_id)
-        if isinstance(result, NotReadyTaxonomyClassificationJobResult):
-            raise ValueError(f"Webhook indicated accepted result but job {job_id} is not ready.")
-        return result
+        try:
+            return await self._job_queue_client.get_result(job_id)
+        except ResultNotReadyError as exc:
+            raise ValueError(
+                f"Webhook indicated accepted result but job {job_id} is not ready."
+            ) from exc
 
     async def _process_accepted_result(
         self,

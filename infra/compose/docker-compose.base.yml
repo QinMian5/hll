@@ -191,6 +191,8 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/source_pipeline/Dockerfile
+      additional_contexts:
+        job_queue_mcp_python_client: ../../../job-queue-mcp/packages/python-client
     depends_on:
       source_pipeline_db:
         condition: service_healthy
@@ -205,6 +207,8 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/api/Dockerfile
+      additional_contexts:
+        job_queue_mcp_python_client: ../../../job-queue-mcp/packages/python-client
     depends_on:
       postgres:
         condition: service_healthy

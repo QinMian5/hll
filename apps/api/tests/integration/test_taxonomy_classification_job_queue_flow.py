@@ -11,15 +11,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
 from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.model import Node
 from modules.taxonomy.model import TaxonomyNode
 from modules.taxonomy.repo import TaxonomyRepo
-from modules.taxonomy_classification.job_queue_client import (
-    AcceptedTaxonomyClassificationJobResult,
-)
 from modules.taxonomy_classification.model import (
     TaxonomyClassificationJob,
     TaxonomyClassificationWebhookEvent,
@@ -40,7 +38,7 @@ class FakeJobQueueClient:
     results_by_job_id: dict[int, AcceptedTaxonomyClassificationJobResult]
     requested_result_job_ids: list[int] = field(default_factory=list)
 
-    async def get_result(self, *, job_id: int) -> AcceptedTaxonomyClassificationJobResult:
+    async def get_result(self, job_id: int) -> AcceptedTaxonomyClassificationJobResult:
         self.requested_result_job_ids.append(job_id)
         return self.results_by_job_id[job_id]
 
@@ -55,19 +53,19 @@ class FakeCreateJobClient:
         self,
         *,
         queue_name: str,
-        priority: str,
         instruction: str,
-        output_schema: Mapping[str, object],
-        payload: Mapping[str, object],
-        metadata: Mapping[str, object],
+        output_schema: dict[str, object],
+        priority: str = "normal",
+        payload: dict[str, object] | None = None,
+        metadata: dict[str, object] | None = None,
     ) -> int:
         created_job = {
             "queue_name": queue_name,
             "priority": priority,
             "instruction": instruction,
             "output_schema": output_schema,
-            "payload": payload,
-            "metadata": metadata,
+            "payload": payload or {},
+            "metadata": metadata or {},
         }
         self.created_jobs.append(created_job)
         if self.on_create is not None:

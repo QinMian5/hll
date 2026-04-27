@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import pytest
+from job_queue_mcp_client.errors import ResultNotReadyError
+from job_queue_mcp_client.types import AcceptedResult as AcceptedJobResult
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,7 +21,6 @@ from source_pipeline.card_review.instruction import build_card_review_instructio
 from source_pipeline.db.models import CardCandidate, WorkflowRun, WorkflowUnit
 from source_pipeline.page_to_card.contracts import CardDraft
 from source_pipeline.page_to_card.instruction import build_page_to_card_instruction
-from source_pipeline.pipeline_runtime.job_queue_client import AcceptedJobResult, NotReadyJobResult
 from source_pipeline.pipeline_runtime.service import PipelineRuntimeService
 from source_pipeline.pipeline_webhook.contracts import JobQueueWebhookPayload
 from source_pipeline.pipeline_webhook.repository import JobQueueWebhookEventRepository
@@ -32,17 +33,18 @@ class FakeJobQueueClient:
     created_jobs: list[dict[str, object]] = field(default_factory=list)
     create_job_ids: list[int] = field(default_factory=list)
     requested_result_job_ids: list[int] = field(default_factory=list)
-    results_by_job_id: dict[int, AcceptedJobResult | NotReadyJobResult] = field(
-        default_factory=dict
-    )
+    results_by_job_id: dict[int, AcceptedJobResult | Exception] = field(default_factory=dict)
 
     async def create_job(self, **kwargs: object) -> int:
         self.created_jobs.append(kwargs)
         return self.create_job_ids.pop(0)
 
-    async def get_result(self, *, job_id: int) -> AcceptedJobResult | NotReadyJobResult:
+    async def get_result(self, job_id: int) -> AcceptedJobResult:
         self.requested_result_job_ids.append(job_id)
-        return self.results_by_job_id[job_id]
+        result = self.results_by_job_id[job_id]
+        if isinstance(result, Exception):
+            raise result
+        return result
 
 
 @dataclass
@@ -99,8 +101,8 @@ def build_repair_result(*cards: tuple[str, str], job_id: int = 31) -> AcceptedJo
     )
 
 
-def not_ready(*, job_id: int, state: str = "RUNNING") -> NotReadyJobResult:
-    return NotReadyJobResult(job_id=job_id, state=state, result_ready=False)
+def not_ready(*, job_id: int, state: str = "RUNNING") -> ResultNotReadyError:
+    return ResultNotReadyError(job_id=job_id, state=state)
 
 
 async def create_workflow_unit(db_session: AsyncSession) -> WorkflowUnit:

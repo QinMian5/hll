@@ -168,12 +168,15 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Materialize external source-processing configs into persisted `WorkflowRun` and `WorkflowUnit` state.
   - Persist only the local linkage state that `job-queue-mcp` cannot provide directly.
   - Fan out accepted `page-to-card` cards into per-card `card-review` jobs.
+  - Consume notification-only queue webhooks and low-frequency reconcile for queue results.
   - Hand off accepted review results to downstream consumers without storing them as durable business truth.
   - Own the following internal modules:
     - `pipeline_intake` for config ingestion and source-unit normalization
-    - `pipeline_runtime` for polling and state transitions
+    - `pipeline_runtime` for notification-driven result consumption, low-frequency reconcile, and state transitions
+    - `pipeline_webhook` for authenticated webhook intake and local event persistence
     - `page_to_card` for step input/output contracts
     - `card_review` for six-dimension review contracts
+    - `card_repair` for repair step input/output contracts
     - `pipeline_handoff` for next-step or downstream delivery
 - **Non-responsibilities:**
   - Source discovery or crawling policy.
@@ -185,6 +188,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ## Runtime Infrastructure Dependencies
 - Redis + Dramatiq for ingestion asynchronous workflows.
 - `job-queue-mcp` for `page-to-card`, `card-review`, `card-repair`, and `taxonomy_classification` job dispatch plus accepted-result retrieval.
+- `job-queue-mcp-client` for Python producer/result-reader calls and machine-to-machine token acquisition against `job-queue-mcp`.
 - OpenAI Embeddings API for ingestion worker and search query embedding.
 - PostgreSQL as persistent truth store for graph and taxonomy, plus dedicated app-local PostgreSQL services for `knowledge_corpus` and `source_pipeline`.
 
@@ -194,10 +198,10 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Background taxonomy bootstrap -> taxonomy -> Database`
-- `Background taxonomy classification -> taxonomy_classification -> job-queue-mcp -> external workers`
+- `Background taxonomy classification -> taxonomy_classification -> job-queue-mcp-client -> job-queue-mcp -> external workers`
 - `Background taxonomy classification result application -> taxonomy_classification -> taxonomy + knowledge_graph -> Database`
 - `External source adapter -> Source Pipeline App(pipeline_intake) -> Database`
-- `Source Pipeline App(pipeline_runtime) -> job-queue-mcp -> external workers`
+- `Source Pipeline App(pipeline_runtime) -> job-queue-mcp-client -> job-queue-mcp -> external workers`
 - `core` is inbound-only; it does not import `entrypoints/modules/shared`.
 
 ## V1 Boundary Summary

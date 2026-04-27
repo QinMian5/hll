@@ -9,7 +9,7 @@ dependencies = [
     "dramatiq[redis]>=1.18.0",
     "fastapi>=0.135.2",
     "httpx>=0.28.1",
-    "job-queue-integration",
+    "job-queue-mcp-client",
     "pgvector>=0.4.2",
     "psycopg[binary]>=3.3.3",
     "pyjwt[crypto]>=2.10.1",
@@ -30,9 +30,6 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = ["core", "entrypoints", "modules", "shared"]
-
-[tool.uv.sources]
-job-queue-integration = { workspace = true }
 
 [dependency-groups]
 dev = [

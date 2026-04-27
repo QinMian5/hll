@@ -7,7 +7,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from typing import Protocol
 
+from job_queue_mcp_client.errors import ResultNotReadyError
+from job_queue_mcp_client.types import AcceptedResult as AcceptedJobResult
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,14 +31,24 @@ from source_pipeline.page_to_card.contracts import (
 )
 from source_pipeline.page_to_card.instruction import build_page_to_card_instruction
 from source_pipeline.pipeline_handoff.ports import AcceptedCardHandoffPort
-from source_pipeline.pipeline_runtime.job_queue_client import (
-    AcceptedJobResult,
-    JobQueueClient,
-    NotReadyJobResult,
-)
 from source_pipeline.pipeline_webhook.repository import JobQueueWebhookEventRepository
 
 TERMINAL_NON_ACCEPTED_STATES = frozenset({"CANCELLED", "DEAD_LETTER", "FAILED", "EXPIRED"})
+
+
+class JobQueueClientPort(Protocol):
+    async def create_job(
+        self,
+        *,
+        queue_name: str,
+        instruction: str,
+        output_schema: dict[str, object],
+        priority: str = "normal",
+        payload: dict[str, object] | None = None,
+        metadata: dict[str, object] | None = None,
+    ) -> int: ...
+
+    async def get_result(self, job_id: int) -> AcceptedJobResult: ...
 
 
 class PipelineRuntimeService:
@@ -43,7 +56,7 @@ class PipelineRuntimeService:
         self,
         session: AsyncSession,
         *,
-        job_queue_client: JobQueueClient,
+        job_queue_client: JobQueueClientPort,
         card_handoff: AcceptedCardHandoffPort,
         poll_batch_size: int = 100,
         reconcile_interval_seconds: float = 3600,
@@ -118,12 +131,13 @@ class PipelineRuntimeService:
         )
 
         for unit in units:
-            page_result = await self._job_queue_client.get_result(
-                job_id=self._require_job_id(unit.page_to_card_job_id)
-            )
-            if isinstance(page_result, NotReadyJobResult):
-                if _terminal_non_accepted(page_result):
-                    unit.page_to_card_terminal_state = page_result.state
+            try:
+                page_result = await self._job_queue_client.get_result(
+                    self._require_job_id(unit.page_to_card_job_id)
+                )
+            except ResultNotReadyError as exc:
+                if _terminal_non_accepted_state(exc.state):
+                    unit.page_to_card_terminal_state = exc.state
                 continue
 
             await self._ensure_initial_candidates(unit=unit, page_result=page_result)
@@ -197,10 +211,12 @@ class PipelineRuntimeService:
             return
 
     async def _accepted_result(self, *, job_id: int) -> AcceptedJobResult:
-        result = await self._job_queue_client.get_result(job_id=job_id)
-        if isinstance(result, NotReadyJobResult):
-            raise ValueError(f"Webhook indicated accepted result but job {job_id} is not ready.")
-        return result
+        try:
+            return await self._job_queue_client.get_result(job_id)
+        except ResultNotReadyError as exc:
+            raise ValueError(
+                f"Webhook indicated accepted result but job {job_id} is not ready."
+            ) from exc
 
     async def _unit_for_page_job(self, *, job_id: int) -> WorkflowUnit | None:
         return await self._session.scalar(
@@ -302,10 +318,11 @@ class PipelineRuntimeService:
             if candidate.review_terminal_state is not None:
                 continue
 
-            review_result = await self._job_queue_client.get_result(job_id=candidate.review_job_id)
-            if isinstance(review_result, NotReadyJobResult):
-                if _terminal_non_accepted(review_result):
-                    candidate.review_terminal_state = review_result.state
+            try:
+                review_result = await self._job_queue_client.get_result(candidate.review_job_id)
+            except ResultNotReadyError as exc:
+                if _terminal_non_accepted_state(exc.state):
+                    candidate.review_terminal_state = exc.state
                 continue
 
             review = ReviewResult.model_validate(review_result.result_payload)
@@ -320,10 +337,11 @@ class PipelineRuntimeService:
             if candidate.repair_terminal_state is not None:
                 continue
 
-            repair_result = await self._job_queue_client.get_result(job_id=candidate.repair_job_id)
-            if isinstance(repair_result, NotReadyJobResult):
-                if _terminal_non_accepted(repair_result):
-                    candidate.repair_terminal_state = repair_result.state
+            try:
+                repair_result = await self._job_queue_client.get_result(candidate.repair_job_id)
+            except ResultNotReadyError as exc:
+                if _terminal_non_accepted_state(exc.state):
+                    candidate.repair_terminal_state = exc.state
                 continue
 
             await self._ensure_child_candidates(candidate=candidate, repair_result=repair_result)
@@ -469,5 +487,5 @@ def _review_passed(review: ReviewResult) -> bool:
     )
 
 
-def _terminal_non_accepted(result: NotReadyJobResult) -> bool:
-    return result.state in TERMINAL_NON_ACCEPTED_STATES
+def _terminal_non_accepted_state(state: str | None) -> bool:
+    return state in TERMINAL_NON_ACCEPTED_STATES

@@ -9,14 +9,13 @@ from __future__ import annotations
 import asyncio
 
 import click
+import httpx
+from job_queue_mcp_client.auth import ClientCredentialsTokenProvider
+from job_queue_mcp_client.producer import (
+    AsyncClient as TaxonomyClassificationJobQueueClient,
+)
 
 from core.config import load_taxonomy_classification_runtime_settings
-from modules.taxonomy_classification.job_queue_client import (
-    TaxonomyClassificationJobQueueClient,
-)
-from modules.taxonomy_classification.job_queue_token import (
-    ClientCredentialsTokenProvider,
-)
 from modules.taxonomy_classification.submission import (
     TaxonomyClassificationSubmissionService,
 )
@@ -27,6 +26,7 @@ async def submit_refinement_jobs(*, scope_node_id: int, limit: int | None) -> in
     settings = load_taxonomy_classification_runtime_settings()
     engine = build_async_engine(database_url=settings.database_url)
     session_factory = build_async_session_factory(engine=engine)
+    job_queue_token_http_client = httpx.AsyncClient()
     job_queue_client = TaxonomyClassificationJobQueueClient(
         base_url=settings.taxonomy_classification_job_queue_base_url,
         token_provider=ClientCredentialsTokenProvider(
@@ -35,6 +35,7 @@ async def submit_refinement_jobs(*, scope_node_id: int, limit: int | None) -> in
             client_secret=settings.taxonomy_classification_job_queue_client_secret,
             resource=settings.taxonomy_classification_job_queue_resource,
             scope=settings.taxonomy_classification_job_queue_scopes,
+            http_client=job_queue_token_http_client,
         ),
     )
     try:
@@ -52,6 +53,7 @@ async def submit_refinement_jobs(*, scope_node_id: int, limit: int | None) -> in
             return submitted_count
     finally:
         await job_queue_client.aclose()
+        await job_queue_token_http_client.aclose()
         await engine.dispose()
 
 

@@ -7,14 +7,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from job_queue_integration.client import JobQueueClient
-from job_queue_integration.token import ClientCredentialsTokenProvider
-from job_queue_integration.webhook_auth import WebhookAuthVerifier
-
-from source_pipeline.pipeline_runtime.job_queue_client import JobQueueClient as SourceJobQueueClient
-from source_pipeline.pipeline_runtime.job_queue_token import (
-    ClientCredentialsTokenProvider as SourceTokenProvider,
-)
 from source_pipeline.pipeline_webhook.auth import WebhookAuthVerifier as SourceWebhookAuthVerifier
 
 SOURCE_PIPELINE_SRC = Path(__file__).resolve().parents[2] / "src" / "source_pipeline"
@@ -66,7 +58,19 @@ def test_source_pipeline_does_not_write_knowledge_graph_tables_directly() -> Non
     assert violations == []
 
 
-def test_source_pipeline_reuses_shared_job_queue_helpers() -> None:
-    assert SourceJobQueueClient is JobQueueClient
-    assert SourceTokenProvider is ClientCredentialsTokenProvider
-    assert SourceWebhookAuthVerifier is WebhookAuthVerifier
+def test_source_pipeline_uses_direct_job_queue_sdk_without_local_integration_package() -> None:
+    violations: list[str] = []
+    sdk_references: list[str] = []
+    forbidden_package = "job_queue" + "_integration"
+    for path in _python_sources():
+        text = path.read_text(encoding="utf-8")
+        relative_path = path.relative_to(SOURCE_PIPELINE_SRC)
+        if forbidden_package in text:
+            violations.append(str(relative_path))
+        if "job_queue_mcp_client" in text:
+            sdk_references.append(str(relative_path))
+
+    assert violations == []
+    assert "pipeline_runtime/service.py" in sdk_references
+    assert "entrypoints/orchestrator.py" in sdk_references
+    assert SourceWebhookAuthVerifier.__module__ == "source_pipeline.pipeline_webhook.auth"

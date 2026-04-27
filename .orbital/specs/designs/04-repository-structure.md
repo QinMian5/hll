@@ -131,8 +131,10 @@ apps/source_pipeline/
       db/
       entrypoints/
         orchestrator.py
+        webhook_receiver.py
       pipeline_intake/
       pipeline_runtime/
+      pipeline_webhook/
       page_to_card/
       card_review/
       card_repair/
@@ -156,6 +158,7 @@ packages/contracts/
 - Generated artifacts under `packages/contracts/generated` are versioned.
 - Repository-owned code that calls internal backend APIs consumes those APIs only through generated contract artifacts.
 - Browser-side web code consumes public web API endpoints owned by `apps/web` and does not call internal backend APIs directly.
+- Owned `packages/` content is limited to repository-owned contract artifacts. Upstream client SDKs are consumed as external package dependencies by the app members that use them.
 
 ## Boundary Rules
 1. Repository-root configuration files own cross-member tooling/workspace behavior.

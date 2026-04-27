@@ -84,6 +84,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Single-image policy applies to taxonomy-classification API-side roles; runtime role is selected only by startup command.
 - The API image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - The source-pipeline image installs the locked dependency set required for runtime and migration autogeneration tooling.
+- API and source-pipeline image builds provide the local `job-queue-mcp` Python SDK package as a named build context so locked local-path SDK dependencies resolve inside Docker builds without vendoring SDK source into this repository.
 - `redis` uses fixed-tag official image `redis:7-bookworm`.
 - `web` uses a custom Dockerfile with separate dev/prod targets; the production target builds Vite assets and runs the Express BFF server.
 - `nginx` uses a fixed-tag official image in production and does not use a custom Dockerfile.

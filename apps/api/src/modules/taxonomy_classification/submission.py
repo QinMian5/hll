@@ -5,8 +5,7 @@ Out of scope: Runtime result processing and webhook authentication.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Literal, Protocol
+from typing import Protocol
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,11 +28,11 @@ class TaxonomyClassificationCreateJobClientPort(Protocol):
         self,
         *,
         queue_name: str,
-        priority: Literal["low", "normal", "high", "critical"],
         instruction: str,
-        output_schema: Mapping[str, object],
-        payload: Mapping[str, object],
-        metadata: Mapping[str, object],
+        output_schema: dict[str, object],
+        priority: str = "normal",
+        payload: dict[str, object] | None = None,
+        metadata: dict[str, object] | None = None,
     ) -> int: ...
 
 
@@ -104,7 +103,7 @@ class TaxonomyClassificationSubmissionService:
                 ],
                 allow_unclassified=True,
             )
-            metadata = {
+            metadata: dict[str, object] = {
                 "scope_node_id": scope_node.id,
                 "source_unclassified_node_id": source_unclassified.id,
                 "node_id": card.id,

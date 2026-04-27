@@ -8,13 +8,14 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 
+import httpx
+from job_queue_mcp_client.auth import ClientCredentialsTokenProvider
+from job_queue_mcp_client.producer import AsyncClient as JobQueueClient
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from source_pipeline.config import Settings, load_settings
 from source_pipeline.db.session import SessionFactory, build_session_factory
 from source_pipeline.pipeline_handoff.knowledge_ingestion import KnowledgeIngestionHandoff
-from source_pipeline.pipeline_runtime.job_queue_client import JobQueueClient
-from source_pipeline.pipeline_runtime.job_queue_token import ClientCredentialsTokenProvider
 from source_pipeline.pipeline_runtime.service import PipelineRuntimeService
 
 
@@ -24,6 +25,7 @@ class OrchestratorRuntime:
     engine: AsyncEngine
     session_factory: SessionFactory
     job_queue_client: JobQueueClient
+    job_queue_token_http_client: httpx.AsyncClient
     card_handoff: KnowledgeIngestionHandoff
 
 
@@ -36,6 +38,7 @@ def _required_setting(value: str | None, name: str) -> str:
 def build_runtime() -> OrchestratorRuntime:
     settings = load_settings()
     engine, session_factory = build_session_factory(settings)
+    job_queue_token_http_client = httpx.AsyncClient()
     return OrchestratorRuntime(
         settings=settings,
         engine=engine,
@@ -57,8 +60,10 @@ def build_runtime() -> OrchestratorRuntime:
                 ),
                 resource=_required_setting(settings.job_queue_resource, "job_queue_resource"),
                 scope=settings.job_queue_scopes,
+                http_client=job_queue_token_http_client,
             ),
         ),
+        job_queue_token_http_client=job_queue_token_http_client,
         card_handoff=KnowledgeIngestionHandoff(
             base_url=_required_setting(
                 settings.knowledge_api_base_url,
@@ -85,6 +90,7 @@ async def run_forever(runtime: OrchestratorRuntime) -> None:
             await asyncio.sleep(runtime.settings.poll_interval_seconds)
     finally:
         await runtime.job_queue_client.aclose()
+        await runtime.job_queue_token_http_client.aclose()
         await runtime.card_handoff.aclose()
         await runtime.engine.dispose()
 

@@ -16,7 +16,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from source_pipeline.config import Settings
 from source_pipeline.db.models import JobQueueWebhookEvent, JobQueueWebhookWakeup
-from source_pipeline.pipeline_runtime import job_queue_client
 from source_pipeline.pipeline_webhook.app import create_webhook_receiver_app
 from source_pipeline.pipeline_webhook.auth import (
     WebhookAuthenticationError,
@@ -110,13 +109,7 @@ async def test_wrong_bearer_token_returns_401(
 async def test_valid_notification_is_persisted_and_returns_202(
     db_engine: AsyncEngine,
     test_settings: Settings,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    async def fail_get_result(*args: object, **kwargs: object) -> object:
-        raise AssertionError("receiver must not read job results")
-
-    monkeypatch.setattr(job_queue_client.JobQueueClient, "get_result", fail_get_result)
-
     async with await build_client(db_engine, test_settings.database_url) as client:
         response = await client.post(
             "/source-pipeline/webhooks/job-queue",

@@ -122,6 +122,8 @@ services:
     build:
       context: ../..
       dockerfile: infra/docker/source_pipeline/Dockerfile
+      additional_contexts:
+        job_queue_mcp_python_client: ../../../job-queue-mcp/packages/python-client
     image: knowledge-source-pipeline:test
     depends_on:
       source_pipeline_db:
