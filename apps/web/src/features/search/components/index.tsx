@@ -95,16 +95,10 @@ export function SearchResultCard({ content, title }: SearchResultCardProps) {
       </div>
       <div className="h-px w-full shrink-0 bg-[rgba(214,227,247,0.74)]" />
       <div
-        className="flex min-h-0 w-full flex-1 gap-2 overflow-hidden"
+        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden"
         data-testid="search-result-card-content"
       >
-        <div className="h-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <KnowledgeRichText text={content} variant="content" />
-        </div>
-        <div
-          aria-hidden="true"
-          className="h-full w-2 shrink-0 rounded bg-[#e5e5e5]"
-        />
+        <KnowledgeRichText text={content} variant="content" />
       </div>
     </div>
   );

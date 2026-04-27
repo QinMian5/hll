@@ -148,17 +148,22 @@ describe("SearchPage", () => {
       "grid",
       "grid-cols-1",
       "gap-3",
-      "lg:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
+      "lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]",
+      "xl:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
       "lg:gap-7",
     );
     expect(screen.getByTestId("search-results-section")).not.toHaveClass(
       "md:flex-row",
+      "md:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
     );
     expect(screen.getByTestId("search-results-grid")).toHaveClass(
       "auto-rows-[220px]",
       "grid-cols-1",
       "gap-y-3",
-      "sm:grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]",
+      "sm:grid-cols-2",
+      "sm:gap-x-3",
+      "lg:grid-cols-2",
+      "xl:grid-cols-3",
       "md:auto-rows-[300px]",
       "lg:auto-rows-[379px]",
       "lg:gap-[18px]",
@@ -175,5 +180,15 @@ describe("SearchPage", () => {
     expect(screen.getByTestId("search-suggestions-panel")).not.toHaveClass(
       "md:w-[324px]",
     );
+    expect(
+      Array.from(
+        screen.getByTestId("search-results-scroll-area").children,
+      ).some((child) => child.getAttribute("aria-hidden") === "true"),
+    ).toBe(false);
+    expect(
+      Array.from(
+        screen.getByTestId("search-suggestions-scroll-area").children,
+      ).some((child) => child.getAttribute("aria-hidden") === "true"),
+    ).toBe(false);
   });
 });

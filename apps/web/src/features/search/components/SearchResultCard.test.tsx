@@ -56,7 +56,21 @@ describe("SearchResultCard", () => {
 
     expect(card).toHaveClass("h-[220px]", "md:h-[300px]", "lg:h-[379px]");
     expect(card).not.toHaveClass("md:w-[316px]");
-    expect(contentRegion).toHaveClass("min-h-0", "flex-1", "w-full");
-    expect(contentRegion).not.toHaveClass("md:h-[296px]");
+    expect(contentRegion).toHaveClass(
+      "min-h-0",
+      "flex-1",
+      "w-full",
+      "overflow-y-auto",
+      "overflow-x-hidden",
+    );
+    expect(contentRegion).not.toHaveClass(
+      "md:h-[296px]",
+      "[scrollbar-width:none]",
+    );
+    expect(
+      Array.from(contentRegion.children).some(
+        (child) => child.getAttribute("aria-hidden") === "true",
+      ),
+    ).toBe(false);
   });
 });
