@@ -6,9 +6,9 @@ WORKDIR /workspace/mianqin/Code/knowledge
 
 COPY pyproject.toml /workspace/mianqin/Code/knowledge/pyproject.toml
 COPY uv.lock /workspace/mianqin/Code/knowledge/uv.lock
-COPY --from=job_queue_mcp_python_client pyproject.toml /workspace/job-queue-mcp/packages/python-client/pyproject.toml
-COPY --from=job_queue_mcp_python_client README.md /workspace/job-queue-mcp/packages/python-client/README.md
-COPY --from=job_queue_mcp_python_client src /workspace/job-queue-mcp/packages/python-client/src
+COPY --from=job_queue_mcp_python_client pyproject.toml /workspace/mianqin/Code/job-queue-mcp/packages/python-client/pyproject.toml
+COPY --from=job_queue_mcp_python_client README.md /workspace/mianqin/Code/job-queue-mcp/packages/python-client/README.md
+COPY --from=job_queue_mcp_python_client src /workspace/mianqin/Code/job-queue-mcp/packages/python-client/src
 COPY apps/api/pyproject.toml /workspace/mianqin/Code/knowledge/apps/api/pyproject.toml
 COPY apps/api/src /workspace/mianqin/Code/knowledge/apps/api/src
 COPY apps/api/alembic.ini /workspace/mianqin/Code/knowledge/apps/api/alembic.ini
