@@ -45,6 +45,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Production connects source-pipeline and taxonomy-classification result-consuming runtimes to `egress` for outbound `job-queue-mcp` API and token calls. These runtimes do not attach to the external shared `proxy` network.
 - Production `nginx` routes the public application host to `web` and does not route public `/api/` paths to the private `api` container.
 - Production exposes webhook receiver roles through the project-local `nginx` app gateway on dedicated webhook paths. Receiver containers remain container-only and must not publish host ports directly.
+- Production `nginx` uses Docker embedded DNS with variable-based upstreams for internal service targets so app-gateway routing re-resolves service names when upstream containers are recreated.
 - Development adds `db` to `edge` for host port publishing while keeping service-to-service database access on `backend`.
 - Cross-service access must follow network boundaries rather than host port access.
 - Development host access to PostgreSQL is for local tooling only; container-to-container database access still uses Docker service DNS (`postgres`) on `backend`.
