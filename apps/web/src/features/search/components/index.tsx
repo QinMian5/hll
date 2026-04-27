@@ -85,7 +85,7 @@ interface SearchResultCardProps {
 export function SearchResultCard({ content, title }: SearchResultCardProps) {
   return (
     <div
-      className="flex h-[220px] w-full shrink-0 flex-col items-start gap-2.5 overflow-hidden rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] pt-4 pr-3.5 pb-3.5 pl-4 shadow-[0_18px_52px_rgba(107,132,189,0.09)] md:h-[379px] md:w-[316px] md:gap-3 md:pt-[18px] md:pr-[18px] md:pb-4 md:pl-5"
+      className="flex h-[220px] w-full shrink-0 flex-col items-start gap-2.5 overflow-hidden rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] pt-4 pr-3.5 pb-3.5 pl-4 shadow-[0_18px_52px_rgba(107,132,189,0.09)] md:h-[300px] md:gap-3 md:pt-[18px] md:pr-[18px] md:pb-4 md:pl-5 lg:h-[379px]"
       data-testid="search-result-card"
     >
       <div className="flex h-10 w-full shrink-0 flex-col items-start justify-start overflow-hidden md:h-6">
@@ -95,7 +95,7 @@ export function SearchResultCard({ content, title }: SearchResultCardProps) {
       </div>
       <div className="h-px w-full shrink-0 bg-[rgba(214,227,247,0.74)]" />
       <div
-        className="flex h-[129px] w-full shrink-0 gap-2 overflow-hidden md:h-[296px]"
+        className="flex min-h-0 w-full flex-1 gap-2 overflow-hidden"
         data-testid="search-result-card-content"
       >
         <div className="h-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

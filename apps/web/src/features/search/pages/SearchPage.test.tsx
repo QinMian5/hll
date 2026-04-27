@@ -145,24 +145,34 @@ describe("SearchPage", () => {
       "md:pb-9",
     );
     expect(screen.getByTestId("search-results-section")).toHaveClass(
-      "flex-col",
+      "grid",
+      "grid-cols-1",
       "gap-3",
+      "lg:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
+      "lg:gap-7",
+    );
+    expect(screen.getByTestId("search-results-section")).not.toHaveClass(
       "md:flex-row",
-      "md:gap-7",
     );
     expect(screen.getByTestId("search-results-grid")).toHaveClass(
       "auto-rows-[220px]",
       "grid-cols-1",
       "gap-y-3",
-      "md:h-[776px]",
+      "sm:grid-cols-[repeat(auto-fit,minmax(18rem,1fr))]",
+      "md:auto-rows-[300px]",
+      "lg:auto-rows-[379px]",
+      "lg:gap-[18px]",
+    );
+    expect(screen.getByTestId("search-results-grid")).not.toHaveClass(
       "md:w-[984px]",
-      "md:auto-rows-[379px]",
       "md:grid-cols-[repeat(3,316px)]",
-      "md:gap-[18px]",
     );
     expect(screen.getByTestId("search-suggestions-panel")).toHaveClass(
       "h-[176px]",
-      "md:h-full",
+      "lg:h-full",
+      "min-w-0",
+    );
+    expect(screen.getByTestId("search-suggestions-panel")).not.toHaveClass(
       "md:w-[324px]",
     );
   });

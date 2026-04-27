@@ -46,7 +46,7 @@ describe("SearchResultCard", () => {
     expect(within(card).getByRole("list")).toBeInTheDocument();
   });
 
-  it("uses the latest Figma projected desktop and mobile dimensions", () => {
+  it("uses responsive Figma-projected vertical sizing without fixed desktop width", () => {
     render(<SearchResultCard content="Projected content." title="Projected" />);
 
     const card = screen.getByTestId("search-result-card");
@@ -54,7 +54,9 @@ describe("SearchResultCard", () => {
       "search-result-card-content",
     );
 
-    expect(card).toHaveClass("h-[220px]", "md:h-[379px]", "md:w-[316px]");
-    expect(contentRegion).toHaveClass("h-[129px]", "md:h-[296px]", "w-full");
+    expect(card).toHaveClass("h-[220px]", "md:h-[300px]", "lg:h-[379px]");
+    expect(card).not.toHaveClass("md:w-[316px]");
+    expect(contentRegion).toHaveClass("min-h-0", "flex-1", "w-full");
+    expect(contentRegion).not.toHaveClass("md:h-[296px]");
   });
 });

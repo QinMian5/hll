@@ -72,10 +72,10 @@ export function SearchPage() {
             />
           </div>
           <div
-            className="relative flex min-h-0 w-full flex-1 flex-col gap-3 md:flex-row md:gap-7"
+            className="relative grid min-h-0 w-full flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)] lg:gap-7"
             data-testid="search-results-section"
           >
-            <section className="flex min-h-0 w-full flex-1 flex-col gap-3 md:h-full md:w-[1020px] md:shrink-0 md:gap-[14px]">
+            <section className="flex min-h-0 min-w-0 flex-col gap-3 lg:h-full lg:gap-[14px]">
               <h1 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
                 Search Results
               </h1>
@@ -85,7 +85,7 @@ export function SearchPage() {
               >
                 <div className="h-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-width:none] md:px-2 [&::-webkit-scrollbar]:hidden">
                   <div
-                    className="grid w-full auto-rows-[220px] grid-cols-1 gap-y-3 md:h-[776px] md:w-[984px] md:auto-rows-[379px] md:grid-cols-[repeat(3,316px)] md:gap-[18px]"
+                    className="grid w-full auto-rows-[220px] grid-cols-1 gap-y-3 sm:grid-cols-[repeat(auto-fit,minmax(18rem,1fr))] md:auto-rows-[300px] lg:auto-rows-[379px] lg:gap-[18px]"
                     data-testid="search-results-grid"
                   >
                     {matchedCards.map((card) => (
@@ -104,7 +104,7 @@ export function SearchPage() {
               </div>
             </section>
             <section
-              className="flex h-[176px] w-full shrink-0 flex-col gap-3 md:h-full md:w-[324px] md:gap-[14px]"
+              className="flex h-[176px] min-w-0 flex-col gap-3 lg:h-full lg:gap-[14px]"
               data-testid="search-suggestions-panel"
             >
               <h2 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
