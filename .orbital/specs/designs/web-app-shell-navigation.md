@@ -17,13 +17,13 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
 
 ## Constraint Projection
 - **Governing Constraints:** Frontend behavior remains within the unified web client boundary, uses BFF-owned web data adapters for browser-visible application data, preserves explicit module boundaries, and keeps behavior-changing page-structure decisions synchronized in active specs.
-- **Detail Commitments:** The frontend uses one shared app shell for `Overview`, `Graph View`, and `Search`. The root route redirects to `Overview`. The shared top navigation displays `Overview`, `Graph View`, and `Search` in the center, with a left-side brand block and a right-side action group containing the `GitHub` placeholder and the auth action slot. The top navigation and Search results route follow Figma file `WBYs6P9HMxe21TSYQL637r`, node `136:119`. Shell styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS. Approved Figma auto-layout and grid structure is the primary source of truth for page composition; implementation should translate those structures directly instead of approximating them through unrelated wrappers or ad hoc spacing offsets.
+- **Detail Commitments:** The frontend uses one shared app shell for `Overview`, `Graph View`, and `Search`. The root route redirects to `Overview`. The shared top navigation displays `Overview`, `Graph View`, and `Search` in the center, with a left-side brand block and a right-side action group containing the icon-only `GitHub` placeholder and the auth action slot. The top navigation and Search route follow Figma file `WBYs6P9HMxe21TSYQL637r`, node `128:90`. The web client loads and uses Geist as the app-wide primary font. Shell styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS. Approved Figma auto-layout and grid structure is the primary source of truth for page composition; implementation should translate those structures directly instead of approximating them through unrelated wrappers, ad hoc spacing offsets, or viewport-driven compression.
 - **Update Rule:** Requirements remain stable at the repository-governance layer while route ownership, shell structure, navigation state rules, and Search page presentation stay in this design document.
 
 ## Inputs & Outputs
 - **Inputs:**
   - Shared browser entrypoint and route mounting in `apps/web`.
-  - Approved Figma reference for shared top navigation and Search results composition: file `WBYs6P9HMxe21TSYQL637r`, node `136:119`.
+  - Approved Figma reference for shared top navigation and Search empty/results composition: file `WBYs6P9HMxe21TSYQL637r`, node `128:90`.
   - Taxonomy graph page mounted under the shared shell as the `Graph View` route.
 - **Outputs:**
   - One shared shell with top navigation and body container.
@@ -43,17 +43,18 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
 - **Key Elements:**
   - **Route ownership:** The frontend exposes `/overview`, `/graph`, and `/search`. The root route redirects to `/overview`.
   - **Shared shell:** Every page renders within one shell that owns the top navigation, horizontal spacing, and vertical viewport composition.
-  - **Top navigation:** The shell header follows the approved Figma top-nav structure: `64px` height, left brand group with a `48px` icon block and `15px` brand text, center nav as an equal-width three-column grid, and right-side action controls sized to the approved Figma button dimensions. Navigation highlight is route-driven: the active item uses darker text and a bottom underline, and inactive items use one consistent muted gray treatment.
+  - **Top navigation:** The shell header follows the approved Figma top-nav structure. Desktop uses a `64px` header, a `240px` brand group with a `30px` brand mark, a centered `278px` navigation group, and a `240px` right action group with a `40px` icon-only GitHub placeholder and a `92px` auth action button. Mobile uses a `112px` two-row header with a `170px` brand group, `124px` right action group, and centered `300px` navigation group. Navigation highlight is route-driven: the active item uses darker text and a bottom underline, and inactive items use one consistent muted gray treatment.
   - **Overview route:** `Overview` renders as a true page route inside the shared shell. The first version is a placeholder page and does not define future Overview feature structure beyond that route-owned placeholder state.
   - **Graph View route:** `Graph View` renders the taxonomy browsing experience inside the shared shell body. Graph-specific layout rules remain governed by taxonomy design documents.
   - **Search route:** `Search` renders a Figma-aligned page rather than a graph canvas. It supports two states within one route:
     - **Empty state:** A large centered search bar sits within a quiet, high-whitespace content surface.
     - **Results state:** The page shows a top search bar row, a left-side results grid, and a right-side suggestions panel.
-  - **Search bar structure:** The results-state search bar follows the approved component hierarchy: `48px` height, `24px` left padding, `10px` right padding, `16px` radius, a dedicated `44x44` icon-button container, and a `20x20` search icon centered inside that container.
-  - **Search results structure:** The results body follows the approved two-column grid, with a left results grid and a right suggestions panel. Cards and suggestions inherit their radius, border, shadow, and typography from the approved Figma structures rather than from generic shared surface defaults.
+  - **Projection rule:** The Search route is projected from the approved desktop and mobile Figma frames. Desktop uses the `1440x1024` frame proportions with a `1440x960` routed body. Mobile uses the `440x956` frame proportions with a `440x844` routed body under the mobile header.
+  - **Search bar structure:** The search bar follows the approved component hierarchy. Desktop uses `760x64`, `22px` left padding, `10px` right padding, `16px` radius, a dedicated `44x44` icon-button container, and a `20x20` search icon centered inside that container. Mobile uses full available width, `56px` height, `18px` left padding, `8px` right padding, a `40x40` icon-button container, and an `18x18` search icon.
+  - **Search results structure:** Desktop results use a `1372x816` content area with a `1020px` left results column and a `324px` right suggestions column separated by `28px`. Desktop result cards keep the approved `316x379` card size and `278x296` content area. Mobile results use a `408x740` content area with a single-column results section, `380x220` cards, and a `176px` suggestions section below the results list. Cards and suggestions inherit their radius, border, shadow, and typography from the approved Figma structures rather than from generic shared surface defaults.
   - **Search card text rule:** Search result card `title` and `content` render through the shared knowledge-card rich-text contract defined in `web-knowledge-card-rich-text.md`.
   - **Search state ownership:** Search state is URL-addressable. The absence of an effective query renders the empty state. The presence of a query renders the results layout.
-  - **Visual language:** The shared shell uses a restrained product-shell style: light header, subtle divider, large whitespace, quiet surfaces, and no extra decorative chrome beyond the approved Figma direction.
+  - **Visual language:** The shared shell uses a restrained product-shell style: Geist typography, light header, subtle divider, large whitespace, quiet surfaces, and no extra decorative chrome beyond the approved Figma direction.
   - **Tailwind-first implementation rule:** Shared shell layout, navigation presentation, and Search page presentation are carried primarily through Tailwind utility classes colocated with the React tree. Handwritten CSS is reserved only for library-level overrides or effects that cannot be expressed cleanly through utilities.
 - **Interactions:**
   - Navigating between `Overview`, `Graph View`, and `Search` uses route changes rather than local tab state.
@@ -68,11 +69,13 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
   - Visiting `/` lands on `/overview`.
   - The top navigation contains `Overview`, `Graph View`, and `Search`, with only the active route highlighted.
   - The top navigation uses the approved Figma header sizing, typography, action sizing, and centered three-column nav structure.
+  - The web client uses Geist as the app-wide primary font.
   - `Overview` exists as a true routed placeholder page.
   - `Graph View` renders within the shared shell rather than owning a separate top-level header.
   - `Search` uses one route with URL-driven empty/results state switching instead of separate routes for each visual state.
   - The Search empty state matches the approved single centered search-bar composition.
   - The Search results state matches the approved top search row plus left results grid plus right suggestions layout.
+  - The Search results state uses the approved desktop and mobile card dimensions for their matching viewport ranges.
   - Search result card `title` and `content` use the shared knowledge-card rich-text renderer instead of raw string rendering.
   - The Search icon is centered inside the approved `44x44` icon-button container rather than positioned through ad hoc offset utilities.
   - Shell-level styling is carried primarily by Tailwind utilities rather than large handwritten CSS blocks.

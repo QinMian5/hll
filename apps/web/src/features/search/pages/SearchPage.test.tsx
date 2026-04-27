@@ -109,4 +109,61 @@ describe("SearchPage", () => {
       screen.queryByRole("button", { name: "Spectral theorem" }),
     ).not.toBeInTheDocument();
   });
+
+  it("projects the latest Figma responsive results layout", async () => {
+    const payload: SearchResponse = {
+      connected_titles: ["Adjacency matrix"],
+      matched_cards: [
+        {
+          content: "A result body.",
+          title: "Matrix decomposition",
+        },
+      ],
+    };
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+
+    renderSearchRoute("/search?q=matrix");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("search-results-grid")).toBeInTheDocument(),
+    );
+
+    expect(screen.getByTestId("search-results-frame")).toHaveClass(
+      "gap-3",
+      "px-4",
+      "py-[18px]",
+      "md:gap-5",
+      "md:px-[34px]",
+      "md:pt-6",
+      "md:pb-9",
+    );
+    expect(screen.getByTestId("search-results-section")).toHaveClass(
+      "flex-col",
+      "gap-3",
+      "md:flex-row",
+      "md:gap-7",
+    );
+    expect(screen.getByTestId("search-results-grid")).toHaveClass(
+      "auto-rows-[220px]",
+      "grid-cols-1",
+      "gap-y-3",
+      "md:h-[776px]",
+      "md:w-[984px]",
+      "md:auto-rows-[379px]",
+      "md:grid-cols-[repeat(3,316px)]",
+      "md:gap-[18px]",
+    );
+    expect(screen.getByTestId("search-suggestions-panel")).toHaveClass(
+      "h-[176px]",
+      "md:h-full",
+      "md:w-[324px]",
+    );
+  });
 });

@@ -78,6 +78,13 @@ describe("AppShell", () => {
     );
     expect(screen.getByTestId("app-shell")).toHaveClass(
       "bg-[radial-gradient(circle_at_center,_#f2faff_0%,_#fbfcff_55%,_#f6f7fb_100%)]",
+      "font-['Geist',sans-serif]",
+      "min-h-screen",
+      "w-full",
+    );
+    expect(screen.getByTestId("app-shell-header")).toHaveClass(
+      "h-[112px]",
+      "md:h-16",
     );
     expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Graph View" })).toHaveAttribute(

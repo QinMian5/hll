@@ -45,4 +45,16 @@ describe("SearchResultCard", () => {
     expect(within(card).getByText("Paragraph two.")).toBeInTheDocument();
     expect(within(card).getByRole("list")).toBeInTheDocument();
   });
+
+  it("uses the latest Figma projected desktop and mobile dimensions", () => {
+    render(<SearchResultCard content="Projected content." title="Projected" />);
+
+    const card = screen.getByTestId("search-result-card");
+    const contentRegion = within(card).getByTestId(
+      "search-result-card-content",
+    );
+
+    expect(card).toHaveClass("h-[220px]", "md:h-[379px]", "md:w-[316px]");
+    expect(contentRegion).toHaveClass("h-[129px]", "md:h-[296px]", "w-full");
+  });
 });

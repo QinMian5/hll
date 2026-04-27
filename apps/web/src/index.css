@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap");
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
 
@@ -8,7 +9,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
 
 :root {
   color: #10233b;
-  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  font-family: "Geist", sans-serif;
   font-synthesis: none;
   line-height: 1.5;
   font-weight: 400;

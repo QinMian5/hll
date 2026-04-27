@@ -2,6 +2,7 @@
 // out_of_scope: Backend search integration and ranking semantics.
 
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { ChevronRight } from "lucide-react";
 import type { FormEvent } from "react";
 
 import { SearchField, SearchResultCard } from "../components";
@@ -43,7 +44,7 @@ export function SearchPage() {
     >
       {!hasQuery ? (
         <div
-          className="flex h-full min-h-0 items-center justify-center overflow-clip rounded-[32px] bg-[linear-gradient(137.03deg,rgba(254,254,255,1)_14.099%,rgba(245,249,255,1)_45.692%,rgba(249,251,255,1)_85.901%)] px-10 py-12 shadow-[0_18px_52px_rgba(107,133,189,0.09)]"
+          className="flex h-full min-h-0 w-full items-center justify-center overflow-hidden px-4"
           data-testid="search-empty-state"
         >
           <SearchField
@@ -54,9 +55,12 @@ export function SearchPage() {
           />
         </div>
       ) : (
-        <div className="flex h-full min-h-0 w-full flex-col items-start gap-6 p-6">
+        <div
+          className="flex h-full min-h-0 w-full flex-col items-center gap-3 overflow-hidden px-4 py-[18px] md:gap-5 md:px-[34px] md:pt-6 md:pb-9"
+          data-testid="search-results-frame"
+        >
           <div
-            className="relative flex h-12 w-full shrink-0 items-center justify-center"
+            className="relative flex h-14 w-full shrink-0 items-center justify-center md:h-16"
             data-testid="search-results-state"
           >
             <SearchField
@@ -67,57 +71,75 @@ export function SearchPage() {
               size="compact"
             />
           </div>
-          <div className="relative grid min-h-0 w-full flex-1 grid-cols-[minmax(0,3fr)_minmax(0,1fr)] grid-rows-[48px_minmax(0,1fr)] gap-x-8 gap-y-4">
-            <h1 className="col-start-1 row-start-1 m-0 flex h-12 shrink-0 items-center justify-self-stretch self-stretch text-[18px] leading-6 font-semibold text-[rgba(18,23,41,0.98)]">
-              Search Results
-            </h1>
-            <h2 className="col-start-2 row-start-1 m-0 flex h-12 shrink-0 items-center justify-self-stretch self-stretch text-[18px] leading-[22px] font-semibold text-[rgba(18,23,41,0.98)]">
-              You may also be interested in
-            </h2>
-            <div className="relative col-start-1 row-start-2 flex min-h-0 shrink-0 flex-col items-center justify-center justify-self-stretch self-stretch">
+          <div
+            className="relative flex min-h-0 w-full flex-1 flex-col gap-3 md:flex-row md:gap-7"
+            data-testid="search-results-section"
+          >
+            <section className="flex min-h-0 w-full flex-1 flex-col gap-3 md:h-full md:w-[1020px] md:shrink-0 md:gap-[14px]">
+              <h1 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
+                Search Results
+              </h1>
               <div
-                className="grid min-h-px min-w-px w-full flex-1 grid-cols-3 grid-rows-2 gap-[18px]"
-                data-testid="search-results-grid"
+                className="flex min-h-0 w-full flex-1 items-start gap-2 md:gap-3"
+                data-testid="search-results-scroll-area"
               >
-                {matchedCards.map((card) => (
-                  <SearchResultCard
-                    content={card.content}
-                    key={card.title}
-                    title={card.title}
-                  />
-                ))}
+                <div className="h-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-1.5 [scrollbar-width:none] md:px-2 [&::-webkit-scrollbar]:hidden">
+                  <div
+                    className="grid w-full auto-rows-[220px] grid-cols-1 gap-y-3 md:h-[776px] md:w-[984px] md:auto-rows-[379px] md:grid-cols-[repeat(3,316px)] md:gap-[18px]"
+                    data-testid="search-results-grid"
+                  >
+                    {matchedCards.map((card) => (
+                      <SearchResultCard
+                        content={card.content}
+                        key={card.title}
+                        title={card.title}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div
+                  aria-hidden="true"
+                  className="h-full w-2 shrink-0 rounded bg-[#e5e5e5]"
+                />
               </div>
-            </div>
-            <div
-              className="relative col-start-2 row-start-2 flex min-h-0 shrink-0 flex-col items-start justify-self-stretch self-stretch"
+            </section>
+            <section
+              className="flex h-[176px] w-full shrink-0 flex-col gap-3 md:h-full md:w-[324px] md:gap-[14px]"
               data-testid="search-suggestions-panel"
             >
-              <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden">
-                {connectedTitles.map((suggestion) => (
-                  <button
-                    className="flex h-12 w-full shrink-0 items-center justify-between overflow-clip rounded-[16px] border border-[rgba(223,232,247,0.98)] bg-[rgba(255,255,255,0.84)] px-4 text-left text-[15px] leading-5 font-medium text-[rgba(20,28,46,0.94)] shadow-none"
-                    key={suggestion}
-                    onClick={() => {
-                      void navigate({
-                        search: { q: suggestion },
-                        to: "/search",
-                      });
-                    }}
-                    type="button"
-                  >
-                    <span className="min-h-px min-w-px flex-1 text-left">
-                      {suggestion}
-                    </span>
-                    <span
-                      aria-hidden="true"
-                      className="shrink-0 text-center text-[14px] leading-[18px] text-[rgba(98,118,153,0.8)]"
+              <h2 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
+                You may also be interested in
+              </h2>
+              <div className="flex min-h-0 w-full flex-1 items-start gap-2 md:gap-2.5">
+                <div className="flex h-full min-w-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden px-1 [scrollbar-width:none] md:px-0 [&::-webkit-scrollbar]:hidden">
+                  {connectedTitles.map((suggestion) => (
+                    <button
+                      className="flex h-[38px] w-full shrink-0 items-center justify-between overflow-hidden rounded-lg border border-[rgba(214,227,247,0.74)] bg-[rgba(255,255,255,0.7)] py-2 pr-3 pl-[14px] text-left text-[13px] leading-[18px] font-medium text-[#131c2d] md:h-[42px] md:pl-4 md:text-[14px] md:leading-5"
+                      key={suggestion}
+                      onClick={() => {
+                        void navigate({
+                          search: { q: suggestion },
+                          to: "/search",
+                        });
+                      }}
+                      type="button"
                     >
-                      →
-                    </span>
-                  </button>
-                ))}
+                      <span className="min-w-0 flex-1 truncate text-left">
+                        {suggestion}
+                      </span>
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="size-[15px] shrink-0 text-[#606e87] md:size-4"
+                      />
+                    </button>
+                  ))}
+                </div>
+                <div
+                  aria-hidden="true"
+                  className="h-full w-2 shrink-0 rounded bg-[#e5e5e5]"
+                />
               </div>
-            </div>
+            </section>
           </div>
         </div>
       )}

@@ -14,31 +14,31 @@ interface SearchFieldProps {
 }
 
 const fieldFormClasses = {
-  compact: "w-[760px] max-w-full shrink-0",
-  hero: "w-[760px] max-w-full shrink-0",
+  compact: "w-full max-w-[760px] shrink-0",
+  hero: "w-full max-w-[760px] shrink-0",
 } as const;
 
 const fieldContainerClasses = {
   compact:
-    "h-12 rounded-2xl border border-[rgba(214,227,247,0.96)] bg-[rgba(255,255,255,0.82)] py-[10px] pl-6 pr-[10px] shadow-[0_16px_36px_rgba(95,123,185,0.1)]",
-  hero: "h-[72px] rounded-[28px] border border-[rgba(214,227,247,0.96)] bg-[rgba(255,255,255,0.82)] py-[10px] pl-6 pr-[10px] shadow-[0_16px_36px_rgba(95,123,185,0.1)]",
+    "h-14 rounded-2xl border border-[rgba(214,227,247,0.96)] bg-[rgba(255,255,255,0.82)] py-2 pl-[18px] pr-2 shadow-[0_16px_36px_rgba(95,123,185,0.1)] md:h-16 md:py-[10px] md:pl-[22px] md:pr-[10px]",
+  hero: "h-14 rounded-2xl border border-[rgba(214,227,247,0.96)] bg-[rgba(255,255,255,0.82)] py-2 pl-[18px] pr-2 shadow-[0_16px_36px_rgba(95,123,185,0.1)] md:h-16 md:py-[10px] md:pl-[22px] md:pr-[10px]",
 } as const;
 
 const inputClasses = {
   compact:
-    "h-full text-[16px] leading-6 font-medium text-[rgba(20,28,46,0.98)] placeholder:text-[rgba(99,114,143,0.72)]",
-  hero: "h-full text-[18px] leading-6 font-normal text-[rgba(20,28,46,0.98)] placeholder:text-[rgba(99,114,143,0.72)]",
+    "h-[22px] text-[14px] leading-5 font-normal text-[#131c2d] placeholder:text-[#131c2d] md:h-6 md:text-[16px] md:leading-6",
+  hero: "h-[22px] text-[14px] leading-5 font-normal text-[#131c2d] placeholder:text-[#131c2d] md:h-6 md:text-[16px] md:leading-6",
 } as const;
 
 const searchButtonClasses = {
   compact:
-    "flex size-11 shrink-0 items-center justify-center rounded-2xl bg-transparent p-0 text-[rgba(20,28,46,0.98)] shadow-none hover:bg-transparent hover:text-[rgba(20,28,46,0.98)]",
-  hero: "flex size-11 shrink-0 items-center justify-center rounded-2xl bg-transparent p-0 text-[rgba(20,28,46,0.98)] shadow-none hover:bg-transparent hover:text-[rgba(20,28,46,0.98)]",
+    "flex size-10 shrink-0 items-center justify-center rounded-2xl bg-transparent p-0 text-black shadow-none hover:bg-transparent hover:text-black md:size-11",
+  hero: "flex size-10 shrink-0 items-center justify-center rounded-2xl bg-transparent p-0 text-black shadow-none hover:bg-transparent hover:text-black md:size-11",
 } as const;
 
 const searchIconClasses = {
-  compact: "h-5 w-5",
-  hero: "h-5 w-5",
+  compact: "size-[18px] md:size-5",
+  hero: "size-[18px] md:size-5",
 } as const;
 
 export function SearchField({
@@ -85,22 +85,26 @@ interface SearchResultCardProps {
 export function SearchResultCard({ content, title }: SearchResultCardProps) {
   return (
     <div
-      className="flex h-full min-h-0 w-full flex-col items-start gap-[14px] overflow-clip rounded-[24px] border border-[rgba(223,232,247,0.98)] bg-[rgba(255,255,255,0.92)] p-5 shadow-[0_14px_28px_rgba(95,123,185,0.1)]"
+      className="flex h-[220px] w-full shrink-0 flex-col items-start gap-2.5 overflow-hidden rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] pt-4 pr-3.5 pb-3.5 pl-4 shadow-[0_18px_52px_rgba(107,132,189,0.09)] md:h-[379px] md:w-[316px] md:gap-3 md:pt-[18px] md:pr-[18px] md:pb-4 md:pl-5"
       data-testid="search-result-card"
     >
-      <div className="flex h-6 w-full flex-col items-center justify-center">
+      <div className="flex h-10 w-full shrink-0 flex-col items-start justify-start overflow-hidden md:h-6">
         <div className="w-full">
           <KnowledgeRichText text={title} variant="title" />
         </div>
       </div>
-      <div className="h-px w-full shrink-0 bg-[#dee6f4]" />
+      <div className="h-px w-full shrink-0 bg-[rgba(214,227,247,0.74)]" />
       <div
-        className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden"
+        className="flex h-[129px] w-full shrink-0 gap-2 overflow-hidden md:h-[296px]"
         data-testid="search-result-card-content"
       >
-        <div className="flex min-h-full w-full flex-col items-start">
+        <div className="h-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <KnowledgeRichText text={content} variant="content" />
         </div>
+        <div
+          aria-hidden="true"
+          className="h-full w-2 shrink-0 rounded bg-[#e5e5e5]"
+        />
       </div>
     </div>
   );
