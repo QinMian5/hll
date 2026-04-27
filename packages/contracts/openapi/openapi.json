@@ -398,7 +398,7 @@
             "type": "integer"
           },
           "descendant_card_count": {
-            "minimum": 1.0,
+            "minimum": 0.0,
             "title": "Descendant Card Count",
             "type": "integer"
           },
