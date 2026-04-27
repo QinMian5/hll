@@ -34,7 +34,7 @@ services:
     image: knowledge-api:prod
     networks:
       - backend
-      - proxy
+      - egress
 
   taxonomy_classification_webhook_receiver:
     image: knowledge-api:prod
@@ -58,7 +58,7 @@ services:
     image: knowledge-source-pipeline:prod
     networks:
       - backend
-      - proxy
+      - egress
 
   source_pipeline_webhook_receiver:
     image: knowledge-source-pipeline:prod

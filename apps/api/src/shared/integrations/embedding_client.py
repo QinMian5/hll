@@ -11,6 +11,10 @@ from typing import Any
 import httpx
 
 
+class EmbeddingServiceUnavailableError(Exception):
+    pass
+
+
 def _extract_embedding_vector(payload: dict[str, Any]) -> list[float]:
     direct_embedding = payload.get("embedding")
     if isinstance(direct_embedding, list):
@@ -40,18 +44,25 @@ class EmbeddingClient:
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
-        async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
-            response = await client.post(
-                self.api_url,
-                json={
-                    "model": self.model,
-                    "input": text,
-                },
-                headers=headers,
-            )
-            response.raise_for_status()
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                response = await client.post(
+                    self.api_url,
+                    json={
+                        "model": self.model,
+                        "input": text,
+                    },
+                    headers=headers,
+                )
+                response.raise_for_status()
 
-        return _extract_embedding_vector(response.json())
+            return _extract_embedding_vector(response.json())
+        except httpx.HTTPError as exc:
+            raise EmbeddingServiceUnavailableError("Embedding service request failed.") from exc
+        except (RuntimeError, TypeError, ValueError) as exc:
+            raise EmbeddingServiceUnavailableError(
+                "Embedding service response was invalid."
+            ) from exc
 
 
 def build_embedding_client(

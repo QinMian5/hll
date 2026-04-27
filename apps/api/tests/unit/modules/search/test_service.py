@@ -9,7 +9,9 @@ from dataclasses import dataclass
 
 import pytest
 
+from core.errors import ErrorCode, InfrastructureError
 from modules.search.service import SearchService
+from shared.integrations.embedding_client import EmbeddingServiceUnavailableError
 
 TEST_MAX_MATCHED = 3
 TEST_MAX_CONNECTED = 7
@@ -29,6 +31,11 @@ class _FakeEmbeddingClient:
     async def embed_text(self, text: str) -> list[float]:
         self.last_text = text
         return [0.1, 0.2, 0.3]
+
+
+class _UnavailableEmbeddingClient:
+    async def embed_text(self, _text: str) -> list[float]:
+        raise EmbeddingServiceUnavailableError("embedding request failed")
 
 
 @dataclass(slots=True)
@@ -97,3 +104,18 @@ async def test_search_uses_constructor_supplied_limits() -> None:
 
     assert knowledge_service.matched_limit_seen == TEST_MAX_MATCHED
     assert knowledge_service.connected_limit_seen == TEST_MAX_CONNECTED
+
+
+@pytest.mark.anyio
+async def test_search_maps_embedding_unavailability_to_infrastructure_error() -> None:
+    service = SearchService(
+        knowledge_graph_read_port=_FakeKnowledgeService(),
+        embedding_client=_UnavailableEmbeddingClient(),
+        max_matched=TEST_MAX_MATCHED,
+        max_connected=TEST_MAX_CONNECTED,
+    )
+
+    with pytest.raises(InfrastructureError) as exc_info:
+        await service.search("q")
+
+    assert exc_info.value.code is ErrorCode.INFRA_EMBEDDING_SERVICE_UNAVAILABLE

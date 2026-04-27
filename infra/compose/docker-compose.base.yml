@@ -244,6 +244,7 @@ services:
       - "8000"
     networks:
       - backend
+      - egress
     restart: unless-stopped
 
   worker:
@@ -272,7 +273,7 @@ services:
     command: ["/app/bin/run-worker.sh"]
     networks:
       - backend
-      - edge
+      - egress
     restart: unless-stopped
 
   taxonomy_classification_runtime:
@@ -429,4 +430,5 @@ volumes:
 networks:
   backend:
     internal: true
+  egress:
   edge:

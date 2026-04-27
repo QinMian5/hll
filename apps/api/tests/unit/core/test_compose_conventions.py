@@ -142,8 +142,24 @@ def test_prod_keeps_api_off_public_edge_network() -> None:
     api_base = _service_data(BASE_COMPOSE, "api")
     api_prod = _service_data(PROD_COMPOSE, "api")
 
-    assert api_base["networks"] == ["backend"]
+    assert api_base["networks"] == ["backend", "egress"]
     assert "networks" not in api_prod
+
+
+def test_outbound_runtime_roles_use_dedicated_egress_network() -> None:
+    base = _compose_data(BASE_COMPOSE)
+    networks = base["networks"]
+    assert isinstance(networks, dict)
+    assert networks["backend"] == {"internal": True}
+    assert networks["egress"] is None
+
+    for service_name in ("api", "worker"):
+        service = _service_data(BASE_COMPOSE, service_name)
+        assert service["networks"] == ["backend", "egress"]
+
+    for service_name in ("orchestrator", "taxonomy_classification_runtime"):
+        service = _service_data(PROD_COMPOSE, service_name)
+        assert service["networks"] == ["backend", "egress"]
 
 
 def test_base_web_service_reaches_private_dependencies() -> None:

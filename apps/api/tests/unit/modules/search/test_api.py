@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from httpx import AsyncClient
 
+from core.errors import ErrorCode, InfrastructureError
 from entrypoints.api import providers as api_providers
 from modules.search.schema import MatchedCardResponse, SearchResponse
 
@@ -21,6 +22,13 @@ DependencyOverrides = dict[Callable[..., Any], Callable[..., Any]]
 @dataclass(slots=True)
 class _FakeSearchService:
     async def search(self, query: str) -> SearchResponse:
+        if query == "unavailable":
+            raise InfrastructureError(
+                code=ErrorCode.INFRA_EMBEDDING_SERVICE_UNAVAILABLE,
+                message="Search dependency unavailable.",
+                hint="Retry the search later.",
+            )
+
         assert query == "hello world"
         return SearchResponse(
             matched_cards=[
@@ -59,3 +67,13 @@ async def test_search_route_rejects_empty_query(async_client: AsyncClient) -> No
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "APPLICATION_API_INPUT_INVALID"
+
+
+@pytest.mark.anyio
+async def test_search_route_returns_503_for_embedding_service_unavailable(
+    async_client: AsyncClient,
+) -> None:
+    response = await async_client.get("/api/v1/search", params={"query": "unavailable"})
+
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "INFRA_EMBEDDING_SERVICE_UNAVAILABLE"
