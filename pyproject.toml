@@ -9,8 +9,11 @@ members = [
     "apps/api",
     "apps/cli",
     "apps/knowledge_corpus",
+    "apps/mcp",
     "apps/source_pipeline",
+    "packages/contracts/generated/python",
 ]
 
 [tool.uv.sources]
 job-queue-mcp-client = { path = "/Users/mianqin/Code/job-queue-mcp/packages/python-client" }
+knowledge-contracts-client = { workspace = true }

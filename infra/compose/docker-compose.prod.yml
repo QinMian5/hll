@@ -15,6 +15,9 @@ services:
   source_pipeline_db:
     image: knowledge-source-pipeline-postgres:prod
 
+  mcp_db:
+    image: knowledge-mcp-postgres:prod
+
   migrate:
     image: knowledge-api:prod
 
@@ -26,6 +29,9 @@ services:
 
   api:
     image: knowledge-api:prod
+
+  mcp:
+    image: knowledge-mcp:prod
 
   worker:
     image: knowledge-api:prod
@@ -75,6 +81,8 @@ services:
     depends_on:
       logto:
         condition: service_healthy
+      mcp:
+        condition: service_healthy
       web:
         condition: service_started
       source_pipeline_webhook_receiver:
@@ -105,6 +113,9 @@ volumes:
   source_pipeline_postgres_data:
     external: true
     name: source_pipeline_postgres_prod_data
+  knowledge_mcp_postgres_data:
+    external: true
+    name: knowledge_mcp_postgres_prod_data
   knowledge_redis_data:
     external: true
     name: knowledge_redis_prod_data

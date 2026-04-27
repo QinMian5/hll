@@ -99,6 +99,38 @@ services:
       - edge
     restart: "no"
 
+  mcp_db:
+    build:
+      context: ../..
+      dockerfile: infra/docker/postgres/Dockerfile
+    image: knowledge-mcp-postgres:test
+    environment:
+      POSTGRES_DB: ${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}
+      POSTGRES_USER: ${KNOWLEDGE_MCP_POSTGRES_USER:?KNOWLEDGE_MCP_POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${KNOWLEDGE_MCP_POSTGRES_PASSWORD:?KNOWLEDGE_MCP_POSTGRES_PASSWORD is required}
+      APP_DB_USER: ${KNOWLEDGE_MCP_DB_USER:?KNOWLEDGE_MCP_DB_USER is required}
+      APP_DB_PASSWORD: ${KNOWLEDGE_MCP_DB_PASSWORD:?KNOWLEDGE_MCP_DB_PASSWORD is required}
+      MIGRATION_DB_USER: ${KNOWLEDGE_MCP_MIGRATION_DB_USER:?KNOWLEDGE_MCP_MIGRATION_DB_USER is required}
+      MIGRATION_DB_PASSWORD: ${KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD:?KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD is required}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $$MIGRATION_DB_USER -d $$POSTGRES_DB",
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 2s
+    ports:
+      - "55435:5432"
+    volumes:
+      - knowledge_mcp_postgres_test_data:/var/lib/postgresql
+    networks:
+      - backend
+      - edge
+    restart: "no"
+
   knowledge_corpus_migrate:
     build:
       context: ../..
@@ -138,6 +170,27 @@ services:
       - ../../apps/source_pipeline/alembic:/app/apps/source_pipeline/alembic
       - ../../apps/source_pipeline/alembic.ini:/app/apps/source_pipeline/alembic.ini
 
+  mcp_migrate:
+    build:
+      context: ../..
+      dockerfile: infra/docker/mcp/Dockerfile
+      additional_contexts:
+        job_queue_mcp_python_client: ../../../job-queue-mcp/packages/python-client
+    image: knowledge-mcp:test
+    depends_on:
+      mcp_db:
+        condition: service_healthy
+    environment:
+      KNOWLEDGE_MCP_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_MCP_DB_USER:?KNOWLEDGE_MCP_DB_USER is required}:${KNOWLEDGE_MCP_DB_PASSWORD:?KNOWLEDGE_MCP_DB_PASSWORD is required}@mcp_db:5432/${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}
+      KNOWLEDGE_MCP_MIGRATION_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_MCP_MIGRATION_DB_USER:?KNOWLEDGE_MCP_MIGRATION_DB_USER is required}:${KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD:?KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD is required}@mcp_db:5432/${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}
+    networks:
+      - backend
+    restart: "no"
+    volumes:
+      - ../../apps/mcp/src:/app/apps/mcp/src
+      - ../../apps/mcp/alembic:/app/apps/mcp/alembic
+      - ../../apps/mcp/alembic.ini:/app/apps/mcp/alembic.ini
+
   redis:
     image: redis:7-bookworm
     command: ["redis-server", "--save", "", "--appendonly", "no"]
@@ -160,6 +213,7 @@ volumes:
   postgres_test_data:
   knowledge_corpus_postgres_test_data:
   source_pipeline_postgres_test_data:
+  knowledge_mcp_postgres_test_data:
   redis_test_data:
 
 networks:

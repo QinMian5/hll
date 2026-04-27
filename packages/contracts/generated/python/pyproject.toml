@@ -1,0 +1,18 @@
+# abstract: Generated Python package metadata for private API contract clients.
+# out_of_scope: Handwritten runtime integration logic and external package publishing.
+[project]
+name = "knowledge-contracts-client"
+version = "0.1.0"
+description = "Generated Python contract client for repository-owned private APIs."
+requires-python = ">=3.14"
+dependencies = [
+    "httpx>=0.28.1",
+    "pydantic>=2.12.5",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.2,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["knowledge_contracts_client"]

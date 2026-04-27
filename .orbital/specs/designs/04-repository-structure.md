@@ -21,6 +21,7 @@ repo/
     api/
     cli/
     knowledge_corpus/
+    mcp/
     source_pipeline/
     web/
   packages/
@@ -40,6 +41,7 @@ repo/
 - `apps/api`: FastAPI source, API tests, and Alembic assets.
 - `apps/cli`: local operator-facing CLI source.
 - `apps/knowledge_corpus`: local/offline corpus app source and app-local DB lifecycle assets.
+- `apps/mcp`: public MCP server source, MCP tests, app-local Alembic assets, PAT-backed programmatic access control, quota and usage attribution, MCP-owned usage-table access, and generated internal search API consumption.
 - `apps/source_pipeline`: project-owned source-processing runtime, queue orchestration, and pipeline state.
 - `apps/web`: React web client source, Express BFF server, public web API endpoints, server-side web session handling, and web access-control state.
 - `packages/contracts`: OpenAPI snapshot, generated clients/types, contracts scripts.
@@ -121,6 +123,21 @@ apps/knowledge_corpus/
   tests/
 ```
 
+## MCP Application Layout (`apps/mcp`)
+```text
+apps/mcp/
+  alembic/
+  src/
+    knowledge_mcp/
+      auth/
+      internal_api/
+      quota/
+      usage/
+      server.py
+      config.py
+  tests/
+```
+
 ## Source Pipeline Layout (`apps/source_pipeline`)
 ```text
 apps/source_pipeline/
@@ -150,14 +167,16 @@ packages/contracts/
   generated/
     types.ts
     client.ts
+    python/
   scripts/
 ```
 
 ## Contract Integration
 - Backend exports OpenAPI to `packages/contracts/openapi/openapi.json`.
-- Generated artifacts under `packages/contracts/generated` are versioned.
+- Generated artifacts under `packages/contracts/generated` are versioned for repository-owned internal API consumers.
 - Repository-owned code that calls internal backend APIs consumes those APIs only through generated contract artifacts.
 - Browser-side web code consumes public web API endpoints owned by `apps/web` and does not call internal backend APIs directly.
+- MCP service code consumes the private search API through generated Python internal API client artifacts under `packages/contracts/generated/python/` and does not call private FastAPI routes through ad hoc HTTP code.
 - Owned `packages/` content is limited to repository-owned contract artifacts. Upstream client SDKs are consumed as external package dependencies by the app members that use them.
 
 ## Boundary Rules
@@ -179,6 +198,10 @@ packages/contracts/
 16. `apps/source_pipeline` must not import `apps/api/src/entrypoints/**`.
 17. `apps/source_pipeline` interacts with the online knowledge system only through accepted HTTP contracts and must not import `apps/api/src/modules/ingestion/**`, `apps/api/src/modules/knowledge_graph/**`, or write knowledge database tables directly.
 18. `apps/web` owns public web HTTP endpoints and must not import `apps/api/src/**`; it interacts with `apps/api` through the generated internal API client over Docker-network HTTP.
+19. `apps/mcp` owns public MCP endpoints and must not import `apps/api/src/**`; it interacts with `apps/api` through generated internal API client artifacts over Docker-network HTTP.
+20. `apps/mcp` must not persist, log, or expose raw Logto personal access tokens.
+21. `apps/mcp` may access only MCP-owned usage tables in the dedicated MCP PostgreSQL database and must not read or write graph, taxonomy, ingestion, source-pipeline, or job-queue linkage tables directly.
+22. `apps/mcp` owns MCP usage persistence migrations through its own Alembic environment and must not register MCP persistence models in `apps/api` migration metadata.
 
 ## Governance Anchors
 - Architecture constraints: `03-architecture-constraints`.

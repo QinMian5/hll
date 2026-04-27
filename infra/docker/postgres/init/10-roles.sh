@@ -40,4 +40,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "${migration_user}" IN SCHEMA public
 -- pgvector extension creation typically requires elevated rights.
 ALTER ROLE "${migration_user}" WITH SUPERUSER;
 SQL
-

@@ -42,7 +42,7 @@ out_of_scope: MCP server implementation, backend domain ranking semantics, and L
   - `infra/docker/nginx/default.conf`.
 
 ## Design Approach
-- **Approach:** The web application uses a public Express BFF as the only browser data boundary. The BFF performs session resolution, anonymous identity assignment, quota checks, and internal API orchestration before returning web-facing JSON responses. FastAPI remains the private domain/API service and continues to own internal OpenAPI contracts. Public programmatic search is governed by a separate Logto-authenticated MCP surface when that surface is designed and implemented.
+- **Approach:** The web application uses a public Express BFF as the only browser data boundary. The BFF performs session resolution, anonymous identity assignment, quota checks, and internal API orchestration before returning web-facing JSON responses. FastAPI remains the private domain/API service and continues to own internal OpenAPI contracts. Public programmatic search is governed by the separate Logto-authenticated MCP surface defined in `mcp-public-search.md`.
 - **Key Elements:**
   - **Public web host:** The public application host serves the React app and `/web-api/*` through the `web` BFF. Nginx does not publish private FastAPI REST routes as public product endpoints.
   - **BFF runtime:** `apps/web` uses Node.js and Express. The production process serves the built Vite assets and handles web API and auth routes from the same container.
@@ -57,7 +57,7 @@ out_of_scope: MCP server implementation, backend domain ranking semantics, and L
   - **Internal route mapping:** `GET /web-api/search` maps to private `GET /api/v1/search`. `GET /web-api/taxonomy/view/root` maps to private `GET /api/v1/taxonomy/view/root`. `GET /web-api/taxonomy/view/nodes/{node_id}` maps to private `GET /api/v1/taxonomy/view/nodes/{node_id}`. `POST /web-api/taxonomy/view/leaves/{node_id}/details` maps to private `POST /api/v1/taxonomy/view/leaves/{node_id}/details`.
   - **Private internal API:** FastAPI remains reachable to repository services on Docker networks and local development host ports. It is not a public product API in production.
   - **Error responses:** Quota failures return `429` with `Retry-After` when available and a machine-readable web error code. Invalid or expired sessions are treated as anonymous when the endpoint permits anonymous use. Internal API failures are mapped to web responses without exposing internal stack traces.
-  - **Future MCP boundary:** External programmatic search access is owned by a future MCP server with Logto authentication. The BFF does not act as the public programmatic API for external clients.
+  - **MCP boundary:** External programmatic search access is owned by the MCP server with Logto personal-access-token authentication. The BFF does not act as the public programmatic API for external clients.
 - **Interactions:**
   - Browser loads the app from `web`, then calls `/web-api/auth/session` to render the current auth state.
   - Anonymous browser data requests receive or reuse an anonymous identity cookie, pass quota checks, and are forwarded by the BFF to the private API.
@@ -75,6 +75,6 @@ out_of_scope: MCP server implementation, backend domain ranking semantics, and L
   - Compose/config tests verify `web` receives internal API, Redis, Logto, and cookie settings while the browser runtime does not receive the private API base URL.
   - Contract drift checks continue to validate the private FastAPI OpenAPI artifacts consumed by the BFF.
 - **Evidence:**
-  - Active specs describe the public web BFF boundary, private API boundary, and future MCP boundary without conflicting route exposure claims.
+  - Active specs describe the public web BFF boundary, private API boundary, and MCP boundary without conflicting route exposure claims.
   - Targeted backend/web tests pass for BFF auth, quota, internal API adapters, and frontend data adapters.
   - Nginx and compose configuration inspection confirms the public route and Docker-network boundaries.

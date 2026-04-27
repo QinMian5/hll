@@ -7,6 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 CORPUS_DIR="$ROOT_DIR/apps/knowledge_corpus"
+MCP_DIR="$ROOT_DIR/apps/mcp"
 SOURCE_PIPELINE_DIR="$ROOT_DIR/apps/source_pipeline"
 WEB_DIR="$ROOT_DIR/apps/web"
 
@@ -15,6 +16,9 @@ uv --directory "$API_DIR" run pytest "$API_DIR/tests/unit"
 
 echo "[test] knowledge corpus unit (pytest)"
 uv --directory "$CORPUS_DIR" run pytest "$CORPUS_DIR/tests/unit"
+
+echo "[test] mcp (pytest)"
+uv --directory "$MCP_DIR" run pytest
 
 echo "[test] source pipeline unit (pytest)"
 uv --directory "$SOURCE_PIPELINE_DIR" run pytest "$SOURCE_PIPELINE_DIR/tests/unit"

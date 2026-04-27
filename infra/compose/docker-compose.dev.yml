@@ -38,6 +38,9 @@ services:
   source_pipeline_db:
     image: knowledge-source-pipeline-postgres:dev
 
+  mcp_db:
+    image: knowledge-mcp-postgres:dev
+
   migrate:
     image: knowledge-api:dev
     volumes:
@@ -59,6 +62,13 @@ services:
       - ../../apps/source_pipeline/alembic:/app/apps/source_pipeline/alembic
       - ../../apps/source_pipeline/alembic.ini:/app/apps/source_pipeline/alembic.ini
 
+  mcp_migrate:
+    image: knowledge-mcp:dev
+    volumes:
+      - ../../apps/mcp/src:/app/apps/mcp/src
+      - ../../apps/mcp/alembic:/app/apps/mcp/alembic
+      - ../../apps/mcp/alembic.ini:/app/apps/mcp/alembic.ini
+
   api:
     image: knowledge-api:dev
     environment:
@@ -69,6 +79,19 @@ services:
       - ../../apps/api/alembic.ini:/app/apps/api/alembic.ini
     ports:
       - "8001:8000"
+
+  mcp:
+    image: knowledge-mcp:dev
+    environment:
+      MCP_RELOAD: "1"
+    volumes:
+      - ../../apps/mcp/src:/app/apps/mcp/src
+      - ../../apps/mcp/alembic:/app/apps/mcp/alembic
+      - ../../apps/mcp/alembic.ini:/app/apps/mcp/alembic.ini
+      - ../../apps/mcp/tests:/app/apps/mcp/tests
+      - ../../packages/contracts/generated/python/src:/app/packages/contracts/generated/python/src
+    ports:
+      - "8002:8080"
 
   worker:
     image: knowledge-api:dev

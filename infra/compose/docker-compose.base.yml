@@ -92,6 +92,30 @@ services:
       - backend
     restart: unless-stopped
 
+  mcp_db:
+    build:
+      context: ../..
+      dockerfile: infra/docker/postgres/Dockerfile
+    environment:
+      POSTGRES_DB: ${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}
+      POSTGRES_USER: ${KNOWLEDGE_MCP_POSTGRES_USER:?KNOWLEDGE_MCP_POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${KNOWLEDGE_MCP_POSTGRES_PASSWORD:?KNOWLEDGE_MCP_POSTGRES_PASSWORD is required}
+      APP_DB_USER: ${KNOWLEDGE_MCP_DB_USER:?KNOWLEDGE_MCP_DB_USER is required}
+      APP_DB_PASSWORD: ${KNOWLEDGE_MCP_DB_PASSWORD:?KNOWLEDGE_MCP_DB_PASSWORD is required}
+      MIGRATION_DB_USER: ${KNOWLEDGE_MCP_MIGRATION_DB_USER:?KNOWLEDGE_MCP_MIGRATION_DB_USER is required}
+      MIGRATION_DB_PASSWORD: ${KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD:?KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$MIGRATION_DB_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    volumes:
+      - knowledge_mcp_postgres_data:/var/lib/postgresql
+    networks:
+      - backend
+    restart: unless-stopped
+
   redis:
     image: redis:7-bookworm
     command: ["redis-server", "--save", "", "--appendonly", "no"]
@@ -203,6 +227,23 @@ services:
       - backend
     restart: "no"
 
+  mcp_migrate:
+    build:
+      context: ../..
+      dockerfile: infra/docker/mcp/Dockerfile
+      additional_contexts:
+        job_queue_mcp_python_client: ../../../job-queue-mcp/packages/python-client
+    depends_on:
+      mcp_db:
+        condition: service_healthy
+    environment:
+      KNOWLEDGE_MCP_DATABASE_URL: ${KNOWLEDGE_MCP_DATABASE_URL:?KNOWLEDGE_MCP_DATABASE_URL is required}
+      KNOWLEDGE_MCP_MIGRATION_DATABASE_URL: ${KNOWLEDGE_MCP_MIGRATION_DATABASE_URL:?KNOWLEDGE_MCP_MIGRATION_DATABASE_URL is required}
+    command: ["alembic", "-c", "/app/apps/mcp/alembic.ini", "upgrade", "head"]
+    networks:
+      - backend
+    restart: "no"
+
   api:
     build:
       context: ../..
@@ -249,6 +290,70 @@ services:
     networks:
       - backend
       - egress
+    restart: unless-stopped
+
+  mcp:
+    build:
+      context: ../..
+      dockerfile: infra/docker/mcp/Dockerfile
+      additional_contexts:
+        job_queue_mcp_python_client: ../../../job-queue-mcp/packages/python-client
+    depends_on:
+      mcp_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mcp_migrate:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+      logto:
+        condition: service_healthy
+    environment:
+      KNOWLEDGE_MCP_HOST: ${KNOWLEDGE_MCP_HOST:-0.0.0.0}
+      KNOWLEDGE_MCP_PORT: ${KNOWLEDGE_MCP_PORT:-8080}
+      KNOWLEDGE_MCP_PUBLIC_BASE_URL: ${KNOWLEDGE_MCP_PUBLIC_BASE_URL:?KNOWLEDGE_MCP_PUBLIC_BASE_URL is required}
+      KNOWLEDGE_MCP_INTERNAL_API_BASE_URL: ${KNOWLEDGE_MCP_INTERNAL_API_BASE_URL:?KNOWLEDGE_MCP_INTERNAL_API_BASE_URL is required}
+      KNOWLEDGE_MCP_REDIS_URL: ${KNOWLEDGE_MCP_REDIS_URL:?KNOWLEDGE_MCP_REDIS_URL is required}
+      KNOWLEDGE_MCP_DATABASE_URL: ${KNOWLEDGE_MCP_DATABASE_URL:?KNOWLEDGE_MCP_DATABASE_URL is required}
+      KNOWLEDGE_MCP_LOGTO_ISSUER: ${KNOWLEDGE_MCP_LOGTO_ISSUER:?KNOWLEDGE_MCP_LOGTO_ISSUER is required}
+      KNOWLEDGE_MCP_LOGTO_DISCOVERY_URL: ${KNOWLEDGE_MCP_LOGTO_DISCOVERY_URL:?KNOWLEDGE_MCP_LOGTO_DISCOVERY_URL is required}
+      KNOWLEDGE_MCP_LOGTO_TOKEN_URL: ${KNOWLEDGE_MCP_LOGTO_TOKEN_URL:?KNOWLEDGE_MCP_LOGTO_TOKEN_URL is required}
+      KNOWLEDGE_MCP_LOGTO_RESOURCE: ${KNOWLEDGE_MCP_LOGTO_RESOURCE:?KNOWLEDGE_MCP_LOGTO_RESOURCE is required}
+      KNOWLEDGE_MCP_LOGTO_REQUIRED_SCOPES: ${KNOWLEDGE_MCP_LOGTO_REQUIRED_SCOPES:-search:use}
+      KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_ID: ${KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_ID:?KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_ID is required}
+      KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_SECRET: ${KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_SECRET:?KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_SECRET is required}
+      KNOWLEDGE_MCP_PAT_FINGERPRINT_SECRET: ${KNOWLEDGE_MCP_PAT_FINGERPRINT_SECRET:?KNOWLEDGE_MCP_PAT_FINGERPRINT_SECRET is required}
+      KNOWLEDGE_MCP_ALLOWED_ORIGINS: ${KNOWLEDGE_MCP_ALLOWED_ORIGINS:-}
+      KNOWLEDGE_MCP_TOKEN_CACHE_TTL_SECONDS: ${KNOWLEDGE_MCP_TOKEN_CACHE_TTL_SECONDS:-300}
+      KNOWLEDGE_MCP_AUTH_HTTP_TIMEOUT_SECONDS: ${KNOWLEDGE_MCP_AUTH_HTTP_TIMEOUT_SECONDS:-5}
+      KNOWLEDGE_MCP_QUOTA_REDIS_PREFIX: ${KNOWLEDGE_MCP_QUOTA_REDIS_PREFIX:-knowledge:mcp:quota:}
+      KNOWLEDGE_MCP_USER_BURST_LIMIT: ${KNOWLEDGE_MCP_USER_BURST_LIMIT:-60}
+      KNOWLEDGE_MCP_USER_BURST_WINDOW_SECONDS: ${KNOWLEDGE_MCP_USER_BURST_WINDOW_SECONDS:-60}
+      KNOWLEDGE_MCP_USER_TOTAL_LIMIT: ${KNOWLEDGE_MCP_USER_TOTAL_LIMIT:-1000}
+      KNOWLEDGE_MCP_USER_TOTAL_WINDOW_SECONDS: ${KNOWLEDGE_MCP_USER_TOTAL_WINDOW_SECONDS:-86400}
+      KNOWLEDGE_MCP_PAT_BURST_LIMIT: ${KNOWLEDGE_MCP_PAT_BURST_LIMIT:-30}
+      KNOWLEDGE_MCP_PAT_BURST_WINDOW_SECONDS: ${KNOWLEDGE_MCP_PAT_BURST_WINDOW_SECONDS:-60}
+      KNOWLEDGE_MCP_PAT_TOTAL_LIMIT: ${KNOWLEDGE_MCP_PAT_TOTAL_LIMIT:-500}
+      KNOWLEDGE_MCP_PAT_TOTAL_WINDOW_SECONDS: ${KNOWLEDGE_MCP_PAT_TOTAL_WINDOW_SECONDS:-86400}
+    command: ["/app/bin/run-mcp.sh"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+    expose:
+      - "8080"
+    networks:
+      - backend
+      - edge
     restart: unless-stopped
 
   worker:
@@ -429,6 +534,7 @@ volumes:
   knowledge_logto_postgres_data:
   knowledge_corpus_postgres_data:
   source_pipeline_postgres_data:
+  knowledge_mcp_postgres_data:
   knowledge_redis_data:
 
 networks:

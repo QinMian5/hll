@@ -7,6 +7,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 CORPUS_DIR="$ROOT_DIR/apps/knowledge_corpus"
+MCP_DIR="$ROOT_DIR/apps/mcp"
 SOURCE_PIPELINE_DIR="$ROOT_DIR/apps/source_pipeline"
 
 echo "[lint] backend (ruff)"
@@ -17,6 +18,9 @@ uv run --project "$API_DIR" lint-imports --config "$API_DIR/pyproject.toml"
 
 echo "[lint] knowledge corpus (ruff)"
 uv run --project "$CORPUS_DIR" ruff check "$CORPUS_DIR/src" "$CORPUS_DIR/tests" "$CORPUS_DIR/alembic"
+
+echo "[lint] mcp (ruff)"
+uv run --project "$MCP_DIR" ruff check "$MCP_DIR/src" "$MCP_DIR/tests" "$MCP_DIR/alembic"
 
 echo "[lint] source pipeline (ruff)"
 uv run --project "$SOURCE_PIPELINE_DIR" ruff check \

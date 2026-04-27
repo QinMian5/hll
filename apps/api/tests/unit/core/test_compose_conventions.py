@@ -16,7 +16,13 @@ BASE_COMPOSE = COMPOSE_DIR / "docker-compose.base.yml"
 DEV_COMPOSE = COMPOSE_DIR / "docker-compose.dev.yml"
 PROD_COMPOSE = COMPOSE_DIR / "docker-compose.prod.yml"
 TEST_COMPOSE = COMPOSE_DIR / "docker-compose.test.yml"
+NGINX_CONF = REPO_ROOT / "infra" / "docker" / "nginx" / "default.conf"
 PROD_VOLUMES_HELPER = REPO_ROOT / "scripts" / "lib" / "prod-volumes.sh"
+POSTGRES_ROLE_INIT = REPO_ROOT / "infra" / "docker" / "postgres" / "init" / "10-roles.sh"
+POSTGRES_ROLE_BOOTSTRAP = REPO_ROOT / "scripts" / "lib" / "postgres-role-bootstrap.sh"
+SCRIPT_DIR = REPO_ROOT / "scripts"
+DEV_UP_SCRIPT = SCRIPT_DIR / "dev-up.sh"
+PROD_UP_SCRIPT = SCRIPT_DIR / "prod-up.sh"
 
 
 def _read(path: Path) -> str:
@@ -64,6 +70,71 @@ def test_environment_overlays_own_compose_project_names() -> None:
     assert _top_level_name(TEST_COMPOSE) == "knowledge-test"
 
 
+def test_dev_migration_scripts_do_not_override_compose_project_name() -> None:
+    for script_name in (
+        "alembic-autogen.sh",
+        "alembic-upgrade-dev.sh",
+    ):
+        script = _read(SCRIPT_DIR / script_name)
+
+        assert "DEV_COMPOSE_PROJECT" not in script
+        assert '\n  -p "' not in script
+
+
+def test_stack_start_scripts_clear_all_one_shot_migration_jobs() -> None:
+    for path in (DEV_UP_SCRIPT, PROD_UP_SCRIPT):
+        script = _read(path)
+
+        for service_name in (
+            "migrate",
+            "knowledge_corpus_migrate",
+            "source_pipeline_migrate",
+            "mcp_migrate",
+        ):
+            assert re.search(rf"docker compose [^\n]*\brm\b[^\n]*\b{service_name}\b", script)
+            assert re.search(rf"docker compose [^\n]*\blogs\b[^\n]*\b{service_name}\b", script)
+
+
+def test_stack_start_scripts_converge_postgres_roles_before_migrations() -> None:
+    bootstrap_helper = _read(POSTGRES_ROLE_BOOTSTRAP)
+    assert re.search(r"docker compose [^\n]*\bup\b[^\n]*--wait postgres", bootstrap_helper)
+    assert "exec -T postgres /docker-entrypoint-initdb.d/10-roles.sh" in bootstrap_helper
+
+    for path in (DEV_UP_SCRIPT, PROD_UP_SCRIPT):
+        script = _read(path)
+
+        assert "scripts/lib/postgres-role-bootstrap.sh" in script
+        assert 'converge_online_postgres_roles "${compose_args[@]}"' in script
+
+
+def test_makefile_exposes_environment_scoped_alembic_entries_only() -> None:
+    makefile = _read(REPO_ROOT / "Makefile")
+
+    assert "alembic-autogen:" in makefile
+    assert "alembic-upgrade-dev:" in makefile
+    assert "alembic-upgrade-test:" in makefile
+    assert "alembic-upgrade-prod:" in makefile
+    assert "mcp-alembic" not in makefile
+
+
+def test_repository_does_not_expose_app_specific_alembic_scripts() -> None:
+    for script_name in (
+        "knowledge-corpus-alembic-autogen.sh",
+        "knowledge-corpus-alembic-upgrade-dev.sh",
+        "knowledge-corpus-alembic-upgrade-test.sh",
+        "knowledge-corpus-alembic-upgrade-prod.sh",
+        "source-pipeline-alembic-autogen.sh",
+        "source-pipeline-alembic-upgrade-dev.sh",
+        "source-pipeline-alembic-upgrade-test.sh",
+        "source-pipeline-alembic-upgrade-prod.sh",
+        "mcp-alembic-autogen.sh",
+        "mcp-alembic-upgrade-dev.sh",
+        "mcp-alembic-upgrade-test.sh",
+        "mcp-alembic-upgrade-prod.sh",
+    ):
+        assert not (SCRIPT_DIR / script_name).exists()
+
+
 def test_base_compose_does_not_pin_environment_specific_images() -> None:
     assert all(":dev" not in line for line in _image_lines(BASE_COMPOSE))
     assert all(":prod" not in line for line in _image_lines(BASE_COMPOSE))
@@ -87,6 +158,7 @@ def test_prod_compose_owns_all_external_prod_volume_names() -> None:
         "knowledge_logto_postgres_prod_data",
         "knowledge_corpus_postgres_prod_data",
         "source_pipeline_postgres_prod_data",
+        "knowledge_mcp_postgres_prod_data",
         "knowledge_redis_prod_data",
     ):
         assert f"name: {volume_name}" in prod
@@ -190,3 +262,99 @@ def test_prod_web_no_longer_exposes_browser_api_origin_config() -> None:
     assert isinstance(environment, dict)
     assert "VITE_API_BASE_URL" not in environment
     assert "API_PROXY_TARGET" not in environment
+
+
+def test_online_postgres_init_does_not_bootstrap_mcp_role_or_schema() -> None:
+    script = _read(POSTGRES_ROLE_INIT)
+
+    assert "MCP_DB_USER" not in script
+    assert "MCP_DB_PASSWORD" not in script
+    assert "CREATE SCHEMA IF NOT EXISTS mcp_usage" not in script
+    assert "GRANT USAGE ON SCHEMA mcp_usage" not in script
+    assert "IN SCHEMA mcp_usage" not in script
+
+
+def test_base_compose_defines_mcp_migration_service() -> None:
+    mcp_db = _service_data(BASE_COMPOSE, "mcp_db")
+    assert mcp_db["build"]["dockerfile"] == "infra/docker/postgres/Dockerfile"
+    assert mcp_db["volumes"] == ["knowledge_mcp_postgres_data:/var/lib/postgresql"]
+    assert mcp_db["networks"] == ["backend"]
+
+    mcp_db_environment = mcp_db["environment"]
+    assert isinstance(mcp_db_environment, dict)
+    assert mcp_db_environment["POSTGRES_DB"] == (
+        "${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}"
+    )
+    assert mcp_db_environment["APP_DB_USER"] == (
+        "${KNOWLEDGE_MCP_DB_USER:?KNOWLEDGE_MCP_DB_USER is required}"
+    )
+    assert mcp_db_environment["MIGRATION_DB_USER"] == (
+        "${KNOWLEDGE_MCP_MIGRATION_DB_USER:?KNOWLEDGE_MCP_MIGRATION_DB_USER is required}"
+    )
+
+    mcp_migrate = _service_data(BASE_COMPOSE, "mcp_migrate")
+
+    assert mcp_migrate["build"]["dockerfile"] == "infra/docker/mcp/Dockerfile"
+    assert mcp_migrate["command"] == [
+        "alembic",
+        "-c",
+        "/app/apps/mcp/alembic.ini",
+        "upgrade",
+        "head",
+    ]
+    assert mcp_migrate["networks"] == ["backend"]
+    assert mcp_migrate["depends_on"] == {"mcp_db": {"condition": "service_healthy"}}
+
+    environment = mcp_migrate["environment"]
+    assert isinstance(environment, dict)
+    assert environment["KNOWLEDGE_MCP_MIGRATION_DATABASE_URL"] == (
+        "${KNOWLEDGE_MCP_MIGRATION_DATABASE_URL:?KNOWLEDGE_MCP_MIGRATION_DATABASE_URL is required}"
+    )
+
+
+def test_base_compose_defines_public_mcp_service_with_private_dependencies() -> None:
+    mcp = _service_data(BASE_COMPOSE, "mcp")
+
+    assert mcp["build"]["dockerfile"] == "infra/docker/mcp/Dockerfile"
+    assert mcp["command"] == ["/app/bin/run-mcp.sh"]
+    assert mcp["networks"] == ["backend", "edge"]
+    assert mcp["expose"] == ["8080"]
+    assert set(mcp["depends_on"]) == {"api", "redis", "mcp_db", "mcp_migrate", "logto"}
+
+    environment = mcp["environment"]
+    assert isinstance(environment, dict)
+    for key in (
+        "KNOWLEDGE_MCP_PUBLIC_BASE_URL",
+        "KNOWLEDGE_MCP_INTERNAL_API_BASE_URL",
+        "KNOWLEDGE_MCP_REDIS_URL",
+        "KNOWLEDGE_MCP_DATABASE_URL",
+        "KNOWLEDGE_MCP_LOGTO_ISSUER",
+        "KNOWLEDGE_MCP_LOGTO_DISCOVERY_URL",
+        "KNOWLEDGE_MCP_LOGTO_TOKEN_URL",
+        "KNOWLEDGE_MCP_LOGTO_RESOURCE",
+        "KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_ID",
+        "KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_SECRET",
+        "KNOWLEDGE_MCP_PAT_FINGERPRINT_SECRET",
+        "KNOWLEDGE_MCP_ALLOWED_ORIGINS",
+    ):
+        assert key in environment
+
+
+def test_dev_and_prod_compose_define_mcp_image_and_ingress_dependencies() -> None:
+    dev_mcp = _service_data(DEV_COMPOSE, "mcp")
+    prod_mcp = _service_data(PROD_COMPOSE, "mcp")
+    prod_nginx = _service_data(PROD_COMPOSE, "nginx")
+
+    assert dev_mcp["image"] == "knowledge-mcp:dev"
+    assert dev_mcp["ports"] == ["8002:8080"]
+    assert prod_mcp["image"] == "knowledge-mcp:prod"
+    assert "mcp" in prod_nginx["depends_on"]
+
+
+def test_nginx_routes_public_mcp_without_exposing_private_api() -> None:
+    nginx = _read(NGINX_CONF)
+
+    assert "set $upstream_mcp mcp:8080;" in nginx
+    assert "location /mcp" in nginx
+    assert "proxy_pass http://$upstream_mcp;" in nginx
+    assert "location /api/v1" not in nginx

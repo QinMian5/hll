@@ -1,5 +1,5 @@
 ---
-abstract: High-level system definition for a public web, private API, and operator-assisted open knowledge network.
+abstract: High-level system definition for a public web, public MCP, private API, and operator-assisted open knowledge network.
 out_of_scope: Implementation details, data-model internals, and module-level technical specifications.
 ---
 
@@ -10,8 +10,8 @@ out_of_scope: Implementation details, data-model internals, and module-level tec
 - Superseded boundaries are removed instead of preserved as transition history.
 
 ## System Definition
-The system is an open knowledge network for the agent era with a public web access surface, private service APIs, and operator-assisted source processing.
-V1 exposes public web browsing and search through a BFF, private internal search read, taxonomy drill-down read, and ingestion accept HTTP APIs, plus a local operator-facing CLI for reviewed card submission.
+The system is an open knowledge network for the agent era with public web and MCP access surfaces, private service APIs, and operator-assisted source processing.
+V1 exposes public web browsing and search through a BFF, public MCP search through a Logto personal-access-token boundary, private internal search read, taxonomy drill-down read, and ingestion accept HTTP APIs, plus a local operator-facing CLI for reviewed card submission.
 The platform organizes knowledge as atomic cards and relation links to support machine-oriented retrieval, taxonomy-first hierarchical exploration, and operator-guided incremental classification.
 
 ## Target Users
@@ -25,6 +25,7 @@ The core value is open knowledge dissemination through a machine-consumable know
 - Private internal search read HTTP API.
 - Private internal taxonomy drill-down HTTP APIs (`/api/v1/taxonomy/view/root`, `/api/v1/taxonomy/view/nodes/{node_id}`, `/api/v1/taxonomy/view/leaves/{node_id}/details`).
 - Public web access through a BFF with anonymous browsing quotas and Logto-backed sign-in for higher quotas.
+- Public MCP search access through Logto personal-access-token authentication, account-level quota, and token-level attribution.
 - Private internal ingestion accept HTTP API for platform-official card construction.
 - Local operator-facing CLI for single-card review and submission into ingestion API.
 - Atomic knowledge cards.
@@ -40,7 +41,6 @@ The core value is open knowledge dissemination through a machine-consumable know
 - Multi-card or interactive authoring CLI workflows beyond single-card review/submission.
 - User contribution workflow.
 - Public REST API access for external users or external programmatic clients.
-- MCP server implementation.
 - Source-verification requirements.
 - Iterative relation-evolution algorithms beyond initial dot-product strength.
 
@@ -49,12 +49,12 @@ The core value is open knowledge dissemination through a machine-consumable know
 - Database baseline is established.
 - Taxonomy drill-down visualization is available in frontend.
 - Public web browsing works through the BFF access boundary with anonymous and logged-in quota policy.
+- Public MCP search works through the MCP access boundary with Logto personal-access-token authentication and usage attribution.
 - Ingestion-driven relation strength is computed and usable in search and leaf-level graph views.
 - New cards enter taxonomy browsing through `Root -> Unclassified`.
 - Background classification can move cards from a scope's `Unclassified` leaf into child-scope `Unclassified` leaves.
 
 ## Future Expansion Directions
 - Community contribution and governance models.
-- Programmatic MCP access-control models.
 - Source provenance and verification models.
 - Relation-evolution algorithms beyond initial similarity.

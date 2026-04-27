@@ -1,5 +1,5 @@
 ---
-abstract: Module boundary and responsibility definition for the V1 public web, private API, and project-owned source-processing pipeline.
+abstract: Module boundary and responsibility definition for the V1 public web, public MCP, private API, and project-owned source-processing pipeline.
 out_of_scope: Detailed implementation, framework-specific wiring, and storage-engine internals.
 ---
 
@@ -11,7 +11,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
-- **Scope/Boundaries:** Covers ownership for browser frontend, web BFF, backend API, operator CLI, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, source_pipeline, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
+- **Scope/Boundaries:** Covers ownership for browser frontend, web BFF, MCP service, backend API, operator CLI, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, source_pipeline, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
 - **Related Requirements:** R-001, R-003, R-004, R-005, R-006, R-007.
 
 ## Module Responsibilities
@@ -43,6 +43,22 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Graph persistence ownership.
   - Taxonomy persistence ownership.
   - Public programmatic MCP access.
+
+### MCP Service
+- **Responsibilities:**
+  - Serve the public remote MCP endpoint.
+  - Own MCP protocol handling, tool listing, and tool-call response shaping.
+  - Expose the public `search` tool for external model clients.
+  - Own Logto personal-access-token exchange and access-token validation for MCP callers.
+  - Own MCP account-level quota, token-level quota, and usage attribution.
+  - Call private backend search API through generated contract artifacts over Docker-network HTTP.
+- **Non-responsibilities:**
+  - Browser session ownership.
+  - Public web route ownership.
+  - Backend domain ranking semantics.
+  - Graph persistence ownership.
+  - Taxonomy persistence ownership.
+  - Non-search MCP tools.
 
 ### Backend API
 - **Responsibilities:**
@@ -189,11 +205,14 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - Redis + Dramatiq for ingestion asynchronous workflows.
 - `job-queue-mcp` for `page-to-card`, `card-review`, `card-repair`, and `taxonomy_classification` job dispatch plus accepted-result retrieval.
 - `job-queue-mcp-client` for Python producer/result-reader calls and machine-to-machine token acquisition against `job-queue-mcp`.
+- Model Context Protocol Python SDK for the public MCP server.
+- Logto personal access token exchange for public MCP caller authorization.
 - OpenAI Embeddings API for ingestion worker and search query embedding.
-- PostgreSQL as persistent truth store for graph and taxonomy, plus dedicated app-local PostgreSQL services for `knowledge_corpus` and `source_pipeline`.
+- PostgreSQL as persistent truth store for graph and taxonomy, plus dedicated app-local PostgreSQL services for `knowledge_corpus`, `source_pipeline`, and MCP usage records.
 
 ## Dependency Direction
 - `Frontend -> Web BFF(search) -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`
+- `MCP Client -> MCP Service(search) -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`
 - `Frontend -> Web BFF(taxonomy view) -> Backend API(taxonomy view) -> entrypoints.api -> taxonomy -> knowledge_graph + taxonomy -> Database`
 - `Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
@@ -205,5 +224,5 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `core` is inbound-only; it does not import `entrypoints/modules/shared`.
 
 ## V1 Boundary Summary
-- V1 delivers ingestion acceptance API, search read API, taxonomy drill-down read APIs, taxonomy-backed structure truth, local reviewed card submission CLI, project-owned source-processing pipeline orchestration, and leaf-level one-hop relation browsing.
+- V1 delivers ingestion acceptance API, search read API, public MCP search, taxonomy drill-down read APIs, taxonomy-backed structure truth, local reviewed card submission CLI, project-owned source-processing pipeline orchestration, and leaf-level one-hop relation browsing.
 - V1 excludes semantic-map snapshot/tile browsing and excludes runtime cache/object-storage dependencies.

@@ -1,0 +1,57 @@
+[project]
+name = "knowledge-mcp"
+version = "0.1.0"
+description = "Public MCP service for Logto PAT-backed programmatic search access."
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.18.4",
+    "httpx>=0.28.1",
+    "knowledge-contracts-client",
+    "mcp>=1.27.0",
+    "psycopg[binary]>=3.3.3",
+    "pydantic-settings>=2.13.1",
+    "pydantic>=2.12.5",
+    "pyjwt[crypto]>=2.10.1",
+    "redis>=7.4.0",
+    "sqlalchemy[asyncio]>=2.0.48",
+    "starlette>=0.50.0",
+    "uvicorn[standard]>=0.42.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.2,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["knowledge_mcp"]
+
+[dependency-groups]
+dev = [
+    "pytest-anyio>=0.0.0",
+    "pytest>=9.0.2",
+    "ruff>=0.15.8",
+    "ty>=0.0.27",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF", "ANN", "TID"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"os.getenv".msg = "Use Pydantic Settings instead of direct environment access."
+"os.environ".msg = "Use Pydantic Settings instead of direct environment access."
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --maxfail=1"
+testpaths = ["tests"]
+markers = [
+    "unit: Fast and deterministic unit tests.",
+    "integration: Tests that cross process, filesystem, or service boundaries.",
+    "anyio: Run async tests with AnyIO backend.",
+]
+
+[tool.ty.src]
+include = ["src"]

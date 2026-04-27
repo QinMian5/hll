@@ -16,10 +16,10 @@ help:
 		'  make test                  Run the default fast test suite' \
 		'  make check                 Run the pre-submit aggregate checks' \
 		'  make integration           Run the heavier integration test flow' \
-		'  make alembic-autogen       Generate a new Alembic migration' \
-		'  make alembic-upgrade-dev   Apply migrations to the development database' \
-		'  make alembic-upgrade-test  Apply migrations to the test database' \
-		'  make alembic-upgrade-prod  Apply migrations to the production database'
+		'  make alembic-autogen APP=api MSG="..." Generate an app Alembic migration' \
+		'  make alembic-upgrade-dev   Apply all app migrations to development databases' \
+		'  make alembic-upgrade-test  Apply all app migrations to test databases' \
+		'  make alembic-upgrade-prod  Apply all app migrations to production databases'
 
 bootstrap:
 	bash scripts/bootstrap.sh
@@ -45,6 +45,8 @@ test-db-down:
 fix:
 	uv run --project apps/api ruff check --fix apps/api/src
 	uv run --project apps/api ruff format apps/api/src
+	uv run --project apps/mcp ruff check --fix apps/mcp/src apps/mcp/tests
+	uv run --project apps/mcp ruff format apps/mcp/src apps/mcp/tests
 	pnpm run js:fix
 
 test:

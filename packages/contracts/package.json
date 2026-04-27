@@ -11,6 +11,7 @@
     "export": "bash scripts/export-openapi.sh",
     "generate:types": "bash scripts/generate-types.sh",
     "generate:client": "bash scripts/generate-client.sh",
+    "generate:python": "bash scripts/generate-python-client.sh",
     "verify": "bash scripts/verify-up-to-date.sh"
   },
   "devDependencies": {

@@ -30,6 +30,12 @@ validate_source_pipeline_test_settings() {
     "from source_pipeline.config import load_settings, load_migration_settings; load_settings(); load_migration_settings()" >/dev/null
 }
 
+validate_mcp_migration_settings() {
+  local app_dir="$1"
+  uv --directory "$app_dir" run python -c \
+    "from knowledge_mcp.config import load_database_settings, load_migration_settings; load_database_settings(); load_migration_settings()" >/dev/null
+}
+
 get_migration_database_url() {
   local api_dir="$1"
   uv --directory "$api_dir" run python -c \
@@ -46,4 +52,10 @@ get_source_pipeline_migration_database_url() {
   local app_dir="$1"
   uv --directory "$app_dir" run python -c \
     "from source_pipeline.config import load_migration_settings; print(load_migration_settings().database_url)"
+}
+
+get_mcp_migration_database_url() {
+  local app_dir="$1"
+  uv --directory "$app_dir" run python -c \
+    "from knowledge_mcp.config import load_migration_settings; print(load_migration_settings().database_url)"
 }

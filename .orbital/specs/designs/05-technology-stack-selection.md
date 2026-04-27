@@ -46,6 +46,23 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Validation/settings: `Pydantic v2` + `pydantic-settings`
 - HTTP client: `httpx`
 
+### MCP Server
+- Package and environment manager: root `uv` workspace with `apps/mcp` as member
+- Language and runtime: `Python` + `Uvicorn`
+- MCP framework: official Model Context Protocol Python SDK
+- Transport: Streamable HTTP
+- Data validation and settings: `Pydantic v2` + `pydantic-settings`
+- HTTP client: `httpx`
+- Public identity authority: Logto personal access token exchange plus Logto-issued access-token validation
+- Quota and token-exchange cache: Redis-backed MCP-owned state
+- Durable usage ledger: PostgreSQL through SQLAlchemy 2 and app-local Alembic assets owned by `apps/mcp`
+- Internal backend contract consumption: generated internal Python client under `packages/contracts/generated/python/` derived from repository OpenAPI artifacts
+
+#### Why selected
+- Matches the accepted public programmatic access boundary without mixing MCP protocol handling into browser BFF session flows or private FastAPI route ownership.
+- Keeps the first MCP tool aligned with the existing private search contract through generated internal client artifacts.
+- Uses the project-owned Logto authority for user-created personal access tokens while preserving short-lived access-token validation for resource authorization.
+
 ### Frontend
 - Workspace/package manager: root `pnpm` workspace
 - Build tool: `Vite`
@@ -87,8 +104,7 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 
 ## Explicit Non-Goals for Phase-1
 - Semantic-map snapshot/tile architecture.
-- Cache runtime dependency.
+- General-purpose result cache or business-object cache runtime dependency.
 - Keyword or hybrid retrieval runtime dependency.
 - Additional backend service decomposition.
 - Public REST API access for external users or external programmatic clients.
-- MCP search implementation.
