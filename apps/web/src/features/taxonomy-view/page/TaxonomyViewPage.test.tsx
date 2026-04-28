@@ -183,6 +183,24 @@ function makeLeafNodeView(
   } as TaxonomyNodeView;
 }
 
+function makeBranchNodeView(
+  overrides: Partial<TaxonomyNodeView>,
+): TaxonomyNodeView {
+  return {
+    breadcrumb: [],
+    children: [],
+    current_node: {
+      depth: 1,
+      id: 1,
+      is_leaf: false,
+      name: "Mathematics",
+      parent_id: null,
+    },
+    node_kind: "branch",
+    ...overrides,
+  } as TaxonomyNodeView;
+}
+
 beforeEach(() => {
   rootQueryState = makeQueryResult({
     data: makeRootView({
@@ -238,14 +256,23 @@ afterEach(() => {
 });
 
 describe("TaxonomyViewPage", () => {
-  it("renders only the graph content shell without a second page header", () => {
+  it("renders the approved full-slot Figma canvas shell without the old panel", () => {
     render(<TaxonomyViewPage />);
 
     expect(
       screen.queryByTestId("taxonomy-header-shell"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Knowledge Graph")).not.toBeInTheDocument();
-    expect(screen.getByTestId("taxonomy-canvas-panel")).toBeInTheDocument();
+
+    const shellBody = screen.getByTestId("taxonomy-shell-body");
+    const canvas = screen.getByTestId("taxonomy-canvas");
+
+    expect(shellBody).not.toHaveClass("p-6");
+    expect(canvas).toHaveAttribute("data-figma-desktop-node", "702:3845");
+    expect(canvas).toHaveAttribute("data-figma-mobile-node", "702:3950");
+    expect(
+      screen.queryByTestId("taxonomy-canvas-panel"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders loading and error overlays inside the stable canvas shell", () => {
@@ -259,7 +286,7 @@ describe("TaxonomyViewPage", () => {
 
     const { rerender } = render(<TaxonomyViewPage />);
 
-    expect(screen.getByTestId("taxonomy-canvas-shell")).toBeInTheDocument();
+    expect(screen.getByTestId("taxonomy-canvas")).toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-loading-overlay")).toBeInTheDocument();
 
     rootQueryState = makeQueryResult({
@@ -303,6 +330,60 @@ describe("TaxonomyViewPage", () => {
       screen.queryByTestId("taxonomy-branch-reactflow"),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Math" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("renders branch breadcrumbs with Figma chevrons and responsive offsets", async () => {
+    nodeQueryStates.set(
+      1,
+      makeQueryResult({
+        data: makeBranchNodeView({
+          breadcrumb: [
+            {
+              depth: 0,
+              id: 2,
+              is_leaf: false,
+              name: "Science",
+              parent_id: null,
+            },
+            {
+              depth: 1,
+              id: 1,
+              is_leaf: false,
+              name: "Mathematics",
+              parent_id: 2,
+            },
+          ],
+          current_node: {
+            depth: 1,
+            id: 1,
+            is_leaf: false,
+            name: "Mathematics",
+            parent_id: 2,
+          },
+        }),
+      }),
+    );
+
+    render(<TaxonomyViewPage />);
+
+    const branchNode = within(screen.getByTestId("reactflow-mock"))
+      .getByText("Math")
+      .closest("[data-node-scope='branch']");
+
+    expect(branchNode).not.toBeNull();
+
+    fireEvent.click(branchNode as HTMLElement);
+
+    const breadcrumb = await screen.findByTestId("taxonomy-breadcrumb-overlay");
+
+    expect(breadcrumb).toHaveClass("top-5", "left-5", "lg:top-6", "lg:left-6");
+    expect(screen.getAllByTestId("taxonomy-breadcrumb-separator")).toHaveLength(
+      2,
+    );
+    expect(screen.getByRole("button", { name: "Mathematics" })).toHaveAttribute(
       "aria-current",
       "page",
     );

@@ -31,8 +31,7 @@ const bubbleVariantClasses = {
     glow: "bg-[radial-gradient(circle_at_40%_35%,rgba(255,255,255,0.92)_0%,rgba(240,246,255,0.62)_34%,transparent_66%)] opacity-95",
     sheen:
       "bg-[linear-gradient(180deg,rgba(255,255,255,0.88)_0%,rgba(255,255,255,0.18)_45%,transparent_78%)] opacity-90",
-    label:
-      "max-w-[72%] text-[clamp(15px,1.05vw,18px)] font-medium leading-[1.05] tracking-[-0.03em] text-[#183153]",
+    label: "font-medium tracking-normal text-[#183153]",
   },
 } as const;
 
@@ -77,6 +76,11 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
         className={`absolute inset-[18%] z-[1] flex items-center justify-center text-center [text-wrap:balance] ${visualVariant.label}`}
         data-bubble-tone="branch"
         data-testid="taxonomy-bubble-label"
+        style={{
+          fontSize: "var(--taxonomy-bubble-label-font-size)",
+          lineHeight: "var(--taxonomy-bubble-label-line-height)",
+          maxWidth: "var(--taxonomy-bubble-label-width)",
+        }}
       >
         {data.label}
       </span>

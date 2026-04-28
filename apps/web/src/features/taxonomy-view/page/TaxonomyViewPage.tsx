@@ -4,7 +4,16 @@
 import "@xyflow/react/dist/style.css";
 
 import { type Node, ReactFlow } from "@xyflow/react";
-import { lazy, Suspense, startTransition, useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
+import {
+  lazy,
+  Suspense,
+  startTransition,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   useTaxonomyNodeViewQuery,
@@ -16,12 +25,17 @@ export {
   LEAF_HYDRATION_OVERSCAN,
 } from "./leaf/leafRendererConfig";
 
-import { buildBranchLayout } from "./layout/buildBranchLayout";
-import type { TaxonomyLayoutNodeData } from "./layout/taxonomyLayoutTypes";
+import {
+  BRANCH_DESKTOP_REFERENCE_VIEWPORT,
+  buildBranchLayout,
+} from "./layout/buildBranchLayout";
+import type {
+  LayoutViewport,
+  TaxonomyLayoutNodeData,
+} from "./layout/taxonomyLayoutTypes";
 import { TaxonomyFlowNode } from "./TaxonomyFlowNode";
 
-const BRANCH_LAYOUT_VIEWPORT = { height: 900, width: 1404 };
-const LAYOUT_CENTER = { x: 702, y: 450 };
+const DEFAULT_CANVAS_VIEWPORT = BRANCH_DESKTOP_REFERENCE_VIEWPORT;
 const breadcrumbMutedClasses =
   "text-[13px] leading-[18px] font-normal text-[rgba(92,107,138,0.74)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0";
 const breadcrumbCurrentClasses =
@@ -53,8 +67,33 @@ function toFlowNode(
   };
 }
 
+function measuredViewportFromElement(element: HTMLElement | null) {
+  if (!element) {
+    return DEFAULT_CANVAS_VIEWPORT;
+  }
+
+  const rect = element.getBoundingClientRect();
+
+  if (rect.width <= 0 || rect.height <= 0) {
+    return DEFAULT_CANVAS_VIEWPORT;
+  }
+
+  return {
+    height: Math.round(rect.height),
+    width: Math.round(rect.width),
+  };
+}
+
+function sameViewport(left: LayoutViewport, right: LayoutViewport) {
+  return left.height === right.height && left.width === right.width;
+}
+
 export function TaxonomyViewPage() {
   const [activeNodeId, setActiveNodeId] = useState<number | null>(null);
+  const canvasRef = useRef<HTMLElement | null>(null);
+  const [canvasViewport, setCanvasViewport] = useState<LayoutViewport>(
+    DEFAULT_CANVAS_VIEWPORT,
+  );
 
   const rootQuery = useTaxonomyRootViewQuery({
     enabled: activeNodeId === null,
@@ -66,6 +105,36 @@ export function TaxonomyViewPage() {
   const rootMode = activeNodeId === null;
   const activeQuery = rootMode ? rootQuery : nodeQuery;
   const breadcrumbs = rootMode ? [] : (nodeQuery.data?.breadcrumb ?? []);
+  const layoutCenter = useMemo(
+    () => ({
+      x: canvasViewport.width / 2,
+      y: canvasViewport.height / 2,
+    }),
+    [canvasViewport],
+  );
+
+  useLayoutEffect(() => {
+    const updateViewport = () => {
+      const nextViewport = measuredViewportFromElement(canvasRef.current);
+
+      setCanvasViewport((currentViewport) =>
+        sameViewport(currentViewport, nextViewport)
+          ? currentViewport
+          : nextViewport,
+      );
+    };
+
+    updateViewport();
+
+    if (!canvasRef.current || !globalThis.ResizeObserver) {
+      return;
+    }
+
+    const observer = new ResizeObserver(updateViewport);
+    observer.observe(canvasRef.current);
+
+    return () => observer.disconnect();
+  }, []);
 
   const branchFlowGraph = useMemo(() => {
     if (activeQuery.isPending) {
@@ -74,9 +143,9 @@ export function TaxonomyViewPage() {
 
     if (rootMode) {
       const branchLayout = buildBranchLayout({
-        center: LAYOUT_CENTER,
+        center: layoutCenter,
         children: rootQuery.data?.children ?? [],
-        viewport: BRANCH_LAYOUT_VIEWPORT,
+        viewport: canvasViewport,
       });
 
       return {
@@ -85,10 +154,10 @@ export function TaxonomyViewPage() {
     }
 
     const branchLayout = buildBranchLayout({
-      center: LAYOUT_CENTER,
+      center: layoutCenter,
       children:
         nodeQuery.data?.node_kind === "branch" ? nodeQuery.data.children : [],
-      viewport: BRANCH_LAYOUT_VIEWPORT,
+      viewport: canvasViewport,
     });
 
     return {
@@ -96,6 +165,8 @@ export function TaxonomyViewPage() {
     };
   }, [
     activeQuery.isPending,
+    canvasViewport,
+    layoutCenter,
     nodeQuery.data,
     rootMode,
     rootQuery.data?.children,
@@ -103,126 +174,125 @@ export function TaxonomyViewPage() {
 
   return (
     <main
-      className="flex h-full min-h-0 flex-col overflow-hidden p-6"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f8fafc]"
       data-testid="taxonomy-shell-body"
     >
       <section
-        aria-label="taxonomy flow canvas"
-        className="relative min-h-0 flex-1"
-        data-testid="taxonomy-canvas-shell"
+        aria-label="taxonomy canvas"
+        className="relative min-h-0 flex-1 overflow-hidden bg-[#f8fafc]"
+        data-figma-desktop-node="702:3845"
+        data-figma-mobile-node="702:3950"
+        data-testid="taxonomy-canvas"
+        ref={canvasRef}
       >
-        <div
-          className="absolute inset-0 overflow-hidden rounded-[32px] border border-[rgba(214,227,247,0.86)] bg-[linear-gradient(137.03deg,rgba(254,254,255,1)_14.099%,rgba(245,249,255,1)_45.692%,rgba(249,251,255,1)_85.901%)] shadow-[0_18px_52px_rgba(107,133,189,0.09)]"
-          data-testid="taxonomy-canvas-panel"
+        <nav
+          aria-label="taxonomy breadcrumb"
+          className="absolute top-5 left-5 z-20 flex max-w-[calc(100%-40px)] flex-wrap items-center gap-1.5 lg:top-6 lg:left-6 lg:max-w-[calc(100%-48px)]"
+          data-breadcrumb-style="inline-text"
+          data-testid="taxonomy-breadcrumb-overlay"
         >
-          <nav
-            aria-label="taxonomy breadcrumb"
-            className="absolute top-[27px] left-[33px] z-20 flex max-w-[calc(100%-66px)] flex-wrap items-center justify-center gap-2"
-            data-breadcrumb-style="inline-text"
-            data-testid="taxonomy-breadcrumb-overlay"
+          <button
+            aria-current={rootMode ? "page" : undefined}
+            className={
+              rootMode ? breadcrumbCurrentClasses : breadcrumbMutedClasses
+            }
+            onClick={() => {
+              startTransition(() => setActiveNodeId(null));
+            }}
+            type="button"
           >
+            Root
+          </button>
+          {breadcrumbs.flatMap((item) => [
+            <ChevronRight
+              aria-hidden="true"
+              className="size-3.5 shrink-0 text-[rgba(117,133,161,0.56)]"
+              data-testid="taxonomy-breadcrumb-separator"
+              key={`${item.id}-separator`}
+            />,
             <button
-              aria-current={rootMode ? "page" : undefined}
-              className={
-                rootMode ? breadcrumbCurrentClasses : breadcrumbMutedClasses
+              aria-current={
+                item.id === breadcrumbs.at(-1)?.id ? "page" : undefined
               }
+              className={
+                item.id === breadcrumbs.at(-1)?.id
+                  ? breadcrumbCurrentClasses
+                  : breadcrumbMutedClasses
+              }
+              key={item.id}
               onClick={() => {
-                startTransition(() => setActiveNodeId(null));
+                startTransition(() => setActiveNodeId(item.id));
               }}
               type="button"
             >
-              Root
-            </button>
-            {breadcrumbs.flatMap((item) => [
-              <span
-                aria-hidden="true"
-                className="text-[12px] leading-[18px] font-normal text-[rgba(117,133,161,0.56)]"
-                key={`${item.id}-separator`}
-              >
-                /
-              </span>,
-              <button
-                aria-current={
-                  item.id === breadcrumbs.at(-1)?.id ? "page" : undefined
-                }
-                className={
-                  item.id === breadcrumbs.at(-1)?.id
-                    ? breadcrumbCurrentClasses
-                    : breadcrumbMutedClasses
-                }
-                key={item.id}
-                onClick={() => {
-                  startTransition(() => setActiveNodeId(item.id));
+              {item.name}
+            </button>,
+          ])}
+        </nav>
+        {activeQuery.isPending ? (
+          <section
+            aria-busy="true"
+            aria-live="polite"
+            className="absolute top-1/2 left-1/2 z-20 w-[min(420px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 rounded-[20px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-[22px] text-left shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+            data-testid="taxonomy-loading-overlay"
+          >
+            <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
+              Loading taxonomy view
+            </h2>
+            <p className="mt-2.5 mb-0 text-[#475569]">
+              Fetching the latest taxonomy hierarchy snapshot from API.
+            </p>
+          </section>
+        ) : null}
+        {activeQuery.isError ? (
+          <section
+            className="absolute top-1/2 left-1/2 z-20 w-[min(420px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 rounded-[20px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-[22px] text-left shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+            data-testid="taxonomy-error-overlay"
+            role="alert"
+          >
+            <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
+              Taxonomy view unavailable
+            </h2>
+            <p className="mt-2.5 mb-0 text-[#475569]">
+              {activeQuery.error.message}
+            </p>
+          </section>
+        ) : null}
+        <div className="taxonomy-flow-shell absolute inset-0 overflow-hidden">
+          {nodeQuery.data?.node_kind === "leaf" ? (
+            <Suspense fallback={null}>
+              <LeafRenderer
+                center={layoutCenter}
+                key={nodeQuery.data.current_node.id}
+                leafView={nodeQuery.data}
+                viewport={canvasViewport}
+              />
+            </Suspense>
+          ) : (
+            <div
+              className="h-full w-full"
+              data-testid="taxonomy-branch-reactflow"
+            >
+              <ReactFlow
+                fitView
+                fitViewOptions={{
+                  padding: canvasViewport.width < 640 ? 0.12 : 0.08,
                 }}
-                type="button"
-              >
-                {item.name}
-              </button>,
-            ])}
-          </nav>
-          {activeQuery.isPending ? (
-            <section
-              aria-busy="true"
-              aria-live="polite"
-              className="absolute top-1/2 left-1/2 z-20 w-[min(420px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 rounded-[20px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-[22px] text-left shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
-              data-testid="taxonomy-loading-overlay"
-            >
-              <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
-                Loading taxonomy view
-              </h2>
-              <p className="mt-2.5 mb-0 text-[#475569]">
-                Fetching the latest taxonomy hierarchy snapshot from API.
-              </p>
-            </section>
-          ) : null}
-          {activeQuery.isError ? (
-            <section
-              className="absolute top-1/2 left-1/2 z-20 w-[min(420px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 rounded-[20px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-[22px] text-left shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
-              data-testid="taxonomy-error-overlay"
-              role="alert"
-            >
-              <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
-                Taxonomy view unavailable
-              </h2>
-              <p className="mt-2.5 mb-0 text-[#475569]">
-                {activeQuery.error.message}
-              </p>
-            </section>
-          ) : null}
-          <div className="taxonomy-flow-shell absolute inset-0 overflow-hidden rounded-[32px]">
-            {nodeQuery.data?.node_kind === "leaf" ? (
-              <Suspense fallback={null}>
-                <LeafRenderer
-                  center={LAYOUT_CENTER}
-                  key={nodeQuery.data.current_node.id}
-                  leafView={nodeQuery.data}
-                  viewport={BRANCH_LAYOUT_VIEWPORT}
-                />
-              </Suspense>
-            ) : (
-              <div
-                className="h-full w-full"
-                data-testid="taxonomy-branch-reactflow"
-              >
-                <ReactFlow
-                  fitView
-                  fitViewOptions={{ padding: 0.24 }}
-                  key={activeNodeId ?? "root"}
-                  minZoom={0.2}
-                  nodeTypes={nodeTypes}
-                  nodes={branchFlowGraph.nodes}
-                  onNodeClick={(_, node) => {
-                    const targetNodeId = node.data.targetNodeId;
-                    if (typeof targetNodeId !== "number") {
-                      return;
-                    }
-                    startTransition(() => setActiveNodeId(targetNodeId));
-                  }}
-                  proOptions={{ hideAttribution: true }}
-                ></ReactFlow>
-              </div>
-            )}
-          </div>
+                key={activeNodeId ?? "root"}
+                minZoom={0.2}
+                nodeTypes={nodeTypes}
+                nodes={branchFlowGraph.nodes}
+                onNodeClick={(_, node) => {
+                  const targetNodeId = node.data.targetNodeId;
+                  if (typeof targetNodeId !== "number") {
+                    return;
+                  }
+                  startTransition(() => setActiveNodeId(targetNodeId));
+                }}
+                proOptions={{ hideAttribution: true }}
+              ></ReactFlow>
+            </div>
+          )}
         </div>
       </section>
     </main>

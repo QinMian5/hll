@@ -68,6 +68,12 @@ describe("TaxonomyFlowNode", () => {
     const label = screen.getByTestId("taxonomy-bubble-label");
 
     expect(label).toHaveAttribute("data-bubble-tone", "branch");
+    expect(label).toHaveClass("tracking-normal");
+    expect(label).toHaveStyle({
+      fontSize: "var(--taxonomy-bubble-label-font-size)",
+      lineHeight: "var(--taxonomy-bubble-label-line-height)",
+      maxWidth: "var(--taxonomy-bubble-label-width)",
+    });
     expect(label.className).toContain("absolute");
     expect(label.className).toContain("inset-[18%]");
     expect(label.className).toContain("flex");

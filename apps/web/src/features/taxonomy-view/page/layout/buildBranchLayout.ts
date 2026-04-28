@@ -12,7 +12,25 @@ import type {
   BranchLayoutInput,
   BranchLayoutResult,
   LayoutPoint,
+  LayoutViewport,
 } from "./taxonomyLayoutTypes";
+
+export const BRANCH_DESKTOP_REFERENCE_VIEWPORT = {
+  height: 1024,
+  width: 1120,
+} as const;
+
+export const BRANCH_MOBILE_REFERENCE_VIEWPORT = {
+  height: 892,
+  width: 440,
+} as const;
+
+export interface BranchBubbleMetrics {
+  readonly diameter: number;
+  readonly labelFontSize: number;
+  readonly labelLineHeight: number;
+  readonly labelMaxWidth: number;
+}
 
 interface BranchSimulationNode {
   readonly child: BranchLayoutInput["children"][number];
@@ -30,31 +48,90 @@ interface BranchSimulationNode {
 
 export function bubbleDiameterFromDescendantCount(
   descendantCardCount: number,
+  viewport: LayoutViewport = BRANCH_DESKTOP_REFERENCE_VIEWPORT,
 ): number {
-  const scaled = 100 + Math.log(Math.max(descendantCardCount, 1)) * 20;
-  return Math.round(Math.max(100, scaled));
+  return buildBranchBubbleMetrics(descendantCardCount, viewport).diameter;
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
+
+function lerp(start: number, end: number, amount: number) {
+  return start + (end - start) * amount;
+}
+
+function viewportWidthFactor(viewport: LayoutViewport) {
+  return clamp(
+    (viewport.width - BRANCH_MOBILE_REFERENCE_VIEWPORT.width) /
+      (BRANCH_DESKTOP_REFERENCE_VIEWPORT.width -
+        BRANCH_MOBILE_REFERENCE_VIEWPORT.width),
+    0,
+    1,
+  );
+}
+
+export function buildBranchBubbleMetrics(
+  descendantCardCount: number,
+  viewport: LayoutViewport,
+): BranchBubbleMetrics {
+  const logCount = Math.log10(Math.max(descendantCardCount, 10));
+  const densityFactor = clamp((logCount - 1) / 2, 0, 1) ** 1.8;
+  const viewportFactor = viewportWidthFactor(viewport);
+  const desktopDiameter = lerp(146, 236, densityFactor);
+  const mobileDiameter = lerp(100, 132, densityFactor);
+  const diameter = Math.round(
+    lerp(mobileDiameter, desktopDiameter, viewportFactor),
+  );
+  const labelFontSize = Math.round(lerp(13, 16, viewportFactor));
+
+  return {
+    diameter,
+    labelFontSize,
+    labelLineHeight: Math.round(labelFontSize * 1.14),
+    labelMaxWidth: Math.round(diameter * 0.68),
+  };
 }
 
 function positionOnRing(options: {
   readonly center: LayoutPoint;
   readonly index: number;
+  readonly nodeRadius: number;
   readonly targetRadius: number;
+  readonly viewport: BranchLayoutInput["viewport"];
 }): LayoutPoint {
   const angle = options.index * 2.399963229728653;
   const radius = options.targetRadius;
+  const viewportPadding = 16;
+  const horizontalLimit = Math.max(
+    options.nodeRadius,
+    Math.min(options.center.x, options.viewport.width - options.center.x) -
+      options.nodeRadius -
+      viewportPadding,
+  );
+  const verticalLimit = Math.max(
+    options.nodeRadius,
+    Math.min(options.center.y, options.viewport.height - options.center.y) -
+      options.nodeRadius -
+      viewportPadding,
+  );
 
   return {
-    x: options.center.x + Math.cos(angle) * radius * 1.18,
-    y: options.center.y + Math.sin(angle) * radius * 0.72,
+    x:
+      options.center.x +
+      Math.cos(angle) * Math.min(radius * 1.05, horizontalLimit),
+    y:
+      options.center.y +
+      Math.sin(angle) * Math.min(radius * 0.86, verticalLimit),
   };
 }
 
-function clampPosition(options: {
+function clampCenterPosition(options: {
   readonly center: LayoutPoint;
   readonly node: BranchSimulationNode;
   readonly viewport: BranchLayoutInput["viewport"];
 }): LayoutPoint {
-  const padding = options.node.radius + 32;
+  const padding = options.node.radius + 12;
 
   return {
     x: Math.min(
@@ -98,7 +175,7 @@ function resolveBranchOverlaps(options: {
           distance > 0
             ? Math.atan2(deltaY, deltaX)
             : (leftIndex + 1) * 2.399963229728653;
-        const pushDistance = (minimumDistance - Math.max(distance, 0.001)) / 2;
+        const pushDistance = minimumDistance - Math.max(distance, 0.001);
         const leftMobility = left.targetRadius === 0 ? 0.2 : 1;
         const rightMobility = right.targetRadius === 0 ? 0.2 : 1;
         const totalMobility = leftMobility + rightMobility;
@@ -110,12 +187,12 @@ function resolveBranchOverlaps(options: {
         right.x += unitX * pushDistance * (leftMobility / totalMobility);
         right.y += unitY * pushDistance * (leftMobility / totalMobility);
 
-        const clampedLeft = clampPosition({
+        const clampedLeft = clampCenterPosition({
           center: options.center,
           node: left,
           viewport: options.viewport,
         });
-        const clampedRight = clampPosition({
+        const clampedRight = clampCenterPosition({
           center: options.center,
           node: right,
           viewport: options.viewport,
@@ -145,16 +222,29 @@ export function buildBranchLayout(
   );
 
   const nodes: BranchSimulationNode[] = sortedChildren.map((child, index) => {
-    const diameter = bubbleDiameterFromDescendantCount(
+    const metrics = buildBranchBubbleMetrics(
       child.descendant_card_count,
+      input.viewport,
     );
+    const diameter = metrics.diameter;
     const radius = diameter / 2;
+    const compactDimension = Math.min(
+      input.viewport.height,
+      input.viewport.width,
+    );
+    const baseRadius = compactDimension * 0.24;
+    const radiusStep = compactDimension * 0.18;
+    const maximumRadius = compactDimension * 0.52;
     const targetRadius =
-      index === 0 ? 0 : Math.min(160 + Math.sqrt(index) * 150, 430);
+      index === 0
+        ? 0
+        : Math.min(baseRadius + Math.sqrt(index) * radiusStep, maximumRadius);
     const position = positionOnRing({
       center: input.center,
       index,
+      nodeRadius: radius,
       targetRadius,
+      viewport: input.viewport,
     });
 
     return {
@@ -175,7 +265,10 @@ export function buildBranchLayout(
     .force(
       "collide",
       forceCollide<BranchSimulationNode>()
-        .radius((node) => node.radius + 16)
+        .radius(
+          (node) =>
+            node.radius + lerp(8, 16, viewportWidthFactor(input.viewport)),
+        )
         .strength(1),
     )
     .force(
@@ -196,26 +289,40 @@ export function buildBranchLayout(
   });
 
   return {
-    nodes: nodes.map((node) => ({
-      data: {
-        depth: node.child.depth,
-        label: node.child.name,
-        scope: "branch",
-        targetNodeId: node.child.id,
-        tooltip: `${node.child.name} · ${node.child.descendant_card_count} cards`,
-      },
-      id: node.id,
-      position: clampPosition({
+    nodes: nodes.map((node) => {
+      const metrics = buildBranchBubbleMetrics(
+        node.child.descendant_card_count,
+        input.viewport,
+      );
+      const center = clampCenterPosition({
         center: input.center,
         node,
         viewport: input.viewport,
-      }),
-      style: {
-        borderRadius: `${node.diameter}px`,
-        height: node.diameter,
-        width: node.diameter,
-      },
-      type: "bubble",
-    })),
+      });
+
+      return {
+        data: {
+          depth: node.child.depth,
+          label: node.child.name,
+          scope: "branch",
+          targetNodeId: node.child.id,
+          tooltip: `${node.child.name} · ${node.child.descendant_card_count} cards`,
+        },
+        id: node.id,
+        position: {
+          x: center.x - node.radius,
+          y: center.y - node.radius,
+        },
+        style: {
+          "--taxonomy-bubble-label-font-size": `${metrics.labelFontSize}px`,
+          "--taxonomy-bubble-label-line-height": `${metrics.labelLineHeight}px`,
+          "--taxonomy-bubble-label-width": `${metrics.labelMaxWidth}px`,
+          borderRadius: `${node.diameter}px`,
+          height: node.diameter,
+          width: node.diameter,
+        },
+        type: "bubble" as const,
+      };
+    }),
   };
 }

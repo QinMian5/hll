@@ -1,6 +1,8 @@
 // abstract: Shared input and output types for taxonomy branch and leaf layout helpers.
 // out_of_scope: React component rendering and force-simulation implementation details.
 
+import type { CSSProperties } from "react";
+
 export interface LayoutPoint {
   readonly x: number;
   readonly y: number;
@@ -57,7 +59,10 @@ export interface TaxonomyLayoutNode {
   readonly data: TaxonomyLayoutNodeData;
   readonly id: string;
   readonly position: LayoutPoint;
-  readonly style: {
+  readonly style: CSSProperties & {
+    readonly "--taxonomy-bubble-label-font-size"?: string;
+    readonly "--taxonomy-bubble-label-line-height"?: string;
+    readonly "--taxonomy-bubble-label-width"?: string;
     readonly borderRadius: string;
     readonly height: number;
     readonly width: number;
