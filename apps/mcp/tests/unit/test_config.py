@@ -26,7 +26,7 @@ def test_settings_accept_space_or_comma_separated_tuple_env_values() -> None:
             "logto_discovery_url": "https://logto.example.com/oidc/.well-known/openid-configuration",
             "logto_token_url": "https://logto.example.com/oidc/token",
             "logto_resource": "https://knowledge.example.com/mcp",
-            "logto_required_scopes": "search:use other:scope",
+            "logto_required_scopes": "search:execute other:scope",
             "logto_token_exchange_client_id": "mcp-token-exchange",
             "logto_token_exchange_client_secret": "secret",
             "pat_fingerprint_secret": "x" * 32,
@@ -34,7 +34,7 @@ def test_settings_accept_space_or_comma_separated_tuple_env_values() -> None:
         }
     )
 
-    assert settings.logto_required_scopes == ("search:use", "other:scope")
+    assert settings.logto_required_scopes == ("search:execute", "other:scope")
     assert settings.allowed_origins == (
         "https://knowledge.example.com",
         "https://app.example.com",
@@ -55,7 +55,7 @@ def test_load_settings_accepts_space_or_comma_separated_env_values(
         ),
         "KNOWLEDGE_MCP_LOGTO_TOKEN_URL": "https://logto.example.com/oidc/token",
         "KNOWLEDGE_MCP_LOGTO_RESOURCE": "https://knowledge.example.com/mcp",
-        "KNOWLEDGE_MCP_LOGTO_REQUIRED_SCOPES": "search:use other:scope",
+        "KNOWLEDGE_MCP_LOGTO_REQUIRED_SCOPES": "search:execute other:scope",
         "KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_ID": "mcp-token-exchange",
         "KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_SECRET": "secret",
         "KNOWLEDGE_MCP_PAT_FINGERPRINT_SECRET": "x" * 32,
@@ -66,7 +66,7 @@ def test_load_settings_accepts_space_or_comma_separated_env_values(
 
     settings = load_settings()
 
-    assert settings.logto_required_scopes == ("search:use", "other:scope")
+    assert settings.logto_required_scopes == ("search:execute", "other:scope")
     assert settings.allowed_origins == (
         "https://knowledge.example.com",
         "https://app.example.com",

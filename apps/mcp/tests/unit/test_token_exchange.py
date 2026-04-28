@@ -22,7 +22,7 @@ def _settings() -> TokenExchangeSettings:
         client_id="mcp-token-exchange",
         client_secret="client-secret",
         resource="https://knowledge.example.com/mcp",
-        scopes=("search:use",),
+        scopes=("search:execute",),
         http_timeout_seconds=5.0,
     )
 
@@ -42,7 +42,7 @@ async def test_exchange_pat_sends_logto_token_exchange_request() -> None:
                 "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
                 "token_type": "Bearer",
                 "expires_in": 3600,
-                "scope": "search:use",
+                "scope": "search:execute",
             },
             request=request,
         )
@@ -61,7 +61,7 @@ async def test_exchange_pat_sends_logto_token_exchange_request() -> None:
         "client_secret": "client-secret",
         "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
         "resource": "https://knowledge.example.com/mcp",
-        "scope": "search:use",
+        "scope": "search:execute",
         "subject_token": "pat_secret_value",
         "subject_token_type": "urn:logto:token-type:personal_access_token",
     }

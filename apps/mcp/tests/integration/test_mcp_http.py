@@ -41,7 +41,7 @@ class FakeUsageRepository:
 async def _principal() -> AuthenticatedPrincipal:
     return AuthenticatedPrincipal(
         user_sub="user_123",
-        scopes=frozenset({"search:use"}),
+        scopes=frozenset({"search:execute"}),
         pat_fingerprint="pat_fingerprint",
     )
 

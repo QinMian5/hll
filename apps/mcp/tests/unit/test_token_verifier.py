@@ -43,7 +43,7 @@ def build_token(
     issuer: str = "https://knowledge-logto.example.com/oidc",
     audience: str = "https://knowledge.example.com/mcp",
     subject: str = "user_123",
-    scope: str = "search:use other:scope",
+    scope: str = "search:execute other:scope",
     expires_delta: timedelta = timedelta(minutes=5),
 ) -> str:
     now = datetime.now(UTC)
@@ -82,7 +82,7 @@ def build_verifier(signing_key: SigningKey) -> AccessTokenVerifier:
             issuer="https://knowledge-logto.example.com/oidc",
             resource="https://knowledge.example.com/mcp",
             discovery_url="https://knowledge-logto.example.com/oidc/.well-known/openid-configuration",
-            required_scopes=("search:use",),
+            required_scopes=("search:execute",),
         ),
         http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )
@@ -100,7 +100,7 @@ async def test_valid_access_token_returns_principal() -> None:
 
     assert principal.user_sub == "user_123"
     assert principal.pat_fingerprint == "pat_fingerprint"
-    assert principal.scopes == frozenset({"search:use", "other:scope"})
+    assert principal.scopes == frozenset({"search:execute", "other:scope"})
 
 
 @pytest.mark.anyio

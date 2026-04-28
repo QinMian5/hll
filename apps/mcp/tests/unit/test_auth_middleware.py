@@ -58,7 +58,7 @@ class FakeAccessTokenVerifier:
         self.calls.append((access_token, pat_fingerprint))
         return AuthenticatedPrincipal(
             user_sub="user_123",
-            scopes=frozenset({"search:use"}),
+            scopes=frozenset({"search:execute"}),
             pat_fingerprint=pat_fingerprint,
         )
 

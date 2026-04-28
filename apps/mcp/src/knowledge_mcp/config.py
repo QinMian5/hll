@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     logto_discovery_url: str
     logto_token_url: str
     logto_resource: str
-    logto_required_scopes: StringTuple = ("search:use",)
+    logto_required_scopes: StringTuple = ("search:execute",)
     logto_token_exchange_client_id: str
     logto_token_exchange_client_secret: str
 
