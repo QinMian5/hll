@@ -23,6 +23,7 @@ POSTGRES_ROLE_BOOTSTRAP = REPO_ROOT / "scripts" / "lib" / "postgres-role-bootstr
 SCRIPT_DIR = REPO_ROOT / "scripts"
 DEV_UP_SCRIPT = SCRIPT_DIR / "dev-up.sh"
 PROD_UP_SCRIPT = SCRIPT_DIR / "prod-up.sh"
+MCP_RUN_SCRIPT = REPO_ROOT / "infra" / "docker" / "mcp" / "run-mcp.sh"
 
 
 def _read(path: Path) -> str:
@@ -190,11 +191,13 @@ def test_dev_logto_admin_port_can_match_localhost_admin_endpoint() -> None:
     for service in (base_logto, base_seed):
         environment = service["environment"]
         assert isinstance(environment, dict)
-        assert environment["ADMIN_PORT"] == "${KNOWLEDGE_LOGTO_ADMIN_PORT:-3002}"
+        assert environment["ADMIN_PORT"] == (
+            "${KNOWLEDGE_LOGTO_ADMIN_PORT:?KNOWLEDGE_LOGTO_ADMIN_PORT is required}"
+        )
 
     assert dev_logto["ports"] == [
         "3011:3001",
-        "3012:${KNOWLEDGE_LOGTO_ADMIN_PORT:-3002}",
+        "3012:${KNOWLEDGE_LOGTO_ADMIN_PORT:?KNOWLEDGE_LOGTO_ADMIN_PORT is required}",
     ]
 
 
@@ -379,8 +382,74 @@ def test_base_compose_defines_public_mcp_service_with_private_dependencies() -> 
         "KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_SECRET",
         "KNOWLEDGE_MCP_PAT_FINGERPRINT_SECRET",
         "KNOWLEDGE_MCP_ALLOWED_ORIGINS",
+        "KNOWLEDGE_MCP_USER_DAILY_LIMIT",
+        "KNOWLEDGE_MCP_USER_DAILY_WINDOW_SECONDS",
+        "KNOWLEDGE_MCP_USER_WEEKLY_LIMIT",
+        "KNOWLEDGE_MCP_USER_WEEKLY_WINDOW_SECONDS",
     ):
         assert key in environment
+
+
+def test_compose_files_do_not_define_environment_variable_defaults() -> None:
+    default_substitution_pattern = re.compile(r"\$\{[A-Z0-9_]+:-")
+
+    for compose_file in (BASE_COMPOSE, DEV_COMPOSE, PROD_COMPOSE, TEST_COMPOSE):
+        assert default_substitution_pattern.search(_read(compose_file)) is None
+
+
+def test_env_example_owns_compose_default_values() -> None:
+    required_quota_keys = (
+        "KNOWLEDGE_MCP_USER_DAILY_LIMIT",
+        "KNOWLEDGE_MCP_USER_DAILY_WINDOW_SECONDS",
+        "KNOWLEDGE_MCP_USER_WEEKLY_LIMIT",
+        "KNOWLEDGE_MCP_USER_WEEKLY_WINDOW_SECONDS",
+    )
+    removed_quota_keys = (
+        "KNOWLEDGE_MCP_USER_BURST_LIMIT",
+        "KNOWLEDGE_MCP_USER_BURST_WINDOW_SECONDS",
+        "KNOWLEDGE_MCP_USER_TOTAL_LIMIT",
+        "KNOWLEDGE_MCP_USER_TOTAL_WINDOW_SECONDS",
+        "KNOWLEDGE_MCP_PAT_BURST_LIMIT",
+        "KNOWLEDGE_MCP_PAT_BURST_WINDOW_SECONDS",
+        "KNOWLEDGE_MCP_PAT_TOTAL_LIMIT",
+        "KNOWLEDGE_MCP_PAT_TOTAL_WINDOW_SECONDS",
+    )
+
+    env_template = _read(REPO_ROOT / "infra" / "env" / ".env.example")
+    for key in (
+        "KNOWLEDGE_LOGTO_TAG",
+        "KNOWLEDGE_LOGTO_ADMIN_PORT",
+        "KNOWLEDGE_LOGTO_TRUST_PROXY_HEADER",
+        "KNOWLEDGE_API_LOG_LEVEL",
+        "KNOWLEDGE_API_LOG_FILE_MAX_BYTES",
+        "KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT",
+        "SOURCE_PIPELINE_POLL_INTERVAL_SECONDS",
+        "SOURCE_PIPELINE_POLL_BATCH_SIZE",
+        "SOURCE_PIPELINE_RECONCILE_INTERVAL_SECONDS",
+        "SOURCE_PIPELINE_RECONCILE_BATCH_SIZE",
+        "KNOWLEDGE_WEB_HOST",
+        "KNOWLEDGE_WEB_COOKIE_SECURE",
+        "KNOWLEDGE_WEB_TRUST_PROXY",
+        "KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX",
+        "KNOWLEDGE_WEB_ANON_BURST_LIMIT",
+        "KNOWLEDGE_WEB_AUTH_BURST_LIMIT",
+        "KNOWLEDGE_WEB_IP_BURST_LIMIT",
+        "REDIS_PORT",
+    ):
+        assert f"{key}=" in env_template
+    for key in required_quota_keys:
+        assert f"{key}=" in env_template
+    for key in removed_quota_keys:
+        assert f"{key}=" not in env_template
+
+
+def test_mcp_startup_script_requires_host_and_port_from_environment() -> None:
+    script = _read(MCP_RUN_SCRIPT)
+
+    assert "${KNOWLEDGE_MCP_HOST:-" not in script
+    assert "${KNOWLEDGE_MCP_PORT:-" not in script
+    assert ': "${KNOWLEDGE_MCP_HOST:?KNOWLEDGE_MCP_HOST is required}"' in script
+    assert ': "${KNOWLEDGE_MCP_PORT:?KNOWLEDGE_MCP_PORT is required}"' in script
 
 
 def test_dev_and_prod_compose_define_mcp_image_and_ingress_dependencies() -> None:

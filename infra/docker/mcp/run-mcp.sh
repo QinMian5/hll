@@ -4,8 +4,11 @@
 
 set -eu
 
+: "${KNOWLEDGE_MCP_HOST:?KNOWLEDGE_MCP_HOST is required}"
+: "${KNOWLEDGE_MCP_PORT:?KNOWLEDGE_MCP_PORT is required}"
+
 if [ "${MCP_RELOAD:-0}" = "1" ]; then
-  exec uvicorn knowledge_mcp.http_app:create_app --factory --app-dir apps/mcp/src --host "${KNOWLEDGE_MCP_HOST:-0.0.0.0}" --port "${KNOWLEDGE_MCP_PORT:-8080}" --reload
+  exec uvicorn knowledge_mcp.http_app:create_app --factory --app-dir apps/mcp/src --host "$KNOWLEDGE_MCP_HOST" --port "$KNOWLEDGE_MCP_PORT" --reload
 fi
 
-exec uvicorn knowledge_mcp.http_app:create_app --factory --app-dir apps/mcp/src --host "${KNOWLEDGE_MCP_HOST:-0.0.0.0}" --port "${KNOWLEDGE_MCP_PORT:-8080}"
+exec uvicorn knowledge_mcp.http_app:create_app --factory --app-dir apps/mcp/src --host "$KNOWLEDGE_MCP_HOST" --port "$KNOWLEDGE_MCP_PORT"

@@ -28,6 +28,10 @@ def _settings() -> Settings:
         allowed_origins=("https://knowledge.example.com",),
         usage_summary_auth_resource="https://knowledge.example.com/mcp-internal",
         usage_summary_allowed_client_id="web-dashboard-bff",
+        user_daily_limit=1000,
+        user_daily_window_seconds=86_400,
+        user_weekly_limit=5000,
+        user_weekly_window_seconds=604_800,
     )
 
 
@@ -40,5 +44,6 @@ async def test_runtime_resources_wire_search_tool_and_auth_middleware_dependenci
         assert resources.auth_middleware_kwargs["allowed_origins"] == (
             "https://knowledge.example.com",
         )
+        assert resources.quota_summary_service is resources.search_tool._quota_store
     finally:
         await resources.aclose()

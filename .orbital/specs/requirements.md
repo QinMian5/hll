@@ -56,6 +56,7 @@ file paths, and implementation-facing decisions are projected into design docume
 1. The project SHALL define environment configuration assets for supported runtime environments.
 2. The project SHALL provide standardized quality gates that can run identically in local and CI contexts.
 3. Infrastructure and delivery assets SHALL remain isolated from application business logic.
+4. Environment-specific default values SHALL be owned by environment configuration assets rather than delivery topology definitions.
 
 ### R-006 Spec-to-Implementation Synchronization
 **User Story:** As a project operator, I want active specs synchronized with behavior-affecting changes so that documentation reflects current truth.

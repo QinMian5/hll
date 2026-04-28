@@ -55,14 +55,10 @@ class Settings(BaseSettings):
     usage_summary_max_batch_size: int = Field(default=100, ge=1)
 
     quota_redis_prefix: str = "knowledge:mcp:quota:"
-    user_burst_limit: int = Field(default=60, ge=1)
-    user_burst_window_seconds: int = Field(default=60, ge=1)
-    user_total_limit: int = Field(default=1000, ge=1)
-    user_total_window_seconds: int = Field(default=86400, ge=1)
-    pat_burst_limit: int = Field(default=30, ge=1)
-    pat_burst_window_seconds: int = Field(default=60, ge=1)
-    pat_total_limit: int = Field(default=500, ge=1)
-    pat_total_window_seconds: int = Field(default=86400, ge=1)
+    user_daily_limit: int = Field(default=1000, ge=1)
+    user_daily_window_seconds: int = Field(default=86_400, ge=1)
+    user_weekly_limit: int = Field(default=5000, ge=1)
+    user_weekly_window_seconds: int = Field(default=604_800, ge=1)
 
 
 class DatabaseSettings(BaseSettings):

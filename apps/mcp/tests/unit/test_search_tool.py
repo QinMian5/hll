@@ -11,6 +11,7 @@ from knowledge_contracts_client import MatchedCard, SearchResponse
 from knowledge_mcp.auth.verifier import AuthenticatedPrincipal
 from knowledge_mcp.quota.store import QuotaDecision
 from knowledge_mcp.search_tool import QuotaExceededError, SearchTool
+from knowledge_mcp.usage.repository import SearchUsageEvent
 
 
 class FakeSearchService:
@@ -20,7 +21,14 @@ class FakeSearchService:
     async def search(self, query: str) -> SearchResponse:
         self.queries.append(query)
         return SearchResponse(
-            matched_cards=[MatchedCard(title="Card A", content="Alpha")],
+            matched_cards=[
+                MatchedCard(
+                    node_id=1,
+                    current_version=2,
+                    title="Card A",
+                    content="Alpha",
+                )
+            ],
             connected_titles=["Card B"],
         )
 
@@ -43,9 +51,9 @@ class FakeQuotaStore:
 
 class FakeUsageRepository:
     def __init__(self) -> None:
-        self.events: list[object] = []
+        self.events: list[SearchUsageEvent] = []
 
-    async def record_search_event(self, event: object) -> None:
+    async def record_search_event(self, event: SearchUsageEvent) -> None:
         self.events.append(event)
 
 
@@ -71,7 +79,14 @@ async def test_search_tool_returns_private_search_payload_and_records_usage() ->
     result = await tool.search("alpha", principal=_principal(), request_id="request-1")
 
     assert result == {
-        "matched_cards": [{"title": "Card A", "content": "Alpha"}],
+        "matched_cards": [
+            {
+                "node_id": 1,
+                "current_version": 2,
+                "title": "Card A",
+                "content": "Alpha",
+            }
+        ],
         "connected_titles": ["Card B"],
     }
     assert search_service.queries == ["alpha"]

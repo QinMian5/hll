@@ -1,9 +1,11 @@
-// abstract: Routed dashboard page for personal access token lifecycle management.
+// abstract: Routed dashboard page for account quota and token lifecycle management.
 // out_of_scope: AppShell navigation chrome and server-side token adapters.
 
 import { useState } from "react";
+import { QuotaSummary } from "../components/QuotaSummary";
 import { DeleteTokenDialog, TokenDialog } from "../components/TokenDialog";
 import { TokenDirectory } from "../components/TokenDirectory";
+import { useDashboardQuotaQuery } from "../data/dashboardQuota";
 import {
   useCreateDashboardTokenMutation,
   useDashboardTokensQuery,
@@ -24,6 +26,7 @@ function errorMessage(error: unknown): string {
 
 export function DashboardPage() {
   const tokenQuery = useDashboardTokensQuery();
+  const quotaQuery = useDashboardQuotaQuery();
   const createTokenMutation = useCreateDashboardTokenMutation();
   const renameTokenMutation = useRenameDashboardTokenMutation();
   const deleteTokenMutation = useDeleteDashboardTokenMutation();
@@ -32,6 +35,8 @@ export function DashboardPage() {
 
   const tokens = tokenQuery.data?.tokens ?? [];
   const usageAvailable = tokenQuery.data?.usageAvailable ?? true;
+  const quota = quotaQuery.data?.quota ?? null;
+  const quotaAvailable = quotaQuery.data?.quotaAvailable ?? true;
 
   function openDialog(nextDialogState: DialogState) {
     setDialogError(null);
@@ -101,6 +106,15 @@ export function DashboardPage() {
           Dashboard
         </h1>
       </header>
+
+      <QuotaSummary
+        errorMessage={
+          quotaQuery.isError ? errorMessage(quotaQuery.error) : null
+        }
+        isLoading={quotaQuery.isPending}
+        quota={quota}
+        quotaAvailable={quotaAvailable}
+      />
 
       <TokenDirectory
         errorMessage={

@@ -16,6 +16,7 @@ from starlette.types import Lifespan
 
 from knowledge_mcp.auth.middleware import AuthContextMiddleware, is_origin_allowed
 from knowledge_mcp.config import Settings, load_settings
+from knowledge_mcp.internal_quota_summary import create_quota_summary_endpoint
 from knowledge_mcp.internal_usage_summary import create_usage_summary_endpoint
 from knowledge_mcp.runtime import RuntimeResources, build_runtime_resources
 from knowledge_mcp.search_tool import SearchTool
@@ -65,6 +66,16 @@ def create_app(
                     service=runtime_resources.usage_summary_service,
                     service_token_verifier=(runtime_resources.usage_summary_service_token_verifier),
                     max_batch_size=runtime_resources.usage_summary_max_batch_size,
+                ),
+                methods=["POST"],
+            )
+        )
+        routes.append(
+            Route(
+                "/internal/dashboard/quota-summary",
+                create_quota_summary_endpoint(
+                    service=runtime_resources.quota_summary_service,
+                    service_token_verifier=(runtime_resources.usage_summary_service_token_verifier),
                 ),
                 methods=["POST"],
             )

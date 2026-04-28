@@ -13,10 +13,12 @@ import { createLogtoClientFactory } from "./auth/logto.js";
 import { createAuthRouter } from "./auth/routes.js";
 import { loadWebServerConfig } from "./config.js";
 import { createLogtoPersonalAccessTokensClient } from "./dashboard/logtoPersonalAccessTokens.js";
+import { createMcpQuotaSummaryClient } from "./dashboard/mcpQuotaSummary.js";
 import { createMcpUsageSummaryClient } from "./dashboard/mcpUsageSummary.js";
 import { requestServiceAccessToken } from "./dashboard/serviceAccessToken.js";
 import { createInternalApiClient } from "./internal-api/client.js";
 import { createCardSuggestedEditsRouter } from "./routes/cardSuggestedEdits.js";
+import { createDashboardQuotaRouter } from "./routes/dashboardQuota.js";
 import { createDashboardTokensRouter } from "./routes/dashboardTokens.js";
 import { createSearchRouter } from "./routes/search.js";
 import { createTaxonomyViewRouter } from "./routes/taxonomyView.js";
@@ -73,6 +75,17 @@ async function main(): Promise<void> {
       }),
     baseUrl: config.mcpUsageSummaryBaseUrl,
   });
+  const mcpQuotaSummary = createMcpQuotaSummaryClient({
+    accessToken: async () =>
+      await requestServiceAccessToken({
+        clientId: config.mcpUsageSummaryClientId,
+        clientSecret: config.mcpUsageSummaryClientSecret,
+        resource: config.mcpUsageSummaryResource,
+        scopes: config.mcpUsageSummaryScopes,
+        tokenUrl: config.mcpUsageSummaryTokenUrl,
+      }),
+    baseUrl: config.mcpUsageSummaryBaseUrl,
+  });
   const quotaStore = await createRedisQuotaStore(config);
   const createRouteQuotaMiddleware = (routeGroup: string) =>
     createQuotaMiddleware({
@@ -93,6 +106,15 @@ async function main(): Promise<void> {
       mcpUsageClient: mcpUsageSummary,
       patFingerprintSecret: config.patFingerprintSecret,
       quotaMiddleware: createRouteQuotaMiddleware("dashboard-tokens"),
+    }),
+  );
+  webApiRouter.use(
+    "/dashboard",
+    createDashboardQuotaRouter({
+      getSession: async (request, response) =>
+        await logtoClientFactory(request, response).getSession(),
+      mcpQuotaClient: mcpQuotaSummary,
+      quotaMiddleware: createRouteQuotaMiddleware("dashboard-quota"),
     }),
   );
   webApiRouter.use(

@@ -17,18 +17,18 @@ services:
   logto:
     ports:
       - "3011:3001"
-      - "3012:${KNOWLEDGE_LOGTO_ADMIN_PORT:-3002}"
+      - "3012:${KNOWLEDGE_LOGTO_ADMIN_PORT:?KNOWLEDGE_LOGTO_ADMIN_PORT is required}"
 
   knowledge_corpus_db:
     image: knowledge-corpus-postgres:dev
     command:
       - postgres
       - -c
-      - max_wal_size=${KNOWLEDGE_CORPUS_DB_MAX_WAL_SIZE:-8GB}
+      - max_wal_size=${KNOWLEDGE_CORPUS_DB_MAX_WAL_SIZE:?KNOWLEDGE_CORPUS_DB_MAX_WAL_SIZE is required}
       - -c
-      - checkpoint_timeout=${KNOWLEDGE_CORPUS_DB_CHECKPOINT_TIMEOUT:-15min}
+      - checkpoint_timeout=${KNOWLEDGE_CORPUS_DB_CHECKPOINT_TIMEOUT:?KNOWLEDGE_CORPUS_DB_CHECKPOINT_TIMEOUT is required}
       - -c
-      - checkpoint_completion_target=${KNOWLEDGE_CORPUS_DB_CHECKPOINT_COMPLETION_TARGET:-0.9}
+      - checkpoint_completion_target=${KNOWLEDGE_CORPUS_DB_CHECKPOINT_COMPLETION_TARGET:?KNOWLEDGE_CORPUS_DB_CHECKPOINT_COMPLETION_TARGET is required}
     networks:
       - backend
       - edge

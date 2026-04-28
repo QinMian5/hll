@@ -185,6 +185,9 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Only `.env.example` is tracked in version control; `.env.dev`, `.env.prod`, and `.env.test` remain local operator files.
 - Sensitive values are provided through runtime environment variables or local `.env` files and are not committed.
 - Compose commands inject environment values through outer `docker compose --env-file ...` invocation; service definitions must not declare `env_file`.
+- Docker Compose files must not provide environment-variable defaults through interpolation expressions such as `${VAR:-value}`.
+- Accepted default and example values are owned by environment files. `.env.example` carries the tracked template projection, while environment-specific local files carry operator-controlled values.
+- Compose service definitions may use required-variable interpolation to fail fast when an env-file value is missing. Values that may be intentionally blank must still be present in the injected environment file.
 - Application code, test code, and migration code read only current process environment and must not load `.env` files directly.
 - Queue and embedding runtime configuration include:
   - `KNOWLEDGE_API_REDIS_URL` with backend-network address `redis://redis:6379/0`

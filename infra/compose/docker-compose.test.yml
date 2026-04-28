@@ -201,7 +201,7 @@ services:
       retries: 30
       start_period: 2s
     ports:
-      - "${REDIS_PORT:-56379}:6379"
+      - "${REDIS_PORT:?REDIS_PORT is required}:6379"
     volumes:
       - redis_test_data:/data
     networks:

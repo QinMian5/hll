@@ -45,6 +45,10 @@ def test_settings_accept_space_or_comma_separated_tuple_env_values() -> None:
     assert settings.usage_summary_auth_resource == "https://knowledge.example.com/mcp-internal"
     assert settings.usage_summary_required_scope == "usage:read"
     assert settings.usage_summary_allowed_client_id == "web-dashboard-bff"
+    assert settings.user_daily_limit == 1000
+    assert settings.user_daily_window_seconds == 86_400
+    assert settings.user_weekly_limit == 5000
+    assert settings.user_weekly_window_seconds == 604_800
 
 
 def test_load_settings_accepts_space_or_comma_separated_env_values(
@@ -69,6 +73,10 @@ def test_load_settings_accepts_space_or_comma_separated_env_values(
         "KNOWLEDGE_MCP_USAGE_SUMMARY_AUTH_RESOURCE": ("https://knowledge.example.com/mcp-internal"),
         "KNOWLEDGE_MCP_USAGE_SUMMARY_REQUIRED_SCOPE": "usage:read",
         "KNOWLEDGE_MCP_USAGE_SUMMARY_ALLOWED_CLIENT_ID": "web-dashboard-bff",
+        "KNOWLEDGE_MCP_USER_DAILY_LIMIT": "1000",
+        "KNOWLEDGE_MCP_USER_DAILY_WINDOW_SECONDS": "86400",
+        "KNOWLEDGE_MCP_USER_WEEKLY_LIMIT": "5000",
+        "KNOWLEDGE_MCP_USER_WEEKLY_WINDOW_SECONDS": "604800",
     }
     for key, value in values.items():
         monkeypatch.setenv(key, value)
@@ -83,6 +91,10 @@ def test_load_settings_accepts_space_or_comma_separated_env_values(
     assert settings.usage_summary_auth_resource == "https://knowledge.example.com/mcp-internal"
     assert settings.usage_summary_required_scope == "usage:read"
     assert settings.usage_summary_allowed_client_id == "web-dashboard-bff"
+    assert settings.user_daily_limit == 1000
+    assert settings.user_daily_window_seconds == 86_400
+    assert settings.user_weekly_limit == 5000
+    assert settings.user_weekly_window_seconds == 604_800
 
 
 def test_database_and_migration_settings_load_minimal_database_urls(

@@ -1,5 +1,24 @@
-// abstract: Browser dashboard token lifecycle data contracts.
+// abstract: Browser dashboard token lifecycle and quota data contracts.
 // out_of_scope: Server-side Logto adapters and visual rendering.
+
+export interface DashboardQuotaWindow {
+  readonly limit: number;
+  readonly remaining: number;
+  readonly resetAt: string | null;
+  readonly startedAt: string | null;
+  readonly used: number;
+  readonly windowSeconds: number;
+}
+
+export interface DashboardQuotaSummary {
+  readonly daily: DashboardQuotaWindow;
+  readonly weekly: DashboardQuotaWindow;
+}
+
+export interface DashboardQuotaResponse {
+  readonly quota: DashboardQuotaSummary | null;
+  readonly quotaAvailable: boolean;
+}
 
 export interface DashboardTokenRow {
   readonly createdAt: string;

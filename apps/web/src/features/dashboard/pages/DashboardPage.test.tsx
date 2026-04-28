@@ -12,7 +12,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { DashboardTokensResponse } from "../types";
+import type { DashboardQuotaResponse, DashboardTokensResponse } from "../types";
 
 vi.mock("../data/dashboardTokens", () => ({
   useCreateDashboardTokenMutation: vi.fn(),
@@ -20,7 +20,11 @@ vi.mock("../data/dashboardTokens", () => ({
   useDeleteDashboardTokenMutation: vi.fn(),
   useRenameDashboardTokenMutation: vi.fn(),
 }));
+vi.mock("../data/dashboardQuota", () => ({
+  useDashboardQuotaQuery: vi.fn(),
+}));
 
+import * as dashboardQuota from "../data/dashboardQuota";
 import * as dashboardTokens from "../data/dashboardTokens";
 import { DashboardPage } from "./index";
 
@@ -39,8 +43,33 @@ const tokenResponse: DashboardTokensResponse = {
   usageAvailable: true,
 };
 
+const quotaResponse: DashboardQuotaResponse = {
+  quota: {
+    daily: {
+      limit: 1000,
+      remaining: 963,
+      resetAt: "2026-04-29T04:00:00.000Z",
+      startedAt: "2026-04-28T10:00:00.000Z",
+      used: 37,
+      windowSeconds: 86_400,
+    },
+    weekly: {
+      limit: 5000,
+      remaining: 4816,
+      resetAt: "2026-05-03T10:00:00.000Z",
+      startedAt: "2026-04-28T10:00:00.000Z",
+      used: 184,
+      windowSeconds: 604_800,
+    },
+  },
+  quotaAvailable: true,
+};
+
 const mockUseDashboardTokensQuery = vi.mocked(
   dashboardTokens.useDashboardTokensQuery,
+);
+const mockUseDashboardQuotaQuery = vi.mocked(
+  dashboardQuota.useDashboardQuotaQuery,
 );
 const mockUseCreateDashboardTokenMutation = vi.mocked(
   dashboardTokens.useCreateDashboardTokenMutation,
@@ -56,6 +85,12 @@ function queryResult(
   value: Partial<ReturnType<typeof dashboardTokens.useDashboardTokensQuery>>,
 ) {
   return value as ReturnType<typeof dashboardTokens.useDashboardTokensQuery>;
+}
+
+function quotaQueryResult(
+  value: Partial<ReturnType<typeof dashboardQuota.useDashboardQuotaQuery>>,
+) {
+  return value as ReturnType<typeof dashboardQuota.useDashboardQuotaQuery>;
 }
 
 function mutationResult<TMutationResult>(
@@ -83,6 +118,14 @@ beforeEach(() => {
   mockUseDashboardTokensQuery.mockReturnValue(
     queryResult({
       data: tokenResponse,
+      error: null,
+      isError: false,
+      isPending: false,
+    }),
+  );
+  mockUseDashboardQuotaQuery.mockReturnValue(
+    quotaQueryResult({
+      data: quotaResponse,
       error: null,
       isError: false,
       isPending: false,
@@ -122,6 +165,13 @@ describe("DashboardPage", () => {
       "h-[52px]",
       "lg:h-16",
     );
+    expect(screen.getByTestId("dashboard-quota-summary")).toHaveClass(
+      "rounded-lg",
+      "border-[rgba(214,227,247,0.86)]",
+      "bg-[rgba(255,255,255,0.88)]",
+      "p-4",
+      "lg:p-6",
+    );
     expect(screen.getByTestId("dashboard-token-directory")).toHaveClass(
       "rounded-lg",
       "border-[rgba(214,227,247,0.86)]",
@@ -136,6 +186,67 @@ describe("DashboardPage", () => {
     expect(screen.getByTestId("dashboard-mobile-token-list")).toHaveClass(
       "lg:hidden",
     );
+  });
+
+  it("renders quota above tokens with Daily and Weekly account limits", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-28T10:00:00.000Z"));
+
+    try {
+      render(<DashboardPage />);
+
+      const quota = screen.getByTestId("dashboard-quota-summary");
+      const directory = screen.getByTestId("dashboard-token-directory");
+
+      expect(
+        quota.compareDocumentPosition(directory) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(screen.getByText("Quota")).toBeInTheDocument();
+      expect(screen.getByText("Daily")).toBeInTheDocument();
+      expect(screen.getByText("37 / 1,000")).toBeInTheDocument();
+      expect(screen.getByText("Weekly")).toBeInTheDocument();
+      expect(screen.getByText("184 / 5,000")).toBeInTheDocument();
+      expect(screen.getByText("resets in 18h")).toBeInTheDocument();
+      expect(screen.getByText("resets in 5d")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("renders inactive quota windows as first-use started", () => {
+    mockUseDashboardQuotaQuery.mockReturnValue(
+      quotaQueryResult({
+        data: {
+          quota: {
+            daily: {
+              limit: 1000,
+              remaining: 1000,
+              resetAt: null,
+              startedAt: null,
+              used: 0,
+              windowSeconds: 86_400,
+            },
+            weekly: {
+              limit: 5000,
+              remaining: 5000,
+              resetAt: null,
+              startedAt: null,
+              used: 0,
+              windowSeconds: 604_800,
+            },
+          },
+          quotaAvailable: true,
+        },
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+
+    render(<DashboardPage />);
+
+    expect(screen.getAllByText("starts on first use")).toHaveLength(2);
   });
 
   it("renders token rows with copy, rename, and delete lifecycle controls", async () => {

@@ -47,6 +47,7 @@ class RuntimeResources:
     search_tool: SearchTool
     auth_middleware_kwargs: AuthMiddlewareKwargs
     usage_summary_service: SessionUsageRepository
+    quota_summary_service: QuotaStore
     usage_summary_service_token_verifier: ServiceTokenVerifier
     usage_summary_max_batch_size: int
     redis_client: Redis
@@ -105,14 +106,10 @@ def build_runtime_resources(settings: Settings) -> RuntimeResources:
     quota_store = QuotaStore(
         redis_client=cast(RedisEvalClient, redis_client),
         policy=QuotaPolicy(
-            user_burst_limit=settings.user_burst_limit,
-            user_burst_window_seconds=settings.user_burst_window_seconds,
-            user_total_limit=settings.user_total_limit,
-            user_total_window_seconds=settings.user_total_window_seconds,
-            pat_burst_limit=settings.pat_burst_limit,
-            pat_burst_window_seconds=settings.pat_burst_window_seconds,
-            pat_total_limit=settings.pat_total_limit,
-            pat_total_window_seconds=settings.pat_total_window_seconds,
+            user_daily_limit=settings.user_daily_limit,
+            user_daily_window_seconds=settings.user_daily_window_seconds,
+            user_weekly_limit=settings.user_weekly_limit,
+            user_weekly_window_seconds=settings.user_weekly_window_seconds,
         ),
         prefix=settings.quota_redis_prefix,
     )
@@ -138,6 +135,7 @@ def build_runtime_resources(settings: Settings) -> RuntimeResources:
             "allowed_origins": settings.allowed_origins,
         },
         usage_summary_service=usage_repository,
+        quota_summary_service=quota_store,
         usage_summary_service_token_verifier=usage_summary_service_token_verifier,
         usage_summary_max_batch_size=settings.usage_summary_max_batch_size,
         redis_client=redis_client,
