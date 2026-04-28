@@ -12,12 +12,12 @@ out_of_scope: Taxonomy API payload semantics, page-shell chrome structure, and r
 
 ## Context
 - **Purpose:** Define the accepted layout behavior and visual language for branch and leaf browsing inside the taxonomy page canvas so branch navigation and leaf relation reading each use fit-for-purpose geometry while aligning to the approved Figma presentation for both branch and leaf modes.
-- **Scope/Boundaries:** Covers branch bubble sizing and placement, leaf graph level-of-detail behavior, Figma-aligned bubble composition, hover-content behavior, typography, Tailwind-first styling boundaries, viewport-driven hydration, and layout-stability rules for `apps/web`. Excludes taxonomy payload ownership, page-shell header and overlay structure, and backend graph semantics beyond the consumed skeleton/detail contracts.
+- **Scope/Boundaries:** Covers branch/root bubble sizing and placement, leaf graph level-of-detail behavior, Figma-aligned branch bubble composition, hover-content behavior, typography, Tailwind-first styling boundaries, viewport-driven hydration, and layout-stability rules for `apps/web`. Excludes taxonomy payload ownership, page-shell header and overlay structure, and backend graph semantics beyond the consumed skeleton/detail contracts.
 - **Related Requirements:** R-001, R-003, R-004, R-006, R-007.
 
 ## Constraint Projection
 - **Governing Constraints:** Frontend behavior stays within the unified web client, consumes taxonomy view data through BFF-owned web data adapters, preserves explicit module boundaries, and keeps behavior-changing layout decisions synchronized in active specs.
-- **Detail Commitments:** Branch and leaf views use separate layout and rendering pipelines inside the same taxonomy canvas host. Branch layout is a weighted floating bubble field derived from the current layer's taxonomy children and is rendered through the branch React Flow scene. Leaf layout is a two-stage one-hop relation browser rendered through a dedicated deck.gl scene: point-mode skeleton first, then viewport-scoped card hydration after zoom activation. Branch nodes keep the approved bubble treatment, while hydrated leaf nodes upgrade into Figma-aligned cards centered on their point anchors. Page-owned styling is expressed primarily through Tailwind utility classes.
+- **Detail Commitments:** Branch and leaf views use separate layout and rendering pipelines inside the same taxonomy canvas host. Branch layout is a responsive weighted floating bubble field derived from the current layer's taxonomy children and rendered through the branch React Flow scene. The branch/root presentation follows the approved desktop and mobile Graph View frames. Leaf layout is a two-stage one-hop relation browser rendered through a dedicated deck.gl scene: point-mode skeleton first, then viewport-scoped card hydration after zoom activation. Leaf rendering inherits the shared desktop and mobile taxonomy canvas shell while leaf-internal point/card behavior stays governed by the accepted leaf layout rules. Page-owned styling is expressed primarily through Tailwind utility classes.
 - **Update Rule:** Requirements remain stable at the repository-governance layer while branch and leaf layout rules, geometry constraints, and interaction-facing visual behavior are maintained in this design document.
 
 ## Inputs & Outputs
@@ -25,13 +25,13 @@ out_of_scope: Taxonomy API payload semantics, page-shell chrome structure, and r
   - Root and branch `children[]` payloads from taxonomy view queries.
   - Leaf skeleton `nodes[]` and `edges[]` payloads from taxonomy view queries.
   - Leaf detail batches containing `title` and `content` for explicit node ids.
-  - Approved Figma reference for branch bubble composition: file `WBYs6P9HMxe21TSYQL637r`, node `6:3`.
+  - Approved Figma reference for branch/root Graph View composition: file `WBYs6P9HMxe21TSYQL637r`, desktop node `702:3845`, mobile node `702:3950`, desktop content component node `702:2514`, and mobile content component node `702:2555`.
   - Approved Figma reference for leaf point mode and card upgrade direction: file `WBYs6P9HMxe21TSYQL637r`, node `91:227`.
-  - Existing single-canvas page shell defined in `taxonomy-view-shell.md`.
+  - Single-canvas page shell defined in `taxonomy-view-shell.md`.
 - **Outputs:**
   - One branch-specific node layout result for current-layer taxonomy bubbles.
   - One leaf-specific point/bubble presentation result for one-hop relation browsing.
-  - One branch bubble presentation system aligned with Figma file `WBYs6P9HMxe21TSYQL637r`, node `6:3`.
+  - One responsive branch bubble presentation system aligned with Figma file `WBYs6P9HMxe21TSYQL637r`, desktop node `702:3845` and mobile node `702:3950`.
   - One leaf point/card presentation system aligned with Figma file `WBYs6P9HMxe21TSYQL637r`, node `91:227`.
   - Stable geometry rules that can be projected into `TaxonomyViewPage.tsx` and supporting layout helpers.
 - **Artifacts:**
@@ -41,14 +41,17 @@ out_of_scope: Taxonomy API payload semantics, page-shell chrome structure, and r
   - Supporting frontend layout helpers under `apps/web/src/features/taxonomy-view/` when implementation begins.
 
 ## Design Approach
-- **Approach:** Use two dedicated client-owned layout pipelines inside the shared taxonomy canvas host. Branch layout prioritizes weighted category browsing and visual breathing room over explicit edge rendering and remains mounted through the React Flow branch renderer. Leaf layout prioritizes relation readability and interaction performance through level-of-detail rendering in a dedicated deck.gl scene: skeleton points plus true edges by default, viewport-scoped card hydration only after zoom activation, and node content available through hover instead of default canvas occupancy. Leaf performance architecture is explicitly split into a high-frequency camera path, a throttled visibility and hydration path, and a camera-synchronous DOM overlay position path so deck-driven movement does not force full React rerenders on every drag frame while visible cards still stay locked to the same motion as the graph. Branch and leaf therefore use separate visual systems that match their approved Figma references while preserving one stable graph coordinate space.
+- **Approach:** Use two dedicated client-owned layout pipelines inside the shared taxonomy canvas host. Branch/root layout prioritizes weighted category browsing and visual breathing room over explicit edge rendering and remains mounted through the React Flow branch renderer. Branch/root layout projects the approved desktop and mobile Graph View compositions into responsive runtime geometry rather than hardcoded sample coordinates. Leaf layout prioritizes relation readability and interaction performance through level-of-detail rendering in a dedicated deck.gl scene: skeleton points plus true edges by default, viewport-scoped card hydration only after zoom activation, and node content available through hover instead of default canvas occupancy. Leaf performance architecture is explicitly split into a high-frequency camera path, a throttled visibility and hydration path, and a camera-synchronous DOM overlay position path so deck-driven movement does not force full React rerenders on every drag frame while visible cards still stay locked to the same motion as the graph. Branch and leaf therefore use separate visual systems while sharing the stable desktop/mobile taxonomy canvas shell.
 - **Key Elements:**
   - **Branch view role:** Branch view is a floating bubble navigator for the current taxonomy level. It is not a tree diagram and does not render hierarchy edges.
   - **Branch size encoding:** Each branch bubble radius is derived from `descendant_card_count` using logarithmic scaling so large branches read as more important without overwhelming the canvas.
   - **Branch layout family:** Branch layout uses a seeded radial force pipeline. A deterministic center-out seed initializes bubble positions, then a short static `d3-force` solve applies collision avoidance, weak centering, and weak radial cohesion. The solve freezes after layout settles; the branch view does not run continuous physics.
-  - **Branch spatial rule:** Larger bubbles preferentially occupy the central zone while smaller bubbles settle farther outward. The final composition should preserve open space and resemble the approved Figma bubble field rather than a tightly packed chart or a hierarchical flow diagram.
-  - **Branch bubble composition:** Branch nodes are rendered as Figma-style bubbles rather than plain circular cards. The composition includes a soft halo, a pale cool surface, a restrained core glow, a light sheen layer, and centered label typography. The branch node surface does not show auxiliary affordance copy such as `Open`.
-  - **Branch typography rule:** Branch labels use the approved bubble typography direction: medium-weight, tightly centered, visually compact line-height, restrained negative tracking, and size scaling that stays legible across varying bubble diameters.
+  - **Branch responsive viewport rule:** Branch layout uses the measured taxonomy canvas size to select runtime geometry. The desktop reference viewport is `1120px x 1024px`. The mobile reference viewport is `440px x 892px`. Intermediate widths scale between those references while preserving visual spacing and containment.
+  - **Branch spatial rule:** Larger bubbles preferentially occupy stronger visual positions while smaller bubbles settle into secondary positions. The final composition should preserve open space and resemble the approved desktop and mobile Figma bubble fields rather than a tightly packed chart or a hierarchical flow diagram.
+  - **Branch bubble composition:** Branch nodes are rendered as Figma-style bubbles rather than plain circular cards. The composition includes a soft halo, a pale cool surface, and centered label typography. The branch node surface does not show auxiliary affordance copy such as `Open`.
+  - **Branch desktop size rule:** Desktop branch bubbles use the approved content-frame scale family, with representative visual diameters around `146px`, `172px`, `212px`, and `236px` depending on taxonomy weight and label density.
+  - **Branch mobile size rule:** Mobile branch bubbles use the approved content-frame scale family, with representative visual diameters around `100px` to `132px` depending on taxonomy weight and label density.
+  - **Branch typography rule:** Branch labels use the approved bubble typography direction: medium-weight, tightly centered, visually compact line-height, normal tracking, and size scaling that stays legible across varying bubble diameters.
   - **Leaf view role:** Leaf view is a one-hop relation graph browser. It renders the returned `nodes[]` and `edges[]` payload together and uses geometric structure to expose relational proximity rather than taxonomy hierarchy.
   - **Leaf level-of-detail rule:** Leaf view has two rendering modes. Point mode is the default whole-graph overview and uses lightweight data points plus true graph edges with no titles or content. Card mode is activated only after the approved zoom threshold and only for nodes inside the active viewport plus overscan.
   - **Leaf renderer rule:** Leaf rendering is owned by a dedicated deck.gl scene using an orthographic 2D camera model and deck.gl scene primitives.
@@ -76,7 +79,7 @@ out_of_scope: Taxonomy API payload semantics, page-shell chrome structure, and r
   - **Leaf layout family:** Leaf layout uses a static `d3-force` graph solve with link force, collision force, many-body separation, and weak centering. The solve runs when the leaf payload changes and then freezes to preserve spatial stability.
   - **Leaf hydration stability rule:** Hydrating or remeasuring cards does not rerun the solved world layout. Point-mode node centers remain the canonical graph anchors, while later hydration passes only update card box dimensions and anchored overlay presentation around those fixed centers.
   - **Leaf measurement rule:** DOM card measurement is write-back metadata rather than a per-frame layout driver. Cards may be measured on first render, on text change, on width-tier change, or on explicit invalidation, but viewport panning and zooming alone must not trigger full-card-set synchronous box reads.
-  - **Leaf rectangle collision rule:** When nodes are upgraded into cards, the layout layer must reserve space from the card footprint approximation derived from the selected width tier and estimated wrapped-title height rather than from the old circular point radius.
+  - **Leaf rectangle collision rule:** When nodes are upgraded into cards, the layout layer must reserve space from the card footprint approximation derived from the selected width tier and estimated wrapped-title height rather than from the point-mode radius.
   - **Leaf scope styling rule:** `inner` and `outer` can differ only through restrained variations such as border emphasis, label tone, or surface tint. They do not become separate component families.
   - **Hover disclosure rule:** Leaf `content` is revealed through a lightweight floating disclosure that visually belongs to the canvas and bubble system. The disclosure remains outside the default node footprint, anchors tightly to the hovered card rather than to the cursor, prefers a short gap beneath the card, flips above only when lower space is insufficient, and does not use a generic dark tooltip treatment.
   - **Hover focus rule:** Hovering a hydrated leaf card triggers a local focus state. The hovered card is the strongest visual focus, directly connected cards receive a secondary highlight treatment, incident edges are highlighted, and non-connected cards and edges are visibly weakened without being removed from the scene. Card emphasis changes must preserve card footprint and typography size stability; focus differentiation is carried by color and opacity rather than card scaling.
@@ -101,9 +104,11 @@ out_of_scope: Taxonomy API payload semantics, page-shell chrome structure, and r
 ## Validation
 - **Checks:**
   - Branch view displays weighted bubbles with logarithmic size scaling and no hierarchy edges.
-  - Branch composition reads as a center-out floating field with visible breathing room and no persistent overlap.
+  - Branch composition reads as a floating field with visible breathing room and no persistent overlap at both desktop and mobile canvas sizes.
+  - Branch layout uses the approved desktop `1120px x 1024px` content reference and mobile `440px x 892px` content reference as responsive geometry anchors.
   - Branch nodes read as the approved bubble family and hydrated leaf nodes read as the approved rectangular card family.
   - Branch bubbles do not display auxiliary affordance text such as `Open`.
+  - Branch bubble diameter tiers, label widths, and text sizes remain visually aligned with the approved desktop and mobile Graph View frames.
   - Branch and leaf views use separate dedicated layout functions matched to their respective visual systems.
   - Leaf view renders the skeleton graph from the one-hop payload without loading titles or content on entry.
   - Leaf view uses deck.gl scene primitives for points and edges, while rich-text leaf cards render through a coordinate-anchored DOM overlay layer.
@@ -116,11 +121,11 @@ out_of_scope: Taxonomy API payload semantics, page-shell chrome structure, and r
   - Dragging or zooming the leaf scene does not trigger full-card-set synchronous DOM measurement or repeated markdown/KaTeX parsing for unchanged text.
   - Hovering a hydrated leaf card makes the hovered card strongest, connected cards secondarily highlighted, incident edges highlighted, and unrelated cards and edges weakened.
   - Hydrated leaf cards are center-anchored to the original point coordinates, use stable discrete width tiers with automatic line wrapping, and grow in height with the wrapped title line count instead of flattening to equal-height shells.
-  - Breadcrumb, leaf point graph, leaf card typography, and disclosure styling remain visually aligned with the approved Figma direction.
+  - Breadcrumb, branch bubbles, leaf point graph, leaf card typography, and disclosure styling remain visually aligned with the approved Figma direction.
   - Page-owned layout styling is carried primarily by Tailwind utility classes rather than large handwritten CSS blocks.
   - Leaf layout uses relation-driven geometry without forcing `inner` and `outer` into separate positional rings.
   - Re-entering the same payload yields approximately stable node positions rather than large random jumps.
-  - Layout updates preserve the single-canvas shell geometry defined in `taxonomy-view-shell.md`.
+  - Layout updates preserve the single-canvas desktop and mobile shell geometry defined in `taxonomy-view-shell.md`.
 - **Evidence:**
   - Updated frontend design and implementation artifacts in `apps/web` reflect the branch and leaf layout contracts.
   - Focused frontend verification covers branch drill-down, leaf point-mode entry, viewport-scoped leaf hydration, and hover disclosure behavior.

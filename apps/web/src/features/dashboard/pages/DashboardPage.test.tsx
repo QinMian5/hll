@@ -4,6 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -166,18 +167,18 @@ describe("DashboardPage", () => {
       "lg:h-16",
     );
     expect(screen.getByTestId("dashboard-quota-summary")).toHaveClass(
-      "rounded-lg",
-      "border-[rgba(214,227,247,0.86)]",
-      "bg-[rgba(255,255,255,0.88)]",
+      "rounded-knowledge-surface",
+      "border-knowledge-border-card",
+      "bg-knowledge-surface-card",
       "p-4",
-      "lg:p-6",
+      "lg:p-knowledge-surface-padding",
     );
     expect(screen.getByTestId("dashboard-token-directory")).toHaveClass(
-      "rounded-lg",
-      "border-[rgba(214,227,247,0.86)]",
-      "bg-[rgba(255,255,255,0.88)]",
+      "rounded-knowledge-surface",
+      "border-knowledge-border-card",
+      "bg-knowledge-surface-card",
       "p-4",
-      "lg:p-6",
+      "lg:p-knowledge-surface-padding",
     );
     expect(screen.getByTestId("dashboard-token-table")).toHaveClass(
       "hidden",
@@ -214,7 +215,7 @@ describe("DashboardPage", () => {
     }
   });
 
-  it("renders inactive quota windows as first-use started", () => {
+  it("omits reset copy for inactive quota windows", () => {
     mockUseDashboardQuotaQuery.mockReturnValue(
       quotaQueryResult({
         data: {
@@ -246,7 +247,9 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage />);
 
-    expect(screen.getAllByText("starts on first use")).toHaveLength(2);
+    expect(screen.getByText("0 / 1,000")).toBeInTheDocument();
+    expect(screen.getByText("0 / 5,000")).toBeInTheDocument();
+    expect(screen.queryByText("starts on first use")).not.toBeInTheDocument();
   });
 
   it("renders token rows with copy, rename, and delete lifecycle controls", async () => {
@@ -273,6 +276,46 @@ describe("DashboardPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows copied feedback for three seconds after clipboard copy succeeds", async () => {
+    vi.useFakeTimers();
+
+    try {
+      render(<DashboardPage />);
+
+      await act(async () => {
+        fireEvent.click(
+          screen.getAllByRole("button", { name: "Copy Research MCP" })[0],
+        );
+        await Promise.resolve();
+      });
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+        "kn_pat_clear_alpha",
+      );
+      expect(
+        screen.getAllByRole("button", { name: "Copied Research MCP" })[0],
+      ).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(2999);
+      });
+
+      expect(
+        screen.getAllByRole("button", { name: "Copied Research MCP" })[0],
+      ).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+
+      expect(
+        screen.getAllByRole("button", { name: "Copy Research MCP" })[0],
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("submits the create token dialog", async () => {
     const mutateAsync = vi.fn(async () => undefined);
     mockUseCreateDashboardTokenMutation.mockReturnValue(
@@ -284,7 +327,7 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     fireEvent.click(screen.getByRole("button", { name: "Create Token" }));
-    fireEvent.change(screen.getByLabelText("Token name"), {
+    fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Research Lab" },
     });
     fireEvent.click(screen.getAllByRole("button", { name: "Create Token" })[1]);
@@ -307,7 +350,7 @@ describe("DashboardPage", () => {
     fireEvent.click(
       screen.getAllByRole("button", { name: "Rename Research MCP" })[0],
     );
-    fireEvent.change(screen.getByLabelText("Token name"), {
+    fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Research API" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Rename Token" }));
@@ -318,6 +361,34 @@ describe("DashboardPage", () => {
         name: "Research API",
       }),
     );
+  });
+
+  it("uses tokenized dashboard button styles for the create dialog", () => {
+    render(<DashboardPage />);
+
+    const trigger = screen.getByRole("button", { name: "Create Token" });
+    expect(trigger).toHaveClass(
+      "bg-knowledge-brand",
+      "h-knowledge-control",
+      "rounded-knowledge-control",
+      "text-knowledge-button",
+      "whitespace-nowrap",
+    );
+
+    fireEvent.click(trigger);
+
+    const cancelButton = screen.getByRole("button", { name: "Cancel" });
+    const createButtons = screen.getAllByRole("button", {
+      name: "Create Token",
+    });
+
+    expect(cancelButton).toHaveClass(
+      "bg-knowledge-surface-control",
+      "text-knowledge-text-default",
+      "w-full",
+    );
+    expect(cancelButton.className).not.toContain("bg-[#171717]");
+    expect(createButtons[1]).toHaveClass("bg-knowledge-brand", "w-full");
   });
 
   it("confirms token deletion", async () => {

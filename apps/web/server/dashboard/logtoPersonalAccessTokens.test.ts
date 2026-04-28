@@ -74,6 +74,24 @@ describe("Logto personal access token client", () => {
     );
   });
 
+  it("accepts Logto personal access token responses with metadata fields", async () => {
+    const fetchLogto = vi.fn(async () => {
+      return Response.json(
+        {
+          ...LOGTO_TOKEN,
+          tenantId: "default",
+          userId: "user-1",
+        },
+        { status: 201 },
+      );
+    });
+    const client = createClient(fetchLogto);
+
+    await expect(
+      client.createPersonalAccessToken("user-1", "Laptop"),
+    ).resolves.toEqual(TOKEN);
+  });
+
   it("renames a personal access token with Logto currentName semantics", async () => {
     const renamed = { ...LOGTO_TOKEN, name: "Workstation" };
     const expected = { ...TOKEN, name: "Workstation" };

@@ -1,7 +1,7 @@
 // abstract: Icon-only token row action controls for dashboard lifecycle actions.
 // out_of_scope: Dialog state ownership and token list data fetching.
 
-import { Copy, Pencil, Trash2 } from "lucide-react";
+import { Check, Copy, Pencil, Trash2 } from "lucide-react";
 
 import { cn } from "../../../shared/utils";
 import type { DashboardTokenRow } from "../types";
@@ -24,7 +24,7 @@ function TokenActionButton({
   return (
     <button
       className={cn(
-        "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[#606e87] transition-colors hover:bg-[rgba(226,234,246,0.58)] hover:text-[#131c2d]",
+        "inline-flex h-knowledge-icon-action w-knowledge-icon-action shrink-0 items-center justify-center rounded-knowledge-control text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default",
         className,
       )}
       onClick={onClick}
@@ -42,18 +42,25 @@ interface TokenActionProps {
 }
 
 export function CopyTokenButton({
+  isCopied,
   onCopy,
   token,
 }: TokenActionProps & {
+  readonly isCopied: boolean;
   readonly onCopy: (token: DashboardTokenRow) => void;
 }) {
   return (
     <TokenActionButton
-      aria-label={`Copy ${token.name}`}
+      aria-label={`${isCopied ? "Copied" : "Copy"} ${token.name}`}
+      className={isCopied ? "text-knowledge-brand" : undefined}
       onClick={() => onCopy(token)}
-      title="Copy token"
+      title={isCopied ? "Copied" : "Copy token"}
     >
-      <Copy aria-hidden="true" size={16} strokeWidth={2} />
+      {isCopied ? (
+        <Check aria-hidden="true" size={16} strokeWidth={2} />
+      ) : (
+        <Copy aria-hidden="true" size={16} strokeWidth={2} />
+      )}
     </TokenActionButton>
   );
 }
@@ -84,7 +91,7 @@ export function DeleteTokenButton({
   return (
     <TokenActionButton
       aria-label={`Delete ${token.name}`}
-      className="text-[#d83232] hover:bg-[rgba(216,50,50,0.08)] hover:text-[#bf2525]"
+      className="text-knowledge-danger hover:bg-knowledge-danger-soft hover:text-knowledge-danger-hover"
       onClick={() => onDelete(token)}
       title="Delete token"
     >

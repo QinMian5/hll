@@ -11,6 +11,7 @@ import {
 } from "./TokenActions";
 
 interface TokenDirectoryProps {
+  readonly copiedTokenName: string | null;
   readonly errorMessage?: string | null;
   readonly isLoading: boolean;
   readonly onCopy: (token: DashboardTokenRow) => void;
@@ -54,7 +55,7 @@ function DirectoryState({
 }) {
   return (
     <div
-      className="flex min-h-[160px] items-center justify-center rounded-lg border border-dashed border-[rgba(214,227,247,0.86)] text-[14px] leading-5 text-[#606e87]"
+      className="flex min-h-[160px] items-center justify-center rounded-knowledge-surface border border-dashed border-knowledge-border-card text-knowledge-body text-knowledge-text-muted"
       role={role}
     >
       {children}
@@ -67,12 +68,12 @@ function LoadingRows() {
     <div className="flex flex-col">
       {[0, 1, 2].map((index) => (
         <div
-          className="grid h-14 grid-cols-[minmax(0,3fr)_minmax(0,5fr)_minmax(5rem,1.5fr)_minmax(7rem,2fr)_1.5rem] items-center gap-4 border-t border-[rgba(214,227,247,0.72)]"
+          className="grid h-14 grid-cols-[minmax(0,3fr)_minmax(0,5fr)_minmax(5rem,1.5fr)_minmax(7rem,2fr)_1.5rem] items-center gap-4 border-t border-knowledge-divider-subtle"
           key={index}
         >
           {[0, 1, 2, 3].map((cellIndex) => (
             <span
-              className="h-3 rounded-full bg-[rgba(226,234,246,0.86)]"
+              className="h-3 rounded-full bg-knowledge-surface-hover"
               key={cellIndex}
             />
           ))}
@@ -83,30 +84,36 @@ function LoadingRows() {
 }
 
 function DesktopTokenRow({
+  copiedTokenName,
   onCopy,
   onDelete,
   onRename,
   token,
 }: {
+  readonly copiedTokenName: string | null;
   readonly onCopy: (token: DashboardTokenRow) => void;
   readonly onDelete: (token: DashboardTokenRow) => void;
   readonly onRename: (token: DashboardTokenRow) => void;
   readonly token: DashboardTokenRow;
 }) {
   return (
-    <div className="grid h-14 grid-cols-[minmax(0,3fr)_minmax(0,5fr)_minmax(5rem,1.5fr)_minmax(7rem,2fr)_1.5rem] items-center gap-4 border-t border-[rgba(214,227,247,0.72)] text-[14px] leading-[22px] text-[#131c2d]">
+    <div className="grid h-14 grid-cols-[minmax(0,3fr)_minmax(0,5fr)_minmax(5rem,1.5fr)_minmax(7rem,2fr)_1.5rem] items-center gap-4 border-t border-knowledge-divider-subtle text-knowledge-body text-knowledge-text-default">
       <div className="flex min-w-0 items-center gap-2">
         <span className="truncate font-medium">{token.name}</span>
         <RenameTokenButton onRename={onRename} token={token} />
       </div>
-      <div className="flex min-w-0 items-center gap-2 text-[#606e87]">
+      <div className="flex min-w-0 items-center gap-2 text-knowledge-text-muted">
         <span className="truncate font-normal">{token.maskedToken}</span>
-        <CopyTokenButton onCopy={onCopy} token={token} />
+        <CopyTokenButton
+          isCopied={copiedTokenName === token.name}
+          onCopy={onCopy}
+          token={token}
+        />
       </div>
-      <span className="min-w-0 truncate text-[#606e87]">
+      <span className="min-w-0 truncate text-knowledge-text-muted">
         {formatUsageCount(token.usageCount)}
       </span>
-      <span className="min-w-0 truncate text-[#606e87]">
+      <span className="min-w-0 truncate text-knowledge-text-muted">
         {formatLastUsedAt(token.lastUsedAt)}
       </span>
       <DeleteTokenButton onDelete={onDelete} token={token} />
@@ -115,21 +122,23 @@ function DesktopTokenRow({
 }
 
 function MobileTokenRow({
+  copiedTokenName,
   onCopy,
   onDelete,
   onRename,
   token,
 }: {
+  readonly copiedTokenName: string | null;
   readonly onCopy: (token: DashboardTokenRow) => void;
   readonly onDelete: (token: DashboardTokenRow) => void;
   readonly onRename: (token: DashboardTokenRow) => void;
   readonly token: DashboardTokenRow;
 }) {
   return (
-    <div className="grid h-24 grid-rows-[1.25rem_1.25rem_1.125rem] gap-2 border-t border-[rgba(214,227,247,0.72)] py-3">
+    <div className="grid h-24 grid-rows-[1.25rem_1.25rem_1.125rem] gap-2 border-t border-knowledge-divider-subtle py-3">
       <div className="flex min-w-0 items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-[15px] leading-5 font-semibold text-[#131c2d]">
+          <span className="truncate text-[15px] leading-5 font-semibold text-knowledge-text-default">
             {token.name}
           </span>
           <RenameTokenButton onRename={onRename} token={token} />
@@ -137,12 +146,16 @@ function MobileTokenRow({
         <DeleteTokenButton onDelete={onDelete} token={token} />
       </div>
       <div className="flex min-w-0 items-center gap-2">
-        <span className="min-w-0 truncate text-[13px] leading-[19px] text-[#606e87]">
+        <span className="min-w-0 truncate text-[13px] leading-[19px] text-knowledge-text-muted">
           {token.maskedToken}
         </span>
-        <CopyTokenButton onCopy={onCopy} token={token} />
+        <CopyTokenButton
+          isCopied={copiedTokenName === token.name}
+          onCopy={onCopy}
+          token={token}
+        />
       </div>
-      <div className="grid grid-cols-2 gap-3 text-[13px] leading-[18px] font-medium text-[#606e87]">
+      <div className="grid grid-cols-2 gap-3 text-knowledge-caption font-medium text-knowledge-text-muted">
         <span className="truncate">{formatUsageCount(token.usageCount)}</span>
         <span className="truncate text-right">
           {formatLastUsedAt(token.lastUsedAt)}
@@ -153,6 +166,7 @@ function MobileTokenRow({
 }
 
 export function TokenDirectory({
+  copiedTokenName,
   errorMessage,
   isLoading,
   onCopy,
@@ -166,23 +180,20 @@ export function TokenDirectory({
 
   return (
     <section
-      className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] p-4 lg:p-6"
+      className="flex min-h-0 flex-1 flex-col gap-knowledge-section-gap overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-4 lg:p-knowledge-surface-padding"
       data-testid="dashboard-token-directory"
     >
       <div className="flex h-10 shrink-0 items-center justify-between gap-4">
-        <h2 className="m-0 text-[15px] leading-5 font-semibold text-[#131c2d] lg:text-[16px] lg:leading-[22px]">
+        <h2 className="m-0 text-[15px] leading-5 font-semibold text-knowledge-text-default lg:text-knowledge-title">
           Tokens
         </h2>
-        <Button
-          className="h-10 w-[120px] rounded-lg bg-[#006aff] px-4 text-[14px] leading-5 font-medium text-white hover:bg-[#005ee0] disabled:hover:bg-[#006aff]"
-          onClick={onCreate}
-        >
+        <Button className="shrink-0" onClick={onCreate}>
           Create Token
         </Button>
       </div>
 
       {!usageAvailable ? (
-        <p className="m-0 rounded-lg bg-[rgba(255,244,229,0.78)] px-3 py-2 text-[13px] leading-[18px] text-[#8a5a00]">
+        <p className="m-0 rounded-knowledge-control bg-knowledge-warning-surface px-3 py-2 text-knowledge-caption text-knowledge-warning-text">
           Usage data is unavailable.
         </p>
       ) : null}
@@ -206,7 +217,7 @@ export function TokenDirectory({
             <div
               className={cn(
                 "grid h-10 grid-cols-[minmax(0,3fr)_minmax(0,5fr)_minmax(5rem,1.5fr)_minmax(7rem,2fr)_1.5rem] items-center gap-4",
-                "border-b border-[rgba(214,227,247,0.86)] text-[13px] leading-[18px] font-medium text-[#606e87]",
+                "border-b border-knowledge-border-card text-knowledge-caption font-medium text-knowledge-text-muted",
               )}
             >
               <span>Name</span>
@@ -218,6 +229,7 @@ export function TokenDirectory({
             <div className="min-h-0 overflow-y-auto">
               {tokens.map((token) => (
                 <DesktopTokenRow
+                  copiedTokenName={copiedTokenName}
                   key={token.name}
                   onCopy={onCopy}
                   onDelete={onDelete}
@@ -234,6 +246,7 @@ export function TokenDirectory({
           >
             {tokens.map((token) => (
               <MobileTokenRow
+                copiedTokenName={copiedTokenName}
                 key={token.name}
                 onCopy={onCopy}
                 onDelete={onDelete}

@@ -1,7 +1,7 @@
 // abstract: Routed dashboard page for account quota and token lifecycle management.
 // out_of_scope: AppShell navigation chrome and server-side token adapters.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QuotaSummary } from "../components/QuotaSummary";
 import { DeleteTokenDialog, TokenDialog } from "../components/TokenDialog";
 import { TokenDirectory } from "../components/TokenDirectory";
@@ -30,13 +30,25 @@ export function DashboardPage() {
   const createTokenMutation = useCreateDashboardTokenMutation();
   const renameTokenMutation = useRenameDashboardTokenMutation();
   const deleteTokenMutation = useDeleteDashboardTokenMutation();
+  const copiedTokenResetTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [dialogState, setDialogState] = useState<DialogState>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
+  const [copiedTokenName, setCopiedTokenName] = useState<string | null>(null);
 
   const tokens = tokenQuery.data?.tokens ?? [];
   const usageAvailable = tokenQuery.data?.usageAvailable ?? true;
   const quota = quotaQuery.data?.quota ?? null;
   const quotaAvailable = quotaQuery.data?.quotaAvailable ?? true;
+
+  useEffect(() => {
+    return () => {
+      if (copiedTokenResetTimer.current !== null) {
+        clearTimeout(copiedTokenResetTimer.current);
+      }
+    };
+  }, []);
 
   function openDialog(nextDialogState: DialogState) {
     setDialogError(null);
@@ -89,8 +101,25 @@ export function DashboardPage() {
     }
   }
 
+  function markTokenCopied(tokenName: string) {
+    if (copiedTokenResetTimer.current !== null) {
+      clearTimeout(copiedTokenResetTimer.current);
+    }
+
+    setCopiedTokenName(tokenName);
+    copiedTokenResetTimer.current = setTimeout(() => {
+      setCopiedTokenName((currentTokenName) =>
+        currentTokenName === tokenName ? null : currentTokenName,
+      );
+      copiedTokenResetTimer.current = null;
+    }, 3000);
+  }
+
   function handleCopy(token: DashboardTokenRow) {
-    void navigator.clipboard.writeText(token.tokenValue);
+    void navigator.clipboard
+      .writeText(token.tokenValue)
+      .then(() => markTokenCopied(token.name))
+      .catch(() => undefined);
   }
 
   return (
@@ -102,7 +131,7 @@ export function DashboardPage() {
         className="flex h-[52px] shrink-0 items-center lg:h-16"
         data-testid="dashboard-page-header"
       >
-        <h1 className="m-0 text-[16px] leading-6 font-semibold text-[#131c2d] lg:text-[18px] lg:leading-[48px]">
+        <h1 className="m-0 text-[16px] leading-6 font-semibold text-knowledge-text-default lg:text-[18px] lg:leading-[48px]">
           Dashboard
         </h1>
       </header>
@@ -117,6 +146,7 @@ export function DashboardPage() {
       />
 
       <TokenDirectory
+        copiedTokenName={copiedTokenName}
         errorMessage={
           tokenQuery.isError ? errorMessage(tokenQuery.error) : null
         }

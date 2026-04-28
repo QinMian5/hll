@@ -7,15 +7,59 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
 */
 
 @theme {
+  --color-knowledge-brand: #006bff;
+  --color-knowledge-brand-hover: #005ee0;
+  --color-knowledge-danger: #d83232;
+  --color-knowledge-danger-hover: #bf2525;
+  --color-knowledge-danger-soft: rgb(216 50 50 / 8%);
+  --color-knowledge-text-default: #131c2d;
+  --color-knowledge-text-muted: #606e87;
+  --color-knowledge-text-inverse: #ffffff;
+  --color-knowledge-surface-accent-soft: #eff6ff;
+  --color-knowledge-surface-card: rgb(255 255 255 / 88%);
+  --color-knowledge-surface-control: rgb(255 255 255 / 62%);
+  --color-knowledge-surface-control-hover: rgb(241 245 251 / 72%);
+  --color-knowledge-surface-dialog: #ffffff;
+  --color-knowledge-surface-hover: rgb(226 234 246 / 58%);
+  --color-knowledge-border-card: rgb(214 227 247 / 86%);
+  --color-knowledge-border-control: rgb(214 227 247 / 96%);
+  --color-knowledge-border-input: #e5e5e5;
+  --color-knowledge-border-subtle: #e0e4eb;
+  --color-knowledge-divider-subtle: rgb(214 227 247 / 74%);
+  --color-knowledge-input-placeholder: #8a94a6;
+  --color-knowledge-muted-surface: rgb(248 250 253 / 90%);
+  --color-knowledge-overlay-scrim: rgb(0 0 0 / 32%);
+  --color-knowledge-warning-surface: rgb(255 244 229 / 78%);
+  --color-knowledge-warning-text: #8a5a00;
+
   --color-account-menu-border: #e0e4eb;
   --color-account-menu-focus: #006bff;
   --color-account-menu-item-hover: #eff6ff;
   --color-account-menu-surface: rgb(255 255 255 / 72%);
   --color-account-menu-text: #131c2d;
 
+  --text-knowledge-button: 14px;
+  --text-knowledge-button--line-height: 20px;
+  --text-knowledge-body: 14px;
+  --text-knowledge-body--line-height: 22px;
+  --text-knowledge-caption: 13px;
+  --text-knowledge-caption--line-height: 18px;
+  --text-knowledge-title: 16px;
+  --text-knowledge-title--line-height: 22px;
+  --text-knowledge-dialog-title: 18px;
+  --text-knowledge-dialog-title--line-height: 24px;
+
   --text-account-menu-item: 14px;
   --text-account-menu-item--line-height: 20px;
   --text-account-menu-item--font-weight: 400;
+
+  --spacing-knowledge-action-button-x: 16px;
+  --spacing-knowledge-control: 40px;
+  --spacing-knowledge-dialog-width: 480px;
+  --spacing-knowledge-dialog-padding: 24px;
+  --spacing-knowledge-icon-action: 24px;
+  --spacing-knowledge-section-gap: 16px;
+  --spacing-knowledge-surface-padding: 24px;
 
   --spacing-account-menu-height: 140px;
   --spacing-account-menu-icon-size: 16px;
@@ -24,9 +68,14 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-account-menu-item-x: 12px;
   --spacing-account-menu-offset-y: 92px;
 
+  --radius-knowledge-control: 8px;
+  --radius-knowledge-surface: 8px;
+
+  --shadow-knowledge-input: 0 1px 2px rgb(16 24 40 / 4%);
   --radius-account-menu: 8px;
   --radius-account-menu-item: 6px;
 
+  --shadow-knowledge-dialog: 0 18px 26px rgb(107 132 189 / 9%);
   --drop-shadow-account-menu: 0 12px 12px rgb(38 51 82 / 12%);
 }
 

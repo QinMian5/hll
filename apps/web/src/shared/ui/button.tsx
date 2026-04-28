@@ -7,14 +7,19 @@ import { cn } from "../utils";
 
 const buttonVariantClasses = {
   default:
-    "bg-[#171717] text-[#FAFAFA] hover:bg-[#101010] disabled:hover:bg-[#171717]",
+    "bg-knowledge-brand text-knowledge-text-inverse hover:bg-knowledge-brand-hover disabled:hover:bg-knowledge-brand",
+  destructive:
+    "bg-knowledge-danger text-knowledge-text-inverse hover:bg-knowledge-danger-hover disabled:hover:bg-knowledge-danger",
   ghost:
-    "bg-transparent text-[rgba(99,114,143,0.9)] hover:bg-[rgba(226,234,246,0.48)] hover:text-[rgba(45,57,84,0.96)] disabled:hover:bg-transparent",
+    "bg-transparent text-knowledge-text-muted hover:bg-knowledge-surface-hover hover:text-knowledge-text-default disabled:hover:bg-transparent",
+  secondary:
+    "border border-knowledge-border-control bg-knowledge-surface-control text-knowledge-text-default hover:bg-knowledge-surface-control-hover disabled:hover:bg-knowledge-surface-control",
 } as const;
 
 const buttonSizeClasses = {
-  default: "h-10 min-w-[92px] rounded-lg px-6 text-[12px] leading-4",
-  icon: "h-11 w-11 rounded-[16px]",
+  default:
+    "h-knowledge-control min-w-[92px] rounded-knowledge-control px-knowledge-action-button-x text-knowledge-button whitespace-nowrap",
+  icon: "h-knowledge-icon-action w-knowledge-icon-action rounded-knowledge-control",
 } as const;
 
 type ButtonVariant = keyof typeof buttonVariantClasses;

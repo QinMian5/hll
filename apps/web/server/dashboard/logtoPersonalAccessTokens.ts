@@ -24,7 +24,7 @@ const LogtoPersonalAccessTokenSchema = z
     name: z.string().min(1),
     value: z.string().min(1),
   })
-  .strict();
+  .strip();
 
 const LogtoPersonalAccessTokenListSchema = z.array(
   LogtoPersonalAccessTokenSchema,

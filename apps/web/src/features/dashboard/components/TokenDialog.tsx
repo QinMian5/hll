@@ -26,11 +26,11 @@ function DialogFrame({
   readonly labelledBy: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(0,0,0,0.32)] px-4 py-8 lg:items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-knowledge-overlay-scrim px-4 py-8">
       <section
         aria-labelledby={labelledBy}
         aria-modal="true"
-        className="w-full max-w-[408px] rounded-lg border border-[#e0e4eb] bg-white p-6 shadow-[0_18px_26px_rgba(107,132,189,0.09)]"
+        className="w-full max-w-[var(--spacing-knowledge-dialog-width)] rounded-knowledge-surface border border-knowledge-border-subtle bg-knowledge-surface-dialog p-knowledge-dialog-padding shadow-knowledge-dialog"
         role="dialog"
       >
         {children}
@@ -72,14 +72,14 @@ export function TokenDialog({
       <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
         <div className="flex h-8 items-center justify-between gap-4">
           <h2
-            className="m-0 text-[16px] leading-6 font-semibold text-[#131c2d]"
+            className="m-0 text-knowledge-dialog-title font-semibold text-knowledge-text-default"
             id={titleId}
           >
             {title}
           </h2>
           <button
             aria-label="Close dialog"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#606e87] transition-colors hover:bg-[rgba(226,234,246,0.58)] hover:text-[#131c2d]"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-knowledge-control text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default"
             onClick={onClose}
             type="button"
           >
@@ -89,15 +89,15 @@ export function TokenDialog({
 
         <div className="flex flex-col gap-2">
           <label
-            className="text-[14px] leading-5 font-medium text-[#131c2d]"
+            className="text-knowledge-button font-medium text-knowledge-text-default"
             htmlFor={inputId}
           >
-            Token name
+            Name
           </label>
-          <div className="flex h-10 items-center rounded-lg border border-[#e5e5e5] px-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          <div className="flex h-knowledge-control items-center rounded-knowledge-control border border-knowledge-border-input px-knowledge-action-button-x shadow-knowledge-input">
             <Input
               autoFocus
-              className="h-full text-[14px] leading-5 font-normal text-[#131c2d] placeholder:text-[#8a94a6]"
+              className="h-full text-knowledge-button font-normal text-knowledge-text-default placeholder:text-knowledge-input-placeholder"
               id={inputId}
               onChange={(event) => setName(event.target.value)}
               value={name}
@@ -105,7 +105,7 @@ export function TokenDialog({
           </div>
           {errorMessage ? (
             <p
-              className="m-0 text-[13px] leading-[18px] text-[#bf2525]"
+              className="m-0 text-knowledge-caption text-knowledge-danger-hover"
               role="alert"
             >
               {errorMessage}
@@ -115,15 +115,16 @@ export function TokenDialog({
 
         <div className="grid grid-cols-2 gap-2">
           <Button
-            className="h-10 rounded-lg border border-[#e0e4eb] bg-white px-4 text-[14px] leading-5 font-medium text-[#131c2d] hover:bg-[rgba(241,245,251,0.72)] disabled:hover:bg-white"
+            className="w-full"
             disabled={isSubmitting}
             onClick={onClose}
             type="button"
+            variant="secondary"
           >
             Cancel
           </Button>
           <Button
-            className="h-10 rounded-lg bg-[#006aff] px-4 text-[14px] leading-5 font-medium text-white hover:bg-[#005ee0] disabled:hover:bg-[#006aff]"
+            className="w-full"
             disabled={isSubmitting || name.trim().length === 0}
             type="submit"
           >
@@ -162,14 +163,14 @@ export function DeleteTokenDialog({
       <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
         <div className="flex h-8 items-center justify-between gap-4">
           <h2
-            className="m-0 text-[16px] leading-6 font-semibold text-[#131c2d]"
+            className="m-0 text-knowledge-dialog-title font-semibold text-knowledge-text-default"
             id={titleId}
           >
             Delete Token
           </h2>
           <button
             aria-label="Close dialog"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#606e87] transition-colors hover:bg-[rgba(226,234,246,0.58)] hover:text-[#131c2d]"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-knowledge-control text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default"
             onClick={onClose}
             type="button"
           >
@@ -177,12 +178,12 @@ export function DeleteTokenDialog({
           </button>
         </div>
 
-        <div className="rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(248,250,253,0.9)] px-4 py-3 text-[14px] leading-5 font-medium text-[#131c2d]">
+        <div className="rounded-knowledge-control border border-knowledge-border-card bg-knowledge-muted-surface px-4 py-3 text-knowledge-button font-medium text-knowledge-text-default">
           {tokenName}
         </div>
         {errorMessage ? (
           <p
-            className="m-0 text-[13px] leading-[18px] text-[#bf2525]"
+            className="m-0 text-knowledge-caption text-knowledge-danger-hover"
             role="alert"
           >
             {errorMessage}
@@ -191,17 +192,19 @@ export function DeleteTokenDialog({
 
         <div className="grid grid-cols-2 gap-2">
           <Button
-            className="h-10 rounded-lg border border-[#e0e4eb] bg-white px-4 text-[14px] leading-5 font-medium text-[#131c2d] hover:bg-[rgba(241,245,251,0.72)] disabled:hover:bg-white"
+            className="w-full"
             disabled={isSubmitting}
             onClick={onClose}
             type="button"
+            variant="secondary"
           >
             Cancel
           </Button>
           <Button
-            className="h-10 rounded-lg bg-[#d83232] px-4 text-[14px] leading-5 font-medium text-white hover:bg-[#bf2525] disabled:hover:bg-[#d83232]"
+            className="w-full"
             disabled={isSubmitting}
             type="submit"
+            variant="destructive"
           >
             Delete Token
           </Button>
