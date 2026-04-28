@@ -10,12 +10,21 @@ import { InternalApiError } from "./errors.js";
 export type SearchResponse = components["schemas"]["SearchResponse"];
 export type TaxonomyRootViewResponse =
   components["schemas"]["TaxonomyRootViewResponse"];
+export type SuggestedEditCreateRequest =
+  components["schemas"]["SuggestedEditCreateRequest"];
+export type SuggestedEditCreateResponse =
+  components["schemas"]["SuggestedEditCreateResponse"];
 export type TaxonomyNodeViewResponse =
   components["schemas"]["TaxonomyNodeViewResponse"];
 export type TaxonomyLeafNodeDetailsResponse =
   components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
 
 export interface InternalApiClient {
+  readonly createSuggestedEdit: (
+    nodeId: number,
+    payload: SuggestedEditCreateRequest,
+    suggestedByUserId: string,
+  ) => Promise<SuggestedEditCreateResponse>;
   readonly getTaxonomyLeafNodeDetails: (
     leafId: number,
     nodeIds: readonly number[],
@@ -58,6 +67,22 @@ export function createInternalApiClient(
   });
 
   return {
+    createSuggestedEdit: async (nodeId, payload, suggestedByUserId) => {
+      const result = await client.POST(
+        "/api/v1/cards/{node_id}/suggested-edits",
+        {
+          body: payload,
+          params: {
+            header: {
+              "X-Knowledge-Suggested-By-User-Id": suggestedByUserId,
+            },
+            path: { node_id: nodeId },
+          },
+        },
+      );
+
+      return unwrapInternalApiData<SuggestedEditCreateResponse>(result);
+    },
     getTaxonomyLeafNodeDetails: async (leafId, nodeIds) => {
       const result = await client.POST(
         "/api/v1/taxonomy/view/leaves/{node_id}/details",

@@ -32,8 +32,18 @@ class _FakeSearchService:
         assert query == "hello world"
         return SearchResponse(
             matched_cards=[
-                MatchedCardResponse(title="Card A", content="Alpha"),
-                MatchedCardResponse(title="Card B", content="Beta"),
+                MatchedCardResponse(
+                    node_id=1,
+                    current_version=1,
+                    title="Card A",
+                    content="Alpha",
+                ),
+                MatchedCardResponse(
+                    node_id=2,
+                    current_version=3,
+                    title="Card B",
+                    content="Beta",
+                ),
             ],
             connected_titles=["Card C"],
         )
@@ -56,8 +66,8 @@ async def test_search_route_returns_expected_payload_shape(
     payload = response.json()
     assert payload["connected_titles"] == ["Card C"]
     assert payload["matched_cards"] == [
-        {"title": "Card A", "content": "Alpha"},
-        {"title": "Card B", "content": "Beta"},
+        {"node_id": 1, "current_version": 1, "title": "Card A", "content": "Alpha"},
+        {"node_id": 2, "current_version": 3, "title": "Card B", "content": "Beta"},
     ]
 
 

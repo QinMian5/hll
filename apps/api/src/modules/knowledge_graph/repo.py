@@ -6,11 +6,15 @@ Out of scope: HTTP concerns and cross-module orchestration policy.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import cast
 
 from sqlalchemy import case, column, delete, insert, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.dto import (
+    CardSuggestedEditRecord,
+    CardSuggestedEditStatus,
+    CardVersionSnapshot,
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
     ProjectionCardNode,
@@ -19,7 +23,7 @@ from modules.knowledge_graph.dto import (
     TaxonomyClassificationNodeInput,
 )
 from modules.knowledge_graph.edge_rebuild import PlannedEdge, RebuildNodeEmbedding
-from modules.knowledge_graph.model import Adjacency, Edge, Node
+from modules.knowledge_graph.model import Adjacency, CardSuggestedEdit, CardVersion, Edge, Node
 
 _NODE_TAXONOMY_ASSIGNMENTS = table(
     "node_taxonomy_assignments",
@@ -51,13 +55,19 @@ class KnowledgeRepo:
     ) -> list[KnowledgeCardMatch]:
         cosine_distance = Node.embedding.cosine_distance(query_embedding)
         statement = (
-            select(Node.id, Node.title, Node.content)
+            select(Node.id, Node.current_version, Node.title, Node.content)
             .order_by(cosine_distance.asc(), Node.id.asc())
             .limit(limit)
         )
         rows = (await self._session.execute(statement)).all()
         return [
-            KnowledgeCardMatch(node_id=row.id, title=row.title, content=row.content) for row in rows
+            KnowledgeCardMatch(
+                node_id=row.id,
+                current_version=row.current_version,
+                title=row.title,
+                content=row.content,
+            )
+            for row in rows
         ]
 
     async def fetch_connected_title_candidates(
@@ -240,7 +250,74 @@ class KnowledgeRepo:
         node = Node(title=title, content=content, embedding=embedding)
         self._session.add(node)
         await self._session.flush()
+        self._session.add(
+            CardVersion(
+                node_id=node.id,
+                version=node.current_version,
+                title=title,
+                content=content,
+            )
+        )
+        await self._session.flush()
         return node.id
+
+    async def fetch_card_version(
+        self,
+        *,
+        node_id: int,
+        version: int,
+    ) -> CardVersionSnapshot | None:
+        row = (
+            await self._session.execute(
+                select(
+                    CardVersion.node_id,
+                    CardVersion.version,
+                    CardVersion.title,
+                    CardVersion.content,
+                )
+                .where(CardVersion.node_id == node_id)
+                .where(CardVersion.version == version)
+                .limit(1)
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        return CardVersionSnapshot(
+            node_id=row.node_id,
+            version=row.version,
+            title=row.title,
+            content=row.content,
+        )
+
+    async def create_card_suggested_edit(
+        self,
+        *,
+        node_id: int,
+        base_version: int,
+        suggested_title: str,
+        suggested_content: str,
+        suggested_by_user_id: str,
+    ) -> CardSuggestedEditRecord:
+        suggestion = CardSuggestedEdit(
+            node_id=node_id,
+            base_version=base_version,
+            suggested_title=suggested_title,
+            suggested_content=suggested_content,
+            suggested_by_user_id=suggested_by_user_id,
+            status="pending",
+        )
+        self._session.add(suggestion)
+        await self._session.flush()
+        return CardSuggestedEditRecord(
+            id=suggestion.id,
+            node_id=suggestion.node_id,
+            base_version=suggestion.base_version,
+            suggested_title=suggestion.suggested_title,
+            suggested_content=suggestion.suggested_content,
+            suggested_by_user_id=suggestion.suggested_by_user_id,
+            status=cast(CardSuggestedEditStatus, suggestion.status),
+            created_at=suggestion.created_at,
+        )
 
     async def fetch_node_ids_in_rebuild_order(self) -> list[int]:
         rows = (await self._session.execute(select(Node.id).order_by(Node.id.asc()))).all()

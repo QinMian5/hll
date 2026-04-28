@@ -21,7 +21,8 @@ TEST_MAX_CONNECTED = 7
 class _KnowledgeCardMatch:
     title: str
     content: str
-    node_id: int | None = None
+    node_id: int
+    current_version: int
 
 
 @dataclass(slots=True)
@@ -52,8 +53,18 @@ class _FakeKnowledgeService:
         assert query_embedding == [0.1, 0.2, 0.3]
         self.matched_limit_seen = limit
         return [
-            _KnowledgeCardMatch(node_id=11, title="A", content="alpha"),
-            _KnowledgeCardMatch(node_id=12, title="B", content="beta"),
+            _KnowledgeCardMatch(
+                node_id=11,
+                current_version=1,
+                title="A",
+                content="alpha",
+            ),
+            _KnowledgeCardMatch(
+                node_id=12,
+                current_version=4,
+                title="B",
+                content="beta",
+            ),
         ]
 
     async def get_connected_titles(
@@ -70,7 +81,7 @@ class _FakeKnowledgeService:
 
 
 @pytest.mark.anyio
-async def test_search_returns_matched_cards_with_only_title_and_content() -> None:
+async def test_search_returns_matched_cards_with_version_identity() -> None:
     embedding_client = _FakeEmbeddingClient()
     knowledge_service = _FakeKnowledgeService()
     service = SearchService(
@@ -84,8 +95,8 @@ async def test_search_returns_matched_cards_with_only_title_and_content() -> Non
 
     assert embedding_client.last_text == "what is card b"
     assert [item.model_dump() for item in response.matched_cards] == [
-        {"title": "A", "content": "alpha"},
-        {"title": "B", "content": "beta"},
+        {"node_id": 11, "current_version": 1, "title": "A", "content": "alpha"},
+        {"node_id": 12, "current_version": 4, "title": "B", "content": "beta"},
     ]
     assert response.connected_titles == ["C", "D"]
 

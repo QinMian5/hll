@@ -4,7 +4,13 @@
 import "@testing-library/jest-dom/vitest";
 
 import { RouterProvider } from "@tanstack/react-router";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../../app/providers";
@@ -12,9 +18,15 @@ import { createAppRouter } from "../../../app/router";
 import type { SearchResponse } from "../data/searchQueries";
 
 vi.mock("../data/searchQueries", () => ({
+  useCreateSuggestedEditMutation: vi.fn(),
   useSearchQuery: vi.fn(),
 }));
 
+vi.mock("../../../shared/web-api/useWebSession", () => ({
+  useWebSession: vi.fn(),
+}));
+
+import * as webSession from "../../../shared/web-api/useWebSession";
 import * as searchQueries from "../data/searchQueries";
 
 afterEach(() => {
@@ -51,6 +63,10 @@ function renderSearchRoute(pathname: string) {
 }
 
 const mockUseSearchQuery = vi.mocked(searchQueries.useSearchQuery);
+const mockUseCreateSuggestedEditMutation = vi.mocked(
+  searchQueries.useCreateSuggestedEditMutation,
+);
+const mockUseWebSession = vi.mocked(webSession.useWebSession);
 
 function mockSearchQueryResult(
   value: Partial<ReturnType<typeof searchQueries.useSearchQuery>>,
@@ -60,6 +76,11 @@ function mockSearchQueryResult(
 
 describe("SearchPage", () => {
   beforeEach(() => {
+    mockUseCreateSuggestedEditMutation.mockReturnValue({
+      error: null,
+      isPending: false,
+      mutateAsync: vi.fn(),
+    } as never);
     mockUseSearchQuery.mockReturnValue(
       mockSearchQueryResult({
         data: undefined,
@@ -68,6 +89,7 @@ describe("SearchPage", () => {
         isPending: false,
       }),
     );
+    mockUseWebSession.mockReturnValue({ status: "anonymous" });
   });
 
   it("renders the empty search state when no effective query exists", async () => {
@@ -88,6 +110,8 @@ describe("SearchPage", () => {
         {
           content:
             "*Returned* by the backend search API.\n\n- diagonalizable\n\n`rank`",
+          current_version: 2,
+          node_id: 10,
           title: "Matrix decomposition \\(A=PDP^{-1}\\)",
         },
       ],
@@ -133,6 +157,8 @@ describe("SearchPage", () => {
       matched_cards: [
         {
           content: "A result body.",
+          current_version: 1,
+          node_id: 10,
           title: "Matrix decomposition",
         },
       ],
@@ -213,5 +239,238 @@ describe("SearchPage", () => {
         screen.getByTestId("search-suggestions-scroll-area").children,
       ).some((child) => child.getAttribute("aria-hidden") === "true"),
     ).toBe(false);
+  });
+
+  it("opens sign-in-required dialog when anonymous user clicks edit", async () => {
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [
+        {
+          content: "A result body.",
+          current_version: 1,
+          node_id: 10,
+          title: "Matrix decomposition",
+        },
+      ],
+    };
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Suggest edit for Matrix decomposition",
+      }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: "Sign in to suggest edits" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Sign in to suggest changes and help improve this knowledge card.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not show anonymous sign-in dialog while session is still loading", async () => {
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [
+        {
+          content: "A result body.",
+          current_version: 1,
+          node_id: 10,
+          title: "Matrix decomposition",
+        },
+      ],
+    };
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+    mockUseWebSession.mockReturnValue({ status: "loading" });
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Suggest edit for Matrix decomposition",
+      }),
+    );
+
+    expect(
+      screen.queryByRole("dialog", { name: "Sign in to suggest edits" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("submits authenticated suggestion with visible base version", async () => {
+    const mutateAsync = vi.fn(async () => ({
+      base_version: 3,
+      created_at: "2026-04-28T18:00:00Z",
+      id: 99,
+      node_id: 10,
+      status: "pending",
+    }));
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [
+        {
+          content: "Old content.",
+          current_version: 3,
+          node_id: 10,
+          title: "Old title",
+        },
+      ],
+    };
+    mockUseCreateSuggestedEditMutation.mockReturnValue({
+      error: null,
+      isPending: false,
+      mutateAsync,
+    } as never);
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+    mockUseWebSession.mockReturnValue({
+      status: "authenticated",
+      user: { id: "logto-user-123" },
+    });
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Suggest edit for Old title" }),
+    );
+    fireEvent.change(screen.getByLabelText("Suggested title"), {
+      target: { value: "Better title" },
+    });
+    fireEvent.change(screen.getByLabelText("Suggested content"), {
+      target: { value: "Better content." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit suggestion" }));
+
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith({
+        baseVersion: 3,
+        nodeId: 10,
+        suggestedContent: "Better content.",
+        suggestedTitle: "Better title",
+      }),
+    );
+  });
+
+  it("disables authenticated suggestion submission until the draft changes", async () => {
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [
+        {
+          content: "Old content.",
+          current_version: 3,
+          node_id: 10,
+          title: "Old title",
+        },
+      ],
+    };
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+    mockUseWebSession.mockReturnValue({
+      status: "authenticated",
+      user: { id: "logto-user-123" },
+    });
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Suggest edit for Old title" }),
+    );
+
+    const submitButton = screen.getByRole("button", {
+      name: "Submit suggestion",
+    });
+    expect(submitButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Suggested content"), {
+      target: { value: "Better content." },
+    });
+
+    expect(submitButton).not.toBeDisabled();
+  });
+
+  it("keeps authenticated suggestion draft open and shows submission errors", async () => {
+    const mutateAsync = vi.fn(async () => {
+      throw new Error("backend unavailable");
+    });
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [
+        {
+          content: "Old content.",
+          current_version: 3,
+          node_id: 10,
+          title: "Old title",
+        },
+      ],
+    };
+    mockUseCreateSuggestedEditMutation.mockReturnValue({
+      error: null,
+      isPending: false,
+      mutateAsync,
+    } as never);
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+    mockUseWebSession.mockReturnValue({
+      status: "authenticated",
+      user: { id: "logto-user-123" },
+    });
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Suggest edit for Old title" }),
+    );
+    fireEvent.change(screen.getByLabelText("Suggested title"), {
+      target: { value: "Better title" },
+    });
+    fireEvent.change(screen.getByLabelText("Suggested content"), {
+      target: { value: "Better content." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit suggestion" }));
+
+    expect(
+      await screen.findByText("Could not submit the suggestion. Try again."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Suggest edit" }),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Better title")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Better content.")).toBeInTheDocument();
   });
 });

@@ -130,12 +130,22 @@
             "title": "Content",
             "type": "string"
           },
+          "current_version": {
+            "title": "Current Version",
+            "type": "integer"
+          },
+          "node_id": {
+            "title": "Node Id",
+            "type": "integer"
+          },
           "title": {
             "title": "Title",
             "type": "string"
           }
         },
         "required": [
+          "node_id",
+          "current_version",
           "title",
           "content"
         ],
@@ -165,6 +175,76 @@
           "connected_titles"
         ],
         "title": "SearchResponse",
+        "type": "object"
+      },
+      "SuggestedEditCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "base_version": {
+            "exclusiveMinimum": 0.0,
+            "title": "Base Version",
+            "type": "integer"
+          },
+          "suggested_content": {
+            "minLength": 1,
+            "title": "Suggested Content",
+            "type": "string"
+          },
+          "suggested_title": {
+            "minLength": 1,
+            "title": "Suggested Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_version",
+          "suggested_title",
+          "suggested_content"
+        ],
+        "title": "SuggestedEditCreateRequest",
+        "type": "object"
+      },
+      "SuggestedEditCreateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "base_version": {
+            "exclusiveMinimum": 0.0,
+            "title": "Base Version",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Id",
+            "type": "integer"
+          },
+          "node_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Node Id",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "node_id",
+          "base_version",
+          "status",
+          "created_at"
+        ],
+        "title": "SuggestedEditCreateResponse",
         "type": "object"
       },
       "TaxonomyLeafGraphEdgeResponse": {
@@ -597,6 +677,79 @@
         "summary": "Create Ingestion",
         "tags": [
           "ingestions"
+        ]
+      }
+    },
+    "/api/v1/cards/{node_id}/suggested-edits": {
+      "post": {
+        "operationId": "create_suggested_edit_api_v1_cards__node_id__suggested_edits_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "title": "Node Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Knowledge-Suggested-By-User-Id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Knowledge-Suggested-By-User-Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestedEditCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestedEditCreateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Create Suggested Edit",
+        "tags": [
+          "knowledge-graph"
         ]
       }
     },

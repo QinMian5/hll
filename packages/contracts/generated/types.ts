@@ -21,6 +21,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/cards/{node_id}/suggested-edits": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Suggested Edit */
+    post: operations["create_suggested_edit_api_v1_cards__node_id__suggested_edits_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/search": {
     parameters: {
       query?: never;
@@ -155,6 +172,10 @@ export interface components {
     MatchedCardResponse: {
       /** Content */
       content: string;
+      /** Current Version */
+      current_version: number;
+      /** Node Id */
+      node_id: number;
       /** Title */
       title: string;
     };
@@ -164,6 +185,34 @@ export interface components {
       connected_titles: string[];
       /** Matched Cards */
       matched_cards: components["schemas"]["MatchedCardResponse"][];
+    };
+    /** SuggestedEditCreateRequest */
+    SuggestedEditCreateRequest: {
+      /** Base Version */
+      base_version: number;
+      /** Suggested Content */
+      suggested_content: string;
+      /** Suggested Title */
+      suggested_title: string;
+    };
+    /** SuggestedEditCreateResponse */
+    SuggestedEditCreateResponse: {
+      /** Base Version */
+      base_version: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+      /** Node Id */
+      node_id: number;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "pending" | "accepted" | "rejected";
     };
     TaxonomyLeafGraphEdgeResponse: [number, number, number];
     /** TaxonomyLeafGraphNodeResponse */
@@ -323,6 +372,52 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_suggested_edit_api_v1_cards__node_id__suggested_edits_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Knowledge-Suggested-By-User-Id": string;
+      };
+      path: {
+        node_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SuggestedEditCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SuggestedEditCreateResponse"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Unprocessable Content */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
         };
       };
     };

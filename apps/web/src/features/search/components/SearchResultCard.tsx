@@ -1,23 +1,51 @@
 // abstract: Search result card with rich-text title and body rendering.
 // out_of_scope: Search route state management, search input handling, and backend query orchestration.
 
+import { SquarePen } from "lucide-react";
 import { KnowledgeRichText } from "../../../shared/ui/knowledge-rich-text";
 
-interface SearchResultCardProps {
+export interface SearchResultCardEditPayload {
   readonly content: string;
+  readonly currentVersion: number;
+  readonly nodeId: number;
   readonly title: string;
 }
 
-export function SearchResultCard({ content, title }: SearchResultCardProps) {
+interface SearchResultCardProps {
+  readonly content: string;
+  readonly currentVersion: number;
+  readonly nodeId: number;
+  readonly onSuggestEdit: (card: SearchResultCardEditPayload) => void;
+  readonly title: string;
+}
+
+export function SearchResultCard({
+  content,
+  currentVersion,
+  nodeId,
+  onSuggestEdit,
+  title,
+}: SearchResultCardProps) {
   return (
     <div
       className="flex h-[176px] w-full shrink-0 flex-col items-start gap-3 overflow-hidden rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] px-4 pt-4 pb-4 shadow-[0_18px_52px_rgba(107,132,189,0.09)]"
       data-testid="search-result-card"
     >
-      <div className="flex h-10 w-full shrink-0 flex-col items-start justify-start overflow-hidden md:h-6 [&_[data-testid=knowledge-rich-text-title]]:text-[15px] [&_[data-testid=knowledge-rich-text-title]]:leading-5 [&_[data-testid=knowledge-rich-text-title]]:font-semibold md:[&_[data-testid=knowledge-rich-text-title]]:text-[16px] md:[&_[data-testid=knowledge-rich-text-title]]:leading-[22px]">
-        <div className="w-full">
+      <div className="flex h-10 w-full shrink-0 items-start justify-start gap-2 overflow-hidden md:h-6 [&_[data-testid=knowledge-rich-text-title]]:text-[15px] [&_[data-testid=knowledge-rich-text-title]]:leading-5 [&_[data-testid=knowledge-rich-text-title]]:font-semibold md:[&_[data-testid=knowledge-rich-text-title]]:text-[16px] md:[&_[data-testid=knowledge-rich-text-title]]:leading-[22px]">
+        <div className="min-w-0 flex-1">
           <KnowledgeRichText text={title} variant="title" />
         </div>
+        <button
+          aria-label={`Suggest edit for ${title}`}
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-[#606e87] transition-colors hover:bg-[#eff6ff] hover:text-[#131c2d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+          onClick={() => {
+            onSuggestEdit({ content, currentVersion, nodeId, title });
+          }}
+          title="Suggest edit"
+          type="button"
+        >
+          <SquarePen aria-hidden="true" className="size-4" strokeWidth={2} />
+        </button>
       </div>
       <div className="h-px w-full shrink-0 bg-[rgba(214,227,247,0.74)]" />
       <div

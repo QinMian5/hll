@@ -18,6 +18,7 @@ from core.error_http import app_error_from_request_validation, status_code_for_a
 from core.errors import AppError, InternalError
 from entrypoints.api import providers as api_providers
 from modules.ingestion.api import build_router as build_ingestion_router
+from modules.knowledge_graph.api import build_router as build_knowledge_graph_router
 from modules.search.api import build_router as build_search_router
 from modules.taxonomy.api import build_router as build_taxonomy_router
 
@@ -33,6 +34,12 @@ def create_app() -> FastAPI:
     )
     app.include_router(
         build_ingestion_router(get_ingestion_service=api_providers.get_ingestion_service),
+        prefix=API_V1_PREFIX,
+    )
+    app.include_router(
+        build_knowledge_graph_router(
+            get_knowledge_graph_service=api_providers.get_knowledge_graph_service
+        ),
         prefix=API_V1_PREFIX,
     )
     app.include_router(

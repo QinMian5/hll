@@ -10,6 +10,8 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from modules.knowledge_graph.dto import (
+    CardSuggestedEditRecord,
+    CardVersionSnapshot,
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
     ProjectionCardNode,
@@ -17,6 +19,14 @@ from modules.knowledge_graph.dto import (
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
 )
+
+
+class CardVersionNotFoundError(ValueError):
+    pass
+
+
+class CardSuggestedEditNoChangeError(ValueError):
+    pass
 
 
 class KnowledgeGraphRepoProtocol(Protocol):
@@ -76,6 +86,23 @@ class KnowledgeGraphRepoProtocol(Protocol):
         content: str,
         embedding: list[float],
     ) -> int: ...
+
+    async def fetch_card_version(
+        self,
+        *,
+        node_id: int,
+        version: int,
+    ) -> CardVersionSnapshot | None: ...
+
+    async def create_card_suggested_edit(
+        self,
+        *,
+        node_id: int,
+        base_version: int,
+        suggested_title: str,
+        suggested_content: str,
+        suggested_by_user_id: str,
+    ) -> CardSuggestedEditRecord: ...
 
     async def search_similarity_candidates(
         self,
@@ -213,6 +240,37 @@ class KnowledgeGraphService:
         return await self._repo.fetch_unassigned_nodes_for_taxonomy_classification(
             limit=limit,
         )
+
+    async def submit_card_suggested_edit(
+        self,
+        *,
+        node_id: int,
+        base_version: int,
+        suggested_title: str,
+        suggested_content: str,
+        suggested_by_user_id: str,
+    ) -> CardSuggestedEditRecord:
+        try:
+            base = await self._repo.fetch_card_version(
+                node_id=node_id,
+                version=base_version,
+            )
+            if base is None:
+                raise CardVersionNotFoundError("Card base version does not exist.")
+            if suggested_title == base.title and suggested_content == base.content:
+                raise CardSuggestedEditNoChangeError("Suggested edit must change title or content.")
+            record = await self._repo.create_card_suggested_edit(
+                node_id=node_id,
+                base_version=base_version,
+                suggested_title=suggested_title,
+                suggested_content=suggested_content,
+                suggested_by_user_id=suggested_by_user_id,
+            )
+            await self._repo.commit()
+            return record
+        except Exception:
+            await self._repo.rollback()
+            raise
 
     async def materialize_card_from_ingestion(
         self,

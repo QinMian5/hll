@@ -3,10 +3,16 @@
 
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
-import { type FormEvent, lazy, Suspense } from "react";
-
+import { type FormEvent, lazy, Suspense, useState } from "react";
+import { useWebSession } from "../../../shared/web-api/useWebSession";
 import { SearchField } from "../components/SearchField";
-import { useSearchQuery } from "../data/searchQueries";
+import type { SearchResultCardEditPayload } from "../components/SearchResultCard";
+import { SignInRequiredDialog } from "../components/SignInRequiredDialog";
+import { SuggestEditDialog } from "../components/SuggestEditDialog";
+import {
+  useCreateSuggestedEditMutation,
+  useSearchQuery,
+} from "../data/searchQueries";
 
 const SearchResultCard = lazy(() =>
   import("../components/SearchResultCard").then((module) => ({
@@ -23,9 +29,15 @@ export function SearchPage() {
   const search = useSearch({ from: "/search" }) as { q?: string };
   const query = normalizeQuery(search.q);
   const hasQuery = query.length > 0;
+  const session = useWebSession();
   const searchQuery = useSearchQuery(query, {
     enabled: hasQuery,
   });
+  const createSuggestedEditMutation = useCreateSuggestedEditMutation();
+  const [editingCard, setEditingCard] =
+    useState<SearchResultCardEditPayload | null>(null);
+  const [suggestionError, setSuggestionError] = useState<string | undefined>();
+  const [isSignInDialogOpen, setIsSignInDialogOpen] = useState(false);
   const matchedCards = searchQuery.data?.matched_cards ?? [];
   const connectedTitles = searchQuery.data?.connected_titles ?? [];
 
@@ -41,6 +53,42 @@ export function SearchPage() {
       search: { q: nextQuery === "" ? undefined : nextQuery },
       to: "/search",
     });
+  }
+
+  function handleSuggestEdit(card: SearchResultCardEditPayload) {
+    if (session.status === "loading") {
+      return;
+    }
+
+    if (session.status !== "authenticated") {
+      setIsSignInDialogOpen(true);
+      return;
+    }
+
+    setEditingCard(card);
+    setSuggestionError(undefined);
+  }
+
+  async function handleSubmitSuggestion(payload: {
+    readonly suggestedContent: string;
+    readonly suggestedTitle: string;
+  }) {
+    if (editingCard === null) {
+      return;
+    }
+
+    try {
+      await createSuggestedEditMutation.mutateAsync({
+        baseVersion: editingCard.currentVersion,
+        nodeId: editingCard.nodeId,
+        suggestedContent: payload.suggestedContent,
+        suggestedTitle: payload.suggestedTitle,
+      });
+      setEditingCard(null);
+      setSuggestionError(undefined);
+    } catch {
+      setSuggestionError("Could not submit the suggestion. Try again.");
+    }
   }
 
   return (
@@ -97,7 +145,10 @@ export function SearchPage() {
                     {matchedCards.map((card) => (
                       <SearchResultCard
                         content={card.content}
-                        key={card.title}
+                        currentVersion={card.current_version}
+                        key={card.node_id}
+                        nodeId={card.node_id}
+                        onSuggestEdit={handleSuggestEdit}
                         title={card.title}
                       />
                     ))}
@@ -142,6 +193,25 @@ export function SearchPage() {
           </div>
         </div>
       )}
+      {editingCard ? (
+        <SuggestEditDialog
+          card={editingCard}
+          errorMessage={suggestionError}
+          isSubmitting={createSuggestedEditMutation.isPending}
+          onClose={() => {
+            setEditingCard(null);
+            setSuggestionError(undefined);
+          }}
+          onSubmit={handleSubmitSuggestion}
+        />
+      ) : null}
+      {isSignInDialogOpen ? (
+        <SignInRequiredDialog
+          onClose={() => {
+            setIsSignInDialogOpen(false);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

@@ -17,7 +17,7 @@ out_of_scope: Review-workbench UI, card-merge conflict resolution, multi-branch 
 
 ## Constraint Projection
 - **Governing Constraints:** Knowledge-card edit suggestions must preserve an auditable relationship to the card version seen by the user, browser data access must remain BFF-mediated, private API contracts must remain generated and synchronized, and behavior-changing data-model/UI decisions must stay reflected in active specs.
-- **Detail Commitments:** Each persisted knowledge card has an integer `current_version`. Each formal card version is represented by a `card_versions` row keyed by `node_id` plus integer `version`. User suggestions are represented by `card_suggested_edits` rows that bind the suggestion to a `node_id` and `base_version`, store only the proposed `title` and `content`, store the authenticated Logto user id as `suggested_by_user_id`, and carry `pending`, `accepted`, or `rejected` status. Browser clients receive `node_id` and `current_version` from Search results, return `base_version` with the suggestion payload, and never submit `suggested_by_user_id`.
+- **Detail Commitments:** Each persisted knowledge card has an integer `current_version`. Each formal card version is represented by a `card_versions` row keyed by `node_id` plus integer `version`. User suggestions are represented by `card_suggested_edits` rows that bind the suggestion to a `node_id` and `base_version`, store only the proposed `title` and `content`, store the authenticated Logto user id as `suggested_by_user_id`, and carry `pending`, `accepted`, or `rejected` status. Browser clients receive `node_id` and `current_version` from Search results, return `base_version` with the suggestion payload, and never submit `suggested_by_user_id`; the BFF derives that user id from the server-side session and forwards it through the trusted internal API context.
 - **Update Rule:** Requirement-level governance remains stable while versioning, suggestion persistence, endpoint contracts, and Search UI behavior are maintained in this design document and the related module projection documents.
 
 ## Inputs & Outputs
@@ -87,7 +87,8 @@ out_of_scope: Review-workbench UI, card-merge conflict resolution, multi-branch 
   - `base_version`
   - `suggested_title`
   - `suggested_content`
-  - `suggested_by_user_id`
+- Suggested-edit trusted internal context:
+  - authenticated Logto user id forwarded by the BFF as the suggestion principal.
 - Suggested-edit response body:
   - `id`
   - `node_id`
@@ -107,7 +108,7 @@ out_of_scope: Review-workbench UI, card-merge conflict resolution, multi-branch 
 - The BFF derives `suggested_by_user_id` from the authenticated session user id.
 - Browser requests must not provide `suggested_by_user_id`.
 - Unauthenticated suggestion requests return `401` with a web-safe error response.
-- Authenticated suggestion requests are forwarded to private `POST /api/v1/cards/{node_id}/suggested-edits` through the generated internal API client.
+- Authenticated suggestion requests are forwarded to private `POST /api/v1/cards/{node_id}/suggested-edits` through the generated internal API client with the BFF-derived user id in trusted internal context.
 - Search data continues to flow through `GET /web-api/search`, which maps to private `GET /api/v1/search`.
 
 ## Frontend Search Interaction

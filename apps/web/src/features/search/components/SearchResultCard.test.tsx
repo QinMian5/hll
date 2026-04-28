@@ -3,8 +3,14 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SearchResultCard } from "./SearchResultCard";
 
@@ -17,6 +23,9 @@ describe("SearchResultCard", () => {
     render(
       <SearchResultCard
         content={"*Important*\n\n- conserved\n\n`scalar`"}
+        currentVersion={1}
+        nodeId={10}
+        onSuggestEdit={vi.fn()}
         title={"Energy \\(E=mc^2\\)"}
       />,
     );
@@ -31,6 +40,9 @@ describe("SearchResultCard", () => {
     render(
       <SearchResultCard
         content={"Paragraph one.\n\nParagraph two.\n\n- item"}
+        currentVersion={1}
+        nodeId={10}
+        onSuggestEdit={vi.fn()}
         title="Scrollable body"
       />,
     );
@@ -47,7 +59,15 @@ describe("SearchResultCard", () => {
   });
 
   it("uses the latest Figma-projected card sizing without fixed desktop width", () => {
-    render(<SearchResultCard content="Projected content." title="Projected" />);
+    render(
+      <SearchResultCard
+        content="Projected content."
+        currentVersion={1}
+        nodeId={10}
+        onSuggestEdit={vi.fn()}
+        title="Projected"
+      />,
+    );
 
     const card = screen.getByTestId("search-result-card");
     const contentRegion = within(card).getByTestId(
@@ -72,5 +92,29 @@ describe("SearchResultCard", () => {
         (child) => child.getAttribute("aria-hidden") === "true",
       ),
     ).toBe(false);
+  });
+
+  it("calls edit handler with card identity and visible version", async () => {
+    const onSuggestEdit = vi.fn();
+    render(
+      <SearchResultCard
+        content="Editable content."
+        currentVersion={3}
+        nodeId={42}
+        onSuggestEdit={onSuggestEdit}
+        title="Editable"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Suggest edit for Editable" }),
+    );
+
+    expect(onSuggestEdit).toHaveBeenCalledWith({
+      content: "Editable content.",
+      currentVersion: 3,
+      nodeId: 42,
+      title: "Editable",
+    });
   });
 });

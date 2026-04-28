@@ -5,19 +5,44 @@ Out of scope: SQLAlchemy persistence mapping and HTTP request/response contracts
 
 from __future__ import annotations
 
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+CardSuggestedEditStatus = Literal["pending", "accepted", "rejected"]
 
 
 class KnowledgeCardMatch(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
 
     node_id: int = Field(gt=0)
+    current_version: int = Field(gt=0)
     title: NonEmptyString
     content: NonEmptyString
+
+
+class CardVersionSnapshot(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    node_id: int = Field(gt=0)
+    version: int = Field(gt=0)
+    title: NonEmptyString
+    content: NonEmptyString
+
+
+class CardSuggestedEditRecord(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    id: int = Field(gt=0)
+    node_id: int = Field(gt=0)
+    base_version: int = Field(gt=0)
+    suggested_title: NonEmptyString
+    suggested_content: NonEmptyString
+    suggested_by_user_id: NonEmptyString
+    status: CardSuggestedEditStatus
+    created_at: datetime
 
 
 class ConnectedTitleCandidate(BaseModel):

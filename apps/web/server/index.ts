@@ -16,6 +16,7 @@ import { createLogtoPersonalAccessTokensClient } from "./dashboard/logtoPersonal
 import { createMcpUsageSummaryClient } from "./dashboard/mcpUsageSummary.js";
 import { requestServiceAccessToken } from "./dashboard/serviceAccessToken.js";
 import { createInternalApiClient } from "./internal-api/client.js";
+import { createCardSuggestedEditsRouter } from "./routes/cardSuggestedEdits.js";
 import { createDashboardTokensRouter } from "./routes/dashboardTokens.js";
 import { createSearchRouter } from "./routes/search.js";
 import { createTaxonomyViewRouter } from "./routes/taxonomyView.js";
@@ -92,6 +93,14 @@ async function main(): Promise<void> {
       mcpUsageClient: mcpUsageSummary,
       patFingerprintSecret: config.patFingerprintSecret,
       quotaMiddleware: createRouteQuotaMiddleware("dashboard-tokens"),
+    }),
+  );
+  webApiRouter.use(
+    "/cards",
+    createCardSuggestedEditsRouter({
+      getSession: async (request, response) =>
+        await logtoClientFactory(request, response).getSession(),
+      internalApi,
     }),
   );
   webApiRouter.use(

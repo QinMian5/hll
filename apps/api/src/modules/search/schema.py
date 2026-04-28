@@ -11,6 +11,8 @@ from pydantic import BaseModel, ConfigDict
 class MatchedCardResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    node_id: int
+    current_version: int
     title: str
     content: str
 

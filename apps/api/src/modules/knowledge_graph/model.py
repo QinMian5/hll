@@ -1,5 +1,6 @@
 """
-Abstract: SQLAlchemy persistence projection for knowledge graph Node/Edge/Adjacency.
+Abstract: SQLAlchemy persistence projection for knowledge graph nodes, card versions,
+suggested edits, edges, and adjacency.
 Out of scope: Service-layer business workflow and API transport contracts.
 """
 
@@ -13,6 +14,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     Text,
@@ -30,6 +32,12 @@ class Node(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    current_version: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default=text("1"),
+    )
     embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -48,6 +56,77 @@ class Node(Base):
         primaryjoin="Node.id == Adjacency.node_id",
         secondaryjoin="Edge.id == Adjacency.edge_id",
         viewonly=True,
+    )
+
+    __table_args__ = (CheckConstraint("current_version >= 1", name="current_version_positive"),)
+
+
+class CardVersion(Base):
+    __tablename__ = "card_versions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    node_id: Mapped[int] = mapped_column(
+        ForeignKey("nodes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        CheckConstraint("version >= 1", name="version_positive"),
+        UniqueConstraint("node_id", "version", name="uq_card_versions_node_version"),
+        Index("ix_card_versions_node_id", "node_id"),
+    )
+
+
+class CardSuggestedEdit(Base):
+    __tablename__ = "card_suggested_edits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    node_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    base_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    suggested_title: Mapped[str] = mapped_column(Text, nullable=False)
+    suggested_content: Mapped[str] = mapped_column(Text, nullable=False)
+    suggested_by_user_id: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="pending",
+        server_default=text("'pending'"),
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["node_id", "base_version"],
+            ["card_versions.node_id", "card_versions.version"],
+            name="fk_card_suggested_edits_base_version",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("base_version >= 1", name="base_version_positive"),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'rejected')",
+            name="status",
+        ),
+        Index("ix_card_suggested_edits_node_id", "node_id"),
+        Index("ix_card_suggested_edits_suggested_by_user_id", "suggested_by_user_id"),
+        Index("ix_card_suggested_edits_status", "status"),
     )
 
 

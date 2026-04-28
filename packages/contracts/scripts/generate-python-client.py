@@ -12,8 +12,8 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Any
 
-
 SEARCH_PATH = "/api/v1/search"
+SUGGESTED_EDIT_PATH = "/api/v1/cards/{node_id}/suggested-edits"
 
 
 def main() -> None:
@@ -24,6 +24,7 @@ def main() -> None:
 
     openapi = _load_openapi(args.openapi)
     _validate_search_contract(openapi)
+    _validate_suggested_edit_contract(openapi)
     _write_generated_package(args.output_dir)
 
 
@@ -115,16 +116,65 @@ def _validate_matched_card_schema(schema: dict[str, Any]) -> None:
         raise SystemExit("MatchedCardResponse must be an object schema.")
 
     required = schema.get("required")
-    if required != ["title", "content"]:
+    if required != ["node_id", "current_version", "title", "content"]:
         raise SystemExit(
-            "MatchedCardResponse required fields must be title and content."
+            "MatchedCardResponse required fields must be node_id, "
+            "current_version, title, and content."
         )
 
     properties = _require_mapping(schema, "properties")
+    for field_name in ("node_id", "current_version"):
+        field = _require_mapping(properties, field_name)
+        if field.get("type") != "integer":
+            raise SystemExit(f"MatchedCardResponse.{field_name} must be an integer.")
     for field_name in ("title", "content"):
         field = _require_mapping(properties, field_name)
         if field.get("type") != "string":
             raise SystemExit(f"MatchedCardResponse.{field_name} must be a string.")
+
+
+def _validate_suggested_edit_contract(openapi: dict[str, Any]) -> None:
+    paths = _require_mapping(openapi, "paths")
+    suggested_edit_path = _require_mapping(paths, SUGGESTED_EDIT_PATH)
+    suggested_edit_post = _require_mapping(suggested_edit_path, "post")
+
+    request_body = _require_mapping(suggested_edit_post, "requestBody")
+    request_content = _require_mapping(request_body, "content")
+    request_json_content = _require_mapping(request_content, "application/json")
+    request_schema_ref = _require_mapping(request_json_content, "schema").get("$ref")
+    if request_schema_ref != "#/components/schemas/SuggestedEditCreateRequest":
+        raise SystemExit(
+            f"{SUGGESTED_EDIT_PATH} request body must reference SuggestedEditCreateRequest."
+        )
+
+    responses = _require_mapping(suggested_edit_post, "responses")
+    response_201 = _require_mapping(responses, "201")
+    response_content = _require_mapping(response_201, "content")
+    response_json_content = _require_mapping(response_content, "application/json")
+    response_schema_ref = _require_mapping(response_json_content, "schema").get("$ref")
+    if response_schema_ref != "#/components/schemas/SuggestedEditCreateResponse":
+        raise SystemExit(
+            f"{SUGGESTED_EDIT_PATH} 201 response must reference SuggestedEditCreateResponse."
+        )
+
+    components = _require_mapping(openapi, "components")
+    schemas = _require_mapping(components, "schemas")
+    request_schema = _require_mapping(schemas, "SuggestedEditCreateRequest")
+    response_schema = _require_mapping(schemas, "SuggestedEditCreateResponse")
+    if request_schema.get("required") != [
+        "base_version",
+        "suggested_title",
+        "suggested_content",
+    ]:
+        raise SystemExit("SuggestedEditCreateRequest required fields are not current.")
+    if response_schema.get("required") != [
+        "id",
+        "node_id",
+        "base_version",
+        "status",
+        "created_at",
+    ]:
+        raise SystemExit("SuggestedEditCreateResponse required fields are not current.")
 
 
 def _require_mapping(parent: dict[str, Any], key: str) -> dict[str, Any]:
@@ -248,6 +298,8 @@ def _search_client_content() -> str:
 
             model_config = ConfigDict(extra="forbid")
 
+            node_id: int
+            current_version: int
             title: str
             content: str
 
@@ -264,7 +316,9 @@ def _search_client_content() -> str:
         class SearchClient:
             """Async client for the private search API contract."""
 
-            def __init__(self, *, base_url: str, http_client: httpx.AsyncClient | None = None) -> None:
+            def __init__(
+                self, *, base_url: str, http_client: httpx.AsyncClient | None = None
+            ) -> None:
                 self._base_url = base_url.rstrip("/")
                 self._http_client = http_client or httpx.AsyncClient()
                 self._owns_http_client = http_client is None

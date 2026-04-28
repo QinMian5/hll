@@ -71,7 +71,14 @@ describe("search route", () => {
   it("calls the internal search API through the explicit web route", async () => {
     const search = vi.fn(async () => ({
       connected_titles: ["Physics"],
-      matched_cards: [{ content: "Energy content", title: "Energy" }],
+      matched_cards: [
+        {
+          content: "Energy content",
+          current_version: 1,
+          node_id: 10,
+          title: "Energy",
+        },
+      ],
     }));
     const app = await createTestApp({
       client: { search },
@@ -83,7 +90,14 @@ describe("search route", () => {
     expect(search).toHaveBeenCalledWith("energy");
     expect(response.body).toEqual({
       connected_titles: ["Physics"],
-      matched_cards: [{ content: "Energy content", title: "Energy" }],
+      matched_cards: [
+        {
+          content: "Energy content",
+          current_version: 1,
+          node_id: 10,
+          title: "Energy",
+        },
+      ],
     });
   });
 

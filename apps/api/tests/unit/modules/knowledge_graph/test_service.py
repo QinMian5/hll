@@ -8,10 +8,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import pytest
 
 from modules.knowledge_graph.dto import (
+    CardSuggestedEditRecord,
+    CardVersionSnapshot,
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
     ProjectionCardNode,
@@ -19,14 +22,21 @@ from modules.knowledge_graph.dto import (
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
 )
-from modules.knowledge_graph.service import KnowledgeGraphService
+from modules.knowledge_graph.service import (
+    CardSuggestedEditNoChangeError,
+    CardVersionNotFoundError,
+    KnowledgeGraphService,
+)
 
 
 @dataclass(slots=True)
 class _StubRepo:
     created_nodes: list[tuple[str, str, list[float]]] | None = None
     created_edges: list[tuple[int, int, float]] | None = None
+    card_versions_by_key: dict[tuple[int, int], CardVersionSnapshot] | None = None
+    created_suggested_edits: list[tuple[int, int, str, str, str]] | None = None
     next_edge_id: int = 500
+    next_suggested_edit_id: int = 700
     committed: bool = False
     rolled_back: bool = False
     fail_on_edge_for_node_id: int | None = None
@@ -40,8 +50,8 @@ class _StubRepo:
         assert query_embedding
         assert limit == 5
         return [
-            KnowledgeCardMatch(node_id=1, title="Card A", content="Alpha"),
-            KnowledgeCardMatch(node_id=2, title="Card B", content="Beta"),
+            KnowledgeCardMatch(node_id=1, current_version=1, title="Card A", content="Alpha"),
+            KnowledgeCardMatch(node_id=2, current_version=3, title="Card B", content="Beta"),
         ]
 
     async def fetch_connected_title_candidates(
@@ -135,6 +145,41 @@ class _StubRepo:
         self.created_nodes.append((title, content, embedding))
         return 99
 
+    async def fetch_card_version(
+        self,
+        *,
+        node_id: int,
+        version: int,
+    ) -> CardVersionSnapshot | None:
+        assert self.card_versions_by_key is not None
+        return self.card_versions_by_key.get((node_id, version))
+
+    async def create_card_suggested_edit(
+        self,
+        *,
+        node_id: int,
+        base_version: int,
+        suggested_title: str,
+        suggested_content: str,
+        suggested_by_user_id: str,
+    ) -> CardSuggestedEditRecord:
+        assert self.created_suggested_edits is not None
+        self.created_suggested_edits.append(
+            (node_id, base_version, suggested_title, suggested_content, suggested_by_user_id)
+        )
+        record = CardSuggestedEditRecord(
+            id=self.next_suggested_edit_id,
+            node_id=node_id,
+            base_version=base_version,
+            suggested_title=suggested_title,
+            suggested_content=suggested_content,
+            suggested_by_user_id=suggested_by_user_id,
+            status="pending",
+            created_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
+        )
+        self.next_suggested_edit_id += 1
+        return record
+
     async def search_similarity_candidates(
         self,
         *,
@@ -212,8 +257,134 @@ async def test_search_searchable_cards_returns_records_with_node_id_title_conten
 
     assert len(records) == 2
     assert records[0].node_id == 1
+    assert records[0].current_version == 1
     assert records[0].title == "Card A"
     assert records[0].content == "Alpha"
+
+
+@pytest.mark.anyio
+async def test_submit_card_suggested_edit_stores_pending_suggestion_against_base_version() -> None:
+    repo = _StubRepo(
+        card_versions_by_key={
+            (1, 2): CardVersionSnapshot(
+                node_id=1,
+                version=2,
+                title="Old title",
+                content="Old content",
+            )
+        },
+        created_suggested_edits=[],
+    )
+    service = KnowledgeGraphService(
+        repo=repo,
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    record = await service.submit_card_suggested_edit(
+        node_id=1,
+        base_version=2,
+        suggested_title="Better title",
+        suggested_content="Better content",
+        suggested_by_user_id="logto-user-123",
+    )
+
+    assert record.id == 700
+    assert record.status == "pending"
+    assert repo.created_suggested_edits == [
+        (1, 2, "Better title", "Better content", "logto-user-123")
+    ]
+    assert repo.committed is True
+    assert repo.rolled_back is False
+
+
+@pytest.mark.anyio
+async def test_submit_card_suggested_edit_rejects_unknown_base_version() -> None:
+    repo = _StubRepo(card_versions_by_key={}, created_suggested_edits=[])
+    service = KnowledgeGraphService(
+        repo=repo,
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    with pytest.raises(CardVersionNotFoundError):
+        await service.submit_card_suggested_edit(
+            node_id=1,
+            base_version=9,
+            suggested_title="Better title",
+            suggested_content="Better content",
+            suggested_by_user_id="logto-user-123",
+        )
+
+    assert repo.created_suggested_edits == []
+    assert repo.committed is False
+    assert repo.rolled_back is True
+
+
+@pytest.mark.anyio
+async def test_submit_card_suggested_edit_rejects_noop_against_base_version() -> None:
+    repo = _StubRepo(
+        card_versions_by_key={
+            (1, 1): CardVersionSnapshot(
+                node_id=1,
+                version=1,
+                title="Same title",
+                content="Same content",
+            )
+        },
+        created_suggested_edits=[],
+    )
+    service = KnowledgeGraphService(
+        repo=repo,
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    with pytest.raises(CardSuggestedEditNoChangeError):
+        await service.submit_card_suggested_edit(
+            node_id=1,
+            base_version=1,
+            suggested_title="Same title",
+            suggested_content="Same content",
+            suggested_by_user_id="logto-user-123",
+        )
+
+    assert repo.created_suggested_edits == []
+    assert repo.committed is False
+    assert repo.rolled_back is True
+
+
+@pytest.mark.anyio
+async def test_submit_card_suggested_edit_accepts_stale_existing_base_version() -> None:
+    repo = _StubRepo(
+        card_versions_by_key={
+            (1, 1): CardVersionSnapshot(
+                node_id=1,
+                version=1,
+                title="Version one title",
+                content="Version one content",
+            )
+        },
+        created_suggested_edits=[],
+    )
+    service = KnowledgeGraphService(
+        repo=repo,
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    record = await service.submit_card_suggested_edit(
+        node_id=1,
+        base_version=1,
+        suggested_title="Better title",
+        suggested_content="Version one content",
+        suggested_by_user_id="logto-user-123",
+    )
+
+    assert record.base_version == 1
+    assert repo.created_suggested_edits == [
+        (1, 1, "Better title", "Version one content", "logto-user-123")
+    ]
 
 
 @pytest.mark.anyio

@@ -43,10 +43,16 @@ class SearchService:
         )
 
         matched_cards = [
-            MatchedCardResponse(title=item.title, content=item.content) for item in matched_records
+            MatchedCardResponse(
+                node_id=item.node_id,
+                current_version=item.current_version,
+                title=item.title,
+                content=item.content,
+            )
+            for item in matched_records
         ]
         connected_titles = await self._knowledge_graph_read_port.get_connected_titles(
-            matched_node_ids=[item.node_id for item in matched_records if item.node_id is not None],
+            matched_node_ids=[item.node_id for item in matched_records],
             excluded_titles={item.title for item in matched_records},
             limit=self._max_connected,
         )
