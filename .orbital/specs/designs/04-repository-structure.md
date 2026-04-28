@@ -43,7 +43,7 @@ repo/
 - `apps/knowledge_corpus`: local/offline corpus app source and app-local DB lifecycle assets.
 - `apps/mcp`: public MCP server source, MCP tests, app-local Alembic assets, PAT-backed programmatic access control, quota and usage attribution, MCP-owned usage-table access, and generated internal search API consumption.
 - `apps/source_pipeline`: project-owned source-processing runtime, queue orchestration, and pipeline state.
-- `apps/web`: React web client source, Express BFF server, public web API endpoints, server-side web session handling, and web access-control state.
+- `apps/web`: React web client source, Express BFF server, public web API endpoints, server-side web session handling, web access-control state, and authenticated dashboard token-management orchestration.
 - `packages/contracts`: OpenAPI snapshot, generated clients/types, contracts scripts.
 - `infra`: deployment/environment templates.
 - `scripts`: repository automation scripts.
@@ -88,12 +88,14 @@ apps/api/
 apps/web/
   server/
     auth/
+    dashboard/
     internal-api/
     rate-limit/
     routes/
   src/
     app/
     features/
+      dashboard/
       taxonomy-view/
       knowledge/
       search/
@@ -197,11 +199,13 @@ packages/contracts/
 15. `apps/source_pipeline` owns project-level source-processing runtime and remains source-agnostic within this repository boundary.
 16. `apps/source_pipeline` must not import `apps/api/src/entrypoints/**`.
 17. `apps/source_pipeline` interacts with the online knowledge system only through accepted HTTP contracts and must not import `apps/api/src/modules/ingestion/**`, `apps/api/src/modules/knowledge_graph/**`, or write knowledge database tables directly.
-18. `apps/web` owns public web HTTP endpoints and must not import `apps/api/src/**`; it interacts with `apps/api` through the generated internal API client over Docker-network HTTP.
+18. `apps/web` owns public web HTTP endpoints and must not import `apps/api/src/**` or `apps/mcp/src/**`; it interacts with `apps/api` through the generated internal API client over Docker-network HTTP and with MCP usage summaries through internal HTTP only.
 19. `apps/mcp` owns public MCP endpoints and must not import `apps/api/src/**`; it interacts with `apps/api` through generated internal API client artifacts over Docker-network HTTP.
 20. `apps/mcp` must not persist, log, or expose raw Logto personal access tokens.
-21. `apps/mcp` may access only MCP-owned usage tables in the dedicated MCP PostgreSQL database and must not read or write graph, taxonomy, ingestion, source-pipeline, or job-queue linkage tables directly.
-22. `apps/mcp` owns MCP usage persistence migrations through its own Alembic environment and must not register MCP persistence models in `apps/api` migration metadata.
+21. `apps/web` owns browser-facing Dashboard token lifecycle endpoints and must not directly read MCP usage database tables; it consumes MCP usage through an internal MCP service endpoint.
+22. `apps/mcp` owns internal MCP usage-summary reads for dashboard consumption and accepts only PAT fingerprints for those reads, not raw personal access tokens.
+23. `apps/mcp` may access only MCP-owned usage tables in the dedicated MCP PostgreSQL database and must not read or write graph, taxonomy, ingestion, source-pipeline, or job-queue linkage tables directly.
+24. `apps/mcp` owns MCP usage persistence migrations through its own Alembic environment and must not register MCP persistence models in `apps/api` migration metadata.
 
 ## Governance Anchors
 - Architecture constraints: `03-architecture-constraints`.

@@ -22,7 +22,10 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Render branch view as direct child category bubbles.
   - Render leaf view as one-hop scoped relation graph (`inner` + pulled `outer` nodes).
   - Provide breadcrumb navigation for ancestor jumps.
-  - Consume Search and Graph View data through browser-visible web API adapters owned by `apps/web`.
+  - Render the authenticated Dashboard token-management route for Logto personal access token lifecycle operations and MCP usage summaries.
+  - Render authenticated Settings account profile surfaces from browser-safe BFF session/profile data.
+  - Consume Search, Graph View, Dashboard, and Settings account profile data through browser-visible web API adapters owned by `apps/web`.
+  - Render Search card edit affordances, authenticated suggestion submission UI, and anonymous sign-in-required UI through browser-visible web API adapters owned by `apps/web`.
   - Own graph layout calculation for branch and leaf views.
   - Render anonymous and logged-in session state exposed by the web BFF.
 - **Non-responsibilities:**
@@ -34,15 +37,20 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### Web BFF
 - **Responsibilities:**
   - Serve the public React web application.
-  - Own browser-visible web data endpoints for Search and Graph View.
+  - Own browser-visible web data endpoints for Search, Graph View, and Dashboard token management.
+  - Own browser-visible authenticated suggestion submission endpoints for Search card edit suggestions.
   - Own server-side Logto session handling for web users.
+  - Own server-side Logto Account API profile reads and updates for authenticated web Settings surfaces.
+  - Own server-side Logto Management API orchestration for signed-in users' personal access token lifecycle operations.
   - Own anonymous identity cookies and web quota enforcement.
+  - Call the MCP service's internal usage-summary endpoint for dashboard token usage aggregates.
   - Call private backend APIs through generated contract artifacts over Docker-network HTTP.
 - **Non-responsibilities:**
   - Backend domain logic.
   - Graph persistence ownership.
   - Taxonomy persistence ownership.
   - Public programmatic MCP access.
+  - MCP usage persistence ownership.
 
 ### MCP Service
 - **Responsibilities:**
@@ -51,10 +59,12 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Expose the public `search` tool for external model clients.
   - Own Logto personal-access-token exchange and access-token validation for MCP callers.
   - Own MCP account-level quota, token-level quota, and usage attribution.
+  - Own MCP usage-summary read semantics for internal dashboard consumption.
   - Call private backend search API through generated contract artifacts over Docker-network HTTP.
 - **Non-responsibilities:**
   - Browser session ownership.
   - Public web route ownership.
+  - Browser-facing Dashboard token lifecycle endpoint ownership.
   - Backend domain ranking semantics.
   - Graph persistence ownership.
   - Taxonomy persistence ownership.
@@ -63,6 +73,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### Backend API
 - **Responsibilities:**
   - Expose private V1 search read endpoint.
+  - Expose private V1 card suggested-edit creation endpoint.
   - Expose private V1 taxonomy drill-down read endpoints.
   - Expose private V1 ingestion accept endpoint for accepted internal and operator workflows.
   - Validate request inputs and normalize response outputs.
@@ -93,7 +104,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### knowledge_graph Module
 - **Responsibilities:**
-  - Own `Node/Edge/Adjacency` domain semantics and persistence truth.
+  - Own `Node/Edge/Adjacency`, card version, and card suggested-edit domain semantics and persistence truth.
   - Own repository/model access for graph persistence.
   - Provide read/write service ports consumed by `search`, `ingestion`, and `taxonomy`.
   - Execute node persistence and edge materialization in worker write flow.
@@ -207,6 +218,8 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `job-queue-mcp-client` for Python producer/result-reader calls and machine-to-machine token acquisition against `job-queue-mcp`.
 - Model Context Protocol Python SDK for the public MCP server.
 - Logto personal access token exchange for public MCP caller authorization.
+- Logto Account API for BFF-owned web account profile reads and updates.
+- Logto Management API for BFF-owned web dashboard personal access token lifecycle operations.
 - OpenAI Embeddings API for ingestion worker and search query embedding.
 - PostgreSQL as persistent truth store for graph and taxonomy, plus dedicated app-local PostgreSQL services for `knowledge_corpus`, `source_pipeline`, and MCP usage records.
 
@@ -214,6 +227,9 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `Frontend -> Web BFF(search) -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`
 - `MCP Client -> MCP Service(search) -> Backend API(search) -> entrypoints.api -> search -> knowledge_graph -> Database`
 - `Frontend -> Web BFF(taxonomy view) -> Backend API(taxonomy view) -> entrypoints.api -> taxonomy -> knowledge_graph + taxonomy -> Database`
+- `Frontend -> Web BFF(settings account profile) -> Logto Account API`
+- `Frontend -> Web BFF(dashboard tokens) -> Logto Management API`
+- `Web BFF(dashboard usage) -> MCP Service(internal usage summary) -> MCP usage database`
 - `Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Background taxonomy bootstrap -> taxonomy -> Database`
@@ -224,5 +240,5 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `core` is inbound-only; it does not import `entrypoints/modules/shared`.
 
 ## V1 Boundary Summary
-- V1 delivers ingestion acceptance API, search read API, public MCP search, taxonomy drill-down read APIs, taxonomy-backed structure truth, local reviewed card submission CLI, project-owned source-processing pipeline orchestration, and leaf-level one-hop relation browsing.
+- V1 delivers ingestion acceptance API, search read API, public MCP search, web dashboard token management, taxonomy drill-down read APIs, taxonomy-backed structure truth, local reviewed card submission CLI, versioned knowledge-card history, authenticated suggested-edit submission, project-owned source-processing pipeline orchestration, and leaf-level one-hop relation browsing.
 - V1 excludes semantic-map snapshot/tile browsing and excludes runtime cache/object-storage dependencies.

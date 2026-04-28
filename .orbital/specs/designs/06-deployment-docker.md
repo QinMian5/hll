@@ -30,9 +30,11 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Horizontal scaling is not an MVP requirement for `api`, `worker`, source-pipeline runtimes, or taxonomy-classification runtimes; production baseline keeps one running container per role.
 - Production search read chain is `shared proxy -> nginx -> web BFF -> api -> egress -> OpenAI Embeddings API + db`.
 - Production MCP search chain is `shared proxy -> nginx -> mcp -> api -> egress -> OpenAI Embeddings API + db`, with `mcp -> logto` for PAT token exchange and access-token validation metadata.
+- Production Dashboard token-management chain is `shared proxy -> nginx -> web BFF -> logto` for personal access token lifecycle operations and `web BFF -> mcp` over the backend network for usage summaries.
 - Production ingestion write chain is `api -> redis -> worker -> egress -> OpenAI Embeddings API + db`.
 - Development search read chain is `web BFF -> api -> OpenAI Embeddings API + db`.
 - Development MCP search chain is `mcp -> api -> OpenAI Embeddings API + db`, with `mcp -> logto` for PAT token exchange and access-token validation metadata.
+- Development Dashboard token-management chain is `web BFF -> logto` for personal access token lifecycle operations and `web BFF -> mcp` over the backend network for usage summaries.
 - Development ingestion write chain is `api -> redis -> worker -> OpenAI Embeddings API + db`.
 - Migration is a dedicated one-shot job and not part of API startup.
 
@@ -60,6 +62,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - API and worker access Redis through Docker service DNS (`redis`) on `backend`, not host-local `localhost`.
 - Web BFF access to Redis uses Docker service DNS (`redis`) on `backend`, not host-local `localhost`.
 - MCP service access to Redis uses Docker service DNS (`redis`) on `backend`, not host-local `localhost`.
+- Web BFF access to MCP usage-summary uses Docker service DNS (`mcp`) on `backend`, not public MCP hostnames.
 - MCP attaches to both `edge` and `backend`: public MCP traffic enters only through `nginx` on `edge`, while MCP access to `api`, `redis`, `mcp_db`, and `logto` uses service DNS on `backend`.
 - API and worker require outbound HTTPS egress for OpenAI Embeddings API access.
 - Source-pipeline and taxonomy-classification result-consuming runtimes require outbound HTTPS egress for `job-queue-mcp` API and token access.
@@ -188,8 +191,22 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   - `KNOWLEDGE_API_EMBEDDING_API_URL` using OpenAI embeddings endpoint
   - `KNOWLEDGE_API_EMBEDDING_MODEL` set to `text-embedding-3-small`
   - `KNOWLEDGE_API_EMBEDDING_API_KEY` from runtime secret injection
-- Production web runtime configuration provides BFF settings for the internal API base URL, Redis URL, Logto application credentials, callback base URL, session cookie secret, secure-cookie policy, anonymous identity cookie policy, and web quota limits.
-- Production MCP runtime configuration provides settings for the public MCP base URL, internal API base URL, Redis URL, dedicated MCP PostgreSQL database URL, Logto issuer, Logto token endpoint, Logto discovery URL, MCP API resource/audience, required search scope, Logto token-exchange client credentials, PAT fingerprint secret, MCP quota limits, MCP allowed origins, and MCP usage-recording behavior.
+- Production web runtime configuration provides BFF settings for the internal API base URL, Redis URL, Logto web application credentials, callback base URL, session cookie secret, secure-cookie policy, anonymous identity cookie policy, web quota limits, Logto Account API access, Logto Management API personal-access-token access, MCP usage-summary base URL, MCP usage-summary service-token acquisition, and PAT fingerprint secret.
+- Web Dashboard token-management configuration uses:
+  - `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_API_BASE_URL` for Logto Management API user personal-access-token endpoints
+  - `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_TOKEN_URL` for the Logto client-credentials token endpoint used by the BFF Management API client
+  - `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_RESOURCE` and `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_SCOPES` for Management API access-token audience and scope requests
+  - `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_ID` and `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_SECRET` for the BFF Management API client
+  - `KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_BASE_URL` for internal calls to the MCP service
+  - `KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL` for the Logto client-credentials token endpoint used by the BFF usage-summary client
+  - `KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_RESOURCE` and `KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_SCOPES` for usage-summary access-token audience and scope requests
+  - `KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_ID` and `KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_SECRET` for the BFF usage-summary service client
+  - `KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET` for computing MCP-compatible PAT fingerprints from Logto-returned token values
+- Production MCP runtime configuration provides settings for the public MCP base URL, internal API base URL, Redis URL, dedicated MCP PostgreSQL database URL, Logto issuer, Logto token endpoint, Logto discovery URL, MCP API resource/audience, required search scope, Logto token-exchange client credentials, PAT fingerprint secret, MCP usage-summary resource/audience, required usage-summary scope, allowed usage-summary service client id, MCP quota limits, MCP allowed origins, and MCP usage-recording behavior.
+- MCP internal usage-summary configuration uses:
+  - `KNOWLEDGE_MCP_USAGE_SUMMARY_AUTH_RESOURCE` for the internal usage-summary API resource/audience
+  - `KNOWLEDGE_MCP_USAGE_SUMMARY_REQUIRED_SCOPE` with value `usage:read`
+  - `KNOWLEDGE_MCP_USAGE_SUMMARY_ALLOWED_CLIENT_ID` for the BFF service client allowed to call usage-summary reads
 - Browser runtime configuration does not include the private API base URL.
 - Database runtime configuration uses direct URL fields:
   - `KNOWLEDGE_API_DATABASE_URL` for API and worker runtime database access

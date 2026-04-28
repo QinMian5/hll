@@ -76,6 +76,8 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Styling: `Tailwind CSS`
 - Component baseline: `shadcn/ui`
 - Web identity provider: `Logto`
+- Web dashboard token lifecycle integration: server-side Logto Management API calls from the BFF
+- Web dashboard usage integration: internal MCP usage-summary HTTP calls from the BFF
 - Web session and quota state: Redis-backed server-side state with secure browser cookies
 - Tooling: `Biome`, `TypeScript`, `Commitlint`
 
