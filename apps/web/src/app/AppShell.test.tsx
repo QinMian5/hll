@@ -76,6 +76,10 @@ describe("AppShell", () => {
       "data-nav-state",
       "inactive",
     );
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
+      "data-nav-state",
+      "inactive",
+    );
   });
 
   it("renders the shared top navigation with anonymous sign-in action", async () => {
@@ -110,12 +114,21 @@ describe("AppShell", () => {
       "data-nav-state",
       "active",
     );
+    expect(screen.getByRole("link", { name: "Graph View" })).toHaveClass(
+      "font-medium",
+    );
+    expect(screen.getByRole("link", { name: "Graph View" })).not.toHaveClass(
+      "font-black",
+    );
     expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute(
       "href",
       "/search",
     );
-    expect(screen.getByRole("button", { name: "Dashboard" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "GitHub 0 stars" })).toHaveClass(
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
+    expect(screen.getByRole("link", { name: "GitHub 0 stars" })).toHaveClass(
       "h-10",
       "rounded-lg",
     );
@@ -143,7 +156,7 @@ describe("AppShell", () => {
 
     expect(screen.getByTestId("app-shell-mobile-drawer")).toHaveClass(
       "w-[320px]",
-      "bg-white",
+      "bg-[rgba(255,255,255,0.72)]",
     );
     expect(
       screen.getByRole("button", { name: "Close navigation" }),
@@ -153,6 +166,14 @@ describe("AppShell", () => {
         .getByTestId("app-shell-mobile-drawer")
         .querySelector('[data-nav-state="active"]'),
     ).toHaveTextContent("Graph View");
+    expect(
+      screen
+        .getByTestId("app-shell-mobile-drawer")
+        .querySelector('a[href="/dashboard"]'),
+    ).toHaveTextContent("Dashboard");
+    expect(
+      screen.getByRole("button", { name: "Close navigation scrim" }),
+    ).toHaveClass("bg-[rgba(248,250,252,0.18)]");
 
     fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
 
@@ -173,10 +194,29 @@ describe("AppShell", () => {
 
     renderWithRoute("/overview");
 
-    await waitFor(() =>
-      expect(screen.getByText("Ada Lovelace")).toBeInTheDocument(),
+    const accountButton = await screen.findByRole("button", {
+      name: "User menu, Ada Lovelace",
+    });
+
+    expect(accountButton).toHaveTextContent("Ada Lovelace");
+    expect(accountButton).toHaveTextContent("ada@example.com");
+    expect(accountButton.querySelector("svg")).toHaveClass("-rotate-90");
+    expect(accountButton.querySelector("svg")).not.toHaveClass("rotate-180");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    fireEvent.click(accountButton);
+
+    expect(screen.getByRole("menu")).toHaveClass(
+      "top-[-48px]",
+      "left-0",
+      "w-full",
+      "drop-shadow-[0_12px_12px_rgba(38,51,82,0.12)]",
     );
-    const signOutButton = screen.getByRole("button", { name: "Sign out" });
+    expect(screen.getByRole("menuitem", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+    const signOutButton = screen.getByRole("menuitem", { name: "Sign out" });
 
     expect(signOutButton).toBeEnabled();
     expect(signOutButton.closest("form")).toHaveAttribute(
@@ -184,5 +224,9 @@ describe("AppShell", () => {
       "/web-api/auth/sign-out",
     );
     expect(signOutButton.closest("form")).toHaveAttribute("method", "post");
+
+    fireEvent.pointerDown(document.body);
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 });

@@ -57,11 +57,31 @@ const searchRoute = createRoute({
   }),
 });
 
+const dashboardRoute = createRoute({
+  component: lazyRouteComponent(
+    () => import("../features/dashboard/pages"),
+    "DashboardPage",
+  ),
+  getParentRoute: () => rootRoute,
+  path: "dashboard",
+});
+
+const settingsRoute = createRoute({
+  component: lazyRouteComponent(
+    () => import("../features/settings/pages"),
+    "SettingsPage",
+  ),
+  getParentRoute: () => rootRoute,
+  path: "settings",
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   overviewRoute,
   graphRoute,
   searchRoute,
+  dashboardRoute,
+  settingsRoute,
 ]);
 
 export interface CreateAppRouterOptions {

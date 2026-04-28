@@ -1,5 +1,5 @@
 ---
-abstract: Shared frontend app shell design for the web client with Figma-first sidebar navigation, mobile drawer navigation, Search route composition, and an auth action slot.
+abstract: Shared frontend app shell design for the web client with Figma-first sidebar navigation, mobile drawer navigation, Search route composition, and signed-in account actions.
 out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and Logto session implementation.
 ---
 
@@ -11,25 +11,26 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the shared web app shell for the frontend so `Overview`, `Graph View`, and `Search` render inside one consistent route-driven layout with Figma-first navigation and Search presentation.
+- **Purpose:** Define the shared web app shell for the frontend so `Overview`, `Graph View`, `Search`, `Dashboard`, and `Settings` render inside one consistent route-driven layout with Figma-first navigation and Search presentation.
 - **Scope/Boundaries:** Covers route ownership, default entry routing, shared desktop sidebar, shared mobile header and drawer, shared body spacing, Search page empty/results composition, and shell-level visual behavior for `apps/web`. Excludes taxonomy graph rendering rules, backend search semantics, and Logto session implementation.
 - **Related Requirements:** R-001, R-003, R-004, R-006, R-007.
 
 ## Constraint Projection
 - **Governing Constraints:** Frontend behavior remains within the unified web client boundary, uses BFF-owned web data adapters for browser-visible application data, preserves explicit module boundaries, and keeps behavior-changing page-structure decisions synchronized in active specs.
-- **Detail Commitments:** The frontend uses one shared app shell for `Overview`, `Graph View`, and `Search`. The root route redirects to `Overview`. Desktop uses a persistent left navigation sidebar. Mobile uses a compact top header with a menu trigger and a route-driven drawer overlay. The shared navigation and Search route follow Figma file `WBYs6P9HMxe21TSYQL637r`, node `128:90`, with visible frames `348:269` and `348:394` as the approved desktop and mobile references. The web client loads and uses Geist as the app-wide primary font. Shell styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS. Approved Figma auto-layout and grid structure is the primary source of truth for page composition; implementation should translate those structures directly instead of approximating them through unrelated wrappers, ad hoc spacing offsets, or viewport-driven compression.
+- **Detail Commitments:** The frontend uses one shared app shell for `Overview`, `Graph View`, `Search`, `Dashboard`, and `Settings`. The root route redirects to `Overview`. Desktop uses a persistent left navigation sidebar. Mobile uses a compact top header with a menu trigger and a route-driven drawer overlay. The shared shell follows Figma file `WBYs6P9HMxe21TSYQL637r`, desktop signed-in frame `456:21`, mobile signed-in frame `456:58`, and account-menu-open frames `461:53` and `461:103`. The Search route follows the approved Search page frames under the same Figma file. The web client loads and uses Geist as the app-wide primary font. Shell styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS. Approved Figma auto-layout and grid structure is the primary source of truth for page composition; implementation should translate those structures directly instead of approximating them through unrelated wrappers, ad hoc spacing offsets, or viewport-driven compression.
 - **Update Rule:** Requirements remain stable at the repository-governance layer while route ownership, shell structure, navigation state rules, and Search page presentation stay in this design document.
 
 ## Inputs & Outputs
 - **Inputs:**
   - Shared browser entrypoint and route mounting in `apps/web`.
-  - Approved Figma reference for shared shell and Search results composition: file `WBYs6P9HMxe21TSYQL637r`, page node `128:90`, desktop frame `348:269`, and mobile frame `348:394`.
+  - Approved Figma reference for shared shell and account menu: file `WBYs6P9HMxe21TSYQL637r`, desktop signed-in frame `456:21`, mobile signed-in frame `456:58`, desktop account-menu frame `461:53`, and mobile account-menu frame `461:103`.
+  - Approved Figma reference for Search results composition: file `WBYs6P9HMxe21TSYQL637r`, Search desktop and mobile frames under the shared shell page.
   - Taxonomy graph page mounted under the shared shell as the `Graph View` route.
 - **Outputs:**
   - One shared shell with desktop sidebar navigation, mobile header, mobile drawer, and body content slot.
-  - One route set for `/overview`, `/graph`, and `/search`, with `/` redirecting to `/overview`.
+  - One route set for `/overview`, `/graph`, `/search`, `/dashboard`, and `/settings`, with `/` redirecting to `/overview`.
   - One Search page with URL-driven empty/results state behavior.
-  - One shell action area for the `GitHub` placeholder and auth action slot.
+  - One shell action area for the `GitHub` repository link and auth/account action slot.
 - **Artifacts:**
   - `apps/web/src/main.tsx`
   - `apps/web/src/App.tsx`
@@ -42,20 +43,24 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
   - `apps/web/src/features/taxonomy-view/page/TaxonomyViewPage.tsx`
   - `apps/web/src/features/taxonomy-view/page/leaf/LeafRenderer.tsx`
   - `apps/web/vite.config.ts`
+  - `apps/web/src/features/dashboard/pages/index.tsx`
+  - `apps/web/src/features/settings/pages/index.tsx`
   - Additional shell-level frontend components under `apps/web/src/` when implementation begins.
 
 ## Design Approach
-- **Approach:** The web client renders one shared `AppShell` that owns desktop sidebar navigation, mobile header and drawer navigation, and the body content slot. Route resolution decides whether the shell body renders the `Overview`, `Graph View`, or `Search` page. `Search` remains a single route and uses URL query state to switch between its empty and results layouts so the page supports deep links, refresh restoration, and browser history navigation without introducing separate empty/results route branches. App-shell and Search composition are derived from approved Figma auto-layout and grid structures first, then translated into Tailwind utilities.
+- **Approach:** The web client renders one shared `AppShell` that owns desktop sidebar navigation, mobile header and drawer navigation, signed-in account actions, and the body content slot. Route resolution decides whether the shell body renders the `Overview`, `Graph View`, `Search`, `Dashboard`, or `Settings` page. `Search` remains a single route and uses URL query state to switch between its empty and results layouts so the page supports deep links, refresh restoration, and browser history navigation without introducing separate empty/results route branches. App-shell and Search composition are derived from approved Figma auto-layout and grid structures first, then translated into Tailwind utilities.
 - **Key Elements:**
-  - **Route ownership:** The frontend exposes `/overview`, `/graph`, and `/search`. The root route redirects to `/overview`.
+  - **Route ownership:** The frontend exposes `/overview`, `/graph`, `/search`, `/dashboard`, and `/settings`. The root route redirects to `/overview`.
   - **Shared shell:** Every page renders within one shell that owns the route navigation, body slot, viewport composition, and responsive navigation mode.
-  - **Desktop sidebar:** Desktop and large screens use a persistent `320px` left navigation region. The sidebar surface is `320px` wide, fills the viewport height, uses a translucent white header surface with a subtle right border, and contains a `52px` brand row, a flexible main navigation panel, and a `96px` footer. The brand mark is a `36px` blue rounded square with the `K` initial. Navigation rows are `40px` tall with `16px` icons, `12px` horizontal padding, `12px` icon/text gap, `8px` radius for the active item, muted text for inactive items, and blue-tinted active background for the current route.
-  - **Desktop sidebar actions:** The footer contains a `40px` GitHub placeholder button and a `40px` auth action button. The GitHub placeholder does not trigger navigation or mutation. The auth action slot renders login/session actions defined by `web-bff-auth-access-control.md`.
+  - **Desktop sidebar:** Desktop and large screens use a persistent `320px` left navigation region. The sidebar surface is `320px` wide, fills the viewport height, uses a translucent white header surface with a subtle right border, and contains a `52px` brand row, a flexible main navigation panel, and a `104px` footer. The brand mark is a `36px` blue rounded square with the `K` initial. Navigation rows are `40px` tall with `16px` icons, `12px` horizontal padding, `12px` icon/text gap, `8px` radius for the active item, muted text for inactive items, and blue-tinted active background with medium label weight for the current route.
+  - **Desktop sidebar actions:** The footer contains a `40px` GitHub repository link and the auth/account action. When anonymous, the auth action renders a `40px` Sign in button that posts to the BFF sign-in endpoint. When authenticated, the footer renders a `48px` user account button with a `32px` avatar, display name, email/identifier, and an upward chevron because the menu opens above the button. Opening the account button shows a `304px` wide account menu owned by the footer, positioned `48px` above the footer origin, and containing `Settings` and `Sign out`.
   - **Mobile header:** Mobile uses a `64px` top header with `16px` horizontal padding, `12px` gap, a `36px` menu trigger, a `36px` brand mark, and a single-line brand label. The header uses the approved translucent white surface and subtle bottom border.
-  - **Mobile drawer:** The menu trigger opens a `320px` drawer overlay containing the same brand, route navigation, GitHub placeholder, and auth action slot as the desktop sidebar. The drawer includes a close button and a scrim outside the drawer. Route navigation closes the drawer after selection.
-  - **Navigation items:** Primary route navigation contains `Overview`, `Graph View`, and `Search`. The shell may display a disabled `Dashboard` placeholder to preserve the approved Figma navigation rhythm, but it does not create an enabled route or hidden feature surface.
+  - **Mobile drawer:** The menu trigger opens a `320px` drawer overlay containing the same brand, route navigation, GitHub repository link, and auth/account action slot as the desktop sidebar. The drawer includes a close button and a page-color scrim at the Figma-approved opacity outside the drawer. Route navigation and Settings navigation close the drawer after selection.
+  - **Navigation items:** Primary route navigation contains enabled `Overview`, `Graph View`, `Search`, and `Dashboard` items. `Settings` is not a primary navigation item; it is reached from the authenticated account menu.
   - **Overview route:** `Overview` renders as a true page route inside the shared shell. The first version is a placeholder page and does not define future Overview feature structure beyond that route-owned placeholder state.
   - **Graph View route:** `Graph View` renders the taxonomy browsing experience inside the shared shell body. Graph-specific layout rules remain governed by taxonomy design documents.
+  - **Dashboard route:** `Dashboard` is an enabled top-level route inside the shared shell. The first frontend projection may be a route-owned placeholder until the token-management page is implemented from its dedicated Figma design.
+  - **Settings route:** `Settings` is an enabled account-menu route inside the shared shell. The first frontend projection may be a route-owned placeholder until account settings workflows are implemented.
   - **Search route:** `Search` renders a Figma-aligned page rather than a graph canvas. It supports two states within one route:
     - **Empty state:** The content slot presents the search bar as the primary centered control inside the shared shell body.
     - **Results state:** The page shows a top search bar row, a left-side results grid, and a right-side related-results panel.
@@ -72,17 +77,17 @@ out_of_scope: Taxonomy renderer internals, backend search ranking semantics, and
   - Browser refresh and deep linking preserve the active route.
   - The mobile menu trigger opens the drawer; the close button, scrim, and route navigation close it.
   - Search query updates preserve the `/search` route and change only URL query state plus in-page layout state.
-  - The `GitHub` placeholder does not trigger navigation or mutation.
-  - The auth action slot renders login/session actions defined by `web-bff-auth-access-control.md`.
+  - The `GitHub` action links to the repository and displays the current Figma-approved star-count label until live star-count integration is added.
+  - Anonymous auth action starts sign-in through the BFF endpoint. Authenticated account action opens a Figma-aligned menu. Clicking outside both the account button and the account menu closes the menu. `Settings` routes to `/settings`; `Sign out` posts to the BFF sign-out endpoint.
 
 ## Validation
 - **Checks:**
-  - The frontend uses one shared shell for `Overview`, `Graph View`, and `Search`.
+  - The frontend uses one shared shell for `Overview`, `Graph View`, `Search`, `Dashboard`, and `Settings`.
   - Visiting `/` lands on `/overview`.
   - Desktop navigation renders as a persistent left sidebar with the approved brand, route navigation, footer actions, active route styling, and `320px` width.
   - Mobile navigation renders as a `64px` header with a menu trigger and opens a `320px` drawer overlay with route navigation, footer actions, close behavior, and scrim close behavior.
-  - Route navigation contains enabled `Overview`, `Graph View`, and `Search` links with only the active route highlighted.
-  - A `Dashboard` placeholder, if rendered, is disabled and does not create a route.
+  - Route navigation contains enabled `Overview`, `Graph View`, `Search`, and `Dashboard` links with only the active route highlighted.
+  - The signed-in account button opens a menu with `Settings` navigation and a BFF-backed `Sign out` action.
   - The web client uses Geist as the app-wide primary font.
   - `Overview` exists as a true routed placeholder page.
   - `Graph View` renders within the shared shell rather than owning a separate top-level header.
