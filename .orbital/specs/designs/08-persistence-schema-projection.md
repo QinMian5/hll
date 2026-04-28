@@ -24,6 +24,8 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 
 ### Tables
 - `nodes`
+- `card_versions`
+- `card_suggested_edits`
 - `edges`
 - `adjacency`
 - `taxonomy_nodes`
@@ -37,9 +39,47 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `id`: integer primary key.
 - `title`: non-null text.
 - `content`: non-null text.
+- `current_version`: non-null integer, server default `1`.
 - `embedding`: non-null `Vector(1536)`.
 - `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
 - `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
+- Required constraints:
+  - `current_version >= 1`
+
+### Card Versions
+- `id`: integer primary key.
+- `node_id`: non-null foreign key to `nodes.id` with `ondelete="CASCADE"`.
+- `version`: non-null integer.
+- `title`: non-null text.
+- `content`: non-null text.
+- `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
+- Required constraints:
+  - `version >= 1`
+  - uniqueness over `(node_id, version)`
+- Required indexes:
+  - index on `node_id`
+- Version rule:
+  - `version` is scoped to one node.
+  - `nodes.current_version` equals the highest `card_versions.version` for that node.
+
+### Card Suggested Edits
+- `id`: integer primary key.
+- `node_id`: non-null integer participating in the base-version foreign key.
+- `base_version`: non-null integer.
+- `suggested_title`: non-null text.
+- `suggested_content`: non-null text.
+- `suggested_by_user_id`: non-null text containing the authenticated Logto user id.
+- `status`: non-null text, server default `pending`.
+- `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
+- `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
+- Required constraints:
+  - composite foreign key `(node_id, base_version)` to `card_versions(node_id, version)` with `ondelete="CASCADE"`
+  - `base_version >= 1`
+  - status in `pending`, `accepted`, `rejected`
+- Required indexes:
+  - index on `node_id`
+  - index on `suggested_by_user_id`
+  - index on `status`
 
 ### Edges
 - `id`: integer primary key.
@@ -153,6 +193,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 ## Integrity and Coupling Rules
 - Persistence constraints enforce undirected edge semantics at storage level.
 - One canonical edge row exists for one unordered node pair.
+- Card current projection, formal version history, and suggested edits remain inside `knowledge_graph` table ownership.
 - Taxonomy tree truth, current assignment truth, and taxonomy classification orchestration state remain outside `knowledge_graph` table ownership.
 - Constraint and index naming follows shared SQLAlchemy metadata conventions unless fixed semantic names are explicitly required.
 
@@ -161,6 +202,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - Generated/applied schema enforces all required constraints and indexes.
 - Generated/applied schema enforces taxonomy leaf-only assignment trigger.
 - Generated/applied schema enforces taxonomy root uniqueness.
+- Generated/applied schema enforces card version uniqueness, suggestion base-version references, and suggestion status values.
 - Generated/applied schema allows later classification resubmission after a previous job for the same scope/source/card is locally processed or terminal.
 - Vector type validity depends on PostgreSQL `vector` extension availability before dependent migration.
 - Migration ordering/lifecycle checks are governed by `10-migration-lifecycle-governance`.

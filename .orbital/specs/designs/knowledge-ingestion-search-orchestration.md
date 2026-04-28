@@ -1,6 +1,6 @@
 ---
-abstract: Module-level orchestration design for knowledge core ownership, ingestion async write pipeline, cosine-only search read flow, and taxonomy drill-down reads.
-out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and distributed multi-region queue reliability.
+abstract: Module-level orchestration design for knowledge core ownership, card versions, suggested-edit submission, ingestion async write pipeline, cosine-only search read flow, and taxonomy drill-down reads.
+out_of_scope: Keyword retrieval, hybrid reranking, suggestion review UI, ingestion status APIs, and distributed multi-region queue reliability.
 ---
 
 # Design: knowledge-ingestion-search-orchestration
@@ -10,16 +10,17 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 - Remove superseded decisions instead of keeping deprecation narratives.
 
 ## Context
-- **Purpose:** Define accepted V1 orchestration for `knowledge_graph`, `taxonomy`, `taxonomy_classification`, `ingestion`, and `search` under async ingestion with Redis/Dramatiq.
-- **Scope/Boundaries:** Covers module ownership, endpoint contracts, async processing flow, taxonomy bootstrap/classification boundaries, taxonomy drill-down read rules, and runtime observability obligations.
+- **Purpose:** Define accepted V1 orchestration for `knowledge_graph`, `taxonomy`, `taxonomy_classification`, `ingestion`, `search`, and card suggestion submission under async ingestion with Redis/Dramatiq.
+- **Scope/Boundaries:** Covers module ownership, endpoint contracts, async processing flow, card version/suggestion submission rules, taxonomy bootstrap/classification boundaries, taxonomy drill-down read rules, and runtime observability obligations.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Module Ownership
 
 ### knowledge_graph
-- Owns persistent domain truth for `Node`, `Edge`, and `Adjacency`.
+- Owns persistent domain truth for `Node`, `CardVersion`, `CardSuggestedEdit`, `Edge`, and `Adjacency`.
 - Is the only module allowed to own/access graph persistence models and repositories.
 - Exposes read/write service ports consumed by `search`, `ingestion`, and `taxonomy`.
+- Exposes suggested-edit creation ports consumed by private API orchestration.
 
 ### taxonomy
 - Owns persisted operator-managed taxonomy tree and current node-to-leaf assignment truth.
@@ -69,11 +70,34 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 ### Search Endpoint
 - Route: `GET /api/v1/search?query=<string>`
 - Response:
-  - `matched_cards` with `title`, `content` only
+  - `matched_cards` with `node_id`, `current_version`, `title`, `content`
   - `connected_titles`
 - Limits:
   - `matched_cards` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_MATCHED`
   - `connected_titles` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_CONNECTED`
+
+### Card Suggested Edit Endpoint
+- Route: `POST /api/v1/cards/{node_id}/suggested-edits`
+- Request fields:
+  - `base_version`
+  - `suggested_title`
+  - `suggested_content`
+  - `suggested_by_user_id`
+- Response:
+  - valid authenticated BFF-originated submission: `201 Created`
+  - unknown card, unknown base version, invalid proposed values, or no-op suggestion: `4xx` via global error-governance mapping
+- Response fields:
+  - `id`
+  - `node_id`
+  - `base_version`
+  - `status`
+  - `created_at`
+- Rules:
+  - `suggested_by_user_id` is a Logto user id supplied by the BFF from the authenticated server-side session.
+  - `(node_id, base_version)` must identify an existing formal card version.
+  - proposed title/content must differ from the referenced base version.
+  - a stale but existing `base_version` is accepted as the user's visible editing baseline.
+  - created suggestions have status `pending`.
 
 ### Taxonomy Root View Endpoint
 - Route: `GET /api/v1/taxonomy/view/root`
@@ -130,8 +154,13 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
 5. API returns `202` for valid payload.
 6. Worker actor receives task and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
 7. Worker persists node and edges through `knowledge_graph` write service.
-8. Worker computes edge strength as `(dot_product + 1) / 2`, applies configured threshold/top-k, then persists `Edge` and `Adjacency`.
-9. Worker assigns the new node to `Root -> Unclassified` through taxonomy-owned assignment services.
+8. Worker persists the node's formal initial card version and current version projection through `knowledge_graph` write service.
+9. Worker computes edge strength as `(dot_product + 1) / 2`, applies configured threshold/top-k, then persists `Edge` and `Adjacency`.
+10. Worker assigns the new node to `Root -> Unclassified` through taxonomy-owned assignment services.
+
+## Card Version Rollout Invariant
+- New ingested nodes create `nodes.current_version = 1` and `card_versions(version = 1)` in the same write path.
+- Existing nodes must be backfilled to the same invariant before authenticated suggested-edit submission is enabled, so every submitted `(node_id, base_version)` can reference `card_versions(node_id, version)`.
 
 ## Taxonomy Bootstrap Flow
 1. Operator script creates or imports one authoritative tree rooted at the real `Root` node.
@@ -182,6 +211,10 @@ out_of_scope: Keyword retrieval, hybrid reranking, ingestion status APIs, and di
   - ingestion idempotency checks verifying timeout or connection-loss retry after an already accepted original request converges through same-key replay
   - ingestion worker checks verifying newly created nodes receive `Root -> Unclassified` assignment
   - `GET /api/v1/search` contract checks
+  - `POST /api/v1/cards/{node_id}/suggested-edits` contract checks
+  - suggested-edit checks verifying valid base-version submissions create pending suggestions
+  - suggested-edit checks verifying unknown base versions, empty proposed values, and no-op suggestions are rejected
+  - suggested-edit checks verifying stale but existing base versions are accepted
   - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, and `POST /api/v1/taxonomy/view/leaves/{id}/details` contract checks
   - taxonomy classification queue-contract checks
   - taxonomy classification webhook/reconcile checks
