@@ -13,6 +13,8 @@ import { buildSessionCookieOptions } from "../session/redisSessionStore.js";
 import {
   createLogtoJwtVerifier,
   createLogtoRequester,
+  LogtoAccountApiRequestError,
+  WebAuthRequiredError,
   type WebLogtoClient,
 } from "./logto.js";
 import { createAuthRouter } from "./routes.js";
@@ -47,10 +49,20 @@ function createFakeClient(
   overrides: Partial<WebLogtoClient> = {},
 ): WebLogtoClient {
   return {
+    getProfile: vi.fn(async () => ({
+      email: "ada@example.com",
+      id: "user-1",
+      name: "Ada",
+    })),
     getSession: vi.fn(async () => ({ status: "anonymous" })),
     handleSignInCallback: vi.fn(async () => undefined),
     signIn: vi.fn(async () => "https://logto.example/sign-in"),
     signOut: vi.fn(async () => "https://logto.example/sign-out"),
+    updateProfile: vi.fn(async ({ name }) => ({
+      email: "ada@example.com",
+      id: "user-1",
+      name: name ?? undefined,
+    })),
     ...overrides,
   };
 }
@@ -155,6 +167,152 @@ describe("auth routes", () => {
     expect(response.status).toBe(303);
     expect(response.headers.location).toBe("https://logto.example/sign-out");
     expect(client.signOut).toHaveBeenCalledWith("http://localhost:5173");
+  });
+
+  it("returns account profile metadata without token fields", async () => {
+    const getProfile = vi.fn(async () => ({
+      email: "ada@example.com",
+      id: "user-1",
+      name: "Ada",
+    }));
+    const app = await createTestApp(createFakeClient({ getProfile }));
+
+    const response = await request(app).get("/web-api/auth/profile");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      email: "ada@example.com",
+      id: "user-1",
+      name: "Ada",
+    });
+    expect(getProfile).toHaveBeenCalledOnce();
+    expect(response.text).not.toContain("accessToken");
+    expect(response.text).not.toContain("idToken");
+  });
+
+  it("trims account profile names before updating", async () => {
+    const updateProfile = vi.fn(async ({ name }) => ({
+      email: "ada@example.com",
+      id: "user-1",
+      name: name ?? undefined,
+    }));
+    const app = await createTestApp(createFakeClient({ updateProfile }));
+
+    const response = await request(app)
+      .patch("/web-api/auth/profile")
+      .send({ name: "  Grace Hopper  " });
+
+    expect(response.status).toBe(200);
+    expect(updateProfile).toHaveBeenCalledWith({ name: "Grace Hopper" });
+    expect(response.body).toEqual({
+      email: "ada@example.com",
+      id: "user-1",
+      name: "Grace Hopper",
+    });
+    expect(response.text).not.toContain("accessToken");
+    expect(response.text).not.toContain("idToken");
+  });
+
+  it("normalizes blank account profile names to null", async () => {
+    const updateProfile = vi.fn(async ({ name }) => ({
+      email: "ada@example.com",
+      id: "user-1",
+      name: name ?? undefined,
+    }));
+    const app = await createTestApp(createFakeClient({ updateProfile }));
+
+    const response = await request(app)
+      .patch("/web-api/auth/profile")
+      .send({ name: "   " });
+
+    expect(response.status).toBe(200);
+    expect(updateProfile).toHaveBeenCalledWith({ name: null });
+    expect(response.body).toEqual({
+      email: "ada@example.com",
+      id: "user-1",
+    });
+  });
+
+  it("accepts null account profile names for explicit clearing", async () => {
+    const updateProfile = vi.fn(async ({ name }) => ({
+      email: "ada@example.com",
+      id: "user-1",
+      name: name ?? undefined,
+    }));
+    const app = await createTestApp(createFakeClient({ updateProfile }));
+
+    const response = await request(app)
+      .patch("/web-api/auth/profile")
+      .send({ name: null });
+
+    expect(response.status).toBe(200);
+    expect(updateProfile).toHaveBeenCalledWith({ name: null });
+    expect(response.body).toEqual({
+      email: "ada@example.com",
+      id: "user-1",
+    });
+  });
+
+  it("rejects account profile names longer than 128 characters", async () => {
+    const updateProfile = vi.fn();
+    const app = await createTestApp(createFakeClient({ updateProfile }));
+
+    const response = await request(app)
+      .patch("/web-api/auth/profile")
+      .send({ name: "x".repeat(129) });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: "invalid_account_name",
+        message: "Name must be 128 characters or fewer.",
+      },
+    });
+    expect(updateProfile).not.toHaveBeenCalled();
+  });
+
+  it("rejects account profile access without an authenticated session", async () => {
+    const app = await createTestApp(
+      createFakeClient({
+        getProfile: vi.fn(async () => {
+          throw new WebAuthRequiredError();
+        }),
+      }),
+    );
+
+    const response = await request(app).get("/web-api/auth/profile");
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      error: {
+        code: "authentication_required",
+        message: "Authentication required.",
+      },
+    });
+  });
+
+  it("maps Logto Account API failures to safe profile errors", async () => {
+    const app = await createTestApp(
+      createFakeClient({
+        updateProfile: vi.fn(async () => {
+          throw new LogtoAccountApiRequestError();
+        }),
+      }),
+    );
+
+    const response = await request(app)
+      .patch("/web-api/auth/profile")
+      .send({ name: "Ada" });
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({
+      error: {
+        code: "logto_account_profile_unavailable",
+        message: "Account profile is unavailable.",
+      },
+    });
+    expect(response.text).not.toContain("token");
+    expect(response.text).not.toContain("upstream");
   });
 });
 

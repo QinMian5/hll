@@ -7,14 +7,26 @@ import { RouterProvider } from "@tanstack/react-router";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AppProviders } from "../../../app/providers";
 import { createAppRouter } from "../../../app/router";
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
 });
 
 beforeEach(() => {
   window.scrollTo = vi.fn();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ status: "anonymous" }), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        }),
+    ),
+  );
 });
 
 describe("OverviewPage", () => {
@@ -23,7 +35,11 @@ describe("OverviewPage", () => {
       initialEntries: ["/overview"],
     });
 
-    render(<RouterProvider router={router} />);
+    render(
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>,
+    );
 
     await waitFor(() =>
       expect(screen.getByTestId("overview-route-page")).toBeInTheDocument(),

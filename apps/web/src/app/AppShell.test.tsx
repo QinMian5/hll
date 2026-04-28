@@ -3,8 +3,10 @@
 
 import "@testing-library/jest-dom/vitest";
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -13,6 +15,8 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { WebSessionResponse } from "../shared/web-api/session";
+import { sessionQueryKeys } from "../shared/web-api/sessionQueries";
 import { createAppRouter } from "./router";
 
 vi.mock("../features/taxonomy-view/page/TaxonomyViewPage", () => ({
@@ -33,14 +37,38 @@ function stubSessionResponse(body: unknown) {
   );
 }
 
-function renderWithRoute(pathname: string) {
+function createTestQueryClient(): QueryClient {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+        retry: false,
+        staleTime: 30_000,
+      },
+    },
+  });
+}
+
+function renderWithRoute(
+  pathname: string,
+  options: { readonly session?: WebSessionResponse } = {},
+) {
+  const queryClient = createTestQueryClient();
   const router = createAppRouter({
     initialEntries: [pathname],
   });
 
-  render(<RouterProvider router={router} />);
+  if (options.session !== undefined) {
+    queryClient.setQueryData(sessionQueryKeys.session, options.session);
+  }
 
-  return { router };
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+
+  return { queryClient, router };
 }
 
 afterEach(() => {
@@ -263,5 +291,37 @@ describe("AppShell", () => {
     fireEvent.pointerDown(document.body);
 
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("updates authenticated user state from the shared session query cache", async () => {
+    const { queryClient } = renderWithRoute("/overview", {
+      session: {
+        status: "authenticated",
+        user: {
+          email: "ada@example.com",
+          id: "user-1",
+          name: "Ada Lovelace",
+        },
+      },
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "User menu, Ada Lovelace" }),
+    ).toHaveTextContent("ada@example.com");
+
+    act(() => {
+      queryClient.setQueryData(sessionQueryKeys.session, {
+        status: "authenticated",
+        user: {
+          email: "grace@example.com",
+          id: "user-2",
+          name: "Grace Hopper",
+        },
+      });
+    });
+
+    expect(
+      await screen.findByRole("button", { name: "User menu, Grace Hopper" }),
+    ).toHaveTextContent("grace@example.com");
   });
 });

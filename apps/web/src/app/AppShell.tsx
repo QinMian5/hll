@@ -17,10 +17,8 @@ import type { ComponentType, Ref, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../shared/utils";
-import {
-  fetchWebSession,
-  type WebSessionResponse,
-} from "../shared/web-api/session";
+import type { WebSessionResponse } from "../shared/web-api/session";
+import { useWebSessionQuery } from "../shared/web-api/sessionQueries";
 
 type AppRoute = "/overview" | "/graph" | "/search";
 
@@ -101,34 +99,6 @@ function BrandRow({ withClose }: { readonly withClose?: () => void }) {
       ) : null}
     </div>
   );
-}
-
-function useWebSession(): WebSessionResponse {
-  const [session, setSession] = useState<WebSessionResponse>({
-    status: "anonymous",
-  });
-
-  useEffect(() => {
-    let isMounted = true;
-
-    fetchWebSession()
-      .then((nextSession) => {
-        if (isMounted) {
-          setSession(nextSession);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setSession({ status: "anonymous" });
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  return session;
 }
 
 function profileFromSession(
@@ -365,7 +335,7 @@ function SidebarContent({
 
 export function AppShell() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const session = useWebSession();
+  const session = useWebSessionQuery().data ?? { status: "anonymous" };
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });

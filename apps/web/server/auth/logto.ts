@@ -11,7 +11,7 @@ import LogtoClient, {
   type Storage,
   type StorageKey,
 } from "@logto/node";
-import type { Request, Response } from "express";
+import type { Response as ExpressResponse, Request } from "express";
 import {
   createLocalJWKSet,
   type JSONWebKeySet,
@@ -22,25 +22,51 @@ import {
 import type { WebServerConfig } from "../config.js";
 import type {
   AuthenticatedWebUser,
+  UpdateWebAccountProfileRequest,
+  WebAccountProfile,
   WebSessionResponse,
 } from "./sessionState.js";
 
 type LogtoStorageKey = StorageKey | PersistKey;
+type LogtoAccountProfilePayload = {
+  readonly email?: unknown;
+  readonly id?: unknown;
+  readonly name?: unknown;
+  readonly primaryEmail?: unknown;
+};
 
 export interface SignInRequest {
   readonly redirectUri: string;
 }
 
 export interface WebLogtoClient {
+  readonly getProfile: () => Promise<WebAccountProfile>;
   readonly getSession: () => Promise<WebSessionResponse>;
   readonly handleSignInCallback: (callbackUri: string) => Promise<void>;
   readonly signIn: (request: SignInRequest) => Promise<string>;
   readonly signOut: (postLogoutRedirectUri: string) => Promise<string>;
+  readonly updateProfile: (
+    request: UpdateWebAccountProfileRequest,
+  ) => Promise<WebAccountProfile>;
+}
+
+export class WebAuthRequiredError extends Error {
+  constructor() {
+    super("Authentication required.");
+    this.name = "WebAuthRequiredError";
+  }
+}
+
+export class LogtoAccountApiRequestError extends Error {
+  constructor() {
+    super("Logto account profile is unavailable.");
+    this.name = "LogtoAccountApiRequestError";
+  }
 }
 
 export type WebLogtoClientFactory = (
   request: Request,
-  response: Response,
+  response: ExpressResponse,
 ) => WebLogtoClient;
 
 interface SessionLike {
@@ -244,6 +270,82 @@ function readUserFromClaims(claims: IdTokenClaims): AuthenticatedWebUser {
   };
 }
 
+function joinLogtoUrl(config: WebServerConfig, pathname: string): string {
+  const baseUrl = config.logtoEndpoint.endsWith("/")
+    ? config.logtoEndpoint
+    : `${config.logtoEndpoint}/`;
+  const relativePath = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+
+  return new URL(relativePath, baseUrl).toString();
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value !== "" ? value : undefined;
+}
+
+function readAccountPayload(value: unknown): LogtoAccountProfilePayload {
+  if (typeof value !== "object" || value === null) {
+    throw new LogtoAccountApiRequestError();
+  }
+
+  return value as LogtoAccountProfilePayload;
+}
+
+function mergeAccountProfile(
+  claims: IdTokenClaims,
+  payload: LogtoAccountProfilePayload,
+): WebAccountProfile {
+  return {
+    email:
+      readString(payload.email) ??
+      readString(payload.primaryEmail) ??
+      claims.email ??
+      undefined,
+    id: readString(payload.id) ?? claims.sub,
+    name: readString(payload.name),
+  };
+}
+
+async function requestAccountProfile(
+  config: WebServerConfig,
+  accessToken: string,
+  init: Omit<RequestInit, "headers"> & {
+    readonly headers?: Record<string, string>;
+  } = {},
+): Promise<LogtoAccountProfilePayload> {
+  let accountResponse: globalThis.Response;
+
+  try {
+    accountResponse = await fetch(joinLogtoUrl(config, "/api/my-account"), {
+      ...init,
+      headers: {
+        ...init.headers,
+        authorization: `Bearer ${accessToken}`,
+      },
+    });
+  } catch {
+    throw new LogtoAccountApiRequestError();
+  }
+
+  if (accountResponse.status === 401) {
+    throw new WebAuthRequiredError();
+  }
+
+  if (!accountResponse.ok) {
+    throw new LogtoAccountApiRequestError();
+  }
+
+  try {
+    return readAccountPayload(await accountResponse.json());
+  } catch (error) {
+    if (error instanceof LogtoAccountApiRequestError) {
+      throw error;
+    }
+
+    throw new LogtoAccountApiRequestError();
+  }
+}
+
 export function createLogtoClientFactory(
   config: WebServerConfig,
 ): WebLogtoClientFactory {
@@ -274,6 +376,21 @@ export function createLogtoClientFactory(
           user: readUserFromClaims(claims),
         };
       },
+      getProfile: async () => {
+        if (!(await client.isAuthenticated())) {
+          throw new WebAuthRequiredError();
+        }
+
+        const [claims, accessToken] = await Promise.all([
+          client.getIdTokenClaims(),
+          client.getAccessToken(),
+        ]);
+
+        return mergeAccountProfile(
+          claims,
+          await requestAccountProfile(config, accessToken),
+        );
+      },
       handleSignInCallback: async (callbackUri) => {
         await client.handleSignInCallback(callbackUri);
       },
@@ -286,6 +403,27 @@ export function createLogtoClientFactory(
         redirectUrl = undefined;
         await client.signOut(postLogoutRedirectUri);
         return takeRedirectUrl(redirectUrl);
+      },
+      updateProfile: async ({ name }) => {
+        if (!(await client.isAuthenticated())) {
+          throw new WebAuthRequiredError();
+        }
+
+        const [claims, accessToken] = await Promise.all([
+          client.getIdTokenClaims(),
+          client.getAccessToken(),
+        ]);
+
+        return mergeAccountProfile(
+          claims,
+          await requestAccountProfile(config, accessToken, {
+            body: JSON.stringify({ name }),
+            headers: {
+              "content-type": "application/json",
+            },
+            method: "PATCH",
+          }),
+        );
       },
     };
   };

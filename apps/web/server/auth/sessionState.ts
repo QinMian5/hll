@@ -7,6 +7,16 @@ export interface AuthenticatedWebUser {
   readonly name?: string;
 }
 
+export interface WebAccountProfile {
+  readonly email?: string;
+  readonly id: string;
+  readonly name?: string;
+}
+
+export interface UpdateWebAccountProfileRequest {
+  readonly name: string | null;
+}
+
 export type WebSessionResponse =
   | { readonly status: "anonymous" }
   | {

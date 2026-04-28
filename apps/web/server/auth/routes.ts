@@ -1,11 +1,13 @@
 // abstract: Express route definitions for browser-facing BFF authentication.
 // out_of_scope: Logto SDK storage internals and application quota policy.
 
-import { Router } from "express";
+import { type NextFunction, type Response, Router } from "express";
 
 import type { WebServerConfig } from "../config.js";
 import {
   createLogtoClientFactory,
+  LogtoAccountApiRequestError,
+  WebAuthRequiredError,
   type WebLogtoClientFactory,
 } from "./logto.js";
 
@@ -16,6 +18,61 @@ export interface CreateAuthRouterOptions {
 
 function joinPublicUrl(config: WebServerConfig, pathname: string): string {
   return new URL(pathname, config.publicBaseUrl).toString();
+}
+
+function readProfileName(value: unknown): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    throw new Error("invalid_account_name");
+  }
+
+  const name = value.trim();
+  if (name.length > 128) {
+    throw new Error("invalid_account_name");
+  }
+
+  return name === "" ? null : name;
+}
+
+function handleProfileRouteError(
+  error: unknown,
+  response: Response,
+  next: NextFunction,
+): void {
+  if (error instanceof Error && error.message === "invalid_account_name") {
+    response.status(400).json({
+      error: {
+        code: "invalid_account_name",
+        message: "Name must be 128 characters or fewer.",
+      },
+    });
+    return;
+  }
+
+  if (error instanceof WebAuthRequiredError) {
+    response.status(401).json({
+      error: {
+        code: "authentication_required",
+        message: "Authentication required.",
+      },
+    });
+    return;
+  }
+
+  if (error instanceof LogtoAccountApiRequestError) {
+    response.status(502).json({
+      error: {
+        code: "logto_account_profile_unavailable",
+        message: "Account profile is unavailable.",
+      },
+    });
+    return;
+  }
+
+  next(error);
 }
 
 export function createAuthRouter(options: CreateAuthRouterOptions): Router {
@@ -29,6 +86,28 @@ export function createAuthRouter(options: CreateAuthRouterOptions): Router {
       response.json(await client.getSession());
     } catch (error) {
       next(error);
+    }
+  });
+
+  router.get("/profile", async (request, response, next) => {
+    try {
+      const client = createClient(request, response);
+      response.json(await client.getProfile());
+    } catch (error) {
+      handleProfileRouteError(error, response, next);
+    }
+  });
+
+  router.patch("/profile", async (request, response, next) => {
+    try {
+      const client = createClient(request, response);
+      response.json(
+        await client.updateProfile({
+          name: readProfileName(request.body?.name),
+        }),
+      );
+    } catch (error) {
+      handleProfileRouteError(error, response, next);
     }
   });
 
