@@ -6,6 +6,30 @@ abstract: Global styling baseline for the taxonomy-view web client shell.
 out_of_scope: Feature-level node-layout algorithms and backend data orchestration.
 */
 
+@theme {
+  --color-account-menu-border: #e0e4eb;
+  --color-account-menu-focus: #006bff;
+  --color-account-menu-item-hover: #eff6ff;
+  --color-account-menu-surface: rgb(255 255 255 / 72%);
+  --color-account-menu-text: #131c2d;
+
+  --text-account-menu-item: 14px;
+  --text-account-menu-item--line-height: 20px;
+  --text-account-menu-item--font-weight: 400;
+
+  --spacing-account-menu-height: 140px;
+  --spacing-account-menu-icon-size: 16px;
+  --spacing-account-menu-item-gap: 10px;
+  --spacing-account-menu-item-height: 44px;
+  --spacing-account-menu-item-x: 12px;
+  --spacing-account-menu-offset-y: 92px;
+
+  --radius-account-menu: 8px;
+  --radius-account-menu-item: 6px;
+
+  --drop-shadow-account-menu: 0 12px 12px rgb(38 51 82 / 12%);
+}
+
 :root {
   color: #10233b;
   font-family: "Geist", sans-serif;

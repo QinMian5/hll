@@ -205,21 +205,53 @@ describe("AppShell", () => {
     fireEvent.click(accountButton);
 
     expect(screen.getByRole("menu")).toHaveClass(
-      "top-[-92px]",
-      "h-[140px]",
+      "-top-account-menu-offset-y",
+      "h-account-menu-height",
       "left-0",
       "w-full",
-      "drop-shadow-[0_12px_12px_rgba(38,51,82,0.12)]",
+      "rounded-account-menu",
+      "border-account-menu-border",
+      "bg-account-menu-surface",
+      "drop-shadow-[var(--drop-shadow-account-menu)]",
     );
-    expect(screen.getByRole("menuitem", { name: "Dashboard" })).toHaveAttribute(
-      "href",
-      "/dashboard",
-    );
-    expect(screen.getByRole("menuitem", { name: "Settings" })).toHaveAttribute(
-      "href",
-      "/settings",
-    );
+    const expectedMenuItemClasses = [
+      "h-account-menu-item-height",
+      "gap-account-menu-item-gap",
+      "rounded-account-menu-item",
+      "px-account-menu-item-x",
+      "text-account-menu-item",
+      "text-account-menu-text",
+      "hover:bg-account-menu-item-hover",
+      "focus-visible:outline-account-menu-focus",
+    ];
+    const hardcodedMenuItemClasses = [
+      "h-11",
+      "gap-2.5",
+      "rounded-md",
+      "px-3",
+      "text-[14px]",
+      "text-[#131c2d]",
+      "hover:bg-[#eff6ff]",
+      "focus-visible:outline-[#006bff]",
+    ];
+    const dashboardMenuItem = screen.getByRole("menuitem", {
+      name: "Dashboard",
+    });
+
+    expect(dashboardMenuItem).toHaveAttribute("href", "/dashboard");
+    const settingsMenuItem = screen.getByRole("menuitem", { name: "Settings" });
+
+    expect(settingsMenuItem).toHaveAttribute("href", "/settings");
     const signOutButton = screen.getByRole("menuitem", { name: "Sign out" });
+
+    for (const menuItem of [
+      dashboardMenuItem,
+      settingsMenuItem,
+      signOutButton,
+    ]) {
+      expect(menuItem).toHaveClass(...expectedMenuItemClasses);
+      expect(menuItem).not.toHaveClass(...hardcodedMenuItemClasses);
+    }
 
     expect(signOutButton).toBeEnabled();
     expect(signOutButton.closest("form")).toHaveAttribute(

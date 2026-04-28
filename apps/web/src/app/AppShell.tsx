@@ -48,7 +48,9 @@ const actionButtonClasses =
   "inline-flex h-10 w-full items-center justify-center rounded-lg bg-[#006bff] px-3 text-[13px] leading-[18px] font-medium text-white transition-colors hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
 
 const menuItemClasses =
-  "flex h-11 w-full items-center gap-2.5 rounded-md px-3 text-left text-[14px] leading-5 font-normal text-[#131c2d] no-underline transition-colors hover:bg-[#eff6ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
+  "flex h-account-menu-item-height w-full items-center gap-account-menu-item-gap rounded-account-menu-item px-account-menu-item-x text-left text-account-menu-item font-normal text-account-menu-text no-underline transition-colors hover:bg-account-menu-item-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-account-menu-focus";
+
+const menuIconClasses = "size-account-menu-icon-size shrink-0";
 
 function GithubMark() {
   return (
@@ -208,7 +210,7 @@ function AccountMenu({
 }) {
   return (
     <div
-      className="absolute top-[-92px] left-0 z-20 flex h-[140px] w-full flex-col rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] p-1 drop-shadow-[0_12px_12px_rgba(38,51,82,0.12)]"
+      className="absolute -top-account-menu-offset-y left-0 z-20 flex h-account-menu-height w-full flex-col rounded-account-menu border border-account-menu-border bg-account-menu-surface p-1 drop-shadow-[var(--drop-shadow-account-menu)]"
       ref={menuRef}
       role="menu"
     >
@@ -218,7 +220,7 @@ function AccountMenu({
         role="menuitem"
         to="/dashboard"
       >
-        <LayoutDashboard aria-hidden="true" className="size-4 shrink-0" />
+        <LayoutDashboard aria-hidden="true" className={menuIconClasses} />
         <span>Dashboard</span>
       </Link>
       <Link
@@ -227,12 +229,12 @@ function AccountMenu({
         role="menuitem"
         to="/settings"
       >
-        <Settings aria-hidden="true" className="size-4 shrink-0" />
+        <Settings aria-hidden="true" className={menuIconClasses} />
         <span>Settings</span>
       </Link>
       <form action="/web-api/auth/sign-out" className="w-full" method="post">
         <button className={menuItemClasses} role="menuitem" type="submit">
-          <LogOut aria-hidden="true" className="size-4 shrink-0" />
+          <LogOut aria-hidden="true" className={menuIconClasses} />
           <span>Sign out</span>
         </button>
       </form>
