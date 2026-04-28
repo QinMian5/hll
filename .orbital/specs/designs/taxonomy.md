@@ -119,6 +119,11 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - Existing assignments are never moved by the backfill command.
 - Apply mode rebuilds taxonomy leaf projection rows after assignment writes so taxonomy leaf views read current one-hop edge membership.
 
+## Development Visualization Seed
+- Local development may use a dedicated dev-only seed script to reset and recreate placeholder taxonomy branches, placeholder cards, hardcoded graph edges, card-to-leaf assignments, and taxonomy leaf projection rows for Graph View inspection.
+- The development seed script does not call embedding providers and does not participate in production import, migration, ingestion, or classification flows.
+- The development seed script must reject non-local database URLs before writing placeholder rows.
+
 ## API Contract
 
 ### Root View Endpoint
