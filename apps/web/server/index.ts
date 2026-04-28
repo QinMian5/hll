@@ -12,7 +12,11 @@ import { createApp, type WebAppRuntime } from "./app.js";
 import { createLogtoClientFactory } from "./auth/logto.js";
 import { createAuthRouter } from "./auth/routes.js";
 import { loadWebServerConfig } from "./config.js";
+import { createLogtoPersonalAccessTokensClient } from "./dashboard/logtoPersonalAccessTokens.js";
+import { createMcpUsageSummaryClient } from "./dashboard/mcpUsageSummary.js";
+import { requestServiceAccessToken } from "./dashboard/serviceAccessToken.js";
 import { createInternalApiClient } from "./internal-api/client.js";
+import { createDashboardTokensRouter } from "./routes/dashboardTokens.js";
 import { createSearchRouter } from "./routes/search.js";
 import { createTaxonomyViewRouter } from "./routes/taxonomyView.js";
 import { createRedisSessionMiddleware } from "./session/redisSessionStore.js";
@@ -46,6 +50,28 @@ async function main(): Promise<void> {
   const runtime = await createRuntime();
   const internalApi = createInternalApiClient(config);
   const logtoClientFactory = createLogtoClientFactory(config);
+  const logtoPersonalAccessTokens = createLogtoPersonalAccessTokensClient({
+    accessToken: async () =>
+      await requestServiceAccessToken({
+        clientId: config.logtoManagementClientId,
+        clientSecret: config.logtoManagementClientSecret,
+        resource: config.logtoManagementResource,
+        scopes: config.logtoManagementScopes,
+        tokenUrl: config.logtoManagementTokenUrl,
+      }),
+    apiBaseUrl: config.logtoManagementApiBaseUrl,
+  });
+  const mcpUsageSummary = createMcpUsageSummaryClient({
+    accessToken: async () =>
+      await requestServiceAccessToken({
+        clientId: config.mcpUsageSummaryClientId,
+        clientSecret: config.mcpUsageSummaryClientSecret,
+        resource: config.mcpUsageSummaryResource,
+        scopes: config.mcpUsageSummaryScopes,
+        tokenUrl: config.mcpUsageSummaryTokenUrl,
+      }),
+    baseUrl: config.mcpUsageSummaryBaseUrl,
+  });
   const quotaStore = await createRedisQuotaStore(config);
   const createRouteQuotaMiddleware = (routeGroup: string) =>
     createQuotaMiddleware({
@@ -57,6 +83,17 @@ async function main(): Promise<void> {
     });
   const webApiRouter = Router();
   webApiRouter.use("/auth", createAuthRouter({ config }));
+  webApiRouter.use(
+    "/dashboard",
+    createDashboardTokensRouter({
+      getSession: async (request, response) =>
+        await logtoClientFactory(request, response).getSession(),
+      logtoClient: logtoPersonalAccessTokens,
+      mcpUsageClient: mcpUsageSummary,
+      patFingerprintSecret: config.patFingerprintSecret,
+      quotaMiddleware: createRouteQuotaMiddleware("dashboard-tokens"),
+    }),
+  );
   webApiRouter.use(
     "/search",
     createSearchRouter({

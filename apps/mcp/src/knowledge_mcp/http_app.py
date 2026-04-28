@@ -11,11 +11,12 @@ from contextlib import asynccontextmanager
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.responses import JSONResponse, Response
-from starlette.routing import Mount, Route
+from starlette.routing import BaseRoute, Mount, Route
 from starlette.types import Lifespan
 
 from knowledge_mcp.auth.middleware import AuthContextMiddleware, is_origin_allowed
 from knowledge_mcp.config import Settings, load_settings
+from knowledge_mcp.internal_usage_summary import create_usage_summary_endpoint
 from knowledge_mcp.runtime import RuntimeResources, build_runtime_resources
 from knowledge_mcp.search_tool import SearchTool
 from knowledge_mcp.server import create_mcp_server
@@ -35,8 +36,9 @@ def create_app(
     runtime_resources: RuntimeResources | None = None
     middleware: list[Middleware] = []
 
+    resolved_settings = settings or load_settings()
     if search_tool is None:
-        runtime_resources = build_runtime_resources(settings or load_settings())
+        runtime_resources = build_runtime_resources(resolved_settings)
         search_tool = runtime_resources.search_tool
         middleware.append(
             Middleware(
@@ -54,12 +56,24 @@ def create_app(
             )
         )
 
+    routes: list[BaseRoute] = [Route("/healthz", healthz, methods=["GET"])]
+    if runtime_resources is not None:
+        routes.append(
+            Route(
+                "/internal/dashboard/usage-summary",
+                create_usage_summary_endpoint(
+                    service=runtime_resources.usage_summary_service,
+                    service_token_verifier=(runtime_resources.usage_summary_service_token_verifier),
+                    max_batch_size=runtime_resources.usage_summary_max_batch_size,
+                ),
+                methods=["POST"],
+            )
+        )
+
     mcp_server = create_mcp_server(search_tool=search_tool)
+    routes.append(Mount("/mcp", app=mcp_server.streamable_http_app()))
     return Starlette(
-        routes=[
-            Route("/healthz", healthz, methods=["GET"]),
-            Mount("/mcp", app=mcp_server.streamable_http_app()),
-        ],
+        routes=routes,
         middleware=middleware,
         lifespan=_runtime_lifespan(runtime_resources),
     )

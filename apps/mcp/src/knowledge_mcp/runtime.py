@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 
 from knowledge_mcp.auth.context import load_current_principal
 from knowledge_mcp.auth.middleware import AccessTokenVerifier, TokenExchangeClient
+from knowledge_mcp.auth.service_token import ServiceTokenVerifier, ServiceTokenVerifierSettings
 from knowledge_mcp.auth.token_exchange import (
     TokenExchangeClient as LogtoTokenExchangeClient,
 )
@@ -45,6 +46,9 @@ class AuthMiddlewareKwargs(TypedDict):
 class RuntimeResources:
     search_tool: SearchTool
     auth_middleware_kwargs: AuthMiddlewareKwargs
+    usage_summary_service: SessionUsageRepository
+    usage_summary_service_token_verifier: ServiceTokenVerifier
+    usage_summary_max_batch_size: int
     redis_client: Redis
     auth_http_client: httpx.AsyncClient
     search_http_client: httpx.AsyncClient
@@ -87,6 +91,16 @@ def build_runtime_resources(settings: Settings) -> RuntimeResources:
         ),
         http_client=auth_http_client,
     )
+    usage_summary_service_token_verifier = ServiceTokenVerifier(
+        settings=ServiceTokenVerifierSettings(
+            issuer=settings.logto_issuer,
+            resource=settings.usage_summary_auth_resource,
+            discovery_url=settings.logto_discovery_url,
+            required_scope=settings.usage_summary_required_scope,
+            allowed_client_id=settings.usage_summary_allowed_client_id,
+            http_timeout_seconds=settings.auth_http_timeout_seconds,
+        )
+    )
 
     quota_store = QuotaStore(
         redis_client=cast(RedisEvalClient, redis_client),
@@ -102,6 +116,7 @@ def build_runtime_resources(settings: Settings) -> RuntimeResources:
         ),
         prefix=settings.quota_redis_prefix,
     )
+    usage_repository = SessionUsageRepository(session_factory=session_factory)
     search_tool = SearchTool(
         search_service=InternalSearchService(
             client=SearchClient(
@@ -110,7 +125,7 @@ def build_runtime_resources(settings: Settings) -> RuntimeResources:
             )
         ),
         quota_store=quota_store,
-        usage_repository=SessionUsageRepository(session_factory=session_factory),
+        usage_repository=usage_repository,
         principal_provider=load_current_principal,
     )
 
@@ -122,6 +137,9 @@ def build_runtime_resources(settings: Settings) -> RuntimeResources:
             "pat_fingerprint_secret": settings.pat_fingerprint_secret,
             "allowed_origins": settings.allowed_origins,
         },
+        usage_summary_service=usage_repository,
+        usage_summary_service_token_verifier=usage_summary_service_token_verifier,
+        usage_summary_max_batch_size=settings.usage_summary_max_batch_size,
         redis_client=redis_client,
         auth_http_client=auth_http_client,
         search_http_client=search_http_client,

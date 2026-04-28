@@ -26,6 +26,8 @@ def _settings() -> Settings:
         logto_token_exchange_client_secret="secret",
         pat_fingerprint_secret="x" * 32,
         allowed_origins=("https://knowledge.example.com",),
+        usage_summary_auth_resource="https://knowledge.example.com/mcp-internal",
+        usage_summary_allowed_client_id="web-dashboard-bff",
     )
 
 

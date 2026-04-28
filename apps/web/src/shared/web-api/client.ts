@@ -12,7 +12,7 @@ interface WebApiErrorPayload {
 
 export interface WebApiJsonRequestOptions {
   readonly body?: unknown;
-  readonly method?: "GET" | "POST";
+  readonly method?: "GET" | "PATCH" | "POST";
 }
 
 function assertWebApiPath(path: string): void {
@@ -65,6 +65,10 @@ export async function fetchWebApiJson<TResponse>(
 
   if (!response.ok) {
     throw await readError(response);
+  }
+
+  if (response.status === 204) {
+    return undefined as TResponse;
   }
 
   return (await response.json()) as TResponse;

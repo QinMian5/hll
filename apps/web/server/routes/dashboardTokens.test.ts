@@ -1,0 +1,292 @@
+// abstract: Contract tests for dashboard token lifecycle BFF routes.
+// out_of_scope: Browser UI rendering and Logto Management API internals.
+// @vitest-environment node
+
+import { type RequestHandler, Router } from "express";
+import request from "supertest";
+import { describe, expect, it, vi } from "vitest";
+
+import { createApp } from "../app.js";
+import type { WebSessionResponse } from "../auth/sessionState.js";
+import { loadWebServerConfig } from "../config.js";
+import { DashboardDependencyError } from "../dashboard/errors.js";
+import { createPatFingerprint } from "../dashboard/patFingerprint.js";
+import {
+  createDashboardTokensRouter,
+  type DashboardLogtoPersonalAccessTokensClient,
+  type DashboardMcpUsageSummaryClient,
+} from "./dashboardTokens.js";
+
+const TEST_ENV = {
+  KNOWLEDGE_WEB_COOKIE_SECURE: "false",
+  KNOWLEDGE_WEB_INTERNAL_API_BASE_URL: "http://api:8000",
+  KNOWLEDGE_WEB_LOGTO_APP_ID: "test-app",
+  KNOWLEDGE_WEB_LOGTO_APP_SECRET: "test-secret",
+  KNOWLEDGE_WEB_LOGTO_ENDPOINT: "http://logto:3001",
+  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_API_BASE_URL: "http://logto:3001/api",
+  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_ID: "management-client",
+  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_SECRET: "management-secret",
+  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_RESOURCE: "https://default.logto.app/api",
+  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_SCOPES:
+    "read:users create:users update:users delete:users",
+  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_TOKEN_URL: "http://logto:3001/oidc/token",
+  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_BASE_URL: "http://mcp:8001",
+  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_ID: "usage-client",
+  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_SECRET: "usage-secret",
+  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_RESOURCE: "https://knowledge-mcp.internal",
+  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_SCOPES: "usage:read",
+  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL: "http://logto:3001/oidc/token",
+  KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET:
+    "test-pat-fingerprint-secret-with-enough-length",
+  KNOWLEDGE_WEB_PUBLIC_BASE_URL: "http://localhost:5173",
+  KNOWLEDGE_WEB_REDIS_URL: "redis://redis:6379/0",
+  KNOWLEDGE_WEB_SESSION_SECRET: "test-session-secret-with-enough-length",
+};
+
+const TOKEN = {
+  createdAt: "2026-04-28T10:00:00.000Z",
+  expiresAt: "2026-05-28T10:00:00.000Z",
+  name: "Laptop",
+  value: "kg_pat_plaintext_value",
+};
+
+const USER_SESSION: WebSessionResponse = {
+  status: "authenticated",
+  user: { id: "user-1" },
+};
+
+function createLogtoClient(
+  overrides: Partial<DashboardLogtoPersonalAccessTokensClient> = {},
+): DashboardLogtoPersonalAccessTokensClient {
+  return {
+    createPersonalAccessToken: vi.fn(async () => TOKEN),
+    deletePersonalAccessToken: vi.fn(async () => undefined),
+    listPersonalAccessTokens: vi.fn(async () => [TOKEN]),
+    renamePersonalAccessToken: vi.fn(async () => ({
+      ...TOKEN,
+      name: "Workstation",
+    })),
+    ...overrides,
+  };
+}
+
+function createUsageClient(
+  overrides: Partial<DashboardMcpUsageSummaryClient> = {},
+): DashboardMcpUsageSummaryClient {
+  return {
+    getUsageSummaries: vi.fn(async () => new Map()),
+    ...overrides,
+  };
+}
+
+async function createTestApp(options: {
+  readonly getSession?: () => Promise<WebSessionResponse>;
+  readonly logtoClient?: DashboardLogtoPersonalAccessTokensClient;
+  readonly mcpUsageClient?: DashboardMcpUsageSummaryClient;
+  readonly quotaMiddleware?: RequestHandler;
+}) {
+  const config = loadWebServerConfig(TEST_ENV);
+  const webApiRouter = Router();
+
+  webApiRouter.use(
+    "/dashboard",
+    createDashboardTokensRouter({
+      getSession: async () =>
+        options.getSession === undefined
+          ? USER_SESSION
+          : await options.getSession(),
+      logtoClient: options.logtoClient ?? createLogtoClient(),
+      mcpUsageClient: options.mcpUsageClient ?? createUsageClient(),
+      patFingerprintSecret: config.patFingerprintSecret,
+      quotaMiddleware:
+        options.quotaMiddleware ??
+        ((_request, _response, next) => {
+          next();
+        }),
+    }),
+  );
+
+  return await createApp({
+    config,
+    runtime: {
+      indexHtml: '<html><body><div id="root"></div></body></html>',
+      kind: "production",
+    },
+    webApiRouter,
+  });
+}
+
+describe("dashboard token routes", () => {
+  it("lists authenticated user tokens with raw values and successful search usage", async () => {
+    const patFingerprint = createPatFingerprint(
+      TOKEN.value,
+      TEST_ENV.KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET,
+    );
+    const logtoClient = createLogtoClient();
+    const mcpUsageClient = createUsageClient({
+      getUsageSummaries: vi.fn(async () => {
+        return new Map([
+          [
+            patFingerprint,
+            {
+              lastUsedAt: "2026-04-28T11:00:00.000Z",
+              patFingerprint,
+              successfulSearchCount: 12,
+            },
+          ],
+        ]);
+      }),
+    });
+    const app = await createTestApp({ logtoClient, mcpUsageClient });
+
+    const response = await request(app).get("/web-api/dashboard/tokens");
+
+    expect(response.status).toBe(200);
+    expect(logtoClient.listPersonalAccessTokens).toHaveBeenCalledWith("user-1");
+    expect(mcpUsageClient.getUsageSummaries).toHaveBeenCalledWith([
+      patFingerprint,
+    ]);
+    expect(response.body).toEqual({
+      tokens: [
+        {
+          createdAt: TOKEN.createdAt,
+          expiresAt: TOKEN.expiresAt,
+          lastUsedAt: "2026-04-28T11:00:00.000Z",
+          maskedToken: "kg_pat_***********alue",
+          name: TOKEN.name,
+          successfulSearchCount: 12,
+          tokenValue: TOKEN.value,
+        },
+      ],
+      usageAvailable: true,
+    });
+    expect(response.text).not.toContain(patFingerprint);
+  });
+
+  it("rejects anonymous token access before calling Logto", async () => {
+    const logtoClient = createLogtoClient();
+    const app = await createTestApp({
+      getSession: async () => ({ status: "anonymous" }),
+      logtoClient,
+    });
+
+    const response = await request(app).get("/web-api/dashboard/tokens");
+
+    expect(response.status).toBe(401);
+    expect(logtoClient.listPersonalAccessTokens).not.toHaveBeenCalled();
+    expect(response.body).toEqual({
+      error: {
+        code: "dashboard_auth_required",
+        message: "Authentication is required.",
+      },
+    });
+  });
+
+  it("creates a token for the authenticated Logto user", async () => {
+    const logtoClient = createLogtoClient();
+    const app = await createTestApp({ logtoClient });
+
+    const response = await request(app)
+      .post("/web-api/dashboard/tokens")
+      .send({ name: "Laptop" });
+
+    expect(response.status).toBe(201);
+    expect(logtoClient.createPersonalAccessToken).toHaveBeenCalledWith(
+      "user-1",
+      "Laptop",
+    );
+    expect(response.body).toMatchObject({
+      token: {
+        maskedToken: "kg_pat_***********alue",
+        name: "Laptop",
+        successfulSearchCount: 0,
+        tokenValue: TOKEN.value,
+      },
+      usageAvailable: true,
+    });
+  });
+
+  it("renames a token for the authenticated Logto user", async () => {
+    const logtoClient = createLogtoClient();
+    const app = await createTestApp({ logtoClient });
+
+    const response = await request(app)
+      .patch("/web-api/dashboard/tokens")
+      .send({ currentName: "Laptop", name: "Workstation" });
+
+    expect(response.status).toBe(200);
+    expect(logtoClient.renamePersonalAccessToken).toHaveBeenCalledWith(
+      "user-1",
+      "Laptop",
+      "Workstation",
+    );
+    expect(response.body).toMatchObject({
+      token: {
+        maskedToken: "kg_pat_***********alue",
+        name: "Workstation",
+        tokenValue: TOKEN.value,
+      },
+    });
+  });
+
+  it("deletes a token for the authenticated Logto user", async () => {
+    const logtoClient = createLogtoClient();
+    const app = await createTestApp({ logtoClient });
+
+    const response = await request(app)
+      .post("/web-api/dashboard/tokens/delete")
+      .send({ name: "Laptop" });
+
+    expect(response.status).toBe(204);
+    expect(logtoClient.deletePersonalAccessToken).toHaveBeenCalledWith(
+      "user-1",
+      "Laptop",
+    );
+  });
+
+  it("rejects blank token names before calling Logto", async () => {
+    const logtoClient = createLogtoClient();
+    const app = await createTestApp({ logtoClient });
+
+    const response = await request(app)
+      .post("/web-api/dashboard/tokens")
+      .send({ name: "   " });
+
+    expect(response.status).toBe(400);
+    expect(logtoClient.createPersonalAccessToken).not.toHaveBeenCalled();
+    expect(response.body).toEqual({
+      error: {
+        code: "dashboard_invalid_token_name",
+        message: "Token name is required.",
+      },
+    });
+  });
+
+  it("keeps list available when usage summary is unavailable", async () => {
+    const app = await createTestApp({
+      mcpUsageClient: createUsageClient({
+        getUsageSummaries: vi.fn(async () => {
+          throw new DashboardDependencyError("usage unavailable");
+        }),
+      }),
+    });
+
+    const response = await request(app).get("/web-api/dashboard/tokens");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      tokens: [
+        {
+          createdAt: TOKEN.createdAt,
+          expiresAt: TOKEN.expiresAt,
+          lastUsedAt: null,
+          maskedToken: "kg_pat_***********alue",
+          name: TOKEN.name,
+          successfulSearchCount: null,
+          tokenValue: TOKEN.value,
+        },
+      ],
+      usageAvailable: false,
+    });
+  });
+});

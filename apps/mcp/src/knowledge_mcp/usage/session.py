@@ -10,6 +10,7 @@ from typing import cast
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from knowledge_mcp.usage.repository import AsyncExecuteSession, SearchUsageEvent, UsageRepository
+from knowledge_mcp.usage.summary import UsageSummaryRow
 
 
 class SessionUsageRepository:
@@ -21,3 +22,9 @@ class SessionUsageRepository:
             await UsageRepository(session=cast(AsyncExecuteSession, session)).record_search_event(
                 event
             )
+
+    async def get_summaries(self, pat_fingerprints: list[str]) -> list[UsageSummaryRow]:
+        async with self._session_factory() as session:
+            return await UsageRepository(
+                session=cast(AsyncExecuteSession, session)
+            ).get_search_usage_summaries(pat_fingerprints)

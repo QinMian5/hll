@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     allowed_origins: StringTuple = ()
     token_cache_ttl_seconds: int = Field(default=300, ge=1)
     auth_http_timeout_seconds: float = Field(default=5.0, gt=0)
+    usage_summary_auth_resource: str
+    usage_summary_required_scope: str = "usage:read"
+    usage_summary_allowed_client_id: str
+    usage_summary_max_batch_size: int = Field(default=100, ge=1)
 
     quota_redis_prefix: str = "knowledge:mcp:quota:"
     user_burst_limit: int = Field(default=60, ge=1)

@@ -254,7 +254,7 @@ def test_base_web_service_reaches_private_dependencies() -> None:
     web = _service_data(BASE_COMPOSE, "web")
 
     assert web["networks"] == ["backend", "edge"]
-    assert set(web["depends_on"]) == {"api", "redis", "logto"}
+    assert set(web["depends_on"]) == {"api", "redis", "logto", "mcp"}
 
     environment = web["environment"]
     assert isinstance(environment, dict)
@@ -264,9 +264,36 @@ def test_base_web_service_reaches_private_dependencies() -> None:
         "KNOWLEDGE_WEB_LOGTO_ENDPOINT",
         "KNOWLEDGE_WEB_LOGTO_APP_ID",
         "KNOWLEDGE_WEB_LOGTO_APP_SECRET",
+        "KNOWLEDGE_WEB_LOGTO_MANAGEMENT_API_BASE_URL",
+        "KNOWLEDGE_WEB_LOGTO_MANAGEMENT_TOKEN_URL",
+        "KNOWLEDGE_WEB_LOGTO_MANAGEMENT_RESOURCE",
+        "KNOWLEDGE_WEB_LOGTO_MANAGEMENT_SCOPES",
+        "KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_ID",
+        "KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_SECRET",
+        "KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_BASE_URL",
+        "KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL",
+        "KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_RESOURCE",
+        "KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_SCOPES",
+        "KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_ID",
+        "KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_SECRET",
+        "KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET",
         "KNOWLEDGE_WEB_SESSION_SECRET",
         "KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX",
         "KNOWLEDGE_WEB_QUOTA_ROUTE_OVERRIDES_JSON",
+    ):
+        assert key in environment
+
+
+def test_base_mcp_service_defines_internal_usage_summary_auth() -> None:
+    mcp = _service_data(BASE_COMPOSE, "mcp")
+    environment = mcp["environment"]
+
+    assert isinstance(environment, dict)
+    for key in (
+        "KNOWLEDGE_MCP_USAGE_SUMMARY_AUTH_RESOURCE",
+        "KNOWLEDGE_MCP_USAGE_SUMMARY_REQUIRED_SCOPE",
+        "KNOWLEDGE_MCP_USAGE_SUMMARY_ALLOWED_CLIENT_ID",
+        "KNOWLEDGE_MCP_USAGE_SUMMARY_MAX_BATCH_SIZE",
     ):
         assert key in environment
 

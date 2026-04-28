@@ -31,6 +31,9 @@ def test_settings_accept_space_or_comma_separated_tuple_env_values() -> None:
             "logto_token_exchange_client_secret": "secret",
             "pat_fingerprint_secret": "x" * 32,
             "allowed_origins": "https://knowledge.example.com,https://app.example.com",
+            "usage_summary_auth_resource": "https://knowledge.example.com/mcp-internal",
+            "usage_summary_required_scope": "usage:read",
+            "usage_summary_allowed_client_id": "web-dashboard-bff",
         }
     )
 
@@ -39,6 +42,9 @@ def test_settings_accept_space_or_comma_separated_tuple_env_values() -> None:
         "https://knowledge.example.com",
         "https://app.example.com",
     )
+    assert settings.usage_summary_auth_resource == "https://knowledge.example.com/mcp-internal"
+    assert settings.usage_summary_required_scope == "usage:read"
+    assert settings.usage_summary_allowed_client_id == "web-dashboard-bff"
 
 
 def test_load_settings_accepts_space_or_comma_separated_env_values(
@@ -60,6 +66,9 @@ def test_load_settings_accepts_space_or_comma_separated_env_values(
         "KNOWLEDGE_MCP_LOGTO_TOKEN_EXCHANGE_CLIENT_SECRET": "secret",
         "KNOWLEDGE_MCP_PAT_FINGERPRINT_SECRET": "x" * 32,
         "KNOWLEDGE_MCP_ALLOWED_ORIGINS": "https://knowledge.example.com,https://app.example.com",
+        "KNOWLEDGE_MCP_USAGE_SUMMARY_AUTH_RESOURCE": ("https://knowledge.example.com/mcp-internal"),
+        "KNOWLEDGE_MCP_USAGE_SUMMARY_REQUIRED_SCOPE": "usage:read",
+        "KNOWLEDGE_MCP_USAGE_SUMMARY_ALLOWED_CLIENT_ID": "web-dashboard-bff",
     }
     for key, value in values.items():
         monkeypatch.setenv(key, value)
@@ -71,6 +80,9 @@ def test_load_settings_accepts_space_or_comma_separated_env_values(
         "https://knowledge.example.com",
         "https://app.example.com",
     )
+    assert settings.usage_summary_auth_resource == "https://knowledge.example.com/mcp-internal"
+    assert settings.usage_summary_required_scope == "usage:read"
+    assert settings.usage_summary_allowed_client_id == "web-dashboard-bff"
 
 
 def test_database_and_migration_settings_load_minimal_database_urls(
