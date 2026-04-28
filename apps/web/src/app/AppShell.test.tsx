@@ -76,10 +76,9 @@ describe("AppShell", () => {
       "data-nav-state",
       "inactive",
     );
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
-      "data-nav-state",
-      "inactive",
-    );
+    expect(
+      screen.queryByRole("link", { name: "Dashboard" }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the shared top navigation with anonymous sign-in action", async () => {
@@ -124,10 +123,9 @@ describe("AppShell", () => {
       "href",
       "/search",
     );
-    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute(
-      "href",
-      "/dashboard",
-    );
+    expect(
+      screen.queryByRole("link", { name: "Dashboard" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "GitHub 0 stars" })).toHaveClass(
       "h-10",
       "rounded-lg",
@@ -170,7 +168,7 @@ describe("AppShell", () => {
       screen
         .getByTestId("app-shell-mobile-drawer")
         .querySelector('a[href="/dashboard"]'),
-    ).toHaveTextContent("Dashboard");
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Close navigation scrim" }),
     ).toHaveClass("bg-[rgba(248,250,252,0.18)]");
@@ -207,10 +205,15 @@ describe("AppShell", () => {
     fireEvent.click(accountButton);
 
     expect(screen.getByRole("menu")).toHaveClass(
-      "top-[-48px]",
+      "top-[-92px]",
+      "h-[140px]",
       "left-0",
       "w-full",
       "drop-shadow-[0_12px_12px_rgba(38,51,82,0.12)]",
+    );
+    expect(screen.getByRole("menuitem", { name: "Dashboard" })).toHaveAttribute(
+      "href",
+      "/dashboard",
     );
     expect(screen.getByRole("menuitem", { name: "Settings" })).toHaveAttribute(
       "href",

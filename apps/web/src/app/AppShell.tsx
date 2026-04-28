@@ -22,7 +22,7 @@ import {
   type WebSessionResponse,
 } from "../shared/web-api/session";
 
-type AppRoute = "/overview" | "/graph" | "/search" | "/dashboard";
+type AppRoute = "/overview" | "/graph" | "/search";
 
 interface NavItem {
   readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
@@ -40,7 +40,6 @@ const navItems: readonly NavItem[] = [
   { icon: House, label: "Overview", to: "/overview" },
   { icon: Network, label: "Graph View", to: "/graph" },
   { icon: SearchIcon, label: "Search", to: "/search" },
-  { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
 ];
 
 const githubRepositoryUrl = "https://github.com/QinMian5/knowledge";
@@ -209,10 +208,19 @@ function AccountMenu({
 }) {
   return (
     <div
-      className="absolute top-[-48px] left-0 z-20 flex h-24 w-full flex-col rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] p-1 drop-shadow-[0_12px_12px_rgba(38,51,82,0.12)]"
+      className="absolute top-[-92px] left-0 z-20 flex h-[140px] w-full flex-col rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] p-1 drop-shadow-[0_12px_12px_rgba(38,51,82,0.12)]"
       ref={menuRef}
       role="menu"
     >
+      <Link
+        className={menuItemClasses}
+        onClick={onNavigate}
+        role="menuitem"
+        to="/dashboard"
+      >
+        <LayoutDashboard aria-hidden="true" className="size-4 shrink-0" />
+        <span>Dashboard</span>
+      </Link>
       <Link
         className={menuItemClasses}
         onClick={onNavigate}
