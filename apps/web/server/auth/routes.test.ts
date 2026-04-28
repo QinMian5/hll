@@ -3,13 +3,18 @@
 // @vitest-environment node
 
 import { Router } from "express";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../app.js";
 import { loadWebServerConfig } from "../config.js";
 import { buildSessionCookieOptions } from "../session/redisSessionStore.js";
-import type { WebLogtoClient } from "./logto.js";
+import {
+  createLogtoJwtVerifier,
+  createLogtoRequester,
+  type WebLogtoClient,
+} from "./logto.js";
 import { createAuthRouter } from "./routes.js";
 
 const TEST_ENV = {
@@ -152,5 +157,88 @@ describe("session cookie policy", () => {
       sameSite: "lax",
       secure: true,
     });
+  });
+});
+
+describe("Logto requester", () => {
+  it("uses the internal endpoint for server-side Logto HTTP requests", async () => {
+    const requestedUrls: string[] = [];
+    const config = loadWebServerConfig({
+      ...TEST_ENV,
+      KNOWLEDGE_WEB_LOGTO_ENDPOINT: "http://localhost:3011",
+      KNOWLEDGE_WEB_LOGTO_INTERNAL_ENDPOINT: "http://logto:3001",
+    });
+    const requester = createLogtoRequester(config, async (input, init) => {
+      requestedUrls.push(String(input));
+      const headers = new Headers(init?.headers);
+      expect(headers.get("authorization")).toBe(
+        "Basic dGVzdC1hcHA6dGVzdC1zZWNyZXQ=",
+      );
+      expect(headers.get("x-forwarded-host")).toBe("localhost:3011");
+      expect(headers.get("x-forwarded-proto")).toBe("http");
+
+      return new Response(JSON.stringify({ issuer: "ok" }), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      });
+    });
+
+    await requester(
+      "http://localhost:3011/oidc/.well-known/openid-configuration",
+    );
+
+    expect(requestedUrls).toEqual([
+      "http://logto:3001/oidc/.well-known/openid-configuration",
+    ]);
+  });
+
+  it("uses the internal endpoint when fetching JWKS for ID token verification", async () => {
+    const requestedUrls: string[] = [];
+    const config = loadWebServerConfig({
+      ...TEST_ENV,
+      KNOWLEDGE_WEB_LOGTO_ENDPOINT: "http://localhost:3011",
+      KNOWLEDGE_WEB_LOGTO_INTERNAL_ENDPOINT: "http://logto:3001",
+    });
+    const { privateKey, publicKey } = await generateKeyPair("RS256");
+    const publicJwk = await exportJWK(publicKey);
+    const keyId = "test-key";
+    const idToken = await new SignJWT({ sub: "user-1" })
+      .setProtectedHeader({ alg: "RS256", kid: keyId })
+      .setIssuer("http://localhost:3011/oidc")
+      .setAudience("test-app")
+      .setIssuedAt()
+      .setExpirationTime("5m")
+      .sign(privateKey);
+    const verifier = createLogtoJwtVerifier(config, async (input, init) => {
+      requestedUrls.push(String(input));
+      const headers = new Headers(init?.headers);
+      expect(headers.get("x-forwarded-host")).toBe("localhost:3011");
+      expect(headers.get("x-forwarded-proto")).toBe("http");
+
+      return new Response(
+        JSON.stringify({
+          keys: [{ ...publicJwk, alg: "RS256", kid: keyId, use: "sig" }],
+        }),
+        {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        },
+      );
+    })({
+      getOidcConfig: async () => ({
+        authorizationEndpoint: "http://localhost:3011/oidc/auth",
+        endSessionEndpoint: "http://localhost:3011/oidc/session/end",
+        issuer: "http://localhost:3011/oidc",
+        jwksUri: "http://localhost:3011/oidc/jwks",
+        revocationEndpoint: "http://localhost:3011/oidc/token/revocation",
+        tokenEndpoint: "http://localhost:3011/oidc/token",
+        userinfoEndpoint: "http://localhost:3011/oidc/me",
+      }),
+      logtoConfig: { appId: "test-app" },
+    });
+
+    await verifier.verifyIdToken(idToken);
+
+    expect(requestedUrls).toEqual(["http://logto:3001/oidc/jwks"]);
   });
 });

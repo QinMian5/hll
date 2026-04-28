@@ -71,6 +71,9 @@ importers:
       express-session:
         specifier: ^1.19.0
         version: 1.19.0
+      jose:
+        specifier: ^6.2.2
+        version: 6.2.2
       katex:
         specifier: ^0.16.25
         version: 0.16.45

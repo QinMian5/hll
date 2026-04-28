@@ -17,7 +17,7 @@ services:
   logto:
     ports:
       - "3011:3001"
-      - "3012:3002"
+      - "3012:${KNOWLEDGE_LOGTO_ADMIN_PORT:-3002}"
 
   knowledge_corpus_db:
     image: knowledge-corpus-postgres:dev

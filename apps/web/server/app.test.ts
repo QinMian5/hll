@@ -69,4 +69,15 @@ describe("loadWebServerConfig", () => {
 
     expect(config.internalApiBaseUrl).toBe("http://api:8000");
   });
+
+  it("keeps public and internal Logto endpoints separate", () => {
+    const config = loadWebServerConfig({
+      ...TEST_ENV,
+      KNOWLEDGE_WEB_LOGTO_ENDPOINT: "http://localhost:3011",
+      KNOWLEDGE_WEB_LOGTO_INTERNAL_ENDPOINT: "http://logto:3001",
+    });
+
+    expect(config.logtoEndpoint).toBe("http://localhost:3011");
+    expect(config.logtoInternalEndpoint).toBe("http://logto:3001");
+  });
 });

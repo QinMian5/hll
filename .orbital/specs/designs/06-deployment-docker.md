@@ -17,7 +17,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 
 ## Deployment Topology (MVP)
 - Production external exposure is restricted to the shared host-level reverse proxy on `80/443`, routed through the project-local `nginx` app gateway to explicitly public web, public MCP, Logto, and webhook surfaces.
-- Development exposes `web` on `5174`, `api` on `8001`, and `db` on host `5432` for local debugging and SQL tooling.
+- Development exposes `web` on `5174`, `api` on `8001`, `db` on host `5432`, Logto auth on host `3011`, and Logto admin on host `3012` for local debugging and operator setup.
 - `api`, `db`, and `redis` remain internal-only in production.
 - Knowledge corpus uses its own dedicated PostgreSQL service and does not share the online graph database service.
 - Source pipeline uses its own dedicated PostgreSQL service and does not share the online graph database service.
@@ -191,7 +191,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   - `KNOWLEDGE_API_EMBEDDING_API_URL` using OpenAI embeddings endpoint
   - `KNOWLEDGE_API_EMBEDDING_MODEL` set to `text-embedding-3-small`
   - `KNOWLEDGE_API_EMBEDDING_API_KEY` from runtime secret injection
-- Production web runtime configuration provides BFF settings for the internal API base URL, Redis URL, Logto web application credentials, callback base URL, session cookie secret, secure-cookie policy, anonymous identity cookie policy, web quota limits, Logto Account API access, Logto Management API personal-access-token access, MCP usage-summary base URL, MCP usage-summary service-token acquisition, and PAT fingerprint secret.
+- Production web runtime configuration provides BFF settings for the internal API base URL, Redis URL, public Logto endpoint, optional internal Logto endpoint for server-side container-network requests, Logto web application credentials, callback base URL, session cookie secret, secure-cookie policy, anonymous identity cookie policy, web quota limits, Logto Account API access, Logto Management API personal-access-token access, MCP usage-summary base URL, MCP usage-summary service-token acquisition, and PAT fingerprint secret.
 - Web Dashboard token-management configuration uses:
   - `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_API_BASE_URL` for Logto Management API user personal-access-token endpoints
   - `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_TOKEN_URL` for the Logto client-credentials token endpoint used by the BFF Management API client
@@ -249,6 +249,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - The taxonomy-classification webhook receiver does not receive the taxonomy-classification Job Queue producer/result-reader client secret because receiving webhook notifications does not require creating jobs or reading accepted results.
 - Knowledge Logto provisioning includes dedicated machine-to-machine applications for `job-queue-mcp` webhook delivery to source-pipeline and taxonomy-classification receivers. Their client credentials are consumed by `job-queue-mcp` webhook subscription configuration, while receiver roles store only validation settings and allowed delivery client identities.
 - Knowledge Logto provisioning includes one first-party application credential for MCP PAT token exchange. User-created personal access tokens remain user-owned credentials and are not modeled as machine-to-machine applications.
+- Knowledge Logto development admin configuration aligns the container admin listener port with the localhost admin endpoint port so the Logto admin console origin is not filtered by production-mode CORS checks.
 - Knowledge Logto production routing uses `https://knowledge-logto.orbitalis.org` for the auth endpoint and `https://admin.knowledge-logto.internal.home.arpa` for the admin console, both routed through the project-local `nginx` app gateway.
 - Tracked environment files must carry the knowledge corpus, source pipeline, and taxonomy-classification queue-runtime fields alongside the online stack URL fields when those repository-managed app services are enabled.
 

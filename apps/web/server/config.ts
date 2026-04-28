@@ -14,6 +14,11 @@ const OptionalTrimmedStringSchema = z
   .transform((value) => (value === "" ? undefined : value))
   .optional();
 
+const OptionalUrlStringSchema = OptionalTrimmedStringSchema.refine(
+  (value) => value === undefined || URL.canParse(value),
+  "Invalid URL",
+);
+
 const QuotaWindowOverrideSchema = z
   .object({
     limit: z.number().int().positive().optional(),
@@ -46,6 +51,7 @@ const WebServerEnvSchema = z.object({
   KNOWLEDGE_WEB_LOGTO_APP_ID: z.string().trim().min(1),
   KNOWLEDGE_WEB_LOGTO_APP_SECRET: z.string().trim().min(1),
   KNOWLEDGE_WEB_LOGTO_ENDPOINT: z.string().trim().url(),
+  KNOWLEDGE_WEB_LOGTO_INTERNAL_ENDPOINT: OptionalUrlStringSchema,
   KNOWLEDGE_WEB_PORT: z.coerce.number().int().positive().default(5173),
   KNOWLEDGE_WEB_PUBLIC_BASE_URL: z.string().trim().url(),
   KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX: z
@@ -150,6 +156,7 @@ export interface WebServerConfig {
   readonly logtoAppId: string;
   readonly logtoAppSecret: string;
   readonly logtoEndpoint: string;
+  readonly logtoInternalEndpoint?: string;
   readonly nodeEnv: "development" | "production" | "test";
   readonly port: number;
   readonly publicBaseUrl: string;
@@ -208,6 +215,7 @@ export function loadWebServerConfig(
     logtoAppId: parsed.KNOWLEDGE_WEB_LOGTO_APP_ID,
     logtoAppSecret: parsed.KNOWLEDGE_WEB_LOGTO_APP_SECRET,
     logtoEndpoint: parsed.KNOWLEDGE_WEB_LOGTO_ENDPOINT,
+    logtoInternalEndpoint: parsed.KNOWLEDGE_WEB_LOGTO_INTERNAL_ENDPOINT,
     nodeEnv: parsed.NODE_ENV,
     port: parsed.KNOWLEDGE_WEB_PORT,
     publicBaseUrl: parsed.KNOWLEDGE_WEB_PUBLIC_BASE_URL,

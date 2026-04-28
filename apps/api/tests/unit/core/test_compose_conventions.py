@@ -182,6 +182,22 @@ def test_dev_compose_keeps_orchestrator_out_of_default_startup() -> None:
     assert "proxy" not in dev
 
 
+def test_dev_logto_admin_port_can_match_localhost_admin_endpoint() -> None:
+    base_logto = _service_data(BASE_COMPOSE, "logto")
+    base_seed = _service_data(BASE_COMPOSE, "logto-seed")
+    dev_logto = _service_data(DEV_COMPOSE, "logto")
+
+    for service in (base_logto, base_seed):
+        environment = service["environment"]
+        assert isinstance(environment, dict)
+        assert environment["ADMIN_PORT"] == "${KNOWLEDGE_LOGTO_ADMIN_PORT:-3002}"
+
+    assert dev_logto["ports"] == [
+        "3011:3001",
+        "3012:${KNOWLEDGE_LOGTO_ADMIN_PORT:-3002}",
+    ]
+
+
 def test_base_compose_defines_taxonomy_classification_runtime_with_job_queue_secret() -> None:
     runtime = _service_block(BASE_COMPOSE, "taxonomy_classification_runtime")
 
