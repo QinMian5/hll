@@ -3,10 +3,16 @@
 
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { ChevronRight } from "lucide-react";
-import type { FormEvent } from "react";
+import { type FormEvent, lazy, Suspense } from "react";
 
-import { SearchField, SearchResultCard } from "../components";
+import { SearchField } from "../components/SearchField";
 import { useSearchQuery } from "../data/searchQueries";
+
+const SearchResultCard = lazy(() =>
+  import("../components/SearchResultCard").then((module) => ({
+    default: module.SearchResultCard,
+  })),
+);
 
 function normalizeQuery(value: string | undefined): string {
   return value?.trim() ?? "";
@@ -56,11 +62,11 @@ export function SearchPage() {
         </div>
       ) : (
         <div
-          className="flex h-full min-h-0 w-full flex-col items-center gap-3 overflow-hidden px-4 py-[18px] md:gap-5 md:px-[34px] md:pt-6 md:pb-9"
+          className="flex h-full min-h-0 w-full flex-col items-center gap-4 overflow-hidden px-4 py-4 lg:gap-5 lg:px-8 lg:pt-6 lg:pb-8"
           data-testid="search-results-frame"
         >
           <div
-            className="relative flex h-14 w-full shrink-0 items-center justify-center md:h-16"
+            className="relative flex h-10 w-full shrink-0 items-center justify-center"
             data-testid="search-results-state"
           >
             <SearchField
@@ -72,45 +78,47 @@ export function SearchPage() {
             />
           </div>
           <div
-            className="relative grid min-h-0 w-full flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] lg:gap-7 xl:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]"
+            className="relative grid min-h-0 w-full flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)] lg:gap-7"
             data-testid="search-results-section"
           >
-            <section className="flex min-h-0 min-w-0 flex-col gap-3 lg:h-full lg:gap-[14px]">
+            <section className="flex min-h-0 min-w-0 flex-col gap-3 lg:h-full lg:gap-4">
               <h1 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
                 Search Results
               </h1>
               <div
-                className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden px-1.5 md:px-2"
+                className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-results-scroll-area"
               >
                 <div
-                  className="grid w-full auto-rows-[220px] grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-3 md:auto-rows-[300px] lg:auto-rows-[379px] lg:grid-cols-2 lg:gap-[18px] xl:grid-cols-3"
+                  className="grid w-full auto-rows-[176px] grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-3 lg:auto-rows-[176px] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
                   data-testid="search-results-grid"
                 >
-                  {matchedCards.map((card) => (
-                    <SearchResultCard
-                      content={card.content}
-                      key={card.title}
-                      title={card.title}
-                    />
-                  ))}
+                  <Suspense fallback={null}>
+                    {matchedCards.map((card) => (
+                      <SearchResultCard
+                        content={card.content}
+                        key={card.title}
+                        title={card.title}
+                      />
+                    ))}
+                  </Suspense>
                 </div>
               </div>
             </section>
             <section
-              className="flex h-[176px] min-w-0 flex-col gap-3 lg:h-full lg:gap-[14px]"
+              className="flex h-[176px] min-h-0 min-w-0 flex-col gap-3 lg:h-full lg:gap-4"
               data-testid="search-suggestions-panel"
             >
               <h2 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
-                You may also be interested in
+                Other related results
               </h2>
               <div
-                className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden px-1 md:px-0"
+                className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-suggestions-scroll-area"
               >
                 {connectedTitles.map((suggestion) => (
                   <button
-                    className="flex h-[38px] w-full shrink-0 items-center justify-between overflow-hidden rounded-lg border border-[rgba(214,227,247,0.74)] bg-[rgba(255,255,255,0.7)] py-2 pr-3 pl-[14px] text-left text-[13px] leading-[18px] font-medium text-[#131c2d] md:h-[42px] md:pl-4 md:text-[14px] md:leading-5"
+                    className="flex h-[38px] w-full shrink-0 items-center justify-between overflow-hidden rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.7)] py-2 pr-3 pl-3 text-left text-[13px] leading-[18px] font-medium text-[#131c2d] md:h-[42px] md:text-[14px] md:leading-5"
                     key={suggestion}
                     onClick={() => {
                       void navigate({

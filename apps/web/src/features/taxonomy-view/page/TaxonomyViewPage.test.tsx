@@ -280,7 +280,7 @@ describe("TaxonomyViewPage", () => {
     );
   });
 
-  it("renders branch mode on React Flow and drills into leaf mode on the dedicated leaf renderer", () => {
+  it("renders branch mode on React Flow and drills into leaf mode on the dedicated leaf renderer", async () => {
     render(<TaxonomyViewPage />);
 
     expect(screen.getByTestId("taxonomy-branch-reactflow")).toBeInTheDocument();
@@ -296,9 +296,9 @@ describe("TaxonomyViewPage", () => {
 
     fireEvent.click(branchNode as HTMLElement);
 
-    expect(screen.getByTestId("taxonomy-leaf-renderer")).toHaveTextContent(
-      "Algebra",
-    );
+    expect(
+      await screen.findByTestId("taxonomy-leaf-renderer"),
+    ).toHaveTextContent("Algebra");
     expect(
       screen.queryByTestId("taxonomy-branch-reactflow"),
     ).not.toBeInTheDocument();

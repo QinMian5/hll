@@ -7,12 +7,10 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  lazyRouteComponent,
   Outlet,
 } from "@tanstack/react-router";
 
-import { OverviewPage } from "../features/overview/pages";
-import { SearchPage } from "../features/search/pages";
-import { TaxonomyViewPage } from "../features/taxonomy-view/page/TaxonomyViewPage";
 import { AppShell } from "./AppShell";
 
 function RootRedirect() {
@@ -30,19 +28,28 @@ const indexRoute = createRoute({
 });
 
 const overviewRoute = createRoute({
-  component: OverviewPage,
+  component: lazyRouteComponent(
+    () => import("../features/overview/pages"),
+    "OverviewPage",
+  ),
   getParentRoute: () => rootRoute,
   path: "overview",
 });
 
 const graphRoute = createRoute({
-  component: TaxonomyViewPage,
+  component: lazyRouteComponent(
+    () => import("../features/taxonomy-view/page/TaxonomyViewPage"),
+    "TaxonomyViewPage",
+  ),
   getParentRoute: () => rootRoute,
   path: "graph",
 });
 
 const searchRoute = createRoute({
-  component: SearchPage,
+  component: lazyRouteComponent(
+    () => import("../features/search/pages"),
+    "SearchPage",
+  ),
   getParentRoute: () => rootRoute,
   path: "search",
   validateSearch: (search: Record<string, unknown>) => ({

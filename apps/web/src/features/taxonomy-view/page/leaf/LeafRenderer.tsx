@@ -2,6 +2,8 @@
 // out_of_scope: Branch React Flow rendering and page-shell chrome.
 
 import {
+  lazy,
+  Suspense,
   startTransition,
   useCallback,
   useDeferredValue,
@@ -23,7 +25,6 @@ import type {
   LayoutViewport,
   LeafHydratedNodeLayoutInput,
 } from "../layout/taxonomyLayoutTypes";
-import { LeafDeckScene } from "./LeafDeckScene";
 import { LeafHoverOverlay } from "./LeafHoverOverlay";
 import {
   LeafRichTextCardsOverlay,
@@ -49,6 +50,12 @@ interface LeafRendererProps {
   readonly leafView: TaxonomyLeafView;
   readonly viewport: LayoutViewport;
 }
+
+const LeafDeckScene = lazy(() =>
+  import("./LeafDeckScene").then((module) => ({
+    default: module.LeafDeckScene,
+  })),
+);
 
 export function LeafRenderer({
   center,
@@ -378,13 +385,15 @@ export function LeafRenderer({
           </p>
         </section>
       ) : null}
-      <LeafDeckScene
-        hoveredNodeId={hoverState?.card.graphNodeId ?? null}
-        initialViewport={initialDeckViewport}
-        onViewportFrameChange={handleViewportFrameChange}
-        onViewportChange={setDeckViewportSnapshot}
-        scene={scene}
-      />
+      <Suspense fallback={null}>
+        <LeafDeckScene
+          hoveredNodeId={hoverState?.card.graphNodeId ?? null}
+          initialViewport={initialDeckViewport}
+          onViewportFrameChange={handleViewportFrameChange}
+          onViewportChange={setDeckViewportSnapshot}
+          scene={scene}
+        />
+      </Suspense>
       <LeafRichTextCardsOverlay
         canvas={canvasViewport}
         cardNodes={scene.cardNodes}

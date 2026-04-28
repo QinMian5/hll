@@ -1,6 +1,8 @@
 // abstract: Shared rich-text renderer for knowledge-card title and content fields.
 // out_of_scope: Feature-specific card layout, backend payload validation, and route-level data orchestration.
 
+import "katex/dist/katex.min.css";
+
 import {
   Component,
   type ErrorInfo,

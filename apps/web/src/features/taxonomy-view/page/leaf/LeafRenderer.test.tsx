@@ -138,7 +138,7 @@ function makeLeafDetailsResponse(): TaxonomyLeafNodeDetailsResponse {
 }
 
 describe("LeafRenderer", () => {
-  it("renders points and edges before the activation zoom without hydrating cards", () => {
+  it("renders points and edges before the activation zoom without hydrating cards", async () => {
     mockUseTaxonomyLeafNodeDetailsQuery.mockReturnValue({
       data: undefined,
       error: null,
@@ -156,7 +156,9 @@ describe("LeafRenderer", () => {
       />,
     );
 
-    expect(screen.getByTestId("leaf-scene-point-count")).toHaveTextContent("2");
+    expect(
+      await screen.findByTestId("leaf-scene-point-count"),
+    ).toHaveTextContent("2");
     expect(screen.getByTestId("leaf-scene-card-count")).toHaveTextContent("0");
     expect(screen.getByTestId("leaf-scene-edge-count")).toHaveTextContent("1");
     expect(mockUseTaxonomyLeafNodeDetailsQuery).toHaveBeenCalledWith(
@@ -187,7 +189,7 @@ describe("LeafRenderer", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Zoom in" }));
 
     await waitFor(() => {
       expect(mockUseTaxonomyLeafNodeDetailsQuery).toHaveBeenCalledWith(
@@ -243,7 +245,7 @@ describe("LeafRenderer", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Zoom in" }));
 
     const firstCard = await screen.findByTestId(
       "taxonomy-leaf-rich-text-card-10",

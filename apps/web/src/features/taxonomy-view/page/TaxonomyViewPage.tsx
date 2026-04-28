@@ -4,13 +4,12 @@
 import "@xyflow/react/dist/style.css";
 
 import { type Node, ReactFlow } from "@xyflow/react";
-import { startTransition, useMemo, useState } from "react";
+import { lazy, Suspense, startTransition, useMemo, useState } from "react";
 
 import {
   useTaxonomyNodeViewQuery,
   useTaxonomyRootViewQuery,
 } from "../data/taxonomyViewQueries";
-import { LeafRenderer } from "./leaf/LeafRenderer";
 
 export {
   LEAF_CARD_ACTIVATION_ZOOM,
@@ -33,6 +32,12 @@ type BubbleFlowNode = Node<TaxonomyLayoutNodeData, "bubble">;
 const nodeTypes = {
   bubble: TaxonomyFlowNode,
 };
+
+const LeafRenderer = lazy(() =>
+  import("./leaf/LeafRenderer").then((module) => ({
+    default: module.LeafRenderer,
+  })),
+);
 
 function toFlowNode(
   node: ReturnType<typeof buildBranchLayout>["nodes"][number],
@@ -186,12 +191,14 @@ export function TaxonomyViewPage() {
           ) : null}
           <div className="taxonomy-flow-shell absolute inset-0 overflow-hidden rounded-[32px]">
             {nodeQuery.data?.node_kind === "leaf" ? (
-              <LeafRenderer
-                center={LAYOUT_CENTER}
-                key={nodeQuery.data.current_node.id}
-                leafView={nodeQuery.data}
-                viewport={BRANCH_LAYOUT_VIEWPORT}
-              />
+              <Suspense fallback={null}>
+                <LeafRenderer
+                  center={LAYOUT_CENTER}
+                  key={nodeQuery.data.current_node.id}
+                  leafView={nodeQuery.data}
+                  viewport={BRANCH_LAYOUT_VIEWPORT}
+                />
+              </Suspense>
             ) : (
               <div
                 className="h-full w-full"

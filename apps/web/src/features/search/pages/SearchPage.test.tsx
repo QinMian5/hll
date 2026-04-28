@@ -91,12 +91,13 @@ describe("SearchPage", () => {
       expect(screen.getByTestId("search-results-grid")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("search-suggestions-panel")).toBeInTheDocument();
+    expect(screen.getByText("Other related results")).toBeInTheDocument();
     expect(screen.getByDisplayValue("matrix")).toBeInTheDocument();
     expect(screen.getByTestId("search-icon-button")).toBeInTheDocument();
     expect(screen.queryByTestId("search-empty-state")).not.toBeInTheDocument();
+    expect(await screen.findByText("Matrix decomposition")).toBeInTheDocument();
     expect(document.querySelector(".katex")).not.toBeNull();
-    expect(screen.getByText("Matrix decomposition")).toBeInTheDocument();
-    expect(screen.getByText("Returned")).toBeInTheDocument();
+    expect(await screen.findByText("Returned")).toBeInTheDocument();
     expect(screen.getByRole("list")).toBeInTheDocument();
     expect(screen.getByText("rank").tagName).toBe("CODE");
     expect(
@@ -136,45 +137,51 @@ describe("SearchPage", () => {
     );
 
     expect(screen.getByTestId("search-results-frame")).toHaveClass(
-      "gap-3",
+      "gap-4",
       "px-4",
-      "py-[18px]",
-      "md:gap-5",
-      "md:px-[34px]",
-      "md:pt-6",
-      "md:pb-9",
+      "py-4",
+      "lg:gap-5",
+      "lg:px-8",
+      "lg:pt-6",
+      "lg:pb-8",
+    );
+    expect(screen.getByTestId("search-input").parentElement).toHaveClass(
+      "h-10",
+      "rounded-lg",
+      "px-4",
     );
     expect(screen.getByTestId("search-results-section")).toHaveClass(
       "grid",
       "grid-cols-1",
       "gap-3",
-      "lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]",
-      "xl:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
+      "lg:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
       "lg:gap-7",
     );
     expect(screen.getByTestId("search-results-section")).not.toHaveClass(
       "md:flex-row",
       "md:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
+      "xl:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
     );
     expect(screen.getByTestId("search-results-grid")).toHaveClass(
-      "auto-rows-[220px]",
+      "auto-rows-[176px]",
       "grid-cols-1",
       "gap-y-3",
       "sm:grid-cols-2",
       "sm:gap-x-3",
       "lg:grid-cols-2",
-      "xl:grid-cols-3",
-      "md:auto-rows-[300px]",
-      "lg:auto-rows-[379px]",
-      "lg:gap-[18px]",
+      "min-[1680px]:grid-cols-3",
+      "lg:auto-rows-[176px]",
+      "lg:gap-4",
     );
     expect(screen.getByTestId("search-results-grid")).not.toHaveClass(
       "md:w-[984px]",
       "md:grid-cols-[repeat(3,316px)]",
+      "xl:grid-cols-3",
     );
     expect(screen.getByTestId("search-suggestions-panel")).toHaveClass(
       "h-[176px]",
       "lg:h-full",
+      "min-h-0",
       "min-w-0",
     );
     expect(screen.getByTestId("search-suggestions-panel")).not.toHaveClass(

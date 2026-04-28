@@ -4,7 +4,13 @@
 import "@testing-library/jest-dom/vitest";
 
 import { RouterProvider } from "@tanstack/react-router";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppRouter } from "./router";
@@ -54,8 +60,10 @@ describe("AppShell", () => {
     await waitFor(() =>
       expect(router.state.location.pathname).toBe("/overview"),
     );
+    await waitFor(() =>
+      expect(screen.getByTestId("app-shell")).toBeInTheDocument(),
+    );
 
-    expect(screen.getByTestId("app-shell")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute(
       "data-nav-state",
       "active",
@@ -74,25 +82,43 @@ describe("AppShell", () => {
     renderWithRoute("/graph");
 
     await waitFor(() =>
-      expect(screen.getByText("Knowledge Graph")).toBeInTheDocument(),
+      expect(screen.getAllByText("Knowledge Graph").length).toBeGreaterThan(0),
     );
     expect(screen.getByTestId("app-shell")).toHaveClass(
-      "bg-[radial-gradient(circle_at_center,_#f2faff_0%,_#fbfcff_55%,_#f6f7fb_100%)]",
+      "bg-[#f8fafc]",
       "font-['Geist',sans-serif]",
       "min-h-screen",
       "w-full",
     );
-    expect(screen.getByTestId("app-shell-header")).toHaveClass(
-      "h-[112px]",
-      "md:h-16",
+    expect(screen.getByTestId("app-shell-sidebar")).toHaveClass(
+      "hidden",
+      "lg:flex",
+      "lg:w-[320px]",
     );
-    expect(screen.getByRole("link", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByTestId("app-shell-mobile-header")).toHaveClass(
+      "h-16",
+      "lg:hidden",
+    );
+    expect(
+      screen.getByTestId("app-shell-mobile-header").parentElement,
+    ).toHaveClass("min-h-0");
+    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute(
+      "href",
+      "/overview",
+    );
     expect(screen.getByRole("link", { name: "Graph View" })).toHaveAttribute(
       "data-nav-state",
       "active",
     );
-    expect(screen.getByRole("link", { name: "Search" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "GitHub" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Search" })).toHaveAttribute(
+      "href",
+      "/search",
+    );
+    expect(screen.getByRole("button", { name: "Dashboard" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "GitHub 0 stars" })).toHaveClass(
+      "h-10",
+      "rounded-lg",
+    );
     const signInButton = screen.getByRole("button", { name: "Sign in" });
 
     expect(signInButton).toBeEnabled();
@@ -101,6 +127,38 @@ describe("AppShell", () => {
       "/web-api/auth/sign-in",
     );
     expect(signInButton.closest("form")).toHaveAttribute("method", "post");
+  });
+
+  it("opens and closes the mobile drawer from the shell header", async () => {
+    renderWithRoute("/graph");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("app-shell-mobile-header")).toBeInTheDocument(),
+    );
+    expect(
+      screen.queryByTestId("app-shell-mobile-drawer"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+
+    expect(screen.getByTestId("app-shell-mobile-drawer")).toHaveClass(
+      "w-[320px]",
+      "bg-white",
+    );
+    expect(
+      screen.getByRole("button", { name: "Close navigation" }),
+    ).toBeInTheDocument();
+    expect(
+      screen
+        .getByTestId("app-shell-mobile-drawer")
+        .querySelector('[data-nav-state="active"]'),
+    ).toHaveTextContent("Graph View");
+
+    fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
+
+    expect(
+      screen.queryByTestId("app-shell-mobile-drawer"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders authenticated user state with sign-out action", async () => {

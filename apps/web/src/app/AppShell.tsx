@@ -1,7 +1,9 @@
-// abstract: Shared routed app shell with brand, top navigation, and route body outlet.
+// abstract: Shared routed app shell with sidebar, mobile drawer, and route body outlet.
 // out_of_scope: Feature-specific page content and backend data orchestration.
 
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { House, LayoutDashboard, Menu, Network, Search, X } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
 import { useEffect, useState } from "react";
 
 import {
@@ -9,24 +11,28 @@ import {
   type WebSessionResponse,
 } from "../shared/web-api/session";
 
-const navItems = [
-  { label: "Overview", to: "/overview" as const },
-  { label: "Graph View", to: "/graph" as const },
-  { label: "Search", to: "/search" as const },
+interface NavItem {
+  readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
+  readonly label: string;
+  readonly to: "/overview" | "/graph" | "/search";
+}
+
+const navItems: readonly NavItem[] = [
+  { icon: House, label: "Overview", to: "/overview" },
+  { icon: Network, label: "Graph View", to: "/graph" },
+  { icon: Search, label: "Search", to: "/search" },
 ];
 
-const buttonClasses =
-  "inline-flex h-9 w-[78px] items-center justify-center rounded-xl border border-[rgba(38,48,69,0.84)] bg-[rgba(20,28,46,0.96)] px-3 text-[13px] leading-4 font-medium text-[rgba(250,252,255,0.96)] md:h-10 md:w-[92px] md:px-4 md:text-[14px] md:leading-[18px]";
-const activeButtonClasses = `${buttonClasses} cursor-pointer`;
+const placeholderNavItems = [
+  { icon: LayoutDashboard, label: "Dashboard" },
+] as const;
+
+const actionButtonClasses =
+  "inline-flex h-10 w-full items-center justify-center rounded-lg bg-[#006bff] px-3 text-[13px] leading-[18px] font-medium text-white transition-colors hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
 
 function GithubMark() {
   return (
-    <svg
-      aria-hidden="true"
-      className="size-[17px] md:size-[18px]"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
+    <svg aria-hidden="true" className="size-4" fill="none" viewBox="0 0 24 24">
       <path
         d="M15.6 21v-3.1c0-.8-.3-1.4-.8-1.8 2.7-.3 5.5-1.3 5.5-6A4.7 4.7 0 0 0 19 6.8c.1-.3.5-1.7-.1-3.3 0 0-1.1-.3-3.5 1.3a12 12 0 0 0-6.4 0C6.6 3.2 5.5 3.5 5.5 3.5c-.6 1.6-.2 3-.1 3.3a4.7 4.7 0 0 0-1.3 3.3c0 4.6 2.8 5.7 5.5 6-.4.4-.7.9-.8 1.6-.8.3-2.7.9-3.9-1.1 0 0-.7-1.3-2.1-1.4 0 0-1.3 0-.1.8 0 0 .9.4 1.5 1.8 0 0 .8 2.6 4.5 1.7V21"
         stroke="currentColor"
@@ -35,6 +41,38 @@ function GithubMark() {
         strokeWidth="1.7"
       />
     </svg>
+  );
+}
+
+function BrandMark() {
+  return (
+    <div
+      aria-hidden="true"
+      className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#006bff] text-[16px] leading-5 font-black text-white"
+    >
+      K
+    </div>
+  );
+}
+
+function BrandRow({ withClose }: { readonly withClose?: () => void }) {
+  return (
+    <div className="flex h-[52px] w-full items-center gap-3 bg-white p-2">
+      <BrandMark />
+      <span className="min-w-0 flex-1 truncate text-[14px] leading-5 font-black text-[#131c2d]">
+        Knowledge Graph
+      </span>
+      {withClose ? (
+        <button
+          aria-label="Close navigation"
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-[#475569] hover:bg-[#eff6ff] hover:text-[#0f172a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+          onClick={withClose}
+          type="button"
+        >
+          <X aria-hidden="true" className="size-[18px]" strokeWidth={2} />
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -74,12 +112,12 @@ function ShellAuthAction() {
       session.user.name ?? session.user.email ?? session.user.id;
 
     return (
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="hidden max-w-[112px] truncate text-right text-[13px] leading-5 font-medium text-[rgba(38,48,71,0.82)] sm:inline">
+      <div className="flex w-full min-w-0 flex-col gap-2">
+        <span className="truncate text-center text-[13px] leading-5 font-medium text-[#475569]">
           {displayName}
         </span>
         <form action="/web-api/auth/sign-out" method="post">
-          <button className={activeButtonClasses} type="submit">
+          <button className={actionButtonClasses} type="submit">
             Sign out
           </button>
         </form>
@@ -89,83 +127,170 @@ function ShellAuthAction() {
 
   return (
     <form action="/web-api/auth/sign-in" method="post">
-      <button className={activeButtonClasses} type="submit">
+      <button className={actionButtonClasses} type="submit">
         Sign in
       </button>
     </form>
   );
 }
 
+function GithubButton() {
+  return (
+    <button
+      aria-label="GitHub 0 stars"
+      className="flex h-10 w-full shrink-0 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] px-3 text-[13px] leading-[18px] font-medium text-[#131c2d] disabled:opacity-100"
+      disabled
+      type="button"
+    >
+      <GithubMark />
+      <span>0 stars</span>
+    </button>
+  );
+}
+
+function NavigationItems({
+  onNavigate,
+  pathname,
+}: {
+  readonly onNavigate?: () => void;
+  readonly pathname: string;
+}) {
+  return (
+    <div className="flex w-full flex-1 flex-col gap-2">
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const isActive = pathname === item.to;
+
+        return (
+          <Link
+            className={
+              isActive
+                ? "flex h-10 w-full items-center gap-3 rounded-lg bg-[#eff6ff] px-3 text-[14px] leading-5 font-medium text-[#0f172a] no-underline"
+                : "flex h-10 w-full items-center gap-3 rounded-lg px-3 text-[14px] leading-5 font-medium text-[#475569] no-underline hover:bg-[#f1f5f9] hover:text-[#0f172a]"
+            }
+            data-nav-state={isActive ? "active" : "inactive"}
+            key={item.to}
+            onClick={onNavigate}
+            to={item.to}
+          >
+            <Icon aria-hidden="true" className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          </Link>
+        );
+      })}
+      {placeholderNavItems.map((item) => {
+        const Icon = item.icon;
+
+        return (
+          <button
+            className="flex h-10 w-full cursor-not-allowed items-center gap-3 rounded-lg px-3 text-left text-[14px] leading-5 font-medium text-[#475569] disabled:opacity-100"
+            disabled
+            key={item.label}
+            type="button"
+          >
+            <Icon aria-hidden="true" className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function SidebarContent({
+  onClose,
+  pathname,
+  surface = "sidebar",
+}: {
+  readonly onClose?: () => void;
+  readonly pathname: string;
+  readonly surface?: "drawer" | "sidebar";
+}) {
+  const surfaceClass =
+    surface === "drawer" ? "bg-white" : "bg-[rgba(255,255,255,0.72)]";
+
+  return (
+    <div
+      className={`flex h-full w-full flex-col gap-2 overflow-hidden border-[#e0e4eb] p-2 ${surfaceClass}`}
+    >
+      <BrandRow withClose={onClose} />
+      <NavigationItems onNavigate={onClose} pathname={pathname} />
+      <div className="flex h-24 w-full shrink-0 flex-col gap-2 pt-2">
+        <GithubButton />
+        <ShellAuthAction />
+      </div>
+    </div>
+  );
+}
+
 export function AppShell() {
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
 
+  function closeDrawer() {
+    setIsDrawerOpen(false);
+  }
+
   return (
     <div
-      className="flex h-screen min-h-screen w-full flex-col bg-[radial-gradient(circle_at_center,_#f2faff_0%,_#fbfcff_55%,_#f6f7fb_100%)] font-['Geist',sans-serif]"
+      className="flex h-screen min-h-screen w-full bg-[#f8fafc] font-['Geist',sans-serif]"
       data-testid="app-shell"
     >
-      <header
-        className="grid h-[112px] w-full shrink-0 grid-cols-[minmax(0,1fr)_124px] grid-rows-[40px_34px] gap-x-2 gap-y-2.5 bg-[rgba(255,255,255,0.72)] px-[14px] pt-3 pb-2.5 shadow-[0_4px_9px_rgba(51,61,87,0.04)] md:flex md:h-16 md:items-center md:justify-between md:gap-0 md:px-4 md:py-3"
-        data-testid="app-shell-header"
+      <aside
+        className="hidden h-screen shrink-0 border-r border-[#e0e4eb] lg:flex lg:w-[320px]"
+        data-testid="app-shell-sidebar"
       >
-        <div className="col-start-1 row-start-1 flex h-9 w-[170px] items-center gap-2.5 self-center justify-self-start md:h-10 md:w-[240px]">
-          <div
-            aria-hidden="true"
-            className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[#2563eb] text-[14px] leading-[18px] font-semibold text-white md:size-[30px] md:text-[15px] md:leading-5"
-          >
-            K
-          </div>
-          <span className="whitespace-nowrap text-[14px] leading-[18px] font-medium text-[#131c2d] md:text-[15px] md:leading-5">
-            Knowledge Graph
-          </span>
-        </div>
-        <nav
-          aria-label="Primary"
-          className="col-span-2 row-start-2 flex h-[34px] w-[300px] items-center justify-center gap-2.5 self-center justify-self-center md:h-10 md:w-[278px] md:gap-3"
-          data-testid="app-shell-nav"
+        <SidebarContent pathname={pathname} />
+      </aside>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header
+          className="flex h-16 w-full shrink-0 items-center gap-3 border-b border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] px-4 lg:hidden"
+          data-testid="app-shell-mobile-header"
         >
-          {navItems.map((item) => {
-            const isActive = pathname === item.to;
-            const itemWidth =
-              item.label === "Graph View" ? "w-[88px]" : "w-[74px]";
-
-            return (
-              <Link
-                className={`grid h-[30px] ${itemWidth} place-items-center no-underline md:h-[34px]`}
-                data-nav-state={isActive ? "active" : "inactive"}
-                key={item.to}
-                to={item.to}
-              >
-                <span
-                  className={
-                    isActive
-                      ? "relative inline-flex flex-col items-center gap-1 text-center text-[13px] leading-[17px] font-semibold text-[#131c2d] after:h-[2px] after:w-9 after:rounded-full after:bg-[#2563eb] after:content-[''] md:gap-[5px] md:text-[14px] md:leading-[18px]"
-                      : "relative inline-flex flex-col items-center gap-1 text-center text-[13px] leading-[17px] font-medium text-[#606e87] after:h-[2px] after:w-px after:rounded-full after:bg-transparent after:content-[''] md:gap-[5px] md:text-[14px] md:leading-[18px]"
-                  }
-                >
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="col-start-2 row-start-1 flex h-9 w-[124px] items-center justify-end gap-2 self-center justify-self-end md:h-10 md:w-[240px] md:gap-2.5">
           <button
-            aria-label="GitHub"
-            className="flex size-9 shrink-0 cursor-not-allowed items-center justify-center rounded-xl border border-[rgba(214,227,247,0.96)] bg-[rgba(255,255,255,0.62)] text-[#606e87] shadow-[0_8px_18px_rgba(95,123,185,0.08)] disabled:opacity-100 md:size-10"
-            disabled
+            aria-label="Open navigation"
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white text-[#0f172a] hover:bg-[#eff6ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+            onClick={() => {
+              setIsDrawerOpen(true);
+            }}
             type="button"
           >
-            <GithubMark />
+            <Menu aria-hidden="true" className="size-[18px]" strokeWidth={2} />
           </button>
-          <ShellAuthAction />
+          <BrandMark />
+          <span className="min-w-0 flex-1 truncate text-[14px] leading-5 font-black text-[#131c2d]">
+            Knowledge Graph
+          </span>
+        </header>
+        <div className="min-h-0 flex-1">
+          <Outlet />
         </div>
-      </header>
-      <div className="min-h-0 flex-1">
-        <Outlet />
       </div>
+      {isDrawerOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex bg-transparent lg:hidden"
+          data-testid="app-shell-mobile-overlay"
+        >
+          <aside
+            className="h-full w-[320px] shrink-0 bg-white"
+            data-testid="app-shell-mobile-drawer"
+          >
+            <SidebarContent
+              onClose={closeDrawer}
+              pathname={pathname}
+              surface="drawer"
+            />
+          </aside>
+          <button
+            aria-label="Close navigation scrim"
+            className="min-w-0 flex-1 cursor-default bg-black/10"
+            onClick={closeDrawer}
+            type="button"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

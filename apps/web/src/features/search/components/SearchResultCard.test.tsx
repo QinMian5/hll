@@ -6,7 +6,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { SearchResultCard } from "./index";
+import { SearchResultCard } from "./SearchResultCard";
 
 afterEach(() => {
   cleanup();
@@ -46,7 +46,7 @@ describe("SearchResultCard", () => {
     expect(within(card).getByRole("list")).toBeInTheDocument();
   });
 
-  it("uses responsive Figma-projected vertical sizing without fixed desktop width", () => {
+  it("uses the latest Figma-projected card sizing without fixed desktop width", () => {
     render(<SearchResultCard content="Projected content." title="Projected" />);
 
     const card = screen.getByTestId("search-result-card");
@@ -54,7 +54,7 @@ describe("SearchResultCard", () => {
       "search-result-card-content",
     );
 
-    expect(card).toHaveClass("h-[220px]", "md:h-[300px]", "lg:h-[379px]");
+    expect(card).toHaveClass("h-[176px]");
     expect(card).not.toHaveClass("md:w-[316px]");
     expect(contentRegion).toHaveClass(
       "min-h-0",
