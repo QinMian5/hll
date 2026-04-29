@@ -188,8 +188,9 @@ describe("SearchPage", () => {
       "lg:pt-6",
       "lg:pb-8",
     );
+    expect(screen.getByTestId("search-results-state")).toHaveClass("h-12");
     expect(screen.getByTestId("search-input").parentElement).toHaveClass(
-      "h-10",
+      "h-12",
       "rounded-lg",
       "px-4",
     );

@@ -114,7 +114,7 @@ export function SearchPage() {
           data-testid="search-results-frame"
         >
           <div
-            className="relative flex h-10 w-full shrink-0 items-center justify-center"
+            className="relative flex h-12 w-full shrink-0 items-center justify-center"
             data-testid="search-results-state"
           >
             <SearchField

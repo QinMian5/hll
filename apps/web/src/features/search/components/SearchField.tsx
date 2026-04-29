@@ -20,8 +20,8 @@ const fieldFormClasses = {
 
 const fieldContainerClasses = {
   compact:
-    "h-10 rounded-lg border border-[#e5e5e5] bg-white px-4 py-[9.5px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
-  hero: "h-10 rounded-lg border border-[#e5e5e5] bg-white px-4 py-[9.5px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
+    "h-12 rounded-lg border border-[#e5e5e5] bg-white px-4 py-[9.5px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
+  hero: "h-12 rounded-lg border border-[#e5e5e5] bg-white px-4 py-[9.5px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
 } as const;
 
 const inputClasses = {
