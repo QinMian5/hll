@@ -41,6 +41,17 @@ export function SearchPage() {
   const matchedCards = searchQuery.data?.matched_cards ?? [];
   const connectedTitles = searchQuery.data?.connected_titles ?? [];
 
+  function navigateToSearchQuery(nextQuery: string) {
+    const normalizedNextQuery = normalizeQuery(nextQuery);
+
+    void navigate({
+      search: {
+        q: normalizedNextQuery === "" ? undefined : normalizedNextQuery,
+      },
+      to: "/search",
+    });
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -49,10 +60,7 @@ export function SearchPage() {
     const nextQuery =
       typeof rawValue === "string" ? normalizeQuery(rawValue) : "";
 
-    void navigate({
-      search: { q: nextQuery === "" ? undefined : nextQuery },
-      to: "/search",
-    });
+    navigateToSearchQuery(nextQuery);
   }
 
   function handleSuggestEdit(card: SearchResultCardEditPayload) {
@@ -138,7 +146,7 @@ export function SearchPage() {
                 data-testid="search-results-scroll-area"
               >
                 <div
-                  className="grid w-full auto-rows-[176px] grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-3 lg:auto-rows-[176px] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
+                  className="group/search-results-grid grid w-full auto-rows-[176px] grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-3 lg:auto-rows-[176px] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
                   data-testid="search-results-grid"
                 >
                   <Suspense fallback={null}>
@@ -148,6 +156,7 @@ export function SearchPage() {
                         currentVersion={card.current_version}
                         key={card.node_id}
                         nodeId={card.node_id}
+                        onSearchTitle={navigateToSearchQuery}
                         onSuggestEdit={handleSuggestEdit}
                         title={card.title}
                       />
@@ -172,10 +181,7 @@ export function SearchPage() {
                     className="flex h-[38px] w-full shrink-0 items-center justify-between overflow-hidden rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.7)] py-2 pr-3 pl-3 text-left text-[13px] leading-[18px] font-medium text-[#131c2d] md:h-[42px] md:text-[14px] md:leading-5"
                     key={suggestion}
                     onClick={() => {
-                      void navigate({
-                        search: { q: suggestion },
-                        to: "/search",
-                      });
+                      navigateToSearchQuery(suggestion);
                     }}
                     type="button"
                   >

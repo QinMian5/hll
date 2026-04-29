@@ -207,6 +207,7 @@ describe("SearchPage", () => {
       "xl:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
     );
     expect(screen.getByTestId("search-results-grid")).toHaveClass(
+      "group/search-results-grid",
       "auto-rows-[176px]",
       "grid-cols-1",
       "gap-y-3",
@@ -279,6 +280,80 @@ describe("SearchPage", () => {
       screen.getByText(
         "Sign in to suggest changes and help improve this knowledge card.",
       ),
+    ).toBeInTheDocument();
+  });
+
+  it("navigates to a result card title when the card search affordance is activated", async () => {
+    const payload: SearchResponse = {
+      connected_titles: ["Adjacency matrix"],
+      matched_cards: [
+        {
+          content: "A result body.",
+          current_version: 1,
+          node_id: 10,
+          title: "Singular value decomposition",
+        },
+      ],
+    };
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Search for Singular value decomposition",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByDisplayValue("Singular value decomposition"),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("keeps result card edit activation separate from title search navigation", async () => {
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [
+        {
+          content: "A result body.",
+          current_version: 1,
+          node_id: 10,
+          title: "Singular value decomposition",
+        },
+      ],
+    };
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Suggest edit for Singular value decomposition",
+      }),
+    );
+
+    expect(screen.getByDisplayValue("matrix")).toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue("Singular value decomposition"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Sign in to suggest edits" }),
     ).toBeInTheDocument();
   });
 
