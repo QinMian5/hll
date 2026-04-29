@@ -23,7 +23,7 @@ def test_prod_nginx_routes_web_and_web_api_to_bff() -> None:
 
     assert "location /web-api/" in config
     assert "location /" in config
-    assert "set $upstream_web web:4173;" in config
+    assert "set $upstream_web web:5173;" in config
     assert config.count("proxy_pass http://$upstream_web;") >= 2
 
 
@@ -32,7 +32,7 @@ def test_prod_nginx_uses_docker_dns_for_upstream_resolution() -> None:
 
     assert "resolver 127.0.0.11 ipv6=off valid=30s;" in config
     assert "resolver_timeout 5s;" in config
-    assert "proxy_pass http://web:4173" not in config
+    assert "proxy_pass http://web:5173" not in config
     assert "proxy_pass http://logto:" not in config
     assert "proxy_pass http://source_pipeline_webhook_receiver:" not in config
     assert "proxy_pass http://taxonomy_classification_webhook_receiver:" not in config

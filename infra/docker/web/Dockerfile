@@ -27,6 +27,6 @@ FROM base AS prod
 WORKDIR /workspace/apps/web
 RUN pnpm run build
 
-EXPOSE 4173
+EXPOSE 5173
 
 CMD ["pnpm", "start"]

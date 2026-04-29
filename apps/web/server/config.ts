@@ -46,7 +46,6 @@ const QuotaRouteOverridesSchema = z.record(
 const WebServerEnvSchema = z.object({
   KNOWLEDGE_WEB_COOKIE_DOMAIN: OptionalTrimmedStringSchema,
   KNOWLEDGE_WEB_COOKIE_SECURE: BooleanStringSchema,
-  KNOWLEDGE_WEB_HOST: z.string().trim().min(1).default("0.0.0.0"),
   KNOWLEDGE_WEB_INTERNAL_API_BASE_URL: z.string().trim().url(),
   KNOWLEDGE_WEB_LOGTO_APP_ID: z.string().trim().min(1),
   KNOWLEDGE_WEB_LOGTO_APP_SECRET: z.string().trim().min(1),
@@ -65,7 +64,6 @@ const WebServerEnvSchema = z.object({
   KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_SCOPES: z.string().trim().min(1),
   KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL: z.string().trim().url(),
   KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET: z.string().min(32),
-  KNOWLEDGE_WEB_PORT: z.coerce.number().int().positive().default(5173),
   KNOWLEDGE_WEB_PUBLIC_BASE_URL: z.string().trim().url(),
   KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX: z
     .string()
@@ -226,7 +224,7 @@ export function loadWebServerConfig(
     },
     cookieDomain: parsed.KNOWLEDGE_WEB_COOKIE_DOMAIN,
     cookieSecure: parsed.KNOWLEDGE_WEB_COOKIE_SECURE,
-    host: parsed.KNOWLEDGE_WEB_HOST,
+    host: "0.0.0.0",
     ipQuota: {
       burst: {
         limit: parsed.KNOWLEDGE_WEB_IP_BURST_LIMIT,
@@ -259,7 +257,7 @@ export function loadWebServerConfig(
     mcpUsageSummaryTokenUrl: parsed.KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL,
     nodeEnv: parsed.NODE_ENV,
     patFingerprintSecret: parsed.KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET,
-    port: parsed.KNOWLEDGE_WEB_PORT,
+    port: 5173,
     publicBaseUrl: parsed.KNOWLEDGE_WEB_PUBLIC_BASE_URL,
     quotaRedisPrefix: parsed.KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX,
     quotaRouteOverrides,

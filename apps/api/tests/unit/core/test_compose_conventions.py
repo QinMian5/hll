@@ -151,6 +151,13 @@ def test_base_compose_leaves_volume_and_network_names_to_environment_overlays() 
     assert "name: knowledge_edge" not in base
 
 
+def test_base_compose_uses_networks_instead_of_expose_metadata() -> None:
+    base = _read(BASE_COMPOSE)
+
+    assert "ports:" not in base
+    assert "expose:" not in base
+
+
 def test_prod_compose_owns_all_external_prod_volume_names() -> None:
     prod = _read(PROD_COMPOSE)
 
@@ -183,7 +190,7 @@ def test_dev_compose_keeps_orchestrator_out_of_default_startup() -> None:
     assert "proxy" not in dev
 
 
-def test_dev_logto_admin_port_can_match_localhost_admin_endpoint() -> None:
+def test_logto_admin_container_port_is_fixed_and_dev_publishes_host_port() -> None:
     base_logto = _service_data(BASE_COMPOSE, "logto")
     base_seed = _service_data(BASE_COMPOSE, "logto-seed")
     dev_logto = _service_data(DEV_COMPOSE, "logto")
@@ -191,13 +198,11 @@ def test_dev_logto_admin_port_can_match_localhost_admin_endpoint() -> None:
     for service in (base_logto, base_seed):
         environment = service["environment"]
         assert isinstance(environment, dict)
-        assert environment["ADMIN_PORT"] == (
-            "${KNOWLEDGE_LOGTO_ADMIN_PORT:?KNOWLEDGE_LOGTO_ADMIN_PORT is required}"
-        )
+        assert environment["ADMIN_PORT"] == "3002"
 
     assert dev_logto["ports"] == [
         "3011:3001",
-        "3012:${KNOWLEDGE_LOGTO_ADMIN_PORT:?KNOWLEDGE_LOGTO_ADMIN_PORT is required}",
+        "3012:3002",
     ]
 
 
@@ -261,6 +266,8 @@ def test_base_web_service_reaches_private_dependencies() -> None:
 
     environment = web["environment"]
     assert isinstance(environment, dict)
+    assert "KNOWLEDGE_WEB_HOST" not in environment
+    assert "KNOWLEDGE_WEB_PORT" not in environment
     for key in (
         "KNOWLEDGE_WEB_INTERNAL_API_BASE_URL",
         "KNOWLEDGE_WEB_REDIS_URL",
@@ -364,11 +371,13 @@ def test_base_compose_defines_public_mcp_service_with_private_dependencies() -> 
     assert mcp["build"]["dockerfile"] == "infra/docker/mcp/Dockerfile"
     assert mcp["command"] == ["/app/bin/run-mcp.sh"]
     assert mcp["networks"] == ["backend", "edge"]
-    assert mcp["expose"] == ["8080"]
+    assert "expose" not in mcp
     assert set(mcp["depends_on"]) == {"api", "redis", "mcp_db", "mcp_migrate", "logto"}
 
     environment = mcp["environment"]
     assert isinstance(environment, dict)
+    assert "KNOWLEDGE_MCP_HOST" not in environment
+    assert "KNOWLEDGE_MCP_PORT" not in environment
     for key in (
         "KNOWLEDGE_MCP_PUBLIC_BASE_URL",
         "KNOWLEDGE_MCP_INTERNAL_API_BASE_URL",
@@ -414,11 +423,18 @@ def test_env_example_owns_compose_default_values() -> None:
         "KNOWLEDGE_MCP_PAT_TOTAL_LIMIT",
         "KNOWLEDGE_MCP_PAT_TOTAL_WINDOW_SECONDS",
     )
+    removed_topology_keys = (
+        "KNOWLEDGE_LOGTO_ADMIN_PORT",
+        "KNOWLEDGE_MCP_HOST",
+        "KNOWLEDGE_MCP_PORT",
+        "KNOWLEDGE_WEB_HOST",
+        "KNOWLEDGE_WEB_PORT",
+        "REDIS_PORT",
+    )
 
     env_template = _read(REPO_ROOT / "infra" / "env" / ".env.example")
     for key in (
         "KNOWLEDGE_LOGTO_TAG",
-        "KNOWLEDGE_LOGTO_ADMIN_PORT",
         "KNOWLEDGE_LOGTO_TRUST_PROXY_HEADER",
         "KNOWLEDGE_API_LOG_LEVEL",
         "KNOWLEDGE_API_LOG_FILE_MAX_BYTES",
@@ -427,29 +443,28 @@ def test_env_example_owns_compose_default_values() -> None:
         "SOURCE_PIPELINE_POLL_BATCH_SIZE",
         "SOURCE_PIPELINE_RECONCILE_INTERVAL_SECONDS",
         "SOURCE_PIPELINE_RECONCILE_BATCH_SIZE",
-        "KNOWLEDGE_WEB_HOST",
         "KNOWLEDGE_WEB_COOKIE_SECURE",
         "KNOWLEDGE_WEB_TRUST_PROXY",
         "KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX",
         "KNOWLEDGE_WEB_ANON_BURST_LIMIT",
         "KNOWLEDGE_WEB_AUTH_BURST_LIMIT",
         "KNOWLEDGE_WEB_IP_BURST_LIMIT",
-        "REDIS_PORT",
     ):
         assert f"{key}=" in env_template
     for key in required_quota_keys:
         assert f"{key}=" in env_template
     for key in removed_quota_keys:
         assert f"{key}=" not in env_template
+    for key in removed_topology_keys:
+        assert f"{key}=" not in env_template
 
 
-def test_mcp_startup_script_requires_host_and_port_from_environment() -> None:
+def test_mcp_startup_script_uses_fixed_container_listener() -> None:
     script = _read(MCP_RUN_SCRIPT)
 
-    assert "${KNOWLEDGE_MCP_HOST:-" not in script
-    assert "${KNOWLEDGE_MCP_PORT:-" not in script
-    assert ': "${KNOWLEDGE_MCP_HOST:?KNOWLEDGE_MCP_HOST is required}"' in script
-    assert ': "${KNOWLEDGE_MCP_PORT:?KNOWLEDGE_MCP_PORT is required}"' in script
+    assert "KNOWLEDGE_MCP_HOST" not in script
+    assert "KNOWLEDGE_MCP_PORT" not in script
+    assert "--host 0.0.0.0 --port 8080" in script
 
 
 def test_dev_and_prod_compose_define_mcp_image_and_ingress_dependencies() -> None:

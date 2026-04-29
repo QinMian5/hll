@@ -18,6 +18,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 ## Deployment Topology (MVP)
 - Production external exposure is restricted to the shared host-level reverse proxy on `80/443`, routed through the project-local `nginx` app gateway to explicitly public web, public MCP, Logto, and webhook surfaces.
 - Development exposes `web` on `5174`, `api` on `8001`, `db` on host `5432`, Logto auth on host `3011`, and Logto admin on host `3012` for local debugging and operator setup.
+- Repository-owned container listener ports are fixed deployment topology, not operator configuration. Compose overlays own host port publishing with literal mappings, while environment files own only runtime configuration that must vary by environment or operator secret.
 - `api`, `db`, and `redis` remain internal-only in production.
 - Knowledge corpus uses its own dedicated PostgreSQL service and does not share the online graph database service.
 - Source pipeline uses its own dedicated PostgreSQL service and does not share the online graph database service.
@@ -54,6 +55,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Production `nginx` routes the public MCP endpoint path to `mcp` and does not route MCP traffic through the browser BFF.
 - Production exposes webhook receiver roles through the project-local `nginx` app gateway on dedicated webhook paths. Receiver containers remain container-only and must not publish host ports directly.
 - Production `nginx` uses Docker embedded DNS with variable-based upstreams for internal service targets so app-gateway routing re-resolves service names when upstream containers are recreated.
+- Service-to-service routing uses fixed container listener ports: `api:8000`, `web:5173`, `mcp:8080`, Logto auth `logto:3001`, Logto admin `logto:3002`, and webhook receivers on `8080`.
 - Development adds `db` to `edge` for host port publishing while keeping service-to-service database access on `backend`.
 - Cross-service access must follow network boundaries rather than host port access.
 - Development host access to PostgreSQL is for local tooling only; container-to-container database access still uses Docker service DNS (`postgres`) on `backend`.
@@ -68,8 +70,8 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Source-pipeline and taxonomy-classification result-consuming runtimes require outbound HTTPS egress for `job-queue-mcp` API and token access.
 
 ## Compose Layering Strategy
-- `docker-compose.base.yml`: shared service definitions plus logical network and volume keys. It must not own the compose project name, environment-specific image tags, explicit Docker volume names, or explicit Docker network names.
-- `docker-compose.dev.yml`: development-only overrides with project name `knowledge-dev`, development image tags, source mounts, debug commands, direct local port exposure, no `nginx` service, default source-pipeline `source_pipeline_db` and `source_pipeline_migrate` services, default `mcp` service, and explicit opt-in profiles for `orchestrator`, `source_pipeline_webhook_receiver`, `taxonomy_classification_runtime`, and `taxonomy_classification_webhook_receiver`.
+- `docker-compose.base.yml`: shared service definitions plus logical network and volume keys. It must not own the compose project name, environment-specific image tags, explicit Docker volume names, explicit Docker network names, host port publishing, or listener-port environment indirection.
+- `docker-compose.dev.yml`: development-only overrides with project name `knowledge-dev`, development image tags, source mounts, debug commands, fixed literal local port exposure, no `nginx` service, default source-pipeline `source_pipeline_db` and `source_pipeline_migrate` services, default `mcp` service, and explicit opt-in profiles for `orchestrator`, `source_pipeline_webhook_receiver`, `taxonomy_classification_runtime`, and `taxonomy_classification_webhook_receiver`.
 - `docker-compose.prod.yml`: production-only overrides with project name `knowledge-prod`, production image tags, runtime restart policy, project-local `nginx` app gateway, public web BFF routing, public MCP routing, `nginx` shared `proxy` network attachment, and production external volume bindings.
 - `docker-compose.test.yml`: isolated test topology with project name `knowledge-test` and test image tags.
 - `docker-compose.prod.yml` must override accepted long-running and one-shot source-pipeline services with production image tags and production external volume binding for source-pipeline data.
