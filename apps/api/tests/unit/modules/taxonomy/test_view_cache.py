@@ -5,10 +5,19 @@ Out of scope: Redis server integration and taxonomy service orchestration.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
+from modules.taxonomy.dto import (
+    TaxonomyLeafLayout,
+    TaxonomyLeafLayoutEdge,
+    TaxonomyLeafLayoutNode,
+    TaxonomyLeafWorldBounds,
+)
 from modules.taxonomy.view_cache import (
     TAXONOMY_VIEW_COUNT_CACHE_TTL_SECONDS,
+    TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS,
     TaxonomyViewRedisCache,
 )
 
@@ -83,3 +92,53 @@ async def test_descendant_counts_lock_uses_single_flight_key() -> None:
 
     assert acquired is True
     assert redis.set_calls == [("taxonomy:view:v1:descendant-counts:lock", "1", 30, True)]
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_cache_stores_and_reads_layout_payload() -> None:
+    redis = _FakeRedis()
+    cache = TaxonomyViewRedisCache(redis=redis)
+    layout = TaxonomyLeafLayout(
+        layout_version="taxonomy-leaf-layout-v1",
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+        world_bounds=TaxonomyLeafWorldBounds(
+            min_x=-5.0,
+            min_y=-7.0,
+            max_x=11.0,
+            max_y=13.0,
+        ),
+        nodes=[
+            TaxonomyLeafLayoutNode(id=11, scope="inner", x=1.5, y=2.5),
+        ],
+        edges=[
+            TaxonomyLeafLayoutEdge(source_node_id=11, target_node_id=77, strength=0.42),
+        ],
+    )
+
+    await cache.set_leaf_layout(leaf_id=9, layout=layout)
+    cached = await cache.get_leaf_layout(leaf_id=9)
+
+    assert cached == layout
+    assert redis.set_calls[0][0] == "taxonomy:view:v1:leaf-layout:9"
+    assert redis.set_calls[0][2] == TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_cache_rejects_malformed_payload() -> None:
+    redis = _FakeRedis()
+    redis.values["taxonomy:view:v1:leaf-layout:9"] = '{"nodes":"bad"}'
+    cache = TaxonomyViewRedisCache(redis=redis)
+
+    with pytest.raises(ValueError, match="leaf layout cache payload"):
+        await cache.get_leaf_layout(leaf_id=9)
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_lock_uses_per_leaf_single_flight_key() -> None:
+    redis = _FakeRedis()
+    cache = TaxonomyViewRedisCache(redis=redis)
+
+    acquired = await cache.acquire_leaf_layout_lock(leaf_id=9)
+
+    assert acquired is True
+    assert redis.set_calls == [("taxonomy:view:v1:leaf-layout:9:lock", "1", 30, True)]

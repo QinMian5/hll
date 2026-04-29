@@ -8,7 +8,12 @@ from __future__ import annotations
 import json
 from typing import Protocol
 
+from pydantic import ValidationError
+
+from modules.taxonomy.dto import TaxonomyLeafLayout
+
 TAXONOMY_VIEW_COUNT_CACHE_TTL_SECONDS = 60
+TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS = 600
 TAXONOMY_VIEW_LOCK_TTL_SECONDS = 30
 TAXONOMY_VIEW_CACHE_KEY_PREFIX = "taxonomy:view:v1"
 
@@ -76,6 +81,46 @@ class TaxonomyViewRedisCache:
         )
         return bool(result)
 
+    async def get_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout | None:
+        raw_payload = await self._redis.get(_leaf_layout_key(leaf_id=leaf_id))
+        if raw_payload is None:
+            return None
+        if isinstance(raw_payload, bytes):
+            payload_text = raw_payload.decode("utf-8")
+        else:
+            payload_text = raw_payload
+
+        try:
+            payload = json.loads(payload_text)
+            return TaxonomyLeafLayout.model_validate(payload)
+        except (json.JSONDecodeError, ValidationError, ValueError) as exc:
+            raise ValueError("Invalid leaf layout cache payload.") from exc
+
+    async def set_leaf_layout(self, *, leaf_id: int, layout: TaxonomyLeafLayout) -> None:
+        payload = json.dumps(
+            layout.model_dump(mode="json"),
+            separators=(",", ":"),
+            sort_keys=True,
+        )
+        await self._redis.set(
+            _leaf_layout_key(leaf_id=leaf_id),
+            payload,
+            ex=TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS,
+        )
+
+    async def acquire_leaf_layout_lock(self, *, leaf_id: int) -> bool:
+        result = await self._redis.set(
+            f"{_leaf_layout_key(leaf_id=leaf_id)}:lock",
+            "1",
+            ex=TAXONOMY_VIEW_LOCK_TTL_SECONDS,
+            nx=True,
+        )
+        return bool(result)
+
 
 def _descendant_counts_key() -> str:
     return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:descendant-counts"
+
+
+def _leaf_layout_key(*, leaf_id: int) -> str:
+    return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:leaf-layout:{leaf_id}"

@@ -6,7 +6,7 @@ Out of scope: SQLAlchemy persistence mapping and HTTP transport contracts.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -66,3 +66,56 @@ class TaxonomyLeafAssignmentCount(BaseModel):
 
     taxonomy_leaf_id: int = Field(gt=0)
     card_count: int = Field(ge=0)
+
+
+class TaxonomyLeafWorldBounds(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    min_x: float
+    min_y: float
+    max_x: float
+    max_y: float
+
+
+class TaxonomyLeafLayoutNode(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: int = Field(gt=0)
+    scope: Literal["inner", "outer"]
+    x: float
+    y: float
+
+
+class TaxonomyLeafLayoutEdge(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    source_node_id: int = Field(gt=0)
+    target_node_id: int = Field(gt=0)
+    strength: float = Field(ge=0.0, le=1.0)
+
+
+class TaxonomyLeafLayout(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    layout_version: str = Field(min_length=1)
+    generated_at: datetime
+    world_bounds: TaxonomyLeafWorldBounds
+    nodes: list[TaxonomyLeafLayoutNode]
+    edges: list[TaxonomyLeafLayoutEdge]
+
+    @property
+    def node_count(self) -> int:
+        return len(self.nodes)
+
+    @property
+    def edge_count(self) -> int:
+        return len(self.edges)
+
+
+class TaxonomyLeafLayoutSlice(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    layout_version: str = Field(min_length=1)
+    requested_bounds: TaxonomyLeafWorldBounds
+    nodes: list[TaxonomyLeafLayoutNode]
+    edges: list[TaxonomyLeafLayoutEdge]

@@ -16,8 +16,16 @@ from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
     TaxonomyLeafAssignment,
     TaxonomyLeafAssignmentCount,
+    TaxonomyLeafLayout,
+    TaxonomyLeafLayoutEdge,
+    TaxonomyLeafLayoutNode,
     TaxonomyNodeRecord,
     TaxonomyTreeNode,
+)
+from modules.taxonomy.layout import (
+    TAXONOMY_LEAF_LAYOUT_VERSION,
+    build_leaf_layout,
+    slice_leaf_layout,
 )
 from modules.taxonomy.schema import (
     TaxonomyLeafLayoutNodeResponse,
@@ -34,8 +42,6 @@ from modules.taxonomy.schema import (
     TaxonomyViewChildResponse,
     TaxonomyViewNodeResponse,
 )
-
-TAXONOMY_LEAF_LAYOUT_VERSION = "taxonomy-leaf-layout-v1"
 
 
 class TaxonomyRepoProtocol(Protocol):
@@ -118,6 +124,12 @@ class TaxonomyViewCachePort(Protocol):
     async def set_descendant_counts(self, counts: dict[int, int]) -> None: ...
 
     async def acquire_descendant_counts_lock(self) -> bool: ...
+
+    async def get_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout | None: ...
+
+    async def set_leaf_layout(self, *, leaf_id: int, layout: TaxonomyLeafLayout) -> None: ...
+
+    async def acquire_leaf_layout_lock(self, *, leaf_id: int) -> bool: ...
 
 
 @dataclass(slots=True)
@@ -254,21 +266,16 @@ class TaxonomyService:
         if self._knowledge_projection_port is None:
             raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
 
-        leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
+        leaf_layout = await self._load_leaf_layout(current_node=current_node)
         return TaxonomyNodeLeafViewResponse(
             node_kind="leaf",
             current_node=_view_node_from_record(current_node),
             breadcrumb=breadcrumb,
             layout_version=TAXONOMY_LEAF_LAYOUT_VERSION,
-            world_bounds=TaxonomyLeafWorldBoundsResponse(
-                min_x=0.0,
-                min_y=0.0,
-                max_x=0.0,
-                max_y=0.0,
-            ),
-            node_count=len(leaf_graph.scope_by_node_id),
-            edge_count=len(leaf_graph.edges),
-            generated_at=datetime.now(UTC),
+            world_bounds=_world_bounds_response_from_layout(leaf_layout),
+            node_count=leaf_layout.node_count,
+            edge_count=leaf_layout.edge_count,
+            generated_at=leaf_layout.generated_at,
         )
 
     async def get_leaf_layout_slice(
@@ -303,38 +310,43 @@ class TaxonomyService:
                 hint="Use a leaf taxonomy node id and retry.",
             )
 
-        leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
-        include_origin = min_x <= 0 <= max_x and min_y <= 0 <= max_y
-        nodes = (
-            [
-                TaxonomyLeafLayoutNodeResponse(
-                    id=graph_node_id,
-                    scope=scope,
-                    x=0.0,
-                    y=0.0,
-                )
-                for graph_node_id, scope in sorted(leaf_graph.scope_by_node_id.items())
-            ]
-            if include_origin
-            else []
+        if min_x > max_x or min_y > max_y:
+            raise ApplicationError(
+                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+                message="Leaf layout request bounds are invalid.",
+                hint="Use min bounds less than or equal to max bounds and retry.",
+            )
+
+        leaf_layout = await self._load_leaf_layout(current_node=current_node)
+        layout_slice = slice_leaf_layout(
+            leaf_layout,
+            min_x=min_x,
+            min_y=min_y,
+            max_x=max_x,
+            max_y=max_y,
         )
-        returned_node_ids = {node.id for node in nodes}
-        edges = [
-            (edge.node_a_id, edge.node_b_id, edge.strength)
-            for edge in leaf_graph.edges
-            if edge.node_a_id in returned_node_ids and edge.node_b_id in returned_node_ids
-        ]
         return TaxonomyLeafLayoutSliceResponse(
             leaf_id=current_node.id,
-            layout_version=TAXONOMY_LEAF_LAYOUT_VERSION,
+            layout_version=layout_slice.layout_version,
             requested_bounds=TaxonomyLeafWorldBoundsResponse(
-                min_x=min_x,
-                min_y=min_y,
-                max_x=max_x,
-                max_y=max_y,
+                min_x=layout_slice.requested_bounds.min_x,
+                min_y=layout_slice.requested_bounds.min_y,
+                max_x=layout_slice.requested_bounds.max_x,
+                max_y=layout_slice.requested_bounds.max_y,
             ),
-            nodes=nodes,
-            edges=edges,
+            nodes=[
+                TaxonomyLeafLayoutNodeResponse(
+                    id=node.id,
+                    scope=node.scope,
+                    x=node.x,
+                    y=node.y,
+                )
+                for node in layout_slice.nodes
+            ],
+            edges=[
+                (edge.source_node_id, edge.target_node_id, edge.strength)
+                for edge in layout_slice.edges
+            ],
         )
 
     async def _validate_leaf_detail_node_ids(
@@ -568,6 +580,42 @@ class TaxonomyService:
             },
         )
 
+    async def _load_leaf_layout(
+        self,
+        *,
+        current_node: TaxonomyNodeRecord,
+    ) -> TaxonomyLeafLayout:
+        if self._view_cache is not None:
+            cached_layout = await self._view_cache.get_leaf_layout(leaf_id=current_node.id)
+            if cached_layout is not None:
+                return cached_layout
+            await self._view_cache.acquire_leaf_layout_lock(leaf_id=current_node.id)
+
+        leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
+        layout = build_leaf_layout(
+            nodes=[
+                TaxonomyLeafLayoutNode(
+                    id=node_id,
+                    scope=scope,
+                    x=0.0,
+                    y=0.0,
+                )
+                for node_id, scope in sorted(leaf_graph.scope_by_node_id.items())
+            ],
+            edges=[
+                TaxonomyLeafLayoutEdge(
+                    source_node_id=edge.node_a_id,
+                    target_node_id=edge.node_b_id,
+                    strength=edge.strength,
+                )
+                for edge in leaf_graph.edges
+            ],
+            generated_at=datetime.now(UTC),
+        )
+        if self._view_cache is not None:
+            await self._view_cache.set_leaf_layout(leaf_id=current_node.id, layout=layout)
+        return layout
+
     async def _refresh_leaf_projection(self, *, leaf_id: int) -> None:
         if self._knowledge_projection_port is None:
             return
@@ -612,6 +660,17 @@ def _view_children_from_node_ids(
         for node_id in child_ids
         if descendant_counts[node_id] > 0
     ]
+
+
+def _world_bounds_response_from_layout(
+    layout: TaxonomyLeafLayout,
+) -> TaxonomyLeafWorldBoundsResponse:
+    return TaxonomyLeafWorldBoundsResponse(
+        min_x=layout.world_bounds.min_x,
+        min_y=layout.world_bounds.min_y,
+        max_x=layout.world_bounds.max_x,
+        max_y=layout.world_bounds.max_y,
+    )
 
 
 def _require_single_root(

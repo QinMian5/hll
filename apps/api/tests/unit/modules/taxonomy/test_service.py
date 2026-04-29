@@ -452,12 +452,10 @@ async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
     assert view.node_kind == "leaf"
     assert [item.id for item in view.breadcrumb] == [1, 2]
     assert view.layout_version == "taxonomy-leaf-layout-v1"
-    assert view.world_bounds.model_dump() == {
-        "min_x": 0.0,
-        "min_y": 0.0,
-        "max_x": 0.0,
-        "max_y": 0.0,
-    }
+    assert view.world_bounds.min_x < 0.0
+    assert view.world_bounds.min_y < 0.0
+    assert view.world_bounds.max_x > 0.0
+    assert view.world_bounds.max_y > 0.0
     assert view.node_count == 3
     assert view.edge_count == 2
     assert repo.list_assigned_node_ids_for_leaf_called_with == [2]
@@ -465,6 +463,40 @@ async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
     assert repo.list_final_assignments_called is False
     assert projection_port.edge_id_request_batches == [[501, 502]]
     assert projection_port.card_request_batches == []
+
+
+@pytest.mark.anyio
+async def test_get_leaf_layout_slice_returns_backend_coordinates_for_requested_bounds() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_node_ids=[11, 12],
+        projected_edge_ids=[501, 502],
+    )
+    projection_port = _StubProjectionPort(
+        nodes=[],
+        edges=[
+            ProjectionEdge(node_a_id=11, node_b_id=12, strength=0.91),
+            ProjectionEdge(node_a_id=12, node_b_id=77, strength=0.66),
+        ],
+    )
+    service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
+
+    layout_slice = await service.get_leaf_layout_slice(
+        node_id=2,
+        min_x=90.0,
+        min_y=-10.0,
+        max_x=110.0,
+        max_y=10.0,
+    )
+
+    assert layout_slice.leaf_id == 2
+    assert [(node.id, node.scope) for node in layout_slice.nodes] == [(11, "inner")]
+    assert layout_slice.nodes[0].x == pytest.approx(100.0)
+    assert layout_slice.nodes[0].y == pytest.approx(0.0)
+    assert layout_slice.edges == []
 
 
 @pytest.mark.anyio
