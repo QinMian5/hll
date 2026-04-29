@@ -72,7 +72,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 ## Compose Layering Strategy
 - `docker-compose.base.yml`: shared service definitions plus logical network and volume keys. It must not own the compose project name, environment-specific image tags, explicit Docker volume names, explicit Docker network names, host port publishing, or listener-port environment indirection.
 - `docker-compose.dev.yml`: development-only overrides with project name `knowledge-dev`, development image tags, source mounts, debug commands, fixed literal local port exposure, no `nginx` service, default source-pipeline `source_pipeline_db` and `source_pipeline_migrate` services, default `mcp` service, and explicit opt-in profiles for `orchestrator`, `source_pipeline_webhook_receiver`, `taxonomy_classification_runtime`, and `taxonomy_classification_webhook_receiver`.
-- `docker-compose.prod.yml`: production-only overrides with project name `knowledge-prod`, production image tags, runtime restart policy, project-local `nginx` app gateway, public web BFF routing, public MCP routing, `nginx` shared `proxy` network attachment, and production external volume bindings.
+- `docker-compose.prod.yml`: production-only overrides with project name `knowledge-prod`, production image tags, runtime restart policy, project-local `nginx` app gateway, public web BFF routing, public MCP routing, `nginx` shared `proxy` network attachment, packaged nginx route configuration, and production external volume bindings.
 - `docker-compose.test.yml`: isolated test topology with project name `knowledge-test` and test image tags.
 - `docker-compose.prod.yml` must override accepted long-running and one-shot source-pipeline services with production image tags and production external volume binding for source-pipeline data.
 - Migration autogeneration uses the same base+dev layering and does not use a dedicated compose overlay file.
@@ -105,7 +105,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - API and source-pipeline image builds provide the local `job-queue-mcp` Python SDK package as a named build context so locked local-path SDK dependencies resolve inside Docker builds without vendoring SDK source into this repository.
 - `redis` uses fixed-tag official image `redis:7-bookworm`.
 - `web` uses a custom Dockerfile with separate dev/prod targets; the production target builds Vite assets and runs the Express BFF server.
-- `nginx` uses a fixed-tag official image in production and does not use a custom Dockerfile.
+- `nginx` uses a project-owned image that copies repository route configuration at build time so production deploys immutable gateway configuration instead of live bind-mounted config files.
 
 ## Process Role Command Contract
 - `api` and `worker` must each have a stable, role-specific startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.

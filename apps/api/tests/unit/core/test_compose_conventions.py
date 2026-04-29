@@ -17,6 +17,7 @@ DEV_COMPOSE = COMPOSE_DIR / "docker-compose.dev.yml"
 PROD_COMPOSE = COMPOSE_DIR / "docker-compose.prod.yml"
 TEST_COMPOSE = COMPOSE_DIR / "docker-compose.test.yml"
 NGINX_CONF = REPO_ROOT / "infra" / "docker" / "nginx" / "default.conf"
+NGINX_DOCKERFILE = REPO_ROOT / "infra" / "docker" / "nginx" / "Dockerfile"
 PROD_VOLUMES_HELPER = REPO_ROOT / "scripts" / "lib" / "prod-volumes.sh"
 POSTGRES_ROLE_INIT = REPO_ROOT / "infra" / "docker" / "postgres" / "init" / "10-roles.sh"
 POSTGRES_ROLE_BOOTSTRAP = REPO_ROOT / "scripts" / "lib" / "postgres-role-bootstrap.sh"
@@ -476,6 +477,21 @@ def test_dev_and_prod_compose_define_mcp_image_and_ingress_dependencies() -> Non
     assert dev_mcp["ports"] == ["8002:8080"]
     assert prod_mcp["image"] == "knowledge-mcp:prod"
     assert "mcp" in prod_nginx["depends_on"]
+
+
+def test_prod_nginx_config_is_packaged_in_image_not_bind_mounted() -> None:
+    prod_nginx = _service_data(PROD_COMPOSE, "nginx")
+    dockerfile = _read(NGINX_DOCKERFILE)
+
+    assert prod_nginx["image"] == "knowledge-nginx:prod"
+    assert prod_nginx["build"] == {
+        "context": "../..",
+        "dockerfile": "infra/docker/nginx/Dockerfile",
+    }
+    assert "volumes" not in prod_nginx
+    assert prod_nginx["healthcheck"]["test"] == ["CMD", "nginx", "-t"]
+    assert "FROM nginx:1.29-bookworm" in dockerfile
+    assert ("COPY infra/docker/nginx/default.conf /etc/nginx/conf.d/default.conf") in dockerfile
 
 
 def test_nginx_routes_public_mcp_without_exposing_private_api() -> None:
