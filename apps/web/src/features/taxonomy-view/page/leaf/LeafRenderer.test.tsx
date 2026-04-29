@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
 
 vi.mock("../../data/taxonomyViewQueries", () => ({
+  useTaxonomyLeafLayoutSliceQuery: vi.fn(),
   useTaxonomyLeafNodeDetailsQuery: vi.fn(),
   useTaxonomyLeafNodeTitlesQuery: vi.fn(),
 }));
@@ -147,6 +148,7 @@ vi.mock("./LeafDeckScene", () => ({
 }));
 
 import type {
+  TaxonomyLeafLayoutSliceResponse,
   TaxonomyLeafNodeDetailsResponse,
   TaxonomyLeafNodeTitlesResponse,
   TaxonomyLeafView,
@@ -154,6 +156,9 @@ import type {
 import * as taxonomyViewQueries from "../../data/taxonomyViewQueries";
 import { LeafRenderer } from "./LeafRenderer";
 
+const mockUseTaxonomyLeafLayoutSliceQuery = vi.mocked(
+  taxonomyViewQueries.useTaxonomyLeafLayoutSliceQuery,
+);
 const mockUseTaxonomyLeafNodeDetailsQuery = vi.mocked(
   taxonomyViewQueries.useTaxonomyLeafNodeDetailsQuery,
 );
@@ -191,12 +196,25 @@ function makeLeafView(): TaxonomyLeafView {
       name: "Algebra",
       parent_id: 1,
     },
-    edges: [[10, 11, 0.8]],
+    edge_count: 1,
+    generated_at: "2026-04-29T00:00:00Z",
+    layout_version: "taxonomy-leaf-layout-v1",
     node_kind: "leaf",
+    node_count: 2,
+    world_bounds: { max_x: 744, max_y: 484, min_x: 696, min_y: 446 },
+  };
+}
+
+function makeLeafLayoutSliceResponse(): TaxonomyLeafLayoutSliceResponse {
+  return {
+    edges: [[10, 11, 0.8]],
+    layout_version: "taxonomy-leaf-layout-v1",
+    leaf_id: 2,
     nodes: [
-      { id: 10, scope: "inner" },
-      { id: 11, scope: "outer" },
+      { id: 10, scope: "inner", x: 700, y: 450 },
+      { id: 11, scope: "outer", x: 740, y: 480 },
     ],
+    requested_bounds: { max_x: 1562, max_y: 1060, min_x: -162, min_y: -160 },
   };
 }
 
@@ -240,6 +258,17 @@ function makeLeafDetailsResponse(
 }
 
 function installSuccessfulQueryMocks() {
+  mockUseTaxonomyLeafLayoutSliceQuery.mockImplementation(
+    (_leafId, _bounds, options) =>
+      ({
+        data: options.enabled ? makeLeafLayoutSliceResponse() : undefined,
+        error: null,
+        isError: false,
+        isPending: false,
+      }) as unknown as ReturnType<
+        typeof taxonomyViewQueries.useTaxonomyLeafLayoutSliceQuery
+      >,
+  );
   mockUseTaxonomyLeafNodeTitlesQuery.mockImplementation(
     (_leafId, _nodeIds, options) =>
       ({
@@ -286,6 +315,16 @@ describe("LeafRenderer", () => {
     expect(
       screen.getByTestId("leaf-point-interaction-enabled"),
     ).toHaveTextContent("false");
+    expect(mockUseTaxonomyLeafLayoutSliceQuery).toHaveBeenCalledWith(
+      2,
+      {
+        max_x: 1562,
+        max_y: 1060,
+        min_x: -162,
+        min_y: -160,
+      },
+      expect.objectContaining({ enabled: true }),
+    );
     expect(mockUseTaxonomyLeafNodeTitlesQuery).toHaveBeenCalledWith(
       2,
       [],

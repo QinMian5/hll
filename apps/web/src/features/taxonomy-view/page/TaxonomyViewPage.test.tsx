@@ -210,12 +210,12 @@ function makeLeafNodeView(
       name: "Algebra",
       parent_id: 1,
     },
-    edges: [[10, 11, 0.8]],
+    edge_count: 1,
+    generated_at: "2026-04-29T00:00:00Z",
+    layout_version: "taxonomy-leaf-layout-v1",
     node_kind: "leaf",
-    nodes: [
-      { id: 10, scope: "inner" },
-      { id: 11, scope: "outer" },
-    ],
+    node_count: 2,
+    world_bounds: { max_x: 744, max_y: 484, min_x: 696, min_y: 446 },
     ...overrides,
   } as TaxonomyNodeView;
 }

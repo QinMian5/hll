@@ -4,7 +4,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  type TaxonomyNodeView,
+  type TaxonomyLeafLayoutSliceResponse,
+  taxonomyLeafLayoutSliceQueryOptions,
   taxonomyLeafNodeDetailsQueryOptions,
   taxonomyLeafNodeTitlesQueryOptions,
   taxonomyNodeViewQueryOptions,
@@ -21,6 +22,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 async function runQuery<TResult>(
   queryOptions: ReturnType<
     | typeof taxonomyLeafNodeDetailsQueryOptions
+    | typeof taxonomyLeafLayoutSliceQueryOptions
     | typeof taxonomyLeafNodeTitlesQueryOptions
     | typeof taxonomyNodeViewQueryOptions
     | typeof taxonomyRootViewQueryOptions
@@ -130,6 +132,49 @@ describe("taxonomyNodeViewQueryOptions", () => {
     });
   });
 
+  it("calls the same-origin BFF leaf layout endpoint with viewport bounds", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        edges: [[10, 11, 0.8]],
+        layout_version: "taxonomy-leaf-layout-v1",
+        leaf_id: 59,
+        nodes: [
+          { id: 10, scope: "inner", x: 1.5, y: 2.5 },
+          { id: 11, scope: "outer", x: 3.5, y: 4.5 },
+        ],
+        requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runQuery<TaxonomyLeafLayoutSliceResponse>(
+      taxonomyLeafLayoutSliceQueryOptions(59, {
+        max_x: 100,
+        max_y: 200,
+        min_x: -100,
+        min_y: -200,
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/web-api/taxonomy/view/leaves/59/layout?min_x=-100&min_y=-200&max_x=100&max_y=200",
+      expect.objectContaining({
+        credentials: "include",
+        method: "GET",
+      }),
+    );
+    expect(result).toEqual({
+      edges: [[10, 11, 0.8]],
+      layout_version: "taxonomy-leaf-layout-v1",
+      leaf_id: 59,
+      nodes: [
+        { id: 10, scope: "inner", x: 1.5, y: 2.5 },
+        { id: 11, scope: "outer", x: 3.5, y: 4.5 },
+      ],
+      requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
+    });
+  });
+
   it("calls the same-origin BFF leaf title endpoint", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
@@ -155,39 +200,33 @@ describe("taxonomyNodeViewQueryOptions", () => {
     });
   });
 
-  it("normalizes leaf edge tuples from the generated client payload", async () => {
+  it("normalizes leaf layout edge tuples from the generated client payload", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
-        breadcrumb: [],
-        current_node: {
-          depth: 2,
-          id: 59,
-          is_leaf: true,
-          name: "Leaf 59",
-          parent_id: 11,
-        },
         edges: [
           [10, 11, 0.8],
           [11, 12, 0.6],
         ],
-        node_kind: "leaf",
+        layout_version: "taxonomy-leaf-layout-v1",
+        leaf_id: 59,
         nodes: [
-          { id: 10, scope: "inner" },
-          { id: 11, scope: "outer" },
-          { id: 12, scope: "outer" },
+          { id: 10, scope: "inner", x: 1.5, y: 2.5 },
+          { id: 11, scope: "outer", x: 3.5, y: 4.5 },
+          { id: 12, scope: "outer", x: 5.5, y: 6.5 },
         ],
+        requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await runQuery<TaxonomyNodeView>(
-      taxonomyNodeViewQueryOptions(59),
+    const result = await runQuery<TaxonomyLeafLayoutSliceResponse>(
+      taxonomyLeafLayoutSliceQueryOptions(59, {
+        max_x: 100,
+        max_y: 200,
+        min_x: -100,
+        min_y: -200,
+      }),
     );
-
-    expect(result.node_kind).toBe("leaf");
-    if (result.node_kind !== "leaf") {
-      throw new Error("Expected a leaf taxonomy node view.");
-    }
 
     expect(result.edges).toEqual([
       [10, 11, 0.8],
@@ -195,25 +234,28 @@ describe("taxonomyNodeViewQueryOptions", () => {
     ]);
   });
 
-  it("rejects malformed leaf edge payloads", async () => {
+  it("rejects malformed leaf layout edge payloads", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
-        breadcrumb: [],
-        current_node: {
-          depth: 2,
-          id: 59,
-          is_leaf: true,
-          name: "Leaf 59",
-          parent_id: 11,
-        },
         edges: [[10, 11]],
-        node_kind: "leaf",
-        nodes: [{ id: 10, scope: "inner" }],
+        layout_version: "taxonomy-leaf-layout-v1",
+        leaf_id: 59,
+        nodes: [{ id: 10, scope: "inner", x: 1.5, y: 2.5 }],
+        requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(runQuery(taxonomyNodeViewQueryOptions(59))).rejects.toThrow(
+    await expect(
+      runQuery(
+        taxonomyLeafLayoutSliceQueryOptions(59, {
+          max_x: 100,
+          max_y: 200,
+          min_x: -100,
+          min_y: -200,
+        }),
+      ),
+    ).rejects.toThrow(
       "Taxonomy leaf edge payload must contain 3 numeric values.",
     );
   });

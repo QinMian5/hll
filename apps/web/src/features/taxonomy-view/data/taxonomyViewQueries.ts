@@ -14,14 +14,16 @@ export type TaxonomyLeafViewContract = Extract<
   TaxonomyNodeViewContract,
   { readonly node_kind: "leaf" }
 >;
-export type TaxonomyLeafSkeletonNode =
-  TaxonomyLeafViewContract["nodes"][number];
 export type TaxonomyLeafNodeDetailsRequest =
   components["schemas"]["TaxonomyLeafNodeDetailsRequest"];
 export type TaxonomyLeafNodeDetailsResponse =
   components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
 export type TaxonomyLeafNodeDetailRecord =
   TaxonomyLeafNodeDetailsResponse["nodes"][number];
+export type TaxonomyLeafLayoutSliceResponse =
+  components["schemas"]["TaxonomyLeafLayoutSliceResponse"];
+export type TaxonomyLeafLayoutNode =
+  TaxonomyLeafLayoutSliceResponse["nodes"][number];
 export type TaxonomyLeafNodeTitlesRequest =
   components["schemas"]["TaxonomyLeafNodeTitlesRequest"];
 export type TaxonomyLeafNodeTitlesResponse =
@@ -31,7 +33,14 @@ export type TaxonomyLeafNodeTitleRecord =
 export type TaxonomyRootView = TaxonomyRootViewContract;
 export type TaxonomyLeafView = TaxonomyLeafViewContract;
 export type TaxonomyNodeView = TaxonomyNodeViewContract;
-type TaxonomyLeafEdgeTuple = TaxonomyLeafViewContract["edges"][number];
+type TaxonomyLeafEdgeTuple = TaxonomyLeafLayoutSliceResponse["edges"][number];
+
+export interface TaxonomyLeafLayoutBounds {
+  readonly min_x: number;
+  readonly min_y: number;
+  readonly max_x: number;
+  readonly max_y: number;
+}
 
 type Assert<T extends true> = T;
 type HasProperty<
@@ -39,18 +48,18 @@ type HasProperty<
   PropertyName extends PropertyKey,
 > = PropertyName extends keyof T ? true : false;
 
-export type LeafSkeletonOmitsTitle = Assert<
-  HasProperty<TaxonomyLeafSkeletonNode, "title"> extends false ? true : false
+export type LeafLayoutNodeOmitsTitle = Assert<
+  HasProperty<TaxonomyLeafLayoutNode, "title"> extends false ? true : false
 >;
-export type LeafSkeletonOmitsContent = Assert<
-  HasProperty<TaxonomyLeafSkeletonNode, "content"> extends false ? true : false
+export type LeafLayoutNodeOmitsContent = Assert<
+  HasProperty<TaxonomyLeafLayoutNode, "content"> extends false ? true : false
 >;
 export type LeafEdgeTupleShape = Assert<
   TaxonomyLeafEdgeTuple extends readonly [number, number, number] ? true : false
 >;
 export type TaxonomyLeafContractChecks = [
-  LeafSkeletonOmitsTitle,
-  LeafSkeletonOmitsContent,
+  LeafLayoutNodeOmitsTitle,
+  LeafLayoutNodeOmitsContent,
   LeafEdgeTupleShape,
 ];
 
@@ -91,13 +100,29 @@ function normalizeTaxonomyNodeViewPayload(data: unknown): TaxonomyNodeView {
     return nodeView;
   }
 
+  return nodeView;
+}
+
+function normalizeTaxonomyLeafLayoutSlicePayload(
+  data: unknown,
+): TaxonomyLeafLayoutSliceResponse {
+  const layoutSlice = data as TaxonomyLeafLayoutSliceResponse;
+
+  if (
+    typeof layoutSlice !== "object" ||
+    layoutSlice === null ||
+    !("edges" in layoutSlice)
+  ) {
+    throw new Error("Taxonomy leaf layout response was not a valid payload.");
+  }
+
   const rawEdges =
     typeof data === "object" && data !== null && "edges" in data
       ? (data as { readonly edges: readonly unknown[] }).edges
       : [];
 
   return {
-    ...nodeView,
+    ...layoutSlice,
     edges: rawEdges.map(normalizeLeafEdgeTuple),
   };
 }
@@ -105,6 +130,16 @@ function normalizeTaxonomyNodeViewPayload(data: unknown): TaxonomyNodeView {
 const taxonomyViewQueryKeys = {
   leafDetails: (leafId: number, nodeIds: readonly number[]) =>
     ["taxonomy-view", "leaf-details", leafId, ...nodeIds] as const,
+  leafLayoutSlice: (leafId: number, bounds: TaxonomyLeafLayoutBounds) =>
+    [
+      "taxonomy-view",
+      "leaf-layout",
+      leafId,
+      bounds.min_x,
+      bounds.min_y,
+      bounds.max_x,
+      bounds.max_y,
+    ] as const,
   leafTitles: (leafId: number, nodeIds: readonly number[]) =>
     ["taxonomy-view", "leaf-titles", leafId, ...nodeIds] as const,
   node: (nodeId: number) => ["taxonomy-view", "node", nodeId] as const,
@@ -141,6 +176,24 @@ async function fetchTaxonomyLeafNodeDetails(
       method: "POST",
     },
   );
+}
+
+async function fetchTaxonomyLeafLayoutSlice(
+  leafId: number,
+  bounds: TaxonomyLeafLayoutBounds,
+): Promise<TaxonomyLeafLayoutSliceResponse> {
+  const searchParams = new URLSearchParams({
+    min_x: String(bounds.min_x),
+    min_y: String(bounds.min_y),
+    max_x: String(bounds.max_x),
+    max_y: String(bounds.max_y),
+  });
+
+  const result = await fetchWebApiJson<unknown>(
+    `/web-api/taxonomy/view/leaves/${leafId}/layout?${searchParams.toString()}`,
+  );
+
+  return normalizeTaxonomyLeafLayoutSlicePayload(result);
 }
 
 async function fetchTaxonomyLeafNodeTitles(
@@ -183,6 +236,16 @@ export function taxonomyLeafNodeDetailsQueryOptions(
   });
 }
 
+export function taxonomyLeafLayoutSliceQueryOptions(
+  leafId: number,
+  bounds: TaxonomyLeafLayoutBounds,
+) {
+  return queryOptions({
+    queryFn: () => fetchTaxonomyLeafLayoutSlice(leafId, bounds),
+    queryKey: taxonomyViewQueryKeys.leafLayoutSlice(leafId, bounds),
+  });
+}
+
 export function taxonomyLeafNodeTitlesQueryOptions(
   leafId: number,
   nodeIds: readonly number[],
@@ -221,6 +284,17 @@ export function useTaxonomyLeafNodeDetailsQuery(
 ) {
   return useQuery({
     ...taxonomyLeafNodeDetailsQueryOptions(leafId, nodeIds),
+    enabled: options.enabled ?? true,
+  });
+}
+
+export function useTaxonomyLeafLayoutSliceQuery(
+  leafId: number,
+  bounds: TaxonomyLeafLayoutBounds,
+  options: { readonly enabled?: boolean },
+) {
+  return useQuery({
+    ...taxonomyLeafLayoutSliceQueryOptions(leafId, bounds),
     enabled: options.enabled ?? true,
   });
 }

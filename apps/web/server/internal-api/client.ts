@@ -18,8 +18,17 @@ export type TaxonomyNodeViewResponse =
   components["schemas"]["TaxonomyNodeViewResponse"];
 export type TaxonomyLeafNodeDetailsResponse =
   components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
+export type TaxonomyLeafLayoutSliceResponse =
+  components["schemas"]["TaxonomyLeafLayoutSliceResponse"];
 export type TaxonomyLeafNodeTitlesResponse =
   components["schemas"]["TaxonomyLeafNodeTitlesResponse"];
+
+export interface TaxonomyLeafLayoutBounds {
+  readonly min_x: number;
+  readonly min_y: number;
+  readonly max_x: number;
+  readonly max_y: number;
+}
 
 export interface InternalApiClient {
   readonly createSuggestedEdit: (
@@ -31,6 +40,10 @@ export interface InternalApiClient {
     leafId: number,
     nodeIds: readonly number[],
   ) => Promise<TaxonomyLeafNodeDetailsResponse>;
+  readonly getTaxonomyLeafLayoutSlice: (
+    leafId: number,
+    bounds: TaxonomyLeafLayoutBounds,
+  ) => Promise<TaxonomyLeafLayoutSliceResponse>;
   readonly getTaxonomyLeafNodeTitles: (
     leafId: number,
     nodeIds: readonly number[],
@@ -99,6 +112,21 @@ export function createInternalApiClient(
       );
 
       return unwrapInternalApiData<TaxonomyLeafNodeDetailsResponse>(result);
+    },
+    getTaxonomyLeafLayoutSlice: async (leafId, bounds) => {
+      const result = await client.GET(
+        "/api/v1/taxonomy/view/leaves/{node_id}/layout",
+        {
+          params: {
+            path: { node_id: leafId },
+            query: bounds,
+          },
+        },
+      );
+
+      return unwrapInternalApiData<unknown>(
+        result,
+      ) as TaxonomyLeafLayoutSliceResponse;
     },
     getTaxonomyLeafNodeTitles: async (leafId, nodeIds) => {
       const result = await client.POST(

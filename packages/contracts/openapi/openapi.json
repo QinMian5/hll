@@ -266,7 +266,7 @@
         ],
         "type": "array"
       },
-      "TaxonomyLeafGraphNodeResponse": {
+      "TaxonomyLeafLayoutNodeResponse": {
         "additionalProperties": false,
         "properties": {
           "id": {
@@ -281,13 +281,64 @@
             ],
             "title": "Scope",
             "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
           }
         },
         "required": [
           "id",
-          "scope"
+          "scope",
+          "x",
+          "y"
         ],
-        "title": "TaxonomyLeafGraphNodeResponse",
+        "title": "TaxonomyLeafLayoutNodeResponse",
+        "type": "object"
+      },
+      "TaxonomyLeafLayoutSliceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyLeafGraphEdgeResponse"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "layout_version": {
+            "minLength": 1,
+            "title": "Layout Version",
+            "type": "string"
+          },
+          "leaf_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Leaf Id",
+            "type": "integer"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyLeafLayoutNodeResponse"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "requested_bounds": {
+            "$ref": "#/components/schemas/TaxonomyLeafWorldBoundsResponse"
+          }
+        },
+        "required": [
+          "leaf_id",
+          "layout_version",
+          "requested_bounds",
+          "nodes",
+          "edges"
+        ],
+        "title": "TaxonomyLeafLayoutSliceResponse",
         "type": "object"
       },
       "TaxonomyLeafNodeDetailResponse": {
@@ -406,6 +457,35 @@
         "title": "TaxonomyLeafNodeTitlesResponse",
         "type": "object"
       },
+      "TaxonomyLeafWorldBoundsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "max_x": {
+            "title": "Max X",
+            "type": "number"
+          },
+          "max_y": {
+            "title": "Max Y",
+            "type": "number"
+          },
+          "min_x": {
+            "title": "Min X",
+            "type": "number"
+          },
+          "min_y": {
+            "title": "Min Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min_x",
+          "min_y",
+          "max_x",
+          "max_y"
+        ],
+        "title": "TaxonomyLeafWorldBoundsResponse",
+        "type": "object"
+      },
       "TaxonomyNodeBranchViewResponse": {
         "additionalProperties": false,
         "properties": {
@@ -454,32 +534,44 @@
           "current_node": {
             "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
           },
-          "edges": {
-            "items": {
-              "$ref": "#/components/schemas/TaxonomyLeafGraphEdgeResponse"
-            },
-            "title": "Edges",
-            "type": "array"
+          "edge_count": {
+            "minimum": 0.0,
+            "title": "Edge Count",
+            "type": "integer"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "layout_version": {
+            "minLength": 1,
+            "title": "Layout Version",
+            "type": "string"
+          },
+          "node_count": {
+            "minimum": 0.0,
+            "title": "Node Count",
+            "type": "integer"
           },
           "node_kind": {
             "const": "leaf",
             "title": "Node Kind",
             "type": "string"
           },
-          "nodes": {
-            "items": {
-              "$ref": "#/components/schemas/TaxonomyLeafGraphNodeResponse"
-            },
-            "title": "Nodes",
-            "type": "array"
+          "world_bounds": {
+            "$ref": "#/components/schemas/TaxonomyLeafWorldBoundsResponse"
           }
         },
         "required": [
           "node_kind",
           "current_node",
           "breadcrumb",
-          "nodes",
-          "edges"
+          "layout_version",
+          "world_bounds",
+          "node_count",
+          "edge_count",
+          "generated_at"
         ],
         "title": "TaxonomyNodeLeafViewResponse",
         "type": "object"
@@ -900,6 +992,84 @@
           }
         },
         "summary": "Get Leaf Node Details",
+        "tags": [
+          "taxonomy"
+        ]
+      }
+    },
+    "/api/v1/taxonomy/view/leaves/{node_id}/layout": {
+      "get": {
+        "operationId": "get_leaf_layout_slice_api_v1_taxonomy_view_leaves__node_id__layout_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "title": "Node Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_x",
+            "required": true,
+            "schema": {
+              "title": "Min X",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "min_y",
+            "required": true,
+            "schema": {
+              "title": "Min Y",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_x",
+            "required": true,
+            "schema": {
+              "title": "Max X",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_y",
+            "required": true,
+            "schema": {
+              "title": "Max Y",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonomyLeafLayoutSliceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Leaf Layout Slice",
         "tags": [
           "taxonomy"
         ]

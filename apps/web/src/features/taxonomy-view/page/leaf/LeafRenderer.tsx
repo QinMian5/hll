@@ -15,15 +15,18 @@ import {
 } from "react";
 import type { SearchResultCardEditPayload } from "../../../search/components/SearchResultCard";
 import {
+  type TaxonomyLeafLayoutBounds,
+  type TaxonomyLeafLayoutSliceResponse,
   type TaxonomyLeafNodeDetailRecord,
   type TaxonomyLeafView,
+  useTaxonomyLeafLayoutSliceQuery,
   useTaxonomyLeafNodeDetailsQuery,
   useTaxonomyLeafNodeTitlesQuery,
 } from "../../data/taxonomyViewQueries";
-import { buildLeafLayout } from "../layout/buildLeafLayout";
 import type {
   LayoutPoint,
   LayoutViewport,
+  TaxonomyLayoutNode,
 } from "../layout/taxonomyLayoutTypes";
 import {
   LeafDisclosureOverlay,
@@ -37,7 +40,11 @@ import {
   buildDefaultLeafViewport,
   LEAF_HYDRATION_OVERSCAN,
 } from "./leafRendererConfig";
-import type { LeafDisclosureState, LeafScenePointNode } from "./leafSceneTypes";
+import type {
+  LeafDisclosureState,
+  LeafScenePointNode,
+  LeafWorldBounds,
+} from "./leafSceneTypes";
 import {
   buildLeafSceneModelBase,
   buildLeafTitleLabelNodes,
@@ -59,6 +66,56 @@ const LeafDeckScene = lazy(() =>
     default: module.LeafDeckScene,
   })),
 );
+
+const LEAF_POINT_DIAMETER = 8;
+
+interface RenderableLeafLayout {
+  readonly edges: TaxonomyLeafLayoutSliceResponse["edges"];
+  readonly nodes: TaxonomyLayoutNode[];
+}
+
+function toLayoutBounds(bounds: LeafWorldBounds): TaxonomyLeafLayoutBounds {
+  return {
+    max_x: bounds.right,
+    max_y: bounds.bottom,
+    min_x: bounds.left,
+    min_y: bounds.top,
+  };
+}
+
+function buildRenderableLeafLayout(
+  layoutSlice: TaxonomyLeafLayoutSliceResponse | undefined,
+): RenderableLeafLayout {
+  if (!layoutSlice) {
+    return { edges: [], nodes: [] };
+  }
+
+  return {
+    edges: layoutSlice.edges,
+    nodes: layoutSlice.nodes.map((node) => ({
+      data: {
+        depth: 0,
+        graphNodeId: node.id,
+        label: "",
+        renderMode: "point" as const,
+        scope: node.scope,
+        targetNodeId: null,
+        tooltip: "",
+      },
+      id: `leaf-${node.id}`,
+      position: {
+        x: node.x - LEAF_POINT_DIAMETER / 2,
+        y: node.y - LEAF_POINT_DIAMETER / 2,
+      },
+      style: {
+        borderRadius: `${LEAF_POINT_DIAMETER}px`,
+        height: LEAF_POINT_DIAMETER,
+        width: LEAF_POINT_DIAMETER,
+      },
+      type: "bubble" as const,
+    })),
+  };
+}
 
 function buildDisclosureNode(options: {
   readonly detail: TaxonomyLeafNodeDetailRecord | undefined;
@@ -179,16 +236,6 @@ export function LeafRenderer({
     };
   }, []);
 
-  const leafLayout = useMemo(
-    () =>
-      buildLeafLayout({
-        center,
-        edges: leafView.edges,
-        nodes: leafView.nodes,
-        viewport,
-      }),
-    [center, leafView.edges, leafView.nodes, viewport],
-  );
   const viewportState = useMemo(
     () =>
       buildLeafViewportState({
@@ -197,6 +244,19 @@ export function LeafRenderer({
         viewport: deferredDeckViewportSnapshot,
       }),
     [canvasViewport, deferredDeckViewportSnapshot],
+  );
+  const leafLayoutBounds = useMemo(
+    () => toLayoutBounds(viewportState.overscanBounds),
+    [viewportState.overscanBounds],
+  );
+  const leafLayoutQuery = useTaxonomyLeafLayoutSliceQuery(
+    leafNodeId,
+    leafLayoutBounds,
+    { enabled: Number.isFinite(leafNodeId) },
+  );
+  const leafLayout = useMemo(
+    () => buildRenderableLeafLayout(leafLayoutQuery.data),
+    [leafLayoutQuery.data],
   );
 
   useEffect(() => {
@@ -334,10 +394,10 @@ export function LeafRenderer({
   const leafSceneBase = useMemo(
     () =>
       buildLeafSceneModelBase({
-        edges: leafView.edges,
+        edges: leafLayout.edges,
         layoutNodes: leafLayout.nodes,
       }),
-    [leafLayout.nodes, leafView.edges],
+    [leafLayout.edges, leafLayout.nodes],
   );
   const titleLabelNodes = useMemo(
     () =>
@@ -399,11 +459,13 @@ export function LeafRenderer({
     viewportState.isPointTitleModeActive,
   ]);
   const hiddenLabelNodeId = disclosure?.node.graphNodeId ?? null;
-  const hydrationError = leafTitlesQuery.isError
-    ? leafTitlesQuery.error
-    : leafDetailsQuery.isError
-      ? leafDetailsQuery.error
-      : null;
+  const hydrationError = leafLayoutQuery.isError
+    ? leafLayoutQuery.error
+    : leafTitlesQuery.isError
+      ? leafTitlesQuery.error
+      : leafDetailsQuery.isError
+        ? leafDetailsQuery.error
+        : null;
 
   const handlePointHover = useCallback(
     (nodeId: number | null) => {

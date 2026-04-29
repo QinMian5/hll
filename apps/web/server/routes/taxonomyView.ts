@@ -12,6 +12,7 @@ import {
 export type TaxonomyViewInternalApi = Pick<
   InternalApiClient,
   | "getTaxonomyLeafNodeDetails"
+  | "getTaxonomyLeafLayoutSlice"
   | "getTaxonomyLeafNodeTitles"
   | "getTaxonomyNode"
   | "getTaxonomyRoot"
@@ -61,6 +62,25 @@ function parseNodeIdsBody(body: unknown): number[] {
   return nodeIds;
 }
 
+function parseFiniteQueryNumber(value: unknown): number {
+  if (typeof value !== "string") {
+    throw new WebRouteInputError(
+      "invalid_request",
+      "Layout bounds must be finite numbers.",
+    );
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    throw new WebRouteInputError(
+      "invalid_request",
+      "Layout bounds must be finite numbers.",
+    );
+  }
+
+  return parsed;
+}
+
 export function createTaxonomyViewRouter(
   options: CreateTaxonomyViewRouterOptions,
 ): Router {
@@ -100,6 +120,26 @@ export function createTaxonomyViewRouter(
         const nodeIds = parseNodeIdsBody(request.body);
         response.json(
           await options.internalApi.getTaxonomyLeafNodeDetails(nodeId, nodeIds),
+        );
+      } catch (error) {
+        handleWebRouteError(error, response, next);
+      }
+    },
+  );
+
+  router.get(
+    "/leaves/:nodeId/layout",
+    options.quotaMiddleware,
+    async (request, response, next) => {
+      try {
+        const nodeId = parseNodeId(request.params.nodeId);
+        response.json(
+          await options.internalApi.getTaxonomyLeafLayoutSlice(nodeId, {
+            max_x: parseFiniteQueryNumber(request.query.max_x),
+            max_y: parseFiniteQueryNumber(request.query.max_y),
+            min_x: parseFiniteQueryNumber(request.query.min_x),
+            min_y: parseFiniteQueryNumber(request.query.min_y),
+          }),
         );
       } catch (error) {
         handleWebRouteError(error, response, next);

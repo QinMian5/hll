@@ -39,6 +39,16 @@ const TEST_ENV = {
 
 function createClient(overrides: Partial<TaxonomyViewInternalApi> = {}) {
   return {
+    getTaxonomyLeafLayoutSlice: vi.fn(async () => ({
+      edges: [[10, 11, 0.8]],
+      layout_version: "taxonomy-leaf-layout-v1",
+      leaf_id: 7,
+      nodes: [
+        { id: 10, scope: "inner", x: 1.5, y: 2.5 },
+        { id: 11, scope: "outer", x: 3.5, y: 4.5 },
+      ],
+      requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
+    })),
     getTaxonomyLeafNodeDetails: vi.fn(async () => ({
       nodes: [
         { content: "Card content", current_version: 4, id: 10, title: "Card" },
@@ -152,6 +162,51 @@ describe("taxonomy view route", () => {
       nodes: [
         { content: "Card content", current_version: 4, id: 10, title: "Card" },
       ],
+    });
+  });
+
+  it("calls the internal taxonomy leaf layout API with viewport bounds", async () => {
+    const client = createClient();
+    const app = await createTestApp({ client });
+
+    const response = await request(app).get(
+      "/web-api/taxonomy/view/leaves/7/layout?min_x=-100&min_y=-200&max_x=100&max_y=200",
+    );
+
+    expect(response.status).toBe(200);
+    expect(client.getTaxonomyLeafLayoutSlice).toHaveBeenCalledWith(7, {
+      max_x: 100,
+      max_y: 200,
+      min_x: -100,
+      min_y: -200,
+    });
+    expect(response.body).toEqual({
+      edges: [[10, 11, 0.8]],
+      layout_version: "taxonomy-leaf-layout-v1",
+      leaf_id: 7,
+      nodes: [
+        { id: 10, scope: "inner", x: 1.5, y: 2.5 },
+        { id: 11, scope: "outer", x: 3.5, y: 4.5 },
+      ],
+      requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
+    });
+  });
+
+  it("rejects invalid leaf layout bounds before calling the internal API", async () => {
+    const client = createClient();
+    const app = await createTestApp({ client });
+
+    const response = await request(app).get(
+      "/web-api/taxonomy/view/leaves/7/layout?min_x=-100&min_y=-200&max_x=nope&max_y=200",
+    );
+
+    expect(response.status).toBe(400);
+    expect(client.getTaxonomyLeafLayoutSlice).not.toHaveBeenCalled();
+    expect(response.body).toEqual({
+      error: {
+        code: "invalid_request",
+        message: "Layout bounds must be finite numbers.",
+      },
     });
   });
 

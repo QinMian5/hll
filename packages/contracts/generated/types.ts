@@ -72,6 +72,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/taxonomy/view/leaves/{node_id}/layout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Leaf Layout Slice */
+    get: operations["get_leaf_layout_slice_api_v1_taxonomy_view_leaves__node_id__layout_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/taxonomy/view/leaves/{node_id}/titles": {
     parameters: {
       query?: never;
@@ -232,8 +249,8 @@ export interface components {
       status: "pending" | "accepted" | "rejected";
     };
     TaxonomyLeafGraphEdgeResponse: [number, number, number];
-    /** TaxonomyLeafGraphNodeResponse */
-    TaxonomyLeafGraphNodeResponse: {
+    /** TaxonomyLeafLayoutNodeResponse */
+    TaxonomyLeafLayoutNodeResponse: {
       /** Id */
       id: number;
       /**
@@ -241,6 +258,22 @@ export interface components {
        * @enum {string}
        */
       scope: "inner" | "outer";
+      /** X */
+      x: number;
+      /** Y */
+      y: number;
+    };
+    /** TaxonomyLeafLayoutSliceResponse */
+    TaxonomyLeafLayoutSliceResponse: {
+      /** Edges */
+      edges: components["schemas"]["TaxonomyLeafGraphEdgeResponse"][];
+      /** Layout Version */
+      layout_version: string;
+      /** Leaf Id */
+      leaf_id: number;
+      /** Nodes */
+      nodes: components["schemas"]["TaxonomyLeafLayoutNodeResponse"][];
+      requested_bounds: components["schemas"]["TaxonomyLeafWorldBoundsResponse"];
     };
     /** TaxonomyLeafNodeDetailResponse */
     TaxonomyLeafNodeDetailResponse: {
@@ -280,6 +313,17 @@ export interface components {
       /** Nodes */
       nodes: components["schemas"]["TaxonomyLeafNodeTitleResponse"][];
     };
+    /** TaxonomyLeafWorldBoundsResponse */
+    TaxonomyLeafWorldBoundsResponse: {
+      /** Max X */
+      max_x: number;
+      /** Max Y */
+      max_y: number;
+      /** Min X */
+      min_x: number;
+      /** Min Y */
+      min_y: number;
+    };
     /** TaxonomyNodeBranchViewResponse */
     TaxonomyNodeBranchViewResponse: {
       /** Breadcrumb */
@@ -298,15 +342,23 @@ export interface components {
       /** Breadcrumb */
       breadcrumb: components["schemas"]["TaxonomyViewNodeResponse"][];
       current_node: components["schemas"]["TaxonomyViewNodeResponse"];
-      /** Edges */
-      edges: components["schemas"]["TaxonomyLeafGraphEdgeResponse"][];
+      /** Edge Count */
+      edge_count: number;
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /** Layout Version */
+      layout_version: string;
+      /** Node Count */
+      node_count: number;
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
        */
       node_kind: "leaf";
-      /** Nodes */
-      nodes: components["schemas"]["TaxonomyLeafGraphNodeResponse"][];
+      world_bounds: components["schemas"]["TaxonomyLeafWorldBoundsResponse"];
     };
     TaxonomyNodeViewResponse:
       | components["schemas"]["TaxonomyNodeBranchViewResponse"]
@@ -511,6 +563,42 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_leaf_layout_slice_api_v1_taxonomy_view_leaves__node_id__layout_get: {
+    parameters: {
+      query: {
+        min_x: number;
+        min_y: number;
+        max_x: number;
+        max_y: number;
+      };
+      header?: never;
+      path: {
+        node_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaxonomyLeafLayoutSliceResponse"];
         };
       };
       /** @description Validation Error */
