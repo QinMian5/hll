@@ -40,7 +40,12 @@ const TEST_ENV = {
 function createClient(overrides: Partial<TaxonomyViewInternalApi> = {}) {
   return {
     getTaxonomyLeafNodeDetails: vi.fn(async () => ({
-      nodes: [{ content: "Card content", node_id: 10, title: "Card" }],
+      nodes: [
+        { content: "Card content", current_version: 4, id: 10, title: "Card" },
+      ],
+    })),
+    getTaxonomyLeafNodeTitles: vi.fn(async () => ({
+      nodes: [{ id: 10, title: "Card" }],
     })),
     getTaxonomyNode: vi.fn(async () => ({
       edges: [],
@@ -144,7 +149,24 @@ describe("taxonomy view route", () => {
     expect(response.status).toBe(200);
     expect(client.getTaxonomyLeafNodeDetails).toHaveBeenCalledWith(7, [10, 11]);
     expect(response.body).toEqual({
-      nodes: [{ content: "Card content", node_id: 10, title: "Card" }],
+      nodes: [
+        { content: "Card content", current_version: 4, id: 10, title: "Card" },
+      ],
+    });
+  });
+
+  it("calls the internal taxonomy leaf title API", async () => {
+    const client = createClient();
+    const app = await createTestApp({ client });
+
+    const response = await request(app)
+      .post("/web-api/taxonomy/view/leaves/7/titles")
+      .send({ node_ids: [10, 11] });
+
+    expect(response.status).toBe(200);
+    expect(client.getTaxonomyLeafNodeTitles).toHaveBeenCalledWith(7, [10, 11]);
+    expect(response.body).toEqual({
+      nodes: [{ id: 10, title: "Card" }],
     });
   });
 });

@@ -11,7 +11,10 @@ import {
 
 export type TaxonomyViewInternalApi = Pick<
   InternalApiClient,
-  "getTaxonomyLeafNodeDetails" | "getTaxonomyNode" | "getTaxonomyRoot"
+  | "getTaxonomyLeafNodeDetails"
+  | "getTaxonomyLeafNodeTitles"
+  | "getTaxonomyNode"
+  | "getTaxonomyRoot"
 >;
 
 export interface CreateTaxonomyViewRouterOptions {
@@ -97,6 +100,22 @@ export function createTaxonomyViewRouter(
         const nodeIds = parseNodeIdsBody(request.body);
         response.json(
           await options.internalApi.getTaxonomyLeafNodeDetails(nodeId, nodeIds),
+        );
+      } catch (error) {
+        handleWebRouteError(error, response, next);
+      }
+    },
+  );
+
+  router.post(
+    "/leaves/:nodeId/titles",
+    options.quotaMiddleware,
+    async (request, response, next) => {
+      try {
+        const nodeId = parseNodeId(request.params.nodeId);
+        const nodeIds = parseNodeIdsBody(request.body);
+        response.json(
+          await options.internalApi.getTaxonomyLeafNodeTitles(nodeId, nodeIds),
         );
       } catch (error) {
         handleWebRouteError(error, response, next);

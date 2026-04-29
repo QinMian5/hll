@@ -1,4 +1,4 @@
-// abstract: Leaf-mode renderer that owns deck.gl scene state, viewport-driven hydration, and hover disclosure.
+// abstract: Leaf-mode renderer that owns deck.gl scene state, title labels, and disclosure hydration.
 // out_of_scope: Branch React Flow rendering and page-shell chrome.
 
 import {
@@ -13,32 +13,34 @@ import {
   useRef,
   useState,
 } from "react";
-
+import type { SearchResultCardEditPayload } from "../../../search/components/SearchResultCard";
 import {
   type TaxonomyLeafNodeDetailRecord,
   type TaxonomyLeafView,
   useTaxonomyLeafNodeDetailsQuery,
+  useTaxonomyLeafNodeTitlesQuery,
 } from "../../data/taxonomyViewQueries";
 import { buildLeafLayout } from "../layout/buildLeafLayout";
 import type {
   LayoutPoint,
   LayoutViewport,
-  LeafHydratedNodeLayoutInput,
 } from "../layout/taxonomyLayoutTypes";
-import { LeafHoverOverlay } from "./LeafHoverOverlay";
 import {
-  LeafRichTextCardsOverlay,
-  type LeafRichTextCardsOverlayHandle,
-} from "./LeafRichTextCardsOverlay";
+  LeafDisclosureOverlay,
+  type LeafDisclosureOverlayHandle,
+} from "./LeafDisclosureOverlay";
+import {
+  LeafTitleLabelsOverlay,
+  type LeafTitleLabelsOverlayHandle,
+} from "./LeafTitleLabelsOverlay";
 import {
   buildDefaultLeafViewport,
   LEAF_HYDRATION_OVERSCAN,
 } from "./leafRendererConfig";
-import type { LeafHoverState } from "./leafSceneTypes";
+import type { LeafDisclosureState, LeafScenePointNode } from "./leafSceneTypes";
 import {
-  buildLeafCardNodes,
   buildLeafSceneModelBase,
-  filterLeafPointNodes,
+  buildLeafTitleLabelNodes,
 } from "./useLeafSceneModel";
 import {
   buildLeafViewportState,
@@ -48,6 +50,7 @@ import {
 interface LeafRendererProps {
   readonly center: LayoutPoint;
   readonly leafView: TaxonomyLeafView;
+  readonly onSuggestEdit?: (card: SearchResultCardEditPayload) => void;
   readonly viewport: LayoutViewport;
 }
 
@@ -57,42 +60,73 @@ const LeafDeckScene = lazy(() =>
   })),
 );
 
+function buildDisclosureNode(options: {
+  readonly detail: TaxonomyLeafNodeDetailRecord | undefined;
+  readonly pointNode: LeafScenePointNode | undefined;
+}) {
+  if (!options.detail || !options.pointNode) {
+    return null;
+  }
+
+  return {
+    content: options.detail.content,
+    currentVersion: options.detail.current_version,
+    graphNodeId: options.pointNode.graphNodeId,
+    id: options.pointNode.id,
+    position: options.pointNode.position,
+    scope: options.pointNode.scope,
+    title: options.detail.title,
+  };
+}
+
 export function LeafRenderer({
   center,
   leafView,
+  onSuggestEdit,
   viewport,
 }: LeafRendererProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
+  const titleLabelsRef = useRef<LeafTitleLabelsOverlayHandle | null>(null);
+  const disclosureRef = useRef<LeafDisclosureOverlayHandle | null>(null);
   const initialDeckViewport = useMemo(
     () => buildDefaultLeafViewport(center),
     [center],
   );
-  const overlayRef = useRef<LeafRichTextCardsOverlayHandle | null>(null);
   const [canvasViewport, setCanvasViewport] = useState(viewport);
   const [deckViewportSnapshot, setDeckViewportSnapshot] =
     useState(initialDeckViewport);
   const deferredDeckViewportSnapshot = useDeferredValue(deckViewportSnapshot);
   const liveViewportRef = useRef(initialDeckViewport);
-  const [hoverState, setHoverState] = useState<LeafHoverState | null>(null);
+  const [hoveredPointNodeId, setHoveredPointNodeId] = useState<number | null>(
+    null,
+  );
+  const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+  const [leafTitleCache, setLeafTitleCache] = useState<Record<number, string>>(
+    {},
+  );
   const [leafDetailCache, setLeafDetailCache] = useState<
     Record<number, TaxonomyLeafNodeDetailRecord>
   >({});
-  const [measuredCardSizesById, setMeasuredCardSizesById] = useState<
-    Record<number, { readonly height: number; readonly width: number }>
-  >({});
+  const leafNodeId = leafView.current_node.id;
 
   useEffect(() => {
+    if (!Number.isFinite(leafNodeId)) {
+      return;
+    }
+
     liveViewportRef.current = initialDeckViewport;
     setDeckViewportSnapshot(initialDeckViewport);
-    setHoverState(null);
+    setHoveredPointNodeId(null);
+    setSelectedNodeId(null);
+    setLeafTitleCache({});
     setLeafDetailCache({});
-    setMeasuredCardSizesById({});
-  }, [initialDeckViewport]);
+  }, [initialDeckViewport, leafNodeId]);
 
   const handleViewportFrameChange = useCallback(
     (viewport: typeof initialDeckViewport) => {
       liveViewportRef.current = viewport;
-      overlayRef.current?.syncViewport(viewport);
+      titleLabelsRef.current?.syncViewport(viewport);
+      disclosureRef.current?.syncViewport(viewport);
     },
     [],
   );
@@ -145,52 +179,16 @@ export function LeafRenderer({
     };
   }, []);
 
-  const leafSkeletonLayout = useMemo(
+  const leafLayout = useMemo(
     () =>
       buildLeafLayout({
         center,
         edges: leafView.edges,
-        hydratedNodeDetailsById: {},
         nodes: leafView.nodes,
         viewport,
-        visibleCardNodeIds: [],
       }),
     [center, leafView.edges, leafView.nodes, viewport],
   );
-  const lockedNodeCentersById = useMemo(
-    () =>
-      new Map(
-        leafSkeletonLayout.nodes
-          .map((node) => {
-            const graphNodeId = node.data.graphNodeId;
-
-            if (!Number.isFinite(graphNodeId)) {
-              return null;
-            }
-
-            return [
-              graphNodeId,
-              {
-                x: node.position.x + node.style.width / 2,
-                y: node.position.y + node.style.height / 2,
-              },
-            ] as const;
-          })
-          .filter(
-            (
-              entry,
-            ): entry is readonly [
-              number,
-              {
-                readonly x: number;
-                readonly y: number;
-              },
-            ] => entry !== null,
-          ),
-      ),
-    [leafSkeletonLayout.nodes],
-  );
-
   const viewportState = useMemo(
     () =>
       buildLeafViewportState({
@@ -201,31 +199,96 @@ export function LeafRenderer({
     [canvasViewport, deferredDeckViewportSnapshot],
   );
 
-  const visibleLeafNodeIds = useMemo(() => {
-    if (!viewportState.shouldHydrateCards) {
+  useEffect(() => {
+    if (viewportState.isPointTitleModeActive) {
+      return;
+    }
+
+    setHoveredPointNodeId(null);
+    setSelectedNodeId(null);
+  }, [viewportState.isPointTitleModeActive]);
+
+  const visibleTitleNodeIds = useMemo(() => {
+    if (!viewportState.isPointTitleModeActive) {
       return [];
     }
 
     return selectLeafHydrationNodeIds(
-      leafSkeletonLayout.nodes,
+      leafLayout.nodes,
       viewportState.overscanBounds,
     );
-  }, [leafSkeletonLayout.nodes, viewportState]);
+  }, [leafLayout.nodes, viewportState]);
 
-  const missingLeafNodeIds = useMemo(
+  const missingTitleNodeIds = useMemo(
     () =>
-      visibleLeafNodeIds.filter(
+      visibleTitleNodeIds.filter(
+        (nodeId) => leafTitleCache[nodeId] === undefined,
+      ),
+    [leafTitleCache, visibleTitleNodeIds],
+  );
+
+  const leafTitlesQuery = useTaxonomyLeafNodeTitlesQuery(
+    leafNodeId,
+    missingTitleNodeIds,
+    {
+      enabled:
+        viewportState.isPointTitleModeActive && missingTitleNodeIds.length > 0,
+    },
+  );
+
+  useEffect(() => {
+    if (!leafTitlesQuery.data) {
+      return;
+    }
+
+    startTransition(() => {
+      setLeafTitleCache((currentCache) => {
+        let hasChanges = false;
+        const nextCache = { ...currentCache };
+
+        for (const node of leafTitlesQuery.data.nodes) {
+          if (nextCache[node.id] === node.title) {
+            continue;
+          }
+
+          nextCache[node.id] = node.title;
+          hasChanges = true;
+        }
+
+        return hasChanges ? nextCache : currentCache;
+      });
+    });
+  }, [leafTitlesQuery.data]);
+
+  const detailTargetNodeIds = useMemo(() => {
+    if (!viewportState.isPointTitleModeActive) {
+      return [];
+    }
+
+    if (selectedNodeId !== null) {
+      return [selectedNodeId];
+    }
+
+    return hoveredPointNodeId === null ? [] : [hoveredPointNodeId];
+  }, [
+    hoveredPointNodeId,
+    selectedNodeId,
+    viewportState.isPointTitleModeActive,
+  ]);
+  const missingDetailNodeIds = useMemo(
+    () =>
+      detailTargetNodeIds.filter(
         (nodeId) => leafDetailCache[nodeId] === undefined,
       ),
-    [leafDetailCache, visibleLeafNodeIds],
+    [detailTargetNodeIds, leafDetailCache],
   );
 
   const leafDetailsQuery = useTaxonomyLeafNodeDetailsQuery(
-    leafView.current_node.id,
-    missingLeafNodeIds,
+    leafNodeId,
+    missingDetailNodeIds,
     {
       enabled:
-        viewportState.shouldHydrateCards && missingLeafNodeIds.length > 0,
+        viewportState.isPointTitleModeActive && missingDetailNodeIds.length > 0,
     },
   );
 
@@ -250,120 +313,124 @@ export function LeafRenderer({
 
         return hasChanges ? nextCache : currentCache;
       });
+      setLeafTitleCache((currentCache) => {
+        let hasChanges = false;
+        const nextCache = { ...currentCache };
+
+        for (const node of leafDetailsQuery.data.nodes) {
+          if (nextCache[node.id] === node.title) {
+            continue;
+          }
+
+          nextCache[node.id] = node.title;
+          hasChanges = true;
+        }
+
+        return hasChanges ? nextCache : currentCache;
+      });
     });
   }, [leafDetailsQuery.data]);
-
-  const hydratedNodeDetailsById = useMemo<
-    Partial<Record<number, LeafHydratedNodeLayoutInput>>
-  >(() => {
-    const scopeByNodeId = new Map(
-      leafView.nodes.map((node) => [node.id, node.scope] as const),
-    );
-    const hydratedDetails: Partial<
-      Record<number, LeafHydratedNodeLayoutInput>
-    > = {};
-
-    for (const [nodeIdKey, detail] of Object.entries(leafDetailCache)) {
-      const nodeId = Number(nodeIdKey);
-      const scope = scopeByNodeId.get(nodeId);
-
-      if (!scope) {
-        continue;
-      }
-
-      hydratedDetails[nodeId] = {
-        ...detail,
-        scope,
-      };
-    }
-
-    return hydratedDetails;
-  }, [leafDetailCache, leafView.nodes]);
-
-  const leafLayout = useMemo(
-    () =>
-      buildLeafLayout({
-        center,
-        edges: leafView.edges,
-        hydratedNodeDetailsById,
-        lockedNodeCentersById,
-        measuredCardSizesById,
-        nodes: leafView.nodes,
-        viewport,
-        visibleCardNodeIds: viewportState.shouldHydrateCards
-          ? visibleLeafNodeIds
-          : [],
-      }),
-    [
-      center,
-      hydratedNodeDetailsById,
-      leafView.edges,
-      leafView.nodes,
-      lockedNodeCentersById,
-      measuredCardSizesById,
-      viewport,
-      viewportState.shouldHydrateCards,
-      visibleLeafNodeIds,
-    ],
-  );
 
   const leafSceneBase = useMemo(
     () =>
       buildLeafSceneModelBase({
         edges: leafView.edges,
-        layoutNodes: leafSkeletonLayout.nodes,
+        layoutNodes: leafLayout.nodes,
       }),
-    [leafSkeletonLayout.nodes, leafView.edges],
+    [leafLayout.nodes, leafView.edges],
   );
-  const scene = useMemo(() => {
-    const cardNodes = buildLeafCardNodes(leafLayout.nodes);
-
-    return {
-      ...leafSceneBase,
-      cardNodes,
-      pointNodes: filterLeafPointNodes({
-        cardNodes,
+  const titleLabelNodes = useMemo(
+    () =>
+      buildLeafTitleLabelNodes({
         pointNodes: leafSceneBase.pointNodes,
+        titlesByNodeId: leafTitleCache,
+        visibleNodeIds: visibleTitleNodeIds,
       }),
-    };
-  }, [leafLayout.nodes, leafSceneBase]);
-  const handleCardMeasurementsChange = useCallback(
-    (
-      measurements: ReadonlyArray<{
-        readonly graphNodeId: number;
-        readonly height: number;
-        readonly width: number;
-      }>,
-    ) => {
-      startTransition(() => {
-        setMeasuredCardSizesById((currentSizes) => {
-          let hasChanges = false;
-          const nextSizes = { ...currentSizes };
-
-          for (const measurement of measurements) {
-            const currentMeasurement = currentSizes[measurement.graphNodeId];
-
-            if (
-              currentMeasurement &&
-              currentMeasurement.width === measurement.width &&
-              currentMeasurement.height === measurement.height
-            ) {
-              continue;
-            }
-
-            nextSizes[measurement.graphNodeId] = {
-              height: measurement.height,
-              width: measurement.width,
-            };
-            hasChanges = true;
-          }
-
-          return hasChanges ? nextSizes : currentSizes;
-        });
-      });
-    },
-    [],
+    [leafSceneBase.pointNodes, leafTitleCache, visibleTitleNodeIds],
   );
+  const scene = useMemo(
+    () => ({
+      ...leafSceneBase,
+      titleLabelNodes,
+    }),
+    [leafSceneBase, titleLabelNodes],
+  );
+  const pointNodesById = useMemo(
+    () =>
+      new Map(
+        scene.pointNodes.map(
+          (pointNode) => [pointNode.graphNodeId, pointNode] as const,
+        ),
+      ),
+    [scene.pointNodes],
+  );
+  const activeFocusNodeId = viewportState.isPointTitleModeActive
+    ? (selectedNodeId ?? hoveredPointNodeId)
+    : null;
+  const disclosure = useMemo<LeafDisclosureState | null>(() => {
+    if (!viewportState.isPointTitleModeActive) {
+      return null;
+    }
+
+    if (selectedNodeId !== null) {
+      const node = buildDisclosureNode({
+        detail: leafDetailCache[selectedNodeId],
+        pointNode: pointNodesById.get(selectedNodeId),
+      });
+
+      return node ? { mode: "selected", node } : null;
+    }
+
+    if (hoveredPointNodeId !== null) {
+      const node = buildDisclosureNode({
+        detail: leafDetailCache[hoveredPointNodeId],
+        pointNode: pointNodesById.get(hoveredPointNodeId),
+      });
+
+      return node ? { mode: "hover", node } : null;
+    }
+
+    return null;
+  }, [
+    hoveredPointNodeId,
+    leafDetailCache,
+    pointNodesById,
+    selectedNodeId,
+    viewportState.isPointTitleModeActive,
+  ]);
+  const hiddenLabelNodeId = disclosure?.node.graphNodeId ?? null;
+  const hydrationError = leafTitlesQuery.isError
+    ? leafTitlesQuery.error
+    : leafDetailsQuery.isError
+      ? leafDetailsQuery.error
+      : null;
+
+  const handlePointHover = useCallback(
+    (nodeId: number | null) => {
+      if (!viewportState.isPointTitleModeActive) {
+        setHoveredPointNodeId(null);
+        return;
+      }
+
+      setHoveredPointNodeId(nodeId);
+    },
+    [viewportState.isPointTitleModeActive],
+  );
+  const handlePointClick = useCallback(
+    (nodeId: number) => {
+      if (!viewportState.isPointTitleModeActive) {
+        return;
+      }
+
+      setSelectedNodeId((currentNodeId) =>
+        currentNodeId === nodeId ? null : nodeId,
+      );
+    },
+    [viewportState.isPointTitleModeActive],
+  );
+  const handleCanvasClick = useCallback(() => {
+    setSelectedNodeId(null);
+  }, []);
 
   return (
     <div
@@ -371,9 +438,9 @@ export function LeafRenderer({
       data-testid="taxonomy-leaf-renderer-shell"
       ref={shellRef}
     >
-      {leafDetailsQuery.isError ? (
+      {hydrationError ? (
         <section
-          className="absolute right-6 bottom-6 z-20 w-[min(360px,calc(100%-48px))] rounded-[18px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-4 text-left shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+          className="absolute right-6 bottom-6 z-20 w-[min(360px,calc(100%-48px))] rounded-[10px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-4 text-left shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
           data-testid="taxonomy-leaf-hydration-error"
           role="alert"
         >
@@ -381,30 +448,38 @@ export function LeafRenderer({
             Leaf details unavailable
           </h2>
           <p className="mt-2 mb-0 text-sm text-[#475569]">
-            {leafDetailsQuery.error.message}
+            {hydrationError.message}
           </p>
         </section>
       ) : null}
       <Suspense fallback={null}>
         <LeafDeckScene
-          hoveredNodeId={hoverState?.card.graphNodeId ?? null}
+          activeFocusNodeId={activeFocusNodeId}
+          hoveredPointNodeId={hoveredPointNodeId}
           initialViewport={initialDeckViewport}
+          isPointInteractionEnabled={viewportState.isPointTitleModeActive}
+          onCanvasClick={handleCanvasClick}
+          onPointClick={handlePointClick}
+          onPointHover={handlePointHover}
           onViewportFrameChange={handleViewportFrameChange}
           onViewportChange={setDeckViewportSnapshot}
           scene={scene}
         />
       </Suspense>
-      <LeafRichTextCardsOverlay
+      <LeafTitleLabelsOverlay
         canvas={canvasViewport}
-        cardNodes={scene.cardNodes}
-        hoveredNodeId={hoverState?.card.graphNodeId ?? null}
-        neighborNodeIdsByNodeId={scene.neighborNodeIdsByNodeId}
-        onCardMeasurementsChange={handleCardMeasurementsChange}
-        onHoverChange={setHoverState}
-        ref={overlayRef}
+        hiddenLabelNodeId={hiddenLabelNodeId}
+        ref={titleLabelsRef}
+        titleLabelNodes={scene.titleLabelNodes}
         viewport={liveViewportRef.current}
       />
-      <LeafHoverOverlay hoverState={hoverState} />
+      <LeafDisclosureOverlay
+        canvas={canvasViewport}
+        disclosure={disclosure}
+        onSuggestEdit={onSuggestEdit}
+        ref={disclosureRef}
+        viewport={liveViewportRef.current}
+      />
     </div>
   );
 }

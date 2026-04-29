@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from core.errors import ApplicationError, DomainError, ErrorCode
-from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionEdge
+from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionCardTitle, ProjectionEdge
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
     TaxonomyLeafAssignment,
@@ -21,6 +21,8 @@ from modules.taxonomy.schema import (
     TaxonomyLeafGraphNodeResponse,
     TaxonomyLeafNodeDetailResponse,
     TaxonomyLeafNodeDetailsResponse,
+    TaxonomyLeafNodeTitleResponse,
+    TaxonomyLeafNodeTitlesResponse,
     TaxonomyNodeBranchViewResponse,
     TaxonomyNodeLeafViewResponse,
     TaxonomyNodeViewResponse,
@@ -76,6 +78,12 @@ class TaxonomyKnowledgeProjectionPort(Protocol):
         *,
         node_ids: list[int],
     ) -> list[ProjectionCardNode]: ...
+
+    async def list_projection_card_titles_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionCardTitle]: ...
 
     async def list_projection_edges_touching_node_ids(
         self,
@@ -272,12 +280,12 @@ class TaxonomyService:
             edges=edge_items,
         )
 
-    async def get_leaf_node_details(
+    async def _validate_leaf_detail_node_ids(
         self,
         *,
         node_id: int,
         node_ids: list[int],
-    ) -> TaxonomyLeafNodeDetailsResponse:
+    ) -> _LeafGraphProjection:
         tree_nodes = await self._repo.list_tree_nodes()
         node_by_id, _ = _index_tree(tree_nodes)
         if not node_by_id:
@@ -332,10 +340,23 @@ class TaxonomyService:
         if self._knowledge_projection_port is None:
             raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
 
-        requested_projection_nodes = (
-            await self._knowledge_projection_port.list_projection_cards_for_node_ids(
-                node_ids=node_ids
+        return leaf_graph
+
+    async def get_leaf_node_details(
+        self,
+        *,
+        node_id: int,
+        node_ids: list[int],
+    ) -> TaxonomyLeafNodeDetailsResponse:
+        await self._validate_leaf_detail_node_ids(node_id=node_id, node_ids=node_ids)
+        projection_port = self._knowledge_projection_port
+        if projection_port is None:
+            raise RuntimeError(
+                "Taxonomy leaf detail view requires knowledge projection dependency."
             )
+
+        requested_projection_nodes = await projection_port.list_projection_cards_for_node_ids(
+            node_ids=node_ids
         )
         nodes_by_id = {node.node_id: node for node in requested_projection_nodes}
         if len(nodes_by_id) != len(node_ids):
@@ -345,8 +366,37 @@ class TaxonomyService:
             nodes=[
                 TaxonomyLeafNodeDetailResponse(
                     id=requested_node_id,
+                    current_version=nodes_by_id[requested_node_id].current_version,
                     title=nodes_by_id[requested_node_id].title,
                     content=nodes_by_id[requested_node_id].content,
+                )
+                for requested_node_id in node_ids
+            ]
+        )
+
+    async def get_leaf_node_titles(
+        self,
+        *,
+        node_id: int,
+        node_ids: list[int],
+    ) -> TaxonomyLeafNodeTitlesResponse:
+        await self._validate_leaf_detail_node_ids(node_id=node_id, node_ids=node_ids)
+        projection_port = self._knowledge_projection_port
+        if projection_port is None:
+            raise RuntimeError("Taxonomy leaf title view requires knowledge projection dependency.")
+
+        requested_projection_nodes = await projection_port.list_projection_card_titles_for_node_ids(
+            node_ids=node_ids
+        )
+        nodes_by_id = {node.node_id: node for node in requested_projection_nodes}
+        if len(nodes_by_id) != len(node_ids):
+            raise RuntimeError("Leaf title request returned incomplete node titles.")
+
+        return TaxonomyLeafNodeTitlesResponse(
+            nodes=[
+                TaxonomyLeafNodeTitleResponse(
+                    id=requested_node_id,
+                    title=nodes_by_id[requested_node_id].title,
                 )
                 for requested_node_id in node_ids
             ]

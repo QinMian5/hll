@@ -12,10 +12,8 @@ import {
 } from "./buildBranchLayout";
 import {
   buildLeafLayout,
-  LEAF_CARD_MAX_WIDTH,
-  LEAF_CARD_MIN_HEIGHT,
-  LEAF_CARD_MIN_WIDTH,
   LEAF_COLLISION_RADIUS,
+  LEAF_POINT_DIAMETER,
   scalePointAroundCenter,
 } from "./buildLeafLayout";
 
@@ -263,142 +261,41 @@ describe("leaf layout contracts", () => {
     expect(result.nodes[0]?.data.content).toBeUndefined();
   });
 
-  it("upgrades only visible hydrated node ids into card mode", () => {
+  it("keeps all leaf nodes as uniform point geometry", () => {
     const result = buildLeafLayout({
       center: { x: 700, y: 450 },
       edges: [[10, 11, 0.8]],
-      hydratedNodeDetailsById: {
-        10: {
-          content: "Inner content",
-          id: 10,
-          scope: "inner",
-          title: "Inner node",
-        },
-      },
       nodes: [
         { id: 10, scope: "inner" },
         { id: 11, scope: "outer" },
       ],
       viewport: { height: 900, width: 1404 },
-      visibleCardNodeIds: [10],
     });
 
-    const innerNode = result.nodes.find((node) => node.data.graphNodeId === 10);
-    const outerNode = result.nodes.find((node) => node.data.graphNodeId === 11);
-
-    expect(innerNode?.data.renderMode).toBe("card");
-    expect(innerNode?.data.label).toBe("Inner node");
-    expect(innerNode?.data.content).toBe("Inner content");
-    expect(outerNode?.data.renderMode).toBe("point");
-    expect(outerNode?.data.label).toBe("");
-  });
-
-  it("anchors hydrated leaf cards on the original point center and uses rectangular card metrics", () => {
-    const result = buildLeafLayout({
-      center: { x: 700, y: 450 },
-      edges: [],
-      hydratedNodeDetailsById: {
-        10: {
-          content: "Inner content",
-          id: 10,
-          scope: "inner",
-          title: "Hydrated node",
-        },
+    expect(
+      result.nodes.map((node) => ({
+        height: node.style.height,
+        mode: node.data.renderMode,
+        scope: node.data.scope,
+        width: node.style.width,
+      })),
+    ).toEqual([
+      {
+        height: LEAF_POINT_DIAMETER,
+        mode: "point",
+        scope: "inner",
+        width: LEAF_POINT_DIAMETER,
       },
-      nodes: [{ id: 10, scope: "inner" }],
-      viewport: { height: 900, width: 1404 },
-      visibleCardNodeIds: [10],
-    });
-
-    const node = result.nodes[0];
-
-    expect(node?.data.renderMode).toBe("card");
-    expect(node?.style.width).toBeGreaterThanOrEqual(LEAF_CARD_MIN_WIDTH);
-    expect(node?.style.height).toBeGreaterThanOrEqual(LEAF_CARD_MIN_HEIGHT);
-    expect(node?.style.width).toBeGreaterThan(node?.style.height ?? 0);
-    expect(node?.style.borderRadius).not.toBe(`${node?.style.width}px`);
-    expect((node?.position.x ?? 0) + (node?.style.width ?? 0) / 2).toBeCloseTo(
-      700,
-      0,
-    );
-    expect((node?.position.y ?? 0) + (node?.style.height ?? 0) / 2).toBeCloseTo(
-      450,
-      0,
-    );
-  });
-
-  it("caps hydrated leaf card width and grows height when long titles wrap", () => {
-    const result = buildLeafLayout({
-      center: { x: 700, y: 450 },
-      edges: [],
-      hydratedNodeDetailsById: {
-        10: {
-          content: "Inner content",
-          id: 10,
-          scope: "inner",
-          title:
-            "A very long leaf title that should wrap across multiple centered lines",
-        },
+      {
+        height: LEAF_POINT_DIAMETER,
+        mode: "point",
+        scope: "outer",
+        width: LEAF_POINT_DIAMETER,
       },
-      nodes: [{ id: 10, scope: "inner" }],
-      viewport: { height: 900, width: 1404 },
-      visibleCardNodeIds: [10],
-    });
-
-    const node = result.nodes[0];
-
-    expect(node?.style.width).toBe(LEAF_CARD_MAX_WIDTH);
-    expect(node?.style.height).toBeGreaterThan(LEAF_CARD_MIN_HEIGHT);
+    ]);
   });
 
-  it("uses discrete card-width tiers and lets taller titles grow vertically", () => {
-    const result = buildLeafLayout({
-      center: { x: 700, y: 450 },
-      edges: [],
-      hydratedNodeDetailsById: {
-        10: {
-          content: "Inner content",
-          id: 10,
-          scope: "inner",
-          title: "Short title",
-        },
-        11: {
-          content: "Inner content",
-          id: 11,
-          scope: "inner",
-          title: "Equation from \\(E=mc^2\\)",
-        },
-        12: {
-          content: "Inner content",
-          id: 12,
-          scope: "inner",
-          title: "Klein–Gordon equation from the energy–momentum relation",
-        },
-      },
-      nodes: [
-        { id: 10, scope: "inner" },
-        { id: 11, scope: "inner" },
-        { id: 12, scope: "inner" },
-      ],
-      viewport: { height: 900, width: 1404 },
-      visibleCardNodeIds: [10, 11, 12],
-    });
-
-    const shortCard = result.nodes.find((node) => node.data.graphNodeId === 10);
-    const mediumCard = result.nodes.find(
-      (node) => node.data.graphNodeId === 11,
-    );
-    const longCard = result.nodes.find((node) => node.data.graphNodeId === 12);
-
-    expect(shortCard?.style.width).toBe(192);
-    expect(mediumCard?.style.width).toBe(224);
-    expect(longCard?.style.width).toBe(272);
-    expect(longCard?.style.height ?? 0).toBeGreaterThan(
-      shortCard?.style.height ?? 0,
-    );
-  });
-
-  it("preserves locked node centers while measured card boxes update", () => {
+  it("preserves locked node centers without changing point dimensions", () => {
     const skeleton = buildLeafLayout({
       center: { x: 700, y: 450 },
       edges: [],
@@ -415,35 +312,20 @@ describe("leaf layout contracts", () => {
     const result = buildLeafLayout({
       center: { x: 700, y: 450 },
       edges: [],
-      hydratedNodeDetailsById: {
-        10: {
-          content: "Inner content",
-          id: 10,
-          scope: "inner",
-          title: "Klein–Gordon equation from the energy–momentum relation",
-        },
-      },
       lockedNodeCentersById: new Map([[10, lockedCenter]]),
-      measuredCardSizesById: {
-        10: {
-          height: 118,
-          width: 248,
-        },
-      },
       nodes: [{ id: 10, scope: "inner" }],
       viewport: { height: 900, width: 1404 },
-      visibleCardNodeIds: [10],
     });
 
-    const cardNode = result.nodes[0];
+    const pointNode = result.nodes[0];
 
-    expect(cardNode?.style.width).toBe(248);
-    expect(cardNode?.style.height).toBe(118);
+    expect(pointNode?.style.width).toBe(LEAF_POINT_DIAMETER);
+    expect(pointNode?.style.height).toBe(LEAF_POINT_DIAMETER);
     expect(
-      (cardNode?.position.x ?? 0) + (cardNode?.style.width ?? 0) / 2,
+      (pointNode?.position.x ?? 0) + (pointNode?.style.width ?? 0) / 2,
     ).toBeCloseTo(lockedCenter.x, 4);
     expect(
-      (cardNode?.position.y ?? 0) + (cardNode?.style.height ?? 0) / 2,
+      (pointNode?.position.y ?? 0) + (pointNode?.style.height ?? 0) / 2,
     ).toBeCloseTo(lockedCenter.y, 4);
   });
 
@@ -493,8 +375,8 @@ describe("leaf layout contracts", () => {
       viewport: { height: 900, width: 1404 },
     });
 
-    const hub = result.nodes.find((node) => node.id === "card-50");
-    const otherNodes = result.nodes.filter((node) => node.id !== "card-50");
+    const hub = result.nodes.find((node) => node.id === "leaf-50");
+    const otherNodes = result.nodes.filter((node) => node.id !== "leaf-50");
     const hubNode = expectNodePosition(hub);
     const averageOtherDistance =
       otherNodes.reduce(

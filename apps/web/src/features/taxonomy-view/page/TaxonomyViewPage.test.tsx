@@ -59,10 +59,32 @@ vi.mock("@xyflow/react", () => ({
 vi.mock("./leaf/LeafRenderer", () => ({
   LeafRenderer: ({
     leafView,
+    onSuggestEdit,
   }: {
     readonly leafView: { readonly current_node: { readonly name: string } };
+    readonly onSuggestEdit?: (card: {
+      readonly content: string;
+      readonly currentVersion: number;
+      readonly nodeId: number;
+      readonly title: string;
+    }) => void;
   }) => (
-    <div data-testid="taxonomy-leaf-renderer">{leafView.current_node.name}</div>
+    <div data-testid="taxonomy-leaf-renderer">
+      {leafView.current_node.name}
+      <button
+        onClick={() => {
+          onSuggestEdit?.({
+            content: "Leaf content",
+            currentVersion: 4,
+            nodeId: 10,
+            title: "Leaf card",
+          });
+        }}
+        type="button"
+      >
+        Open leaf edit
+      </button>
+    </div>
   ),
 }));
 
@@ -71,6 +93,16 @@ vi.mock("../data/taxonomyViewQueries", () => ({
   useTaxonomyRootViewQuery: vi.fn(),
 }));
 
+vi.mock("../../search/data/searchQueries", () => ({
+  useCreateSuggestedEditMutation: vi.fn(),
+}));
+
+vi.mock("../../../shared/web-api/useWebSession", () => ({
+  useWebSession: vi.fn(),
+}));
+
+import * as webSession from "../../../shared/web-api/useWebSession";
+import * as searchQueries from "../../search/data/searchQueries";
 import type {
   TaxonomyNodeView,
   TaxonomyRootView,
@@ -88,7 +120,7 @@ interface MockReactFlowProps {
     readonly data: {
       readonly depth?: number;
       readonly label: string;
-      readonly renderMode?: "bubble" | "card" | "point";
+      readonly renderMode?: "bubble" | "point";
       readonly scope?: "branch" | "inner" | "outer";
       readonly targetNodeId?: number | null;
       readonly tooltip?: string;
@@ -137,9 +169,14 @@ const mockUseTaxonomyRootViewQuery = vi.mocked(
 const mockUseTaxonomyNodeViewQuery = vi.mocked(
   taxonomyViewQueries.useTaxonomyNodeViewQuery,
 );
+const mockUseCreateSuggestedEditMutation = vi.mocked(
+  searchQueries.useCreateSuggestedEditMutation,
+);
+const mockUseWebSession = vi.mocked(webSession.useWebSession);
 
 let rootQueryState: MockQueryResult<TaxonomyRootView>;
 let nodeQueryStates: Map<number, MockQueryResult<TaxonomyNodeView>>;
+let mutateSuggestedEdit: ReturnType<typeof vi.fn>;
 
 function makeQueryResult<T>(
   overrides: Partial<MockQueryResult<T>>,
@@ -202,6 +239,7 @@ function makeBranchNodeView(
 }
 
 beforeEach(() => {
+  mutateSuggestedEdit = vi.fn(async () => undefined);
   rootQueryState = makeQueryResult({
     data: makeRootView({
       children: [
@@ -248,6 +286,20 @@ beforeEach(() => {
       typeof taxonomyViewQueries.useTaxonomyNodeViewQuery
     >;
   });
+  mockUseCreateSuggestedEditMutation.mockReturnValue({
+    isPending: false,
+    mutateAsync: mutateSuggestedEdit,
+  } as unknown as ReturnType<
+    typeof searchQueries.useCreateSuggestedEditMutation
+  >);
+  mockUseWebSession.mockReturnValue({
+    status: "authenticated",
+    user: {
+      email: "editor@example.com",
+      id: "user-1",
+      name: "Editor",
+    },
+  } as unknown as ReturnType<typeof webSession.useWebSession>);
 });
 
 afterEach(() => {
@@ -333,6 +385,44 @@ describe("TaxonomyViewPage", () => {
       "aria-current",
       "page",
     );
+  });
+
+  it("opens the shared suggest edit dialog from the leaf disclosure edit action", async () => {
+    render(<TaxonomyViewPage />);
+
+    const branchNode = within(screen.getByTestId("reactflow-mock"))
+      .getByText("Math")
+      .closest("[data-node-scope='branch']");
+
+    expect(branchNode).not.toBeNull();
+
+    fireEvent.click(branchNode as HTMLElement);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open leaf edit" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "Suggest edit" });
+
+    expect(within(dialog).getByLabelText("Suggested title")).toHaveValue(
+      "Leaf card",
+    );
+    expect(within(dialog).getByLabelText("Suggested content")).toHaveValue(
+      "Leaf content",
+    );
+
+    fireEvent.change(within(dialog).getByLabelText("Suggested content"), {
+      target: { value: "Updated leaf content" },
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Submit suggestion" }),
+    );
+
+    expect(mutateSuggestedEdit).toHaveBeenCalledWith({
+      baseVersion: 4,
+      nodeId: 10,
+      suggestedContent: "Updated leaf content",
+      suggestedTitle: "Leaf card",
+    });
   });
 
   it("does not duplicate the root crumb when backend breadcrumb already starts at Root", async () => {

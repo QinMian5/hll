@@ -87,8 +87,16 @@ class ProjectionCardNode(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
 
     node_id: int = Field(gt=0)
+    current_version: int = Field(gt=0)
     title: NonEmptyString
     content: NonEmptyString
+
+
+class ProjectionCardTitle(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    node_id: int = Field(gt=0)
+    title: NonEmptyString
 
 
 class ProjectionEdge(BaseModel):

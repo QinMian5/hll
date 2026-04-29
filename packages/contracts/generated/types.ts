@@ -72,6 +72,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/taxonomy/view/leaves/{node_id}/titles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Get Leaf Node Titles */
+    post: operations["get_leaf_node_titles_api_v1_taxonomy_view_leaves__node_id__titles_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/taxonomy/view/nodes/{node_id}": {
     parameters: {
       query?: never;
@@ -229,6 +246,8 @@ export interface components {
     TaxonomyLeafNodeDetailResponse: {
       /** Content */
       content: string;
+      /** Current Version */
+      current_version: number;
       /** Id */
       id: number;
       /** Title */
@@ -243,6 +262,23 @@ export interface components {
     TaxonomyLeafNodeDetailsResponse: {
       /** Nodes */
       nodes: components["schemas"]["TaxonomyLeafNodeDetailResponse"][];
+    };
+    /** TaxonomyLeafNodeTitleResponse */
+    TaxonomyLeafNodeTitleResponse: {
+      /** Id */
+      id: number;
+      /** Title */
+      title: string;
+    };
+    /** TaxonomyLeafNodeTitlesRequest */
+    TaxonomyLeafNodeTitlesRequest: {
+      /** Node Ids */
+      node_ids?: number[];
+    };
+    /** TaxonomyLeafNodeTitlesResponse */
+    TaxonomyLeafNodeTitlesResponse: {
+      /** Nodes */
+      nodes: components["schemas"]["TaxonomyLeafNodeTitleResponse"][];
     };
     /** TaxonomyNodeBranchViewResponse */
     TaxonomyNodeBranchViewResponse: {
@@ -475,6 +511,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_leaf_node_titles_api_v1_taxonomy_view_leaves__node_id__titles_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        node_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TaxonomyLeafNodeTitlesRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaxonomyLeafNodeTitlesResponse"];
         };
       };
       /** @description Validation Error */

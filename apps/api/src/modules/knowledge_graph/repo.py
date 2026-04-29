@@ -20,6 +20,7 @@ from modules.knowledge_graph.dto import (
     KnowledgeCardMatch,
     LexicalSearchCandidate,
     ProjectionCardNode,
+    ProjectionCardTitle,
     ProjectionEdge,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
@@ -214,7 +215,7 @@ class KnowledgeRepo:
 
         rows = (
             await self._session.execute(
-                select(Node.id, Node.title, Node.content)
+                select(Node.id, Node.current_version, Node.title, Node.content)
                 .where(Node.id.in_(node_ids))
                 .order_by(Node.id.asc())
             )
@@ -222,8 +223,30 @@ class KnowledgeRepo:
         return [
             ProjectionCardNode(
                 node_id=row.id,
+                current_version=row.current_version,
                 title=row.title,
                 content=row.content,
+            )
+            for row in rows
+        ]
+
+    async def fetch_projection_card_titles_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[ProjectionCardTitle]:
+        if not node_ids:
+            return []
+
+        rows = (
+            await self._session.execute(
+                select(Node.id, Node.title).where(Node.id.in_(node_ids)).order_by(Node.id.asc())
+            )
+        ).all()
+        return [
+            ProjectionCardTitle(
+                node_id=row.id,
+                title=row.title,
             )
             for row in rows
         ]

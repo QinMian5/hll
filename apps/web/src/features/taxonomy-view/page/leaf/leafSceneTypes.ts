@@ -28,8 +28,8 @@ export interface BuildLeafViewportStateInput {
 
 export interface LeafViewportState {
   readonly bounds: LeafWorldBounds;
+  readonly isPointTitleModeActive: boolean;
   readonly overscanBounds: LeafWorldBounds;
-  readonly shouldHydrateCards: boolean;
   readonly viewport: LeafOrthographicViewport;
 }
 
@@ -48,17 +48,28 @@ export interface LeafScenePointNode {
   readonly scope: "inner" | "outer";
 }
 
-export interface LeafSceneCardNode {
+export interface LeafSceneTitleLabelNode {
   readonly content?: string;
   readonly graphNodeId: number;
   readonly id: string;
-  readonly label: string;
   readonly position: LayoutPoint;
   readonly scope: "inner" | "outer";
-  readonly size: {
-    readonly height: number;
-    readonly width: number;
-  };
+  readonly title: string;
+}
+
+export interface LeafDisclosureNode {
+  readonly content: string;
+  readonly currentVersion: number;
+  readonly graphNodeId: number;
+  readonly id: string;
+  readonly position: LayoutPoint;
+  readonly scope: "inner" | "outer";
+  readonly title: string;
+}
+
+export interface LeafDisclosureState {
+  readonly mode: "hover" | "selected";
+  readonly node: LeafDisclosureNode;
 }
 
 export interface BuildLeafSceneModelInput {
@@ -69,7 +80,6 @@ export interface BuildLeafSceneModelInput {
 export interface LeafSceneModel {
   readonly edgeIdsByNodeId: ReadonlyMap<number, ReadonlySet<string>>;
   readonly bounds: LeafWorldBounds;
-  readonly cardNodes: readonly LeafSceneCardNode[];
   readonly edges: readonly LeafSceneEdge[];
   readonly focusNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
   readonly highlightEdgesByNodeId: ReadonlyMap<
@@ -78,6 +88,7 @@ export interface LeafSceneModel {
   >;
   readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
   readonly pointNodes: readonly LeafScenePointNode[];
+  readonly titleLabelNodes: readonly LeafSceneTitleLabelNode[];
 }
 
 export interface LeafSceneModelBase {
@@ -91,11 +102,4 @@ export interface LeafSceneModelBase {
   >;
   readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
   readonly pointNodes: readonly LeafScenePointNode[];
-}
-
-export interface LeafHoverState {
-  readonly anchorX: number;
-  readonly anchorBottomY: number;
-  readonly anchorTopY: number;
-  readonly card: LeafSceneCardNode;
 }

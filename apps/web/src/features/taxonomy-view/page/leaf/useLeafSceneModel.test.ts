@@ -4,7 +4,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
-import { buildLeafSceneModelBase } from "./useLeafSceneModel";
+import {
+  buildLeafSceneModelBase,
+  buildLeafTitleLabelNodes,
+} from "./useLeafSceneModel";
 
 function makeLayoutNodes(): readonly TaxonomyLayoutNode[] {
   return [
@@ -18,7 +21,7 @@ function makeLayoutNodes(): readonly TaxonomyLayoutNode[] {
         targetNodeId: null,
         tooltip: "",
       },
-      id: "card-10",
+      id: "leaf-10",
       position: { x: 100, y: 100 },
       style: { borderRadius: "10px", height: 10, width: 10 },
       type: "bubble",
@@ -33,7 +36,7 @@ function makeLayoutNodes(): readonly TaxonomyLayoutNode[] {
         targetNodeId: null,
         tooltip: "",
       },
-      id: "card-11",
+      id: "leaf-11",
       position: { x: 200, y: 100 },
       style: { borderRadius: "10px", height: 10, width: 10 },
       type: "bubble",
@@ -48,7 +51,7 @@ function makeLayoutNodes(): readonly TaxonomyLayoutNode[] {
         targetNodeId: null,
         tooltip: "",
       },
-      id: "card-12",
+      id: "leaf-12",
       position: { x: 300, y: 100 },
       style: { borderRadius: "10px", height: 10, width: 10 },
       type: "bubble",
@@ -76,5 +79,29 @@ describe("buildLeafSceneModelBase", () => {
       ...((scene.focusNodeIdsByNodeId.get(11) as ReadonlySet<number>) ??
         new Set()),
     ]).toEqual([11, 10, 12]);
+  });
+});
+
+describe("buildLeafTitleLabelNodes", () => {
+  it("keeps title labels display-only and ordered by visible node ids", () => {
+    const scene = buildLeafSceneModelBase({
+      edges: [[10, 11, 0.8]],
+      layoutNodes: makeLayoutNodes(),
+    });
+
+    const labels = buildLeafTitleLabelNodes({
+      pointNodes: scene.pointNodes,
+      titlesByNodeId: {
+        10: "Inner title",
+        11: "Outer title",
+      },
+      visibleNodeIds: [11, 10, 12],
+    });
+
+    expect(labels.map((label) => [label.graphNodeId, label.title])).toEqual([
+      [11, "Outer title"],
+      [10, "Inner title"],
+    ]);
+    expect(labels[0]?.position).toEqual(scene.pointNodes[1]?.position);
   });
 });

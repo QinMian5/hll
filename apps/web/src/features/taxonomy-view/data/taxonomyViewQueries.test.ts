@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type TaxonomyNodeView,
   taxonomyLeafNodeDetailsQueryOptions,
+  taxonomyLeafNodeTitlesQueryOptions,
   taxonomyNodeViewQueryOptions,
   taxonomyRootViewQueryOptions,
 } from "./taxonomyViewQueries";
@@ -20,6 +21,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 async function runQuery<TResult>(
   queryOptions: ReturnType<
     | typeof taxonomyLeafNodeDetailsQueryOptions
+    | typeof taxonomyLeafNodeTitlesQueryOptions
     | typeof taxonomyNodeViewQueryOptions
     | typeof taxonomyRootViewQueryOptions
   >,
@@ -97,7 +99,14 @@ describe("taxonomyNodeViewQueryOptions", () => {
   it("calls the same-origin BFF leaf detail endpoint", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
-        nodes: [{ content: "Card content", node_id: 10, title: "Card" }],
+        nodes: [
+          {
+            content: "Card content",
+            current_version: 4,
+            id: 10,
+            title: "Card",
+          },
+        ],
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
@@ -115,7 +124,34 @@ describe("taxonomyNodeViewQueryOptions", () => {
       }),
     );
     expect(result).toEqual({
-      nodes: [{ content: "Card content", node_id: 10, title: "Card" }],
+      nodes: [
+        { content: "Card content", current_version: 4, id: 10, title: "Card" },
+      ],
+    });
+  });
+
+  it("calls the same-origin BFF leaf title endpoint", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        nodes: [{ id: 10, title: "Card" }],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runQuery(
+      taxonomyLeafNodeTitlesQueryOptions(59, [11, 10]),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/web-api/taxonomy/view/leaves/59/titles",
+      expect.objectContaining({
+        body: JSON.stringify({ node_ids: [10, 11] }),
+        credentials: "include",
+        method: "POST",
+      }),
+    );
+    expect(result).toEqual({
+      nodes: [{ id: 10, title: "Card" }],
     });
   });
 

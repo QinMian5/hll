@@ -90,7 +90,7 @@ describe("TaxonomyFlowNode", () => {
             depth: 2,
             graphNodeId: 10,
             label: "Equation",
-            renderMode: "card",
+            renderMode: "point",
             scope: "inner",
             targetNodeId: null,
             tooltip: "Equation",

@@ -2,7 +2,7 @@
 // out_of_scope: React state wiring and deck.gl scene rendering.
 
 import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
-import { LEAF_CARD_ACTIVATION_ZOOM } from "./leafRendererConfig";
+import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
 import type {
   BuildLeafViewportStateInput,
   LeafViewportState,
@@ -52,8 +52,9 @@ export function buildLeafViewportState(
 
   return {
     bounds,
+    isPointTitleModeActive:
+      input.viewport.zoom >= LEAF_POINT_TITLE_ACTIVATION_ZOOM,
     overscanBounds: expandLeafWorldBounds(bounds, input.overscan),
-    shouldHydrateCards: input.viewport.zoom >= LEAF_CARD_ACTIVATION_ZOOM,
     viewport: input.viewport,
   };
 }

@@ -35,7 +35,7 @@ out_of_scope: Backend authoring validation, non-card prose styling, and raw HTML
 - **Artifacts:**
   - `/Users/mianqin/Code/knowledge/apps/web/src/shared/ui/`
   - `/Users/mianqin/Code/knowledge/apps/web/src/features/search/components/index.tsx`
-  - `/Users/mianqin/Code/knowledge/apps/web/src/features/taxonomy-view/page/leaf/LeafHoverOverlay.tsx`
+  - `/Users/mianqin/Code/knowledge/apps/web/src/features/taxonomy-view/page/leaf/LeafDisclosureOverlay.tsx`
   - `/Users/mianqin/Code/knowledge/apps/web/src/features/taxonomy-view/page/leaf/`
   - `/Users/mianqin/Code/knowledge/apps/web/src/index.css`
   - Focused frontend tests under `apps/web/src/**`
@@ -69,7 +69,7 @@ out_of_scope: Backend authoring validation, non-card prose styling, and raw HTML
 - **Checks:**
   - Search result cards render knowledge-card `title` and `content` through the shared renderer rather than as raw strings.
   - Taxonomy leaf point-title labels render knowledge-card `title` through the shared renderer using the compact label presentation.
-  - Taxonomy leaf hover disclosure renders card `content` through the shared renderer rather than as a raw string.
+  - Taxonomy leaf hover disclosure renders card `title` and `content` through the shared renderer rather than as raw strings.
   - Taxonomy leaf selected disclosure renders card `title` and `content` through the shared renderer rather than as raw strings.
   - Shared renderer normalization converts inline `\(...\)` segments into syntax that `remark-math` can parse without changing upstream payload ownership.
   - Label, title, and content variants apply distinct typography/spacing rules while sharing one parsing pipeline.

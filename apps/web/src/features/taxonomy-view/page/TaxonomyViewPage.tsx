@@ -14,15 +14,19 @@ import {
   useRef,
   useState,
 } from "react";
-
+import { useWebSession } from "../../../shared/web-api/useWebSession";
+import type { SearchResultCardEditPayload } from "../../search/components/SearchResultCard";
+import { SignInRequiredDialog } from "../../search/components/SignInRequiredDialog";
+import { SuggestEditDialog } from "../../search/components/SuggestEditDialog";
+import { useCreateSuggestedEditMutation } from "../../search/data/searchQueries";
 import {
   useTaxonomyNodeViewQuery,
   useTaxonomyRootViewQuery,
 } from "../data/taxonomyViewQueries";
 
 export {
-  LEAF_CARD_ACTIVATION_ZOOM,
   LEAF_HYDRATION_OVERSCAN,
+  LEAF_POINT_TITLE_ACTIVATION_ZOOM,
 } from "./leaf/leafRendererConfig";
 
 import {
@@ -90,10 +94,16 @@ function sameViewport(left: LayoutViewport, right: LayoutViewport) {
 
 export function TaxonomyViewPage() {
   const [activeNodeId, setActiveNodeId] = useState<number | null>(null);
+  const session = useWebSession();
+  const createSuggestedEditMutation = useCreateSuggestedEditMutation();
   const canvasRef = useRef<HTMLElement | null>(null);
   const [canvasViewport, setCanvasViewport] = useState<LayoutViewport>(
     DEFAULT_CANVAS_VIEWPORT,
   );
+  const [editingCard, setEditingCard] =
+    useState<SearchResultCardEditPayload | null>(null);
+  const [suggestionError, setSuggestionError] = useState<string | undefined>();
+  const [isSignInDialogOpen, setIsSignInDialogOpen] = useState(false);
 
   const rootQuery = useTaxonomyRootViewQuery({
     enabled: activeNodeId === null,
@@ -139,6 +149,42 @@ export function TaxonomyViewPage() {
 
     return () => observer.disconnect();
   }, []);
+
+  function handleSuggestEdit(card: SearchResultCardEditPayload) {
+    if (session.status === "loading") {
+      return;
+    }
+
+    if (session.status !== "authenticated") {
+      setIsSignInDialogOpen(true);
+      return;
+    }
+
+    setEditingCard(card);
+    setSuggestionError(undefined);
+  }
+
+  async function handleSubmitSuggestion(payload: {
+    readonly suggestedContent: string;
+    readonly suggestedTitle: string;
+  }) {
+    if (editingCard === null) {
+      return;
+    }
+
+    try {
+      await createSuggestedEditMutation.mutateAsync({
+        baseVersion: editingCard.currentVersion,
+        nodeId: editingCard.nodeId,
+        suggestedContent: payload.suggestedContent,
+        suggestedTitle: payload.suggestedTitle,
+      });
+      setEditingCard(null);
+      setSuggestionError(undefined);
+    } catch {
+      setSuggestionError("Could not submit the suggestion. Try again.");
+    }
+  }
 
   const branchFlowGraph = useMemo(() => {
     if (activeQuery.isPending) {
@@ -269,6 +315,7 @@ export function TaxonomyViewPage() {
                 center={layoutCenter}
                 key={nodeQuery.data.current_node.id}
                 leafView={nodeQuery.data}
+                onSuggestEdit={handleSuggestEdit}
                 viewport={canvasViewport}
               />
             </Suspense>
@@ -299,6 +346,25 @@ export function TaxonomyViewPage() {
           )}
         </div>
       </section>
+      {editingCard ? (
+        <SuggestEditDialog
+          card={editingCard}
+          errorMessage={suggestionError}
+          isSubmitting={createSuggestedEditMutation.isPending}
+          onClose={() => {
+            setEditingCard(null);
+            setSuggestionError(undefined);
+          }}
+          onSubmit={handleSubmitSuggestion}
+        />
+      ) : null}
+      {isSignInDialogOpen ? (
+        <SignInRequiredDialog
+          onClose={() => {
+            setIsSignInDialogOpen(false);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

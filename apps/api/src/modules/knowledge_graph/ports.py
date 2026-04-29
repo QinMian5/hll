@@ -10,6 +10,7 @@ from typing import Protocol
 from modules.knowledge_graph.dto import (
     KnowledgeCardMatch,
     ProjectionCardNode,
+    ProjectionCardTitle,
     ProjectionEdge,
     TaxonomyClassificationNodeInput,
 )
@@ -39,6 +40,12 @@ class KnowledgeGraphProjectionPort(Protocol):
         *,
         node_ids: list[int],
     ) -> list[ProjectionCardNode]: ...
+
+    async def list_projection_card_titles_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionCardTitle]: ...
 
     async def list_projection_edges_for_node_ids(
         self,

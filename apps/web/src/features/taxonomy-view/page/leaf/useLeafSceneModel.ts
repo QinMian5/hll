@@ -4,11 +4,11 @@
 import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
 import type {
   BuildLeafSceneModelInput,
-  LeafSceneCardNode,
   LeafSceneEdge,
   LeafSceneModel,
   LeafSceneModelBase,
   LeafScenePointNode,
+  LeafSceneTitleLabelNode,
   LeafWorldBounds,
 } from "./leafSceneTypes";
 
@@ -46,7 +46,6 @@ function toPointNodes(
     .filter(
       (node) =>
         node.data.scope !== "branch" &&
-        node.data.renderMode === "point" &&
         typeof node.data.graphNodeId === "number",
     )
     .map((node) => ({
@@ -55,30 +54,6 @@ function toPointNodes(
       position: nodeCenter(node),
       radius: Math.max(node.style.width, node.style.height) / 2,
       scope: node.data.scope as "inner" | "outer",
-    }));
-}
-
-export function buildLeafCardNodes(
-  nodes: readonly TaxonomyLayoutNode[],
-): LeafSceneCardNode[] {
-  return nodes
-    .filter(
-      (node) =>
-        node.data.scope !== "branch" &&
-        node.data.renderMode === "card" &&
-        typeof node.data.graphNodeId === "number",
-    )
-    .map((node) => ({
-      content: node.data.content,
-      graphNodeId: node.data.graphNodeId as number,
-      id: node.id,
-      label: node.data.label,
-      position: nodeCenter(node),
-      scope: node.data.scope as "inner" | "outer",
-      size: {
-        height: node.style.height,
-        width: node.style.width,
-      },
     }));
 }
 
@@ -167,8 +142,8 @@ export function buildLeafSceneModelBase(
   const pointNodes = toPointNodes(input.layoutNodes);
   const edges: LeafSceneEdge[] = input.edges.map(
     ([sourceId, targetId, strength]) => {
-      const source = positionsByNodeId.get(`card-${sourceId}`);
-      const target = positionsByNodeId.get(`card-${targetId}`);
+      const source = positionsByNodeId.get(`leaf-${sourceId}`);
+      const target = positionsByNodeId.get(`leaf-${targetId}`);
 
       if (!source || !target) {
         throw new Error(
@@ -203,31 +178,46 @@ export function buildLeafSceneModelBase(
   };
 }
 
-export function filterLeafPointNodes(options: {
-  readonly cardNodes: readonly LeafSceneCardNode[];
+export function buildLeafTitleLabelNodes(options: {
   readonly pointNodes: readonly LeafScenePointNode[];
-}) {
-  const visibleCardNodeIds = new Set(
-    options.cardNodes.map((cardNode) => cardNode.graphNodeId),
+  readonly titlesByNodeId: Readonly<Record<number, string>>;
+  readonly visibleNodeIds: readonly number[];
+}): LeafSceneTitleLabelNode[] {
+  const pointNodesById = new Map(
+    options.pointNodes.map(
+      (pointNode) => [pointNode.graphNodeId, pointNode] as const,
+    ),
   );
 
-  return options.pointNodes.filter(
-    (pointNode) => !visibleCardNodeIds.has(pointNode.graphNodeId),
-  );
+  return options.visibleNodeIds.flatMap((nodeId) => {
+    const pointNode = pointNodesById.get(nodeId);
+    const title = options.titlesByNodeId[nodeId];
+
+    if (!pointNode || title === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        graphNodeId: pointNode.graphNodeId,
+        id: pointNode.id,
+        position: pointNode.position,
+        scope: pointNode.scope,
+        title,
+      },
+    ];
+  });
 }
 
 export function buildLeafSceneModel(
-  input: BuildLeafSceneModelInput,
+  input: BuildLeafSceneModelInput & {
+    readonly titleLabelNodes?: readonly LeafSceneTitleLabelNode[];
+  },
 ): LeafSceneModel {
   const baseScene = buildLeafSceneModelBase(input);
-  const cardNodes = buildLeafCardNodes(input.layoutNodes);
 
   return {
     ...baseScene,
-    cardNodes,
-    pointNodes: filterLeafPointNodes({
-      cardNodes,
-      pointNodes: baseScene.pointNodes,
-    }),
+    titleLabelNodes: input.titleLabelNodes ?? [],
   };
 }

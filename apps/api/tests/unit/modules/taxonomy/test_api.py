@@ -18,6 +18,8 @@ from entrypoints.api import providers as api_providers
 from modules.taxonomy.schema import (
     TaxonomyLeafNodeDetailResponse,
     TaxonomyLeafNodeDetailsResponse,
+    TaxonomyLeafNodeTitleResponse,
+    TaxonomyLeafNodeTitlesResponse,
     TaxonomyNodeBranchViewResponse,
     TaxonomyNodeLeafViewResponse,
     TaxonomyRootViewResponse,
@@ -121,13 +123,36 @@ class _FakeTaxonomyService:
             nodes=[
                 TaxonomyLeafNodeDetailResponse(
                     id=11,
+                    current_version=3,
                     title="Inner 11",
                     content="Inner 11 content",
                 ),
                 TaxonomyLeafNodeDetailResponse(
                     id=77,
+                    current_version=7,
                     title="Outer 77",
                     content="Outer 77 content",
+                ),
+            ]
+        )
+
+    async def get_leaf_node_titles(
+        self,
+        *,
+        node_id: int,
+        node_ids: list[int],
+    ) -> TaxonomyLeafNodeTitlesResponse:
+        assert node_id == 2
+        assert node_ids == [11, 77]
+        return TaxonomyLeafNodeTitlesResponse(
+            nodes=[
+                TaxonomyLeafNodeTitleResponse(
+                    id=11,
+                    title="Inner 11",
+                ),
+                TaxonomyLeafNodeTitleResponse(
+                    id=77,
+                    title="Outer 77",
                 ),
             ]
         )
@@ -165,6 +190,18 @@ class _FakeTaxonomyNotFoundService:
             hint="Use an existing taxonomy node id and retry.",
         )
 
+    async def get_leaf_node_titles(
+        self,
+        *,
+        node_id: int,
+        node_ids: list[int],
+    ) -> TaxonomyLeafNodeTitlesResponse:
+        raise DomainError(
+            code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+            message=f"Taxonomy node {node_id} was not found.",
+            hint="Use an existing taxonomy node id and retry.",
+        )
+
 
 @dataclass(slots=True)
 class _FakeTaxonomyInvalidDetailsService:
@@ -193,6 +230,27 @@ class _FakeTaxonomyInvalidDetailsService:
             message = "Leaf detail request requires a leaf taxonomy node."
         else:
             message = "Leaf detail request references nodes outside the active leaf graph."
+        raise ApplicationError(
+            code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+            message=message,
+            hint="Send only unique node ids from the active leaf graph and retry.",
+        )
+
+    async def get_leaf_node_titles(
+        self,
+        *,
+        node_id: int,
+        node_ids: list[int],
+    ) -> TaxonomyLeafNodeTitlesResponse:
+        message = "Leaf title request is invalid."
+        if not node_ids:
+            message = "Leaf title request requires at least one node id."
+        elif len(node_ids) != len(set(node_ids)):
+            message = "Leaf title request contains duplicate node ids."
+        elif node_id == 1:
+            message = "Leaf title request requires a leaf taxonomy node."
+        else:
+            message = "Leaf title request references nodes outside the active leaf graph."
         raise ApplicationError(
             code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
             message=message,
@@ -269,13 +327,39 @@ async def test_leaf_details_route_returns_ordered_detail_records(
         "nodes": [
             {
                 "id": 11,
+                "current_version": 3,
                 "title": "Inner 11",
                 "content": "Inner 11 content",
             },
             {
                 "id": 77,
+                "current_version": 7,
                 "title": "Outer 77",
                 "content": "Outer 77 content",
+            },
+        ]
+    }
+
+
+@pytest.mark.anyio
+async def test_leaf_titles_route_returns_ordered_title_records(
+    async_client: AsyncClient,
+) -> None:
+    response = await async_client.post(
+        "/api/v1/taxonomy/view/leaves/2/titles",
+        json={"node_ids": [11, 77]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "nodes": [
+            {
+                "id": 11,
+                "title": "Inner 11",
+            },
+            {
+                "id": 77,
+                "title": "Outer 77",
             },
         ]
     }
@@ -304,6 +388,38 @@ async def test_leaf_details_route_returns_400_for_invalid_detail_requests(
 
     response = await async_client.post(
         f"/api/v1/taxonomy/view/leaves/{leaf_id}/details",
+        json=payload,
+    )
+
+    assert response.status_code == 400
+    error = response.json()["error"]
+    assert error["code"] == "APPLICATION_TAXONOMY_INPUT_INVALID"
+    assert expected_message in error["message"]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("payload", "leaf_id", "expected_message"),
+    [
+        ({"node_ids": []}, 2, "at least one node id"),
+        ({"node_ids": [11, 11]}, 2, "duplicate node ids"),
+        ({"node_ids": [11]}, 1, "requires a leaf taxonomy node"),
+        ({"node_ids": [999]}, 2, "outside the active leaf graph"),
+    ],
+)
+async def test_leaf_titles_route_returns_400_for_invalid_title_requests(
+    async_client: AsyncClient,
+    app: FastAPI,
+    payload: dict[str, list[int]],
+    leaf_id: int,
+    expected_message: str,
+) -> None:
+    app.dependency_overrides[api_providers.get_taxonomy_service] = lambda: (
+        _FakeTaxonomyInvalidDetailsService()
+    )
+
+    response = await async_client.post(
+        f"/api/v1/taxonomy/view/leaves/{leaf_id}/titles",
         json=payload,
     )
 

@@ -13,11 +13,6 @@ export interface LayoutViewport {
   readonly width: number;
 }
 
-export interface LeafCardMeasuredSize {
-  readonly height: number;
-  readonly width: number;
-}
-
 export interface BranchChildLayoutInput {
   readonly depth: number;
   readonly descendant_card_count: number;
@@ -28,12 +23,6 @@ export interface BranchChildLayoutInput {
 export interface LeafSkeletonNodeLayoutInput {
   readonly id: number;
   readonly scope: "inner" | "outer";
-}
-
-export interface LeafHydratedNodeLayoutInput
-  extends LeafSkeletonNodeLayoutInput {
-  readonly content: string;
-  readonly title: string;
 }
 
 export type LeafNodeLayoutInput = LeafSkeletonNodeLayoutInput;
@@ -49,7 +38,7 @@ export type TaxonomyLayoutNodeData = Record<string, unknown> & {
   readonly depth: number;
   readonly graphNodeId?: number;
   readonly label: string;
-  readonly renderMode?: "bubble" | "card" | "point";
+  readonly renderMode?: "bubble" | "point";
   readonly scope: "branch" | "inner" | "outer";
   readonly targetNodeId: number | null;
   readonly tooltip: string;
@@ -85,15 +74,8 @@ export interface BranchLayoutInput {
 export interface LeafLayoutInput {
   readonly center: LayoutPoint;
   readonly edges: readonly LeafEdgeLayoutInput[];
-  readonly hydratedNodeDetailsById?: Readonly<
-    Partial<Record<number, LeafHydratedNodeLayoutInput>>
-  >;
   readonly lockedNodeCentersById?: ReadonlyMap<number, LayoutPoint>;
-  readonly measuredCardSizesById?: Readonly<
-    Partial<Record<number, LeafCardMeasuredSize>>
-  >;
   readonly nodes: readonly LeafNodeLayoutInput[];
-  readonly visibleCardNodeIds?: readonly number[];
   readonly viewport: LayoutViewport;
 }
 

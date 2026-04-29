@@ -22,6 +22,12 @@ export type TaxonomyLeafNodeDetailsResponse =
   components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
 export type TaxonomyLeafNodeDetailRecord =
   TaxonomyLeafNodeDetailsResponse["nodes"][number];
+export type TaxonomyLeafNodeTitlesRequest =
+  components["schemas"]["TaxonomyLeafNodeTitlesRequest"];
+export type TaxonomyLeafNodeTitlesResponse =
+  components["schemas"]["TaxonomyLeafNodeTitlesResponse"];
+export type TaxonomyLeafNodeTitleRecord =
+  TaxonomyLeafNodeTitlesResponse["nodes"][number];
 export type TaxonomyRootView = TaxonomyRootViewContract;
 export type TaxonomyLeafView = TaxonomyLeafViewContract;
 export type TaxonomyNodeView = TaxonomyNodeViewContract;
@@ -99,6 +105,8 @@ function normalizeTaxonomyNodeViewPayload(data: unknown): TaxonomyNodeView {
 const taxonomyViewQueryKeys = {
   leafDetails: (leafId: number, nodeIds: readonly number[]) =>
     ["taxonomy-view", "leaf-details", leafId, ...nodeIds] as const,
+  leafTitles: (leafId: number, nodeIds: readonly number[]) =>
+    ["taxonomy-view", "leaf-titles", leafId, ...nodeIds] as const,
   node: (nodeId: number) => ["taxonomy-view", "node", nodeId] as const,
   root: ["taxonomy-view", "root"] as const,
 };
@@ -135,6 +143,20 @@ async function fetchTaxonomyLeafNodeDetails(
   );
 }
 
+async function fetchTaxonomyLeafNodeTitles(
+  leafId: number,
+  nodeIds: readonly number[],
+): Promise<TaxonomyLeafNodeTitlesResponse> {
+  const normalizedNodeIds = normalizeLeafDetailNodeIds(nodeIds);
+  return await fetchWebApiJson<TaxonomyLeafNodeTitlesResponse>(
+    `/web-api/taxonomy/view/leaves/${leafId}/titles`,
+    {
+      body: { node_ids: normalizedNodeIds },
+      method: "POST",
+    },
+  );
+}
+
 export function taxonomyRootViewQueryOptions() {
   return queryOptions({
     queryFn: fetchTaxonomyRootView,
@@ -158,6 +180,18 @@ export function taxonomyLeafNodeDetailsQueryOptions(
   return queryOptions({
     queryFn: () => fetchTaxonomyLeafNodeDetails(leafId, normalizedNodeIds),
     queryKey: taxonomyViewQueryKeys.leafDetails(leafId, normalizedNodeIds),
+  });
+}
+
+export function taxonomyLeafNodeTitlesQueryOptions(
+  leafId: number,
+  nodeIds: readonly number[],
+) {
+  const normalizedNodeIds = normalizeLeafDetailNodeIds(nodeIds);
+
+  return queryOptions({
+    queryFn: () => fetchTaxonomyLeafNodeTitles(leafId, normalizedNodeIds),
+    queryKey: taxonomyViewQueryKeys.leafTitles(leafId, normalizedNodeIds),
   });
 }
 
@@ -187,6 +221,17 @@ export function useTaxonomyLeafNodeDetailsQuery(
 ) {
   return useQuery({
     ...taxonomyLeafNodeDetailsQueryOptions(leafId, nodeIds),
+    enabled: options.enabled ?? true,
+  });
+}
+
+export function useTaxonomyLeafNodeTitlesQuery(
+  leafId: number,
+  nodeIds: readonly number[],
+  options: { readonly enabled?: boolean },
+) {
+  return useQuery({
+    ...taxonomyLeafNodeTitlesQueryOptions(leafId, nodeIds),
     enabled: options.enabled ?? true,
   });
 }

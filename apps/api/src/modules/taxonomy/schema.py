@@ -38,8 +38,14 @@ class TaxonomyLeafGraphNodeResponse(TaxonomyViewResponseModel):
 
 class TaxonomyLeafNodeDetailResponse(TaxonomyViewResponseModel):
     id: int = Field(gt=0)
+    current_version: int = Field(gt=0)
     title: str = Field(min_length=1)
     content: str = Field(min_length=1)
+
+
+class TaxonomyLeafNodeTitleResponse(TaxonomyViewResponseModel):
+    id: int = Field(gt=0)
+    title: str = Field(min_length=1)
 
 
 class TaxonomyLeafNodeDetailsRequest(TaxonomyViewResponseModel):
@@ -48,6 +54,14 @@ class TaxonomyLeafNodeDetailsRequest(TaxonomyViewResponseModel):
 
 class TaxonomyLeafNodeDetailsResponse(TaxonomyViewResponseModel):
     nodes: list[TaxonomyLeafNodeDetailResponse]
+
+
+class TaxonomyLeafNodeTitlesRequest(TaxonomyViewResponseModel):
+    node_ids: list[int] = Field(default_factory=list)
+
+
+class TaxonomyLeafNodeTitlesResponse(TaxonomyViewResponseModel):
+    nodes: list[TaxonomyLeafNodeTitleResponse]
 
 
 type TaxonomyLeafGraphEdgeResponse = tuple[

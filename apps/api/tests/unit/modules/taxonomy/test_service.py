@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 import pytest
 
 from core.errors import ApplicationError, DomainError, ErrorCode
-from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionEdge
+from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionCardTitle, ProjectionEdge
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
     TaxonomyLeafAssignment,
@@ -114,6 +114,7 @@ class _StubProjectionPort:
     nodes: list[ProjectionCardNode]
     edges: list[ProjectionEdge]
     card_request_batches: list[list[int]] = field(default_factory=list)
+    title_request_batches: list[list[int]] = field(default_factory=list)
     edge_id_request_batches: list[list[int]] = field(default_factory=list)
     adjacent_edge_id_request_batches: list[list[int]] = field(default_factory=list)
     adjacent_edge_ids: list[int] = field(default_factory=list)
@@ -126,6 +127,19 @@ class _StubProjectionPort:
         self.card_request_batches.append(list(node_ids))
         node_id_set = set(node_ids)
         return [node for node in self.nodes if node.node_id in node_id_set]
+
+    async def list_projection_card_titles_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> list[ProjectionCardTitle]:
+        self.title_request_batches.append(list(node_ids))
+        node_id_set = set(node_ids)
+        return [
+            ProjectionCardTitle(node_id=node.node_id, title=node.title)
+            for node in self.nodes
+            if node.node_id in node_id_set
+        ]
 
     async def list_projection_edges_for_edge_ids(
         self,
@@ -299,16 +313,19 @@ async def test_get_node_view_returns_leaf_shape_with_scopes_and_canonical_edges(
         nodes=[
             ProjectionCardNode(
                 node_id=11,
+                current_version=3,
                 title="Inner 11",
                 content="Inner 11 content",
             ),
             ProjectionCardNode(
                 node_id=12,
+                current_version=5,
                 title="Inner 12",
                 content="Inner 12 content",
             ),
             ProjectionCardNode(
                 node_id=77,
+                current_version=7,
                 title="Outer 77",
                 content="Outer 77 content",
             ),
@@ -375,16 +392,19 @@ async def test_get_leaf_node_details_returns_requested_records_in_request_order(
         nodes=[
             ProjectionCardNode(
                 node_id=11,
+                current_version=3,
                 title="Inner 11",
                 content="Inner 11 content",
             ),
             ProjectionCardNode(
                 node_id=12,
+                current_version=5,
                 title="Inner 12",
                 content="Inner 12 content",
             ),
             ProjectionCardNode(
                 node_id=77,
+                current_version=7,
                 title="Outer 77",
                 content="Outer 77 content",
             ),
@@ -401,11 +421,13 @@ async def test_get_leaf_node_details_returns_requested_records_in_request_order(
     assert [node.model_dump() for node in detail_response.nodes] == [
         {
             "id": 77,
+            "current_version": 7,
             "title": "Outer 77",
             "content": "Outer 77 content",
         },
         {
             "id": 11,
+            "current_version": 3,
             "title": "Inner 11",
             "content": "Inner 11 content",
         },
@@ -415,6 +437,65 @@ async def test_get_leaf_node_details_returns_requested_records_in_request_order(
     assert repo.list_final_assignments_called is False
     assert projection_port.edge_id_request_batches == [[501, 502]]
     assert projection_port.card_request_batches == [[77, 11]]
+    assert projection_port.title_request_batches == []
+
+
+@pytest.mark.anyio
+async def test_get_leaf_node_titles_returns_requested_titles_without_content() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_node_ids=[11, 12],
+        projected_edge_ids=[501, 502],
+    )
+    projection_port = _StubProjectionPort(
+        nodes=[
+            ProjectionCardNode(
+                node_id=11,
+                current_version=3,
+                title="Inner 11",
+                content="Inner 11 content",
+            ),
+            ProjectionCardNode(
+                node_id=12,
+                current_version=5,
+                title="Inner 12",
+                content="Inner 12 content",
+            ),
+            ProjectionCardNode(
+                node_id=77,
+                current_version=7,
+                title="Outer 77",
+                content="Outer 77 content",
+            ),
+        ],
+        edges=[
+            ProjectionEdge(node_a_id=11, node_b_id=12, strength=0.91),
+            ProjectionEdge(node_a_id=12, node_b_id=77, strength=0.66),
+        ],
+    )
+    service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
+
+    title_response = await service.get_leaf_node_titles(node_id=2, node_ids=[77, 11])  # type: ignore[attr-defined]
+
+    assert [node.model_dump() for node in title_response.nodes] == [
+        {
+            "id": 77,
+            "title": "Outer 77",
+        },
+        {
+            "id": 11,
+            "title": "Inner 11",
+        },
+    ]
+    assert repo.list_assigned_node_ids_for_leaf_called_with == [2]
+    assert repo.list_projected_edge_ids_for_leaf_called_with == [2]
+    assert repo.list_final_assignments_called is False
+    assert projection_port.edge_id_request_batches == [[501, 502]]
+    assert projection_port.card_request_batches == []
+    assert projection_port.title_request_batches == [[77, 11]]
 
 
 @pytest.mark.anyio
@@ -452,11 +533,13 @@ async def test_get_leaf_node_details_rejects_node_ids_outside_active_leaf_graph(
         nodes=[
             ProjectionCardNode(
                 node_id=11,
+                current_version=3,
                 title="Inner 11",
                 content="Inner 11 content",
             ),
             ProjectionCardNode(
                 node_id=77,
+                current_version=7,
                 title="Outer 77",
                 content="Outer 77 content",
             ),

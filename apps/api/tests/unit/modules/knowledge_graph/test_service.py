@@ -19,6 +19,7 @@ from modules.knowledge_graph.dto import (
     KnowledgeCardMatch,
     LexicalSearchCandidate,
     ProjectionCardNode,
+    ProjectionCardTitle,
     ProjectionEdge,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
@@ -118,8 +119,22 @@ class _StubRepo:
         return [
             ProjectionCardNode(
                 node_id=node_id,
+                current_version=1,
                 title=f"Card {node_id}",
                 content=f"Content {node_id}",
+            )
+            for node_id in sorted(set(node_ids))
+        ]
+
+    async def fetch_projection_card_titles_for_node_ids(
+        self,
+        *,
+        node_ids: Sequence[int],
+    ) -> list[ProjectionCardTitle]:
+        return [
+            ProjectionCardTitle(
+                node_id=node_id,
+                title=f"Card {node_id}",
             )
             for node_id in sorted(set(node_ids))
         ]
@@ -595,6 +610,22 @@ async def test_list_projection_edges_for_edge_ids() -> None:
     assert [record.model_dump() for record in records] == [
         {"node_a_id": 3, "node_b_id": 103, "strength": 0.88},
         {"node_a_id": 9, "node_b_id": 109, "strength": 0.88},
+    ]
+
+
+@pytest.mark.anyio
+async def test_list_projection_card_titles_for_node_ids_omits_content() -> None:
+    service = KnowledgeGraphService(
+        repo=_StubRepo(),
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    records = await service.list_projection_card_titles_for_node_ids(node_ids=[9, 3, 9])
+
+    assert [record.model_dump() for record in records] == [
+        {"node_id": 3, "title": "Card 3"},
+        {"node_id": 9, "title": "Card 9"},
     ]
 
 
