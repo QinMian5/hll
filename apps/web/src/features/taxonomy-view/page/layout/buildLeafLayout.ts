@@ -26,30 +26,18 @@ interface LeafSimulationNode {
 }
 
 export const LEAF_POINT_DIAMETER = 8;
-export const LEAF_COLLISION_RADIUS = 25;
-const LEAF_LAYOUT_SPACING_SCALE = 2;
+export const LEAF_COLLISION_RADIUS = 10;
 
 function positionOnSpiral(options: {
   readonly center: LayoutPoint;
   readonly index: number;
 }): LayoutPoint {
   const angle = options.index * 2.399963229728653;
-  const radius = 80 + Math.sqrt(options.index + 1) * 72;
+  const radius = 48 + Math.sqrt(options.index + 1) * 52;
 
   return {
     x: options.center.x + Math.cos(angle) * radius,
     y: options.center.y + Math.sin(angle) * radius,
-  };
-}
-
-export function scalePointAroundCenter(
-  point: LayoutPoint,
-  center: LayoutPoint,
-  scale: number,
-): LayoutPoint {
-  return {
-    x: center.x + (point.x - center.x) * scale,
-    y: center.y + (point.y - center.y) * scale,
   };
 }
 
@@ -110,10 +98,10 @@ export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
           }
         >(linkEdges)
           .id((node) => node.id)
-          .distance((edge) => 130 - edge.strength * 24)
-          .strength((edge) => 0.25 + edge.strength * 0.2),
+          .distance((edge) => 96 - edge.strength * 32)
+          .strength((edge) => 0.38 + edge.strength * 0.34),
       )
-      .force("charge", forceManyBody<LeafSimulationNode>().strength(-240))
+      .force("charge", forceManyBody<LeafSimulationNode>().strength(-80))
       .force(
         "collide",
         forceCollide<LeafSimulationNode>()
@@ -135,12 +123,6 @@ export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
       target: `leaf-${edge[1]}`,
     })),
     nodes: simulationNodes.map((node) => {
-      const scaledCenter = scalePointAroundCenter(
-        { x: node.x, y: node.y },
-        input.center,
-        lockedNodeCentersById ? 1 : LEAF_LAYOUT_SPACING_SCALE,
-      );
-
       return {
         data: {
           depth: 0,
@@ -153,8 +135,8 @@ export function buildLeafLayout(input: LeafLayoutInput): LeafLayoutResult {
         },
         id: node.id,
         position: {
-          x: scaledCenter.x - LEAF_POINT_DIAMETER / 2,
-          y: scaledCenter.y - LEAF_POINT_DIAMETER / 2,
+          x: node.x - LEAF_POINT_DIAMETER / 2,
+          y: node.y - LEAF_POINT_DIAMETER / 2,
         },
         style: {
           borderRadius: `${LEAF_POINT_DIAMETER}px`,

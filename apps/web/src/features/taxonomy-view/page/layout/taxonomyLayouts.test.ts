@@ -10,12 +10,7 @@ import {
   buildBranchBubbleMetrics,
   buildBranchLayout,
 } from "./buildBranchLayout";
-import {
-  buildLeafLayout,
-  LEAF_COLLISION_RADIUS,
-  LEAF_POINT_DIAMETER,
-  scalePointAroundCenter,
-} from "./buildLeafLayout";
+import { buildLeafLayout, LEAF_POINT_DIAMETER } from "./buildLeafLayout";
 
 function roundPosition(position: { readonly x: number; readonly y: number }) {
   return {
@@ -58,6 +53,22 @@ function circlesOverlap(
     leftCenter.y - rightCenter.y,
   );
   return distance < left.style.width / 2 + right.style.width / 2;
+}
+
+function distanceBetweenNodeCenters(
+  left: {
+    readonly position: { readonly x: number; readonly y: number };
+    readonly style: { readonly height: number; readonly width: number };
+  },
+  right: {
+    readonly position: { readonly x: number; readonly y: number };
+    readonly style: { readonly height: number; readonly width: number };
+  },
+) {
+  const leftCenter = nodeCenter(left);
+  const rightCenter = nodeCenter(right);
+
+  return Math.hypot(leftCenter.x - rightCenter.x, leftCenter.y - rightCenter.y);
 }
 
 function expectNodePosition<
@@ -230,19 +241,6 @@ describe("branch layout contracts", () => {
 });
 
 describe("leaf layout contracts", () => {
-  it("scales solved node centers outward from the shared layout center", () => {
-    expect(
-      scalePointAroundCenter({ x: 760, y: 500 }, { x: 700, y: 450 }, 2),
-    ).toEqual({
-      x: 820,
-      y: 550,
-    });
-  });
-
-  it("uses the configured fixed collision radius for leaf spacing", () => {
-    expect(LEAF_COLLISION_RADIUS).toBe(25);
-  });
-
   it("returns point-mode skeleton nodes and preserves supplied edges by default", () => {
     const result = buildLeafLayout({
       center: { x: 700, y: 450 },
@@ -293,6 +291,25 @@ describe("leaf layout contracts", () => {
         width: LEAF_POINT_DIAMETER,
       },
     ]);
+  });
+
+  it("keeps strongly connected leaf points compact enough to read as a graph edge", () => {
+    const result = buildLeafLayout({
+      center: { x: 700, y: 450 },
+      edges: [[10, 11, 1]],
+      nodes: [
+        { id: 10, scope: "inner" },
+        { id: 11, scope: "outer" },
+      ],
+      viewport: { height: 900, width: 1404 },
+    });
+
+    const firstNode = expectNodePosition(result.nodes[0]);
+    const secondNode = expectNodePosition(result.nodes[1]);
+
+    expect(distanceBetweenNodeCenters(firstNode, secondNode)).toBeLessThan(
+      Math.min(1404, 900) * 0.16,
+    );
   });
 
   it("preserves locked node centers without changing point dimensions", () => {
