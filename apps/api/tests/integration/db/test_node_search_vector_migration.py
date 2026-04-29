@@ -5,30 +5,21 @@ Out of scope: Search ranking policy and HTTP route behavior.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-from alembic.config import Config
 from sqlalchemy import create_engine, text
 
-from alembic import command
 from core.config import load_migration_settings
 
 pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.migration]
 
-API_DIR = Path(__file__).resolve().parents[3]
-PRE_NODE_SEARCH_VECTOR_REVISION = "a1b2c3d4e5f6"
 
-
-def test_node_search_vector_migration_populates_existing_nodes_and_index() -> None:
-    config = Config(str(API_DIR / "alembic.ini"))
+def test_nodes_search_vector_baseline_generates_values_and_index() -> None:
     migration_url = load_migration_settings().database_url
     engine = create_engine(migration_url)
     node_id: int | None = None
     embedding = "[" + ",".join("0" for _ in range(1536)) + "]"
 
     try:
-        command.downgrade(config, PRE_NODE_SEARCH_VECTOR_REVISION)
         with engine.begin() as connection:
             node_id = connection.execute(
                 text(
@@ -44,8 +35,6 @@ def test_node_search_vector_migration_populates_existing_nodes_and_index() -> No
                     "title": "Hybrid Search",
                 },
             ).scalar_one()
-
-        command.upgrade(config, "head")
 
         with engine.begin() as connection:
             search_vector_text = connection.execute(
@@ -74,7 +63,6 @@ def test_node_search_vector_migration_populates_existing_nodes_and_index() -> No
             assert "'retriev'" in search_vector_text
             assert "USING gin" in index_definition
     finally:
-        command.upgrade(config, "head")
         if node_id is not None:
             with engine.begin() as connection:
                 connection.execute(

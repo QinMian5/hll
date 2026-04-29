@@ -100,7 +100,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 
 ### Trigger Rule
 - Inserts and updates on `node_taxonomy_assignments` must be rejected unless `taxonomy_node_id` points to `taxonomy_nodes.is_leaf = true`.
-- Root uniqueness index DDL and leaf-only trigger/function DDL are maintained by dedicated migrations scoped to taxonomy integrity concerns.
+- Root uniqueness index DDL and leaf-only trigger/function DDL are maintained by API Alembic migrations scoped to taxonomy integrity concerns.
 
 ## Operator Structure Mutation Boundary
 - Taxonomy structure mutation runs through dedicated operator scripts backed by taxonomy-owned services.

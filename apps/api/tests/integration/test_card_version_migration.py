@@ -5,20 +5,11 @@ Out of scope: Alembic command-line invocation and suggestion review behavior.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-from alembic.config import Config
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from alembic import command
-from core.config import load_migration_settings
-
 pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.migration, pytest.mark.anyio]
-
-API_DIR = Path(__file__).resolve().parents[2]
-PRE_CARD_VERSION_REVISION = "040e04067f03"
 
 
 async def test_card_version_tables_and_constraints_exist_after_migration(
@@ -68,56 +59,56 @@ async def test_card_version_tables_and_constraints_exist_after_migration(
     }
 
 
-def test_card_version_migration_backfills_existing_nodes() -> None:
-    config = Config(str(API_DIR / "alembic.ini"))
-    migration_url = load_migration_settings().database_url
-    engine = create_engine(migration_url)
-    node_id: int | None = None
+async def test_card_versions_can_reference_current_baseline_nodes(
+    db_session: AsyncSession,
+) -> None:
     embedding = "[" + ",".join("0" for _ in range(1536)) + "]"
+    node_id = (
+        await db_session.execute(
+            text(
+                """
+                INSERT INTO nodes (title, content, embedding)
+                VALUES (:title, :content, CAST(:embedding AS vector))
+                RETURNING id
+                """
+            ),
+            {
+                "content": "Baseline content",
+                "embedding": embedding,
+                "title": "Baseline title",
+            },
+        )
+    ).scalar_one()
+    await db_session.execute(
+        text(
+            """
+            INSERT INTO card_versions (node_id, version, title, content)
+            VALUES (:node_id, 1, :title, :content)
+            """
+        ),
+        {
+            "content": "Baseline content",
+            "node_id": node_id,
+            "title": "Baseline title",
+        },
+    )
 
-    try:
-        command.downgrade(config, PRE_CARD_VERSION_REVISION)
-        with engine.begin() as connection:
-            node_id = connection.execute(
-                text(
-                    """
-                    INSERT INTO nodes (title, content, embedding)
-                    VALUES (:title, :content, CAST(:embedding AS vector))
-                    RETURNING id
-                    """
-                ),
-                {
-                    "content": "Pre-migration content",
-                    "embedding": embedding,
-                    "title": "Pre-migration title",
-                },
-            ).scalar_one()
+    row = (
+        await db_session.execute(
+            text(
+                """
+                SELECT nodes.current_version, card_versions.version,
+                       card_versions.title, card_versions.content
+                FROM nodes
+                JOIN card_versions ON card_versions.node_id = nodes.id
+                WHERE nodes.id = :node_id
+                """
+            ),
+            {"node_id": node_id},
+        )
+    ).one()
 
-        command.upgrade(config, "head")
-
-        with engine.begin() as connection:
-            row = connection.execute(
-                text(
-                    """
-                    SELECT nodes.current_version, card_versions.version,
-                           card_versions.title, card_versions.content
-                    FROM nodes
-                    JOIN card_versions ON card_versions.node_id = nodes.id
-                    WHERE nodes.id = :node_id
-                    """
-                ),
-                {"node_id": node_id},
-            ).one()
-
-            assert row.current_version == 1
-            assert row.version == 1
-            assert row.title == "Pre-migration title"
-            assert row.content == "Pre-migration content"
-    finally:
-        command.upgrade(config, "head")
-        if node_id is not None:
-            with engine.begin() as connection:
-                connection.execute(
-                    text("DELETE FROM nodes WHERE id = :node_id"), {"node_id": node_id}
-                )
-        engine.dispose()
+    assert row.current_version == 1
+    assert row.version == 1
+    assert row.title == "Baseline title"
+    assert row.content == "Baseline content"
