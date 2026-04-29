@@ -17,10 +17,12 @@ from modules.knowledge_graph.dto import (
     CardVersionSnapshot,
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
+    LexicalSearchCandidate,
     ProjectionCardNode,
     ProjectionEdge,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
+    VectorSearchCandidate,
 )
 from modules.knowledge_graph.service import (
     CardSuggestedEditNoChangeError,
@@ -35,6 +37,8 @@ class _StubRepo:
     created_edges: list[tuple[int, int, float]] | None = None
     card_versions_by_key: dict[tuple[int, int], CardVersionSnapshot] | None = None
     created_suggested_edits: list[tuple[int, int, str, str, str]] | None = None
+    vector_candidates: list[VectorSearchCandidate] | None = None
+    lexical_candidates: list[LexicalSearchCandidate] | None = None
     next_edge_id: int = 500
     next_suggested_edit_id: int = 700
     committed: bool = False
@@ -53,6 +57,28 @@ class _StubRepo:
             KnowledgeCardMatch(node_id=1, current_version=1, title="Card A", content="Alpha"),
             KnowledgeCardMatch(node_id=2, current_version=3, title="Card B", content="Beta"),
         ]
+
+    async def search_vector_candidates(
+        self,
+        *,
+        query_embedding: list[float],
+        limit: int,
+    ) -> list[VectorSearchCandidate]:
+        assert query_embedding
+        assert limit == 5
+        assert self.vector_candidates is not None
+        return self.vector_candidates
+
+    async def search_lexical_candidates(
+        self,
+        *,
+        query_text: str,
+        limit: int,
+    ) -> list[LexicalSearchCandidate]:
+        assert query_text == "quantum mechanics"
+        assert limit == 5
+        assert self.lexical_candidates is not None
+        return self.lexical_candidates
 
     async def fetch_connected_title_candidates(
         self,
@@ -246,11 +272,30 @@ class _StubTaxonomyProjectionPort:
 @pytest.mark.anyio
 async def test_search_searchable_cards_returns_records_with_node_id_title_content() -> None:
     service = KnowledgeGraphService(
-        repo=_StubRepo(),
+        repo=_StubRepo(
+            vector_candidates=[
+                VectorSearchCandidate(
+                    node_id=1,
+                    current_version=1,
+                    title="Card A",
+                    content="Alpha",
+                    vector_rank=1,
+                ),
+                VectorSearchCandidate(
+                    node_id=2,
+                    current_version=3,
+                    title="Card B",
+                    content="Beta",
+                    vector_rank=2,
+                ),
+            ],
+            lexical_candidates=[],
+        ),
         edge_similarity_top_k=10,
         edge_similarity_min_strength=0.5,
     )
     records = await service.search_searchable_cards(
+        query_text="quantum mechanics",
         query_embedding=[0.1] * 8,
         limit=5,
     )
@@ -260,6 +305,110 @@ async def test_search_searchable_cards_returns_records_with_node_id_title_conten
     assert records[0].current_version == 1
     assert records[0].title == "Card A"
     assert records[0].content == "Alpha"
+
+
+@pytest.mark.anyio
+async def test_search_searchable_cards_prioritizes_title_matches_over_content_only() -> None:
+    service = KnowledgeGraphService(
+        repo=_StubRepo(
+            vector_candidates=[
+                VectorSearchCandidate(
+                    node_id=2,
+                    current_version=1,
+                    title="Content Only",
+                    content="Quantum mechanics appears in the body.",
+                    vector_rank=1,
+                ),
+                VectorSearchCandidate(
+                    node_id=4,
+                    current_version=1,
+                    title="Semantic Neighbor",
+                    content="Vector-only result.",
+                    vector_rank=2,
+                ),
+                VectorSearchCandidate(
+                    node_id=1,
+                    current_version=1,
+                    title="Quantum Mechanics",
+                    content="Exact title result.",
+                    vector_rank=3,
+                ),
+            ],
+            lexical_candidates=[
+                LexicalSearchCandidate(
+                    node_id=2,
+                    current_version=1,
+                    title="Content Only",
+                    content="Quantum mechanics appears in the body.",
+                    lexical_rank=1,
+                    lexical_score=0.9,
+                    exact_title_match=False,
+                    title_phrase_match=False,
+                    title_all_tokens_match=False,
+                ),
+                LexicalSearchCandidate(
+                    node_id=1,
+                    current_version=1,
+                    title="Quantum Mechanics",
+                    content="Exact title result.",
+                    lexical_rank=2,
+                    lexical_score=0.5,
+                    exact_title_match=True,
+                    title_phrase_match=True,
+                    title_all_tokens_match=True,
+                ),
+                LexicalSearchCandidate(
+                    node_id=3,
+                    current_version=1,
+                    title="Mechanics Quantum Notes",
+                    content="All tokens appear in the title.",
+                    lexical_rank=3,
+                    lexical_score=0.4,
+                    exact_title_match=False,
+                    title_phrase_match=False,
+                    title_all_tokens_match=True,
+                ),
+            ],
+        ),
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    records = await service.search_searchable_cards(
+        query_text="quantum mechanics",
+        query_embedding=[0.1] * 8,
+        limit=5,
+    )
+
+    assert [record.node_id for record in records] == [1, 3, 2, 4]
+
+
+@pytest.mark.anyio
+async def test_search_searchable_cards_preserves_vector_only_fallback() -> None:
+    service = KnowledgeGraphService(
+        repo=_StubRepo(
+            vector_candidates=[
+                VectorSearchCandidate(
+                    node_id=8,
+                    current_version=1,
+                    title="Semantic Recall",
+                    content="No lexical hit.",
+                    vector_rank=1,
+                )
+            ],
+            lexical_candidates=[],
+        ),
+        edge_similarity_top_k=10,
+        edge_similarity_min_strength=0.5,
+    )
+
+    records = await service.search_searchable_cards(
+        query_text="quantum mechanics",
+        query_embedding=[0.1] * 8,
+        limit=5,
+    )
+
+    assert [record.node_id for record in records] == [8]
 
 
 @pytest.mark.anyio

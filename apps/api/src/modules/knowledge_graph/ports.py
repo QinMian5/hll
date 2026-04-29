@@ -19,6 +19,7 @@ class KnowledgeGraphReadPort(Protocol):
     async def search_searchable_cards(
         self,
         *,
+        query_text: str,
         query_embedding: list[float],
         limit: int,
     ) -> list[KnowledgeCardMatch]: ...

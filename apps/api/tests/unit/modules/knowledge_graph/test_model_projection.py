@@ -9,6 +9,7 @@ from typing import cast
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import CheckConstraint, DateTime, ForeignKeyConstraint, Table, UniqueConstraint
+from sqlalchemy.dialects.postgresql import TSVECTOR
 
 from modules.knowledge_graph.model import Adjacency, CardSuggestedEdit, CardVersion, Edge, Node
 from shared.db.base import Base
@@ -23,6 +24,17 @@ def test_nodes_embedding_is_vector_1536() -> None:
     embedding_type = Node.__table__.c.embedding.type
     assert isinstance(embedding_type, Vector)
     assert embedding_type.dim == 1536
+
+
+def test_nodes_projection_contains_weighted_search_vector() -> None:
+    table = cast(Table, Node.__table__)
+    indexes_by_name = {index.name: index for index in table.indexes}
+
+    assert "search_vector" in table.c
+    assert isinstance(table.c.search_vector.type, TSVECTOR)
+    assert table.c.search_vector.nullable is False
+    assert "ix_nodes_search_vector" in indexes_by_name
+    assert indexes_by_name["ix_nodes_search_vector"].dialect_options["postgresql"]["using"] == "gin"
 
 
 def test_nodes_current_version_is_required_positive_integer() -> None:

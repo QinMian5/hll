@@ -142,6 +142,7 @@ services:
     environment:
       KNOWLEDGE_CORPUS_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_CORPUS_APP_DB_USER:?KNOWLEDGE_CORPUS_APP_DB_USER is required}:${KNOWLEDGE_CORPUS_APP_DB_PASSWORD:?KNOWLEDGE_CORPUS_APP_DB_PASSWORD is required}@knowledge_corpus_db:5432/${KNOWLEDGE_CORPUS_POSTGRES_DB:?KNOWLEDGE_CORPUS_POSTGRES_DB is required}
       KNOWLEDGE_CORPUS_MIGRATION_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_CORPUS_MIGRATION_DB_USER:?KNOWLEDGE_CORPUS_MIGRATION_DB_USER is required}:${KNOWLEDGE_CORPUS_MIGRATION_DB_PASSWORD:?KNOWLEDGE_CORPUS_MIGRATION_DB_PASSWORD is required}@knowledge_corpus_db:5432/${KNOWLEDGE_CORPUS_POSTGRES_DB:?KNOWLEDGE_CORPUS_POSTGRES_DB is required}
+    command: ["alembic", "-c", "/app/apps/knowledge_corpus/alembic.ini", "upgrade", "head"]
     networks:
       - backend
     restart: "no"
@@ -162,6 +163,7 @@ services:
         condition: service_healthy
     environment:
       SOURCE_PIPELINE_MIGRATION_DATABASE_URL: postgresql+psycopg://${SOURCE_PIPELINE_MIGRATION_DB_USER:?SOURCE_PIPELINE_MIGRATION_DB_USER is required}:${SOURCE_PIPELINE_MIGRATION_DB_PASSWORD:?SOURCE_PIPELINE_MIGRATION_DB_PASSWORD is required}@source_pipeline_db:5432/${SOURCE_PIPELINE_POSTGRES_DB:?SOURCE_PIPELINE_POSTGRES_DB is required}
+    command: ["alembic", "-c", "/app/apps/source_pipeline/alembic.ini", "upgrade", "head"]
     networks:
       - backend
     restart: "no"
@@ -183,6 +185,7 @@ services:
     environment:
       KNOWLEDGE_MCP_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_MCP_DB_USER:?KNOWLEDGE_MCP_DB_USER is required}:${KNOWLEDGE_MCP_DB_PASSWORD:?KNOWLEDGE_MCP_DB_PASSWORD is required}@mcp_db:5432/${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}
       KNOWLEDGE_MCP_MIGRATION_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_MCP_MIGRATION_DB_USER:?KNOWLEDGE_MCP_MIGRATION_DB_USER is required}:${KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD:?KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD is required}@mcp_db:5432/${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}
+    command: ["alembic", "-c", "/app/apps/mcp/alembic.ini", "upgrade", "head"]
     networks:
       - backend
     restart: "no"

@@ -11,6 +11,7 @@ from datetime import datetime
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
+    Computed,
     DateTime,
     Float,
     ForeignKey,
@@ -21,9 +22,15 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from shared.db.base import Base
+
+NODE_SEARCH_VECTOR_SQL = (
+    "setweight(to_tsvector('english', coalesce(title, '')), 'A') || "
+    "setweight(to_tsvector('english', coalesce(content, '')), 'B')"
+)
 
 
 class Node(Base):
@@ -39,6 +46,11 @@ class Node(Base):
         server_default=text("1"),
     )
     embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed(NODE_SEARCH_VECTOR_SQL, persisted=True),
+        nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
@@ -58,7 +70,10 @@ class Node(Base):
         viewonly=True,
     )
 
-    __table_args__ = (CheckConstraint("current_version >= 1", name="current_version_positive"),)
+    __table_args__ = (
+        CheckConstraint("current_version >= 1", name="current_version_positive"),
+        Index("ix_nodes_search_vector", "search_vector", postgresql_using="gin"),
+    )
 
 
 class CardVersion(Base):

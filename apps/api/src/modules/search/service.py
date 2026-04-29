@@ -38,6 +38,7 @@ class SearchService:
             ) from exc
 
         matched_records = await self._knowledge_graph_read_port.search_searchable_cards(
+            query_text=query,
             query_embedding=query_embedding,
             limit=self._max_matched,
         )

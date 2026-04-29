@@ -1,6 +1,6 @@
 ---
-abstract: Module-level orchestration design for knowledge core ownership, card versions, suggested-edit submission, ingestion async write pipeline, cosine-only search read flow, and taxonomy drill-down reads.
-out_of_scope: Keyword retrieval, hybrid reranking, suggestion review UI, ingestion status APIs, and distributed multi-region queue reliability.
+abstract: Module-level orchestration design for knowledge core ownership, card versions, suggested-edit submission, ingestion async write pipeline, hybrid search read flow, and taxonomy drill-down reads.
+out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, ingestion status APIs, and distributed multi-region queue reliability.
 ---
 
 # Design: knowledge-ingestion-search-orchestration
@@ -49,7 +49,8 @@ out_of_scope: Keyword retrieval, hybrid reranking, suggestion review UI, ingesti
 
 ### search
 - Owns read-side search endpoint and orchestration.
-- Uses cosine-only retrieval via `knowledge_graph` read service.
+- Builds the query embedding and requests balanced hybrid retrieval through `knowledge_graph` read service.
+- Preserves the private search response contract while delegating vector, lexical, and rank-fusion primitives to `knowledge_graph`.
 
 ## API Contract
 
@@ -72,6 +73,13 @@ out_of_scope: Keyword retrieval, hybrid reranking, suggestion review UI, ingesti
 - Response:
   - `matched_cards` with `node_id`, `current_version`, `title`, `content`
   - `connected_titles`
+- Ranking:
+  - query embedding retrieves semantic vector candidates from `Node.embedding`
+  - PostgreSQL full-text search retrieves lexical candidates from weighted `Node.title` and `Node.content`
+  - title text carries higher lexical weight than content text
+  - fused ranking uses reciprocal-rank fusion over vector and lexical candidate ranks
+  - deterministic title-match boosts favor exact title matches, title phrase matches, and title all-token matches ahead of content-only lexical matches
+  - embedding candidates remain eligible so natural-language questions and synonym-style queries can surface relevant cards even when exact terms are absent
 - Limits:
   - `matched_cards` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_MATCHED`
   - `connected_titles` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_CONNECTED`
@@ -186,6 +194,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, suggestion review UI, ingesti
 - API and worker run in separate process containers from one shared app image.
 - `job-queue-mcp` is required for taxonomy classification queue execution and result reads.
 - OpenAI Embeddings API is required for worker ingestion and search query embedding.
+- PostgreSQL full-text search is required for lexical card retrieval and ranking.
 - PostgreSQL remains persistent source of truth.
 - Runtime configuration values are sourced from `.env` via `pydantic-settings`.
 
@@ -199,7 +208,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, suggestion review UI, ingesti
 
 ## Non-Goals (V1)
 - Semantic-map snapshot/tile APIs.
-- Keyword retrieval or hybrid retrieval.
+- LLM or cross-encoder search reranking.
 - Ingestion processing-status exposure.
 - Dead-letter queue policy matrix and queue durability optimization.
 - HTTP-triggered taxonomy classification management APIs.
@@ -213,6 +222,9 @@ out_of_scope: Keyword retrieval, hybrid reranking, suggestion review UI, ingesti
   - ingestion idempotency checks verifying timeout or connection-loss retry after an already accepted original request converges through same-key replay
   - ingestion worker checks verifying newly created nodes receive `Root -> Unclassified` assignment
   - `GET /api/v1/search` contract checks
+  - search ranking checks verifying exact-title and title-token lexical matches rank ahead of content-only matches
+  - search ranking checks verifying semantic vector candidates remain eligible when lexical matches are absent
+  - search ranking checks verifying reciprocal-rank fusion produces deterministic ordering and tie-breaking
   - `POST /api/v1/cards/{node_id}/suggested-edits` contract checks
   - suggested-edit checks verifying valid base-version submissions create pending suggestions
   - suggested-edit checks verifying unknown base versions, empty proposed values, and no-op suggestions are rejected

@@ -23,6 +23,30 @@ class KnowledgeCardMatch(BaseModel):
     content: NonEmptyString
 
 
+class VectorSearchCandidate(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    node_id: int = Field(gt=0)
+    current_version: int = Field(gt=0)
+    title: NonEmptyString
+    content: NonEmptyString
+    vector_rank: int = Field(gt=0)
+
+
+class LexicalSearchCandidate(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    node_id: int = Field(gt=0)
+    current_version: int = Field(gt=0)
+    title: NonEmptyString
+    content: NonEmptyString
+    lexical_rank: int = Field(gt=0)
+    lexical_score: float = Field(ge=0.0)
+    exact_title_match: bool
+    title_phrase_match: bool
+    title_all_tokens_match: bool
+
+
 class CardVersionSnapshot(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
 

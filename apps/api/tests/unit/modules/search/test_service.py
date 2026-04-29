@@ -41,15 +41,18 @@ class _UnavailableEmbeddingClient:
 
 @dataclass(slots=True)
 class _FakeKnowledgeService:
+    query_text_seen: str | None = None
     matched_limit_seen: int | None = None
     connected_limit_seen: int | None = None
 
     async def search_searchable_cards(
         self,
         *,
+        query_text: str,
         query_embedding: list[float],
         limit: int,
     ) -> list[_KnowledgeCardMatch]:
+        self.query_text_seen = query_text
         assert query_embedding == [0.1, 0.2, 0.3]
         self.matched_limit_seen = limit
         return [
@@ -94,6 +97,7 @@ async def test_search_returns_matched_cards_with_version_identity() -> None:
     response = await service.search("what is card b")
 
     assert embedding_client.last_text == "what is card b"
+    assert knowledge_service.query_text_seen == "what is card b"
     assert [item.model_dump() for item in response.matched_cards] == [
         {"node_id": 11, "current_version": 1, "title": "A", "content": "alpha"},
         {"node_id": 12, "current_version": 4, "title": "B", "content": "beta"},

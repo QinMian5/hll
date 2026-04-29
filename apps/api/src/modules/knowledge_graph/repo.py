@@ -5,10 +5,11 @@ Out of scope: HTTP concerns and cross-module orchestration policy.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from typing import cast
 
-from sqlalchemy import case, column, delete, insert, select, table
+from sqlalchemy import case, column, delete, func, insert, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.dto import (
@@ -17,10 +18,12 @@ from modules.knowledge_graph.dto import (
     CardVersionSnapshot,
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
+    LexicalSearchCandidate,
     ProjectionCardNode,
     ProjectionEdge,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
+    VectorSearchCandidate,
 )
 from modules.knowledge_graph.edge_rebuild import PlannedEdge, RebuildNodeEmbedding
 from modules.knowledge_graph.model import Adjacency, CardSuggestedEdit, CardVersion, Edge, Node
@@ -43,6 +46,32 @@ def _dot_product_to_similarity(dot_product: float) -> float:
     return max(0.0, min(1.0, (dot_product + 1.0) / 2.0))
 
 
+def _normalize_search_text(value: str) -> str:
+    return " ".join(value.casefold().split())
+
+
+def _search_tokens(value: str) -> tuple[str, ...]:
+    return tuple(re.findall(r"[a-z0-9]+", _normalize_search_text(value)))
+
+
+def _title_match_boost(*, title: str, query_text: str) -> tuple[int, int, int]:
+    normalized_title = _normalize_search_text(title)
+    normalized_query = _normalize_search_text(query_text)
+    query_tokens = _search_tokens(query_text)
+    title_tokens = set(_search_tokens(title))
+    if not normalized_query or not query_tokens:
+        return (0, 0, 0)
+
+    exact_title_match = normalized_title == normalized_query
+    title_phrase_match = normalized_query in normalized_title
+    title_all_tokens_match = all(token in title_tokens for token in query_tokens)
+    return (
+        int(exact_title_match),
+        int(title_phrase_match),
+        int(title_all_tokens_match),
+    )
+
+
 class KnowledgeRepo:
     def __init__(self, *, session: AsyncSession) -> None:
         self._session = session
@@ -53,6 +82,26 @@ class KnowledgeRepo:
         query_embedding: list[float],
         limit: int,
     ) -> list[KnowledgeCardMatch]:
+        candidates = await self.search_vector_candidates(
+            query_embedding=query_embedding,
+            limit=limit,
+        )
+        return [
+            KnowledgeCardMatch(
+                node_id=candidate.node_id,
+                current_version=candidate.current_version,
+                title=candidate.title,
+                content=candidate.content,
+            )
+            for candidate in candidates
+        ]
+
+    async def search_vector_candidates(
+        self,
+        *,
+        query_embedding: list[float],
+        limit: int,
+    ) -> list[VectorSearchCandidate]:
         cosine_distance = Node.embedding.cosine_distance(query_embedding)
         statement = (
             select(Node.id, Node.current_version, Node.title, Node.content)
@@ -61,13 +110,72 @@ class KnowledgeRepo:
         )
         rows = (await self._session.execute(statement)).all()
         return [
-            KnowledgeCardMatch(
+            VectorSearchCandidate(
                 node_id=row.id,
                 current_version=row.current_version,
                 title=row.title,
                 content=row.content,
+                vector_rank=index,
             )
-            for row in rows
+            for index, row in enumerate(rows, start=1)
+        ]
+
+    async def search_lexical_candidates(
+        self,
+        *,
+        query_text: str,
+        limit: int,
+    ) -> list[LexicalSearchCandidate]:
+        stripped_query = query_text.strip()
+        if not stripped_query or limit <= 0:
+            return []
+
+        normalized_query = _normalize_search_text(stripped_query)
+        lowered_title = func.lower(Node.title)
+        ts_query = func.websearch_to_tsquery("english", stripped_query)
+        exact_title_match = (lowered_title == normalized_query).label("exact_title_match")
+        title_phrase_match = (func.strpos(lowered_title, normalized_query) > 0).label(
+            "title_phrase_match"
+        )
+        title_all_tokens_match = (func.to_tsvector("english", Node.title).op("@@")(ts_query)).label(
+            "title_all_tokens_match"
+        )
+        rank = func.ts_rank_cd(Node.search_vector, ts_query).label("lexical_score")
+        statement = (
+            select(
+                Node.id,
+                Node.current_version,
+                Node.title,
+                Node.content,
+                rank,
+                exact_title_match,
+                title_phrase_match,
+                title_all_tokens_match,
+            )
+            .where(Node.search_vector.op("@@")(ts_query))
+            .order_by(
+                exact_title_match.desc(),
+                title_phrase_match.desc(),
+                title_all_tokens_match.desc(),
+                rank.desc(),
+                Node.id.asc(),
+            )
+            .limit(limit)
+        )
+        rows = (await self._session.execute(statement)).all()
+        return [
+            LexicalSearchCandidate(
+                node_id=row.id,
+                current_version=row.current_version,
+                title=row.title,
+                content=row.content,
+                lexical_rank=index,
+                lexical_score=float(row.lexical_score),
+                exact_title_match=bool(row.exact_title_match),
+                title_phrase_match=bool(row.title_phrase_match),
+                title_all_tokens_match=bool(row.title_all_tokens_match),
+            )
+            for index, row in enumerate(rows, start=1)
         ]
 
     async def fetch_connected_title_candidates(

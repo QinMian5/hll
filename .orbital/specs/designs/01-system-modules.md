@@ -106,6 +106,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - **Responsibilities:**
   - Own `Node/Edge/Adjacency`, card version, and card suggested-edit domain semantics and persistence truth.
   - Own repository/model access for graph persistence.
+  - Own repository-backed search ranking primitives for vector retrieval, lexical retrieval, and fused candidate ordering.
   - Provide read/write service ports consumed by `search`, `ingestion`, and `taxonomy`.
   - Execute node persistence and edge materialization in worker write flow.
 - **Non-responsibilities:**
@@ -152,10 +153,11 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### search Module
 - **Responsibilities:**
   - Own read-side search orchestration.
-  - Build query embedding and request ranked retrieval through `knowledge_graph` read service port.
+  - Build query embedding and request hybrid ranked retrieval through `knowledge_graph` read service port.
   - Shape read response with matched cards and connected titles.
 - **Non-responsibilities:**
   - Direct repository/model access in `knowledge_graph`.
+  - Repository-level vector, lexical, or rank-fusion query implementation.
   - Write-path orchestration.
 
 ### ingestion Module
@@ -221,6 +223,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - Logto Account API for BFF-owned web account profile reads and updates.
 - Logto Management API for BFF-owned web dashboard personal access token lifecycle operations.
 - OpenAI Embeddings API for ingestion worker and search query embedding.
+- PostgreSQL full-text search for lexical card retrieval.
 - PostgreSQL as persistent truth store for graph and taxonomy, plus dedicated app-local PostgreSQL services for `knowledge_corpus`, `source_pipeline`, and MCP usage records.
 
 ## Dependency Direction

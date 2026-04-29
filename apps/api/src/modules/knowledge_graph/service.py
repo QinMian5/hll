@@ -14,11 +14,31 @@ from modules.knowledge_graph.dto import (
     CardVersionSnapshot,
     ConnectedTitleCandidate,
     KnowledgeCardMatch,
+    LexicalSearchCandidate,
     ProjectionCardNode,
     ProjectionEdge,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
+    VectorSearchCandidate,
 )
+
+RRF_K = 60
+
+
+def _rrf(rank: int | None) -> float:
+    if rank is None:
+        return 0.0
+    return 1.0 / (RRF_K + rank)
+
+
+def _title_boost_tuple(candidate: LexicalSearchCandidate | None) -> tuple[int, int, int]:
+    if candidate is None:
+        return (0, 0, 0)
+    return (
+        int(candidate.exact_title_match),
+        int(candidate.title_phrase_match),
+        int(candidate.title_all_tokens_match),
+    )
 
 
 class CardVersionNotFoundError(ValueError):
@@ -30,12 +50,19 @@ class CardSuggestedEditNoChangeError(ValueError):
 
 
 class KnowledgeGraphRepoProtocol(Protocol):
-    async def search_top_cards_by_cosine(
+    async def search_vector_candidates(
         self,
         *,
         query_embedding: list[float],
         limit: int,
-    ) -> list[KnowledgeCardMatch]: ...
+    ) -> list[VectorSearchCandidate]: ...
+
+    async def search_lexical_candidates(
+        self,
+        *,
+        query_text: str,
+        limit: int,
+    ) -> list[LexicalSearchCandidate]: ...
 
     async def fetch_connected_title_candidates(
         self,
@@ -154,13 +181,73 @@ class KnowledgeGraphService:
     async def search_searchable_cards(
         self,
         *,
+        query_text: str,
         query_embedding: list[float],
         limit: int,
     ) -> list[KnowledgeCardMatch]:
-        return await self._repo.search_top_cards_by_cosine(
+        if limit <= 0:
+            return []
+
+        vector_candidates = await self._repo.search_vector_candidates(
             query_embedding=query_embedding,
             limit=limit,
         )
+        lexical_candidates = await self._repo.search_lexical_candidates(
+            query_text=query_text,
+            limit=limit,
+        )
+
+        matches_by_node_id: dict[int, KnowledgeCardMatch] = {}
+        vector_ranks_by_node_id: dict[int, int] = {}
+        lexical_by_node_id: dict[int, LexicalSearchCandidate] = {}
+
+        for candidate in vector_candidates:
+            matches_by_node_id.setdefault(
+                candidate.node_id,
+                KnowledgeCardMatch(
+                    node_id=candidate.node_id,
+                    current_version=candidate.current_version,
+                    title=candidate.title,
+                    content=candidate.content,
+                ),
+            )
+            vector_ranks_by_node_id[candidate.node_id] = candidate.vector_rank
+
+        for candidate in lexical_candidates:
+            matches_by_node_id[candidate.node_id] = KnowledgeCardMatch(
+                node_id=candidate.node_id,
+                current_version=candidate.current_version,
+                title=candidate.title,
+                content=candidate.content,
+            )
+            lexical_by_node_id[candidate.node_id] = candidate
+
+        def sort_key(
+            match: KnowledgeCardMatch,
+        ) -> tuple[int, int, int, float, float, int, int, int]:
+            lexical_candidate = lexical_by_node_id.get(match.node_id)
+            vector_rank = vector_ranks_by_node_id.get(match.node_id)
+            lexical_rank = (
+                lexical_candidate.lexical_rank if lexical_candidate is not None else limit + 1
+            )
+            vector_sort_rank = vector_rank if vector_rank is not None else limit + 1
+            fused_score = _rrf(vector_rank) + _rrf(lexical_rank if lexical_candidate else None)
+            lexical_score = (
+                lexical_candidate.lexical_score if lexical_candidate is not None else 0.0
+            )
+            exact_boost, phrase_boost, all_tokens_boost = _title_boost_tuple(lexical_candidate)
+            return (
+                -exact_boost,
+                -phrase_boost,
+                -all_tokens_boost,
+                -fused_score,
+                -lexical_score,
+                lexical_rank,
+                vector_sort_rank,
+                match.node_id,
+            )
+
+        return sorted(matches_by_node_id.values(), key=sort_key)[:limit]
 
     async def get_connected_titles(
         self,

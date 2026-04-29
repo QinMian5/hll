@@ -137,6 +137,36 @@ def test_repository_does_not_expose_app_specific_alembic_scripts() -> None:
         assert not (SCRIPT_DIR / script_name).exists()
 
 
+def test_test_compose_migration_services_use_explicit_alembic_commands() -> None:
+    expected_commands = {
+        "knowledge_corpus_migrate": [
+            "alembic",
+            "-c",
+            "/app/apps/knowledge_corpus/alembic.ini",
+            "upgrade",
+            "head",
+        ],
+        "source_pipeline_migrate": [
+            "alembic",
+            "-c",
+            "/app/apps/source_pipeline/alembic.ini",
+            "upgrade",
+            "head",
+        ],
+        "mcp_migrate": [
+            "alembic",
+            "-c",
+            "/app/apps/mcp/alembic.ini",
+            "upgrade",
+            "head",
+        ],
+    }
+
+    for service_name, expected_command in expected_commands.items():
+        service = _service_data(TEST_COMPOSE, service_name)
+        assert service["command"] == expected_command
+
+
 def test_base_compose_does_not_pin_environment_specific_images() -> None:
     assert all(":dev" not in line for line in _image_lines(BASE_COMPOSE))
     assert all(":prod" not in line for line in _image_lines(BASE_COMPOSE))
