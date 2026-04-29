@@ -20,6 +20,9 @@ The payload contains:
 Use the failed review dimensions and their reasons to repair the card.
 If the card can be repaired, produce one or more corrected atomic card drafts.
 If the card cannot be repaired from the provided card and review result, produce no cards.
+Return card drafts that are focused, compact, and context-sufficient.
+Choose the appropriate granularity from the provided card and review result.
+Do not optimize for the shortest possible statement.
 
 {build_quality_criteria_instruction_text()}
 

@@ -76,6 +76,9 @@ def test_card_repair_instruction_includes_shared_quality_dimensions_without_prot
 
     assert "Repair the provided candidate knowledge card." in instruction
     assert "Work only from the provided payload." in instruction
+    assert "focused, compact, and context-sufficient" in instruction
+    assert "Choose the appropriate granularity" in instruction
+    assert "Do not optimize for the shortest possible statement." in instruction
     assert "Do not use external retrieval, memory, or hidden context." in instruction
     assert "Return ONLY a JSON object" not in instruction
     for criterion in CARD_QUALITY_CRITERIA:

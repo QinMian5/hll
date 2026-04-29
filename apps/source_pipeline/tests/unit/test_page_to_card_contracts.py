@@ -24,6 +24,8 @@ def test_page_to_card_instruction_encodes_task_guidance_without_protocol_noise()
     instruction = build_page_to_card_instruction()
 
     assert "independent atomic knowledge units" in instruction
+    assert "focused, compact, and context-sufficient" in instruction
+    assert "Do not optimize for the shortest possible statement." in instruction
     assert "Title Case" in instruction
     assert "Do not invent claims" in instruction
     assert "If no worthwhile atomic knowledge units are present, return no cards." in instruction

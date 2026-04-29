@@ -22,6 +22,14 @@ def test_card_review_schema_carries_review_semantics_in_field_descriptions() -> 
 
     assert "unambiguous" in schema["properties"]["title_validity"]["description"]
     assert "Title Case" in schema["properties"]["title_style_validity"]["description"]
+    assert (
+        "meaningful context or explanation beyond the title"
+        in schema["properties"]["content_coherence"]["description"]
+    )
+    assert (
+        "not the smallest possible fact fragment"
+        in schema["properties"]["content_atomicity"]["description"]
+    )
     assert "$ or $$" in schema["properties"]["content_latex_validity"]["description"]
 
 

@@ -92,7 +92,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     `source_ref` is the source-owned opaque identifier. Source-specific bookkeeping is external to this app.
   - **`page-to-card` queue name:** The page-to-card step submits jobs to the `page_to_card` queue.
   - **`page-to-card` input contract:** The step input is one `SourceUnit`.
-  - **`page-to-card` task guidance:** The `page-to-card` job instruction carries the extraction policy and atomic-card selection guidance. That instruction remains task-specific and does not carry transport-generic worker protocol rules.
+  - **`page-to-card` task guidance:** The `page-to-card` job instruction carries the extraction policy and focused, compact, context-sufficient card selection guidance. That instruction remains task-specific and does not carry transport-generic worker protocol rules.
   - **`page-to-card` result contract:** The accepted result payload is a JSON object with one required field:
     - `cards`
     The `cards` field is an array of `CardDraft`. Each `CardDraft` contains exactly:
@@ -120,7 +120,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - **`card-repair` input contract:** The step input is one object with:
     - `card`: the rejected `CardDraft`
     - `review`: the accepted `CardReviewResult`
-  - **`card-repair` task guidance:** The `card-repair` instruction explains how to repair the candidate using only the rejected card and review result. It includes the six card-quality dimensions so the worker can repair toward the same standard enforced by review. The instruction does not include transport-generic worker protocol rules.
+  - **`card-repair` task guidance:** The `card-repair` instruction explains how to repair the candidate using only the rejected card and review result. It includes the six card-quality dimensions so the worker can repair toward focused, compact, and context-sufficient card drafts under the same standard enforced by review. The instruction does not include transport-generic worker protocol rules.
   - **`card-repair` result contract:** The accepted result payload is a JSON object with one required field:
     - `cards`
     The `cards` field is an array of `CardDraft`. `{ "cards": [] }` is a valid accepted result and means the rejected candidate cannot be repaired from the provided card and review result.
@@ -139,8 +139,8 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
     - `title_validity`: the title is unambiguous, precisely scoped, and independently understandable without requiring additional context.
     - `title_content_alignment`: the title accurately and sufficiently indicates the actual topic discussed by the content.
     - `title_style_validity`: the title follows `<subject>` or `<subject> (<domain>)`; `<subject>` is preferred by default; the parenthesized domain is used only for minimal disambiguation; the title uses Title Case with minor function words such as `a`, `an`, `the`, `of`, and `in` lowercase unless they begin the title; full sentences, definition-like phrases, colon-separated explanatory labels, and unnecessary qualifiers are invalid.
-    - `content_coherence`: the content is self-contained and self-explanatory given standard domain terminology, without missing context, hidden assumptions, unresolved references, or implicit external prerequisites that should be stated.
-    - `content_atomicity`: the content represents exactly one indivisible knowledge unit; content that can be meaningfully split into multiple independent knowledge units must be split into separate cards when a repair step can do so using the provided input.
+    - `content_coherence`: the content is self-contained and self-explanatory given standard domain terminology, provides meaningful context or explanation beyond the title, and avoids unresolved references, hidden assumptions, bare attribute statements, or implicit external prerequisites that should be stated.
+    - `content_atomicity`: the content represents one focused knowledge unit, not the smallest possible fact fragment; closely related definitions, qualifiers, mechanisms, examples, or implications may remain together when they make that unit understandable; content should be split only when it contains multiple knowledge units that can stand alone as independently useful cards.
     - `content_latex_validity`: LaTeX math uses `\(` and `\)` for inline formulas and `\[` and `\]` for display formulas; `$`, `$$`, mismatched delimiters, and malformed LaTeX syntax are invalid.
 - **Interactions:**
   1. An external caller submits one source-processing config to `pipeline_intake`.

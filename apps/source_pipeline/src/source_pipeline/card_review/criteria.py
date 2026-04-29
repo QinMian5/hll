@@ -45,18 +45,21 @@ CARD_QUALITY_CRITERIA: tuple[CardQualityCriterion, ...] = (
         title="content_coherence",
         description=(
             "The content is self-contained and self-explanatory given standard "
-            "domain terminology, without missing context, hidden assumptions, "
-            "unresolved references, or implicit external prerequisites that "
-            "should be stated."
+            "domain terminology. It provides meaningful context or explanation "
+            "beyond the title and avoids unresolved references, hidden "
+            "assumptions, bare attribute statements, or implicit external "
+            "prerequisites that should be stated."
         ),
     ),
     CardQualityCriterion(
         title="content_atomicity",
         description=(
-            "The content represents exactly one indivisible knowledge unit; "
-            "content that can be meaningfully split into multiple independent "
-            "knowledge units must be split into separate cards when the task "
-            "can do so using the provided input."
+            "The content represents one focused knowledge unit, not the smallest "
+            "possible fact fragment. Closely related definitions, qualifiers, "
+            "mechanisms, examples, or implications may remain together when they "
+            "make that unit understandable. Content should be split only when it "
+            "contains multiple knowledge units that can stand alone as "
+            "independently useful cards."
         ),
     ),
     CardQualityCriterion(
