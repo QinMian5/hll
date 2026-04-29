@@ -257,6 +257,27 @@ def test_base_compose_defines_taxonomy_classification_webhook_without_job_queue_
     assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET" not in receiver
 
 
+def test_base_compose_uses_current_edge_initialization_env_contract() -> None:
+    expected_edge_keys = {
+        "KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K",
+        "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K",
+        "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH",
+        "KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT",
+    }
+    retired_edge_keys = {
+        "KNOWLEDGE_API_EDGE_SIMILARITY_TOP_K",
+        "KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH",
+    }
+
+    for service_name in ("api", "worker"):
+        service = _service_data(BASE_COMPOSE, service_name)
+        environment = service["environment"]
+        assert isinstance(environment, dict)
+
+        assert expected_edge_keys <= set(environment)
+        assert retired_edge_keys.isdisjoint(environment)
+
+
 def test_dev_compose_keeps_taxonomy_classification_services_out_of_default_startup() -> None:
     runtime = _service_block(DEV_COMPOSE, "taxonomy_classification_runtime")
     receiver = _service_block(DEV_COMPOSE, "taxonomy_classification_webhook_receiver")

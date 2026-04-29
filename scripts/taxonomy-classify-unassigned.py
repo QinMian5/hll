@@ -68,8 +68,10 @@ async def run_taxonomy_classification(
     async with runtime.session_factory() as session:
         knowledge_service = build_knowledge_graph_service(
             session=session,
-            edge_similarity_top_k=runtime.settings.edge_similarity_top_k,
-            edge_similarity_min_strength=runtime.settings.edge_similarity_min_strength,
+            edge_title_mention_top_k=runtime.settings.edge_title_mention_top_k,
+            edge_semantic_top_k=runtime.settings.edge_semantic_top_k,
+            edge_semantic_min_strength=runtime.settings.edge_semantic_min_strength,
+            edge_semantic_candidate_limit=runtime.settings.edge_semantic_candidate_limit,
         )
         taxonomy_service = TaxonomyService(repo=TaxonomyRepo(session=session))
         runner = CursorClassificationRunner(
