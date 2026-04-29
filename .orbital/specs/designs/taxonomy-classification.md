@@ -11,13 +11,13 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the `taxonomy_classification` module that incrementally classifies cards from one scope node's `Unclassified` leaf into existing direct child categories through `job-queue-mcp` single-card tasks.
-- **Scope/Boundaries:** Covers operator-triggered job submission, one-card job contracts, local job linkage state, queue-result notification intake, lightweight reconcile, result validation, and assignment-move orchestration. Excludes taxonomy tree persistence ownership, worker-side implementation mechanics, and HTTP-triggered classification APIs.
+- **Purpose:** Define the `taxonomy_classification` module that lets workers choose a regular direct child for cards in selected `Unclassified` leaves, then moves valid child choices to that child's `Unclassified` leaf or keeps the current `Unclassified` leaf.
+- **Scope/Boundaries:** Covers operator-triggered one-shot job submission, one-card job contracts, local job linkage state, queue-result notification intake, lightweight reconcile, result validation, and assignment-move orchestration. Excludes taxonomy tree persistence ownership, worker-side implementation mechanics, and HTTP-triggered classification APIs.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Constraint Projection
 - **Governing Constraints:** Module boundaries remain explicit, persistent truth ownership stays in `knowledge_graph` and `taxonomy`, queue execution stays external to the API process, and behavior-changing design decisions stay synchronized in active specs.
-- **Detail Commitments:** Classification execution is operator-triggered via scripts and advanced by a background runtime. The runtime submits one `taxonomy_classification` queue job per card, consumes notification-only webhook events plus lightweight polling/reconcile, reads accepted results through `GET /results/{job_id}`, validates target children against taxonomy-owned truth, and moves assignments only through taxonomy-owned services.
+- **Detail Commitments:** Classification execution is operator-triggered via one-shot scripts and advanced by a background runtime. The runtime submits one `taxonomy_classification` queue job per eligible card, consumes notification-only webhook events plus lightweight polling/reconcile, reads accepted results through `GET /results/{job_id}`, validates target children against taxonomy-owned truth, and moves assignments only through taxonomy-owned services.
 - **Update Rule:** Requirement-level constraints remain stable while classification orchestration behavior, queue contracts, result-consumption rules, and runtime/operator semantics are maintained here as implementation-facing truth.
 
 ## Design Approach
@@ -27,9 +27,10 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - **Dependency boundary:** `taxonomy_classification` consumes `knowledge_graph` service ports for card input data and consumes `taxonomy` service ports for scope lookup, child lookup, and assignment movement.
   - **Queue boundary:** Classification jobs are submitted to the `taxonomy_classification` queue in `job-queue-mcp`.
   - **Producer/result-reader SDK boundary:** `taxonomy_classification` uses the upstream `job_queue_mcp_client.producer.AsyncClient` and `job_queue_mcp_client.auth.ClientCredentialsTokenProvider` public facades directly for job submission, result reads, and machine-to-machine token acquisition. The module owns classification payload construction, output schema export, local linkage persistence, result validation, and assignment movement.
+  - **One-shot submission rule:** Operator scripts enqueue the cards that are currently unclassified at run time. The module does not run a continuous service that automatically submits every future `Unclassified` card.
   - **Single-card job rule:** One knowledge card is processed by exactly one queue job for one scope classification attempt.
-  - **Node context contract:** The worker receives only the selected card's `node_id`, `title`, and `content`, plus the current scope and available target child categories.
-  - **Human-structure rule:** The worker must choose among existing human-created direct child categories or keep the card in the current scope's `Unclassified` leaf. The worker cannot create or request new taxonomy nodes.
+  - **Node context contract:** The worker receives only the selected card's `id`, `title`, and `content`, plus the current scope and available sibling target categories.
+  - **Human-structure rule:** The worker must choose among existing human-created direct child categories of the current scope or keep the card in the current scope's `Unclassified` leaf. The worker cannot create taxonomy nodes, request new taxonomy nodes, or move a card to the parent scope.
   - **Move target rule:** Choosing a child category moves the card assignment to that child category's `Unclassified` leaf.
   - **Keep-unclassified rule:** Choosing `Unclassified` keeps the card assignment at the current scope's `Unclassified` leaf and records the classification attempt as processed.
   - **Validation-before-move rule:** The runtime applies accepted results only after verifying that the card is still assigned to the source `Unclassified` leaf, the selected child still exists, the selected child belongs directly to the scope node, and the selected child's `Unclassified` leaf exists.
@@ -42,11 +43,18 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Behavior: calls taxonomy-owned services to create regular child category nodes under the parent.
   - Side effect: each regular child category receives its own system-created `Unclassified` child leaf.
 - **Submit classification jobs script:**
-  - Input: one scope taxonomy node id and optional limit.
-  - Selection set: cards currently assigned to the scope node's `Unclassified` leaf and lacking an active outstanding classification job for the same scope and source assignment.
-  - Ordering: selected cards are processed in `nodes.id ASC`.
+  - Input modes:
+    - single-scope mode selected by case-insensitive `scope_name` or case-insensitive root-to-node `scope_path`;
+    - all eligible scopes selected by `all_unclassified`.
+  - `scope_name` matching rule: the name is matched case-insensitively across regular taxonomy nodes. A unique match selects that scope. No matches cause failure. Multiple matches fail and report each candidate breadcrumb so the operator can rerun with `scope_path`.
+  - `scope_path` matching rule: each path segment is matched case-insensitively against the direct children of the prior segment, starting at the real root. A missing or ambiguous segment fails with the matching breadcrumb context.
+  - `all_unclassified` scope rule: the script scans all regular taxonomy nodes that have a direct `Unclassified` leaf.
+  - No-child skip rule: a scope with no regular direct child categories is skipped and counted as `skipped_no_children`.
+  - Optional limit: limits the total number of submitted card jobs for the run after scope eligibility is resolved.
+  - Selection set: cards currently assigned to each selected scope node's direct `Unclassified` leaf and lacking an active outstanding classification job for the same scope and source assignment.
+  - Ordering: scopes are processed by breadcrumb path and taxonomy node id; selected cards within a scope are processed in `nodes.id ASC`.
   - Job creation: one queue job per selected card.
-  - Script output: submitted, skipped, and already-linked counts.
+  - Script output: submitted, already-linked, `skipped_no_children`, and selected-scope counts.
   - Resubmission rule: a processed keep-unclassified result, processed invalid accepted result, or terminal non-accepted result does not block a later operator submission for the same card and scope.
 
 ## Queue Job Contract
@@ -55,18 +63,14 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - **Payload:** one JSON object containing:
   - `scope_node`: `{id, name}`
   - `source_unclassified_node`: `{id, name}`
-  - `card`: `{node_id, title, content}`
-  - `children`: array of direct child category options, each item containing a stable child id and name
+  - `card`: `{id, title, content}`
+  - `children`: array of direct regular child category options for the scope, each item containing a stable child id and name
   - `allow_unclassified`: `true`
-- **Instruction:** task-specific guidance tells the worker to choose exactly one target using only the payload content.
+- **Instruction:** task-specific guidance tells the worker to choose exactly one target using only the payload content. The instruction does not offer parent-scope movement as an allowed action.
 - **Output schema:** one JSON object containing:
-  - `node_id`
-  - `target`
-    - `{ "kind": "child", "child_id": <positive integer> }`
-    - or `{ "kind": "unclassified" }`
-  - `confidence`
-  - `rationale`
-- **Result-use rule:** `confidence` and `rationale` are audit fields. Publishing a valid move depends on structural validation, not on a confidence threshold.
+  - `{ "target": { "kind": "child", "child_id": <positive integer>, "reason": <non-empty text> } }`
+  - or `{ "target": { "kind": "unclassified", "reason": <non-empty text> } }`
+- **Result-use rule:** `reason` is an audit field. Publishing a valid move depends on structural validation, not on a confidence threshold.
 
 ## Runtime State
 - The module persists local queue linkage and local notification state needed for restart/resume behavior.
@@ -104,9 +108,9 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - Webhook receiver authentication remains module-owned and validates incoming delivery tokens against the `knowledge` Logto authority. The job-queue producer/result-reader SDK is not the authority for incoming webhook delivery-token validation.
 
 ## Assignment Move Flow
-1. Operator creates direct child categories for a scope node.
+1. Operator creates direct child categories for one or more scope nodes.
 2. Taxonomy service creates each requested child category plus that child's `Unclassified` leaf.
-3. Operator submits classification jobs for cards currently assigned to the scope node's `Unclassified` leaf.
+3. Operator submits classification jobs for cards currently assigned to selected scope `Unclassified` leaves.
 4. `job-queue-mcp` dispatches each single-card job to external workers.
 5. `job-queue-mcp` sends notification-only webhook events for accepted results and terminal non-accepted states.
 6. The local webhook receiver records events idempotently and wakes the classification runtime.
@@ -150,8 +154,15 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 ## Validation
 - **Checks:**
   - Operator child-creation script creates children through taxonomy services and automatically creates each child's `Unclassified` leaf.
-  - Operator submission script selects cards from one scope's `Unclassified` leaf in `nodes.id ASC` order.
+  - Operator submission script resolves case-insensitive `scope_name` only when it uniquely identifies one regular taxonomy node.
+  - Operator submission script reports candidate breadcrumbs and fails when case-insensitive `scope_name` matches multiple regular taxonomy nodes.
+  - Operator submission script resolves case-insensitive `scope_path` segment by segment from the real root.
+  - Operator submission script reports breadcrumb context and fails when a `scope_path` segment is missing or ambiguous.
+  - Operator submission script scans all eligible scope `Unclassified` leaves when `all_unclassified` is selected.
+  - Operator submission script skips scopes with no regular direct children and reports `skipped_no_children`.
+  - Operator submission script selects cards from each selected scope's `Unclassified` leaf in `nodes.id ASC` order.
   - Submission idempotency tests verify repeated runs do not duplicate active job links for the same card and scope.
+  - Resubmission tests verify processed keep-unclassified results, processed invalid accepted results, and terminal non-accepted results do not block later submissions for cards still assigned to the same scope `Unclassified` leaf.
   - Queue-contract tests verify `taxonomy_classification` payload and output schema shape.
   - Webhook receiver tests verify authentication, duplicate event handling, event persistence, and local wakeup behavior.
   - Runtime tests verify accepted valid child targets move assignments to the target child's `Unclassified` leaf.

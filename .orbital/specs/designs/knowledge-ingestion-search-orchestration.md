@@ -35,7 +35,7 @@ out_of_scope: Keyword retrieval, hybrid reranking, suggestion review UI, ingesti
 - Consumes `knowledge_graph` read ports for leaf-level one-hop graph payload shaping.
 
 ### taxonomy_classification
-- Owns operator-triggered `taxonomy_classification` queue job submission for cards in one scope node's `Unclassified` leaf.
+- Owns operator-triggered `taxonomy_classification` queue job submission for cards in selected scope `Unclassified` leaves.
 - Owns background result consumption through notification-only webhooks plus lightweight polling/reconcile.
 - Submits one `job-queue-mcp` job per selected card.
 - Consumes `knowledge_graph` and `taxonomy` service ports only.
@@ -169,14 +169,16 @@ out_of_scope: Keyword retrieval, hybrid reranking, suggestion review UI, ingesti
 4. Taxonomy storage remains the authoritative structure truth.
 
 ## Taxonomy Classification Flow
-1. Operator script selects cards assigned to one scope node's `Unclassified` leaf in deterministic order (`nodes.id ASC`).
-2. Operator script submits one `taxonomy_classification` queue job per selected card.
-3. `job-queue-mcp` delivers notification-only events for accepted results and terminal non-accepted outcomes.
-4. The local taxonomy-classification runtime persists webhook events idempotently and reads accepted result payloads through `GET /results/{job_id}`.
-5. Valid child targets move the card assignment to the selected child category's `Unclassified` leaf.
-6. Valid `unclassified` targets keep the card assignment at the current scope's `Unclassified` leaf.
-7. Invalid accepted results and terminal non-accepted outcomes record local processing state without moving assignments.
-8. Lightweight polling/reconcile checks outstanding job links as a compensation path.
+1. Operator script resolves one scope by case-insensitive name or path, or scans all eligible scope `Unclassified` leaves.
+2. Operator script selects cards assigned to each selected scope's direct `Unclassified` leaf in deterministic order (`nodes.id ASC` within each scope).
+3. Operator script skips selected scopes that have no regular direct child categories.
+4. Operator script submits one `taxonomy_classification` queue job per selected card.
+5. `job-queue-mcp` delivers notification-only events for accepted results and terminal non-accepted outcomes.
+6. The local taxonomy-classification runtime persists webhook events idempotently and reads accepted result payloads through `GET /results/{job_id}`.
+7. Valid child targets move the card assignment to the selected child category's `Unclassified` leaf.
+8. Valid `unclassified` targets keep the card assignment at the current scope's `Unclassified` leaf.
+9. Invalid accepted results and terminal non-accepted outcomes record local processing state without moving assignments.
+10. Lightweight polling/reconcile checks outstanding job links as a compensation path.
 
 ## Runtime Dependencies
 - Redis is required for ingestion queue broker transport.

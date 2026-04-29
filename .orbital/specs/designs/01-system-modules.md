@@ -135,7 +135,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### taxonomy_classification Module
 - **Responsibilities:**
-  - Own operator-triggered job submission for cards in a scope node's `Unclassified` leaf.
+  - Own operator-triggered job submission for cards in selected scope `Unclassified` leaves.
   - Own job-queue-backed classification runtime state and result consumption.
   - Submit one `taxonomy_classification` queue job per selected card.
   - Consume notification-only webhooks and low-frequency reconcile for queue results.

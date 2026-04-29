@@ -65,6 +65,13 @@ def test_accepted_result_keeps_unclassified_without_child_id() -> None:
     assert result.target.child_id is None
 
 
+def test_accepted_result_rejects_parent_target_kind() -> None:
+    with pytest.raises(ValueError, match=r"child|unclassified"):
+        TaxonomyClassificationAcceptedResult.model_validate(
+            {"target": {"kind": "parent", "reason": "Move this up one level."}}
+        )
+
+
 def test_output_schema_exports_target_shape_for_job_queue() -> None:
     schema = export_taxonomy_classification_output_schema()
 
