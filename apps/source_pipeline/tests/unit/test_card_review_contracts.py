@@ -19,8 +19,11 @@ def test_card_review_schema_is_exported_from_python_contracts() -> None:
 
 def test_card_review_schema_carries_review_semantics_in_field_descriptions() -> None:
     schema = export_card_review_output_schema()
+    title_validity = schema["properties"]["title_validity"]["description"]
 
-    assert "unambiguous" in schema["properties"]["title_validity"]["description"]
+    assert "most concise unambiguous identifier" in title_validity
+    assert "does not need to summarize, explain, or restate the content" in title_validity
+    assert "precisely scoped" not in title_validity
     assert "Title Case" in schema["properties"]["title_style_validity"]["description"]
     assert (
         "meaningful context or explanation beyond the title"

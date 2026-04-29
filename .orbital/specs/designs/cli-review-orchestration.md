@@ -118,7 +118,7 @@ flowchart TD
 ## Review Semantics
 - Review is `all-or-nothing`.
 - The six dimensions mean:
-  - **`title_validity`:** the title is unambiguous, precisely scoped, and independently understandable without requiring additional context.
+  - **`title_validity`:** the title is the most concise unambiguous identifier for one knowledge unit. Prefer the established canonical term or concept name when it uniquely refers to the subject. If the same term could reasonably refer to different meanings across domains, add only the minimal parenthesized domain qualifier needed for disambiguation. The title does not need to summarize, explain, or restate the content.
   - **`title_content_alignment`:** the title provides an accurate and sufficient indication of the content's topic.
   - **`title_style_validity`:** the title follows the required naming style. Valid titles use either `<subject>` or `<subject> (<domain>)`; the parenthesized domain is used only for minimal disambiguation. Full sentences, definition-like phrases, colon-separated explanatory labels, and unnecessary qualifiers are rejected.
   - **`content_coherence`:** the content is self-contained and self-explanatory given standard domain terminology, without implicit assumptions, missing context, or hidden dependencies.

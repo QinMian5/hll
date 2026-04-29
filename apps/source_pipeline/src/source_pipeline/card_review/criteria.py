@@ -18,8 +18,13 @@ CARD_QUALITY_CRITERIA: tuple[CardQualityCriterion, ...] = (
     CardQualityCriterion(
         title="title_validity",
         description=(
-            "The title is unambiguous, precisely scoped, and independently "
-            "understandable without requiring additional context."
+            "The title is the most concise unambiguous identifier for one "
+            "knowledge unit. Prefer the established canonical term or concept "
+            "name when it uniquely refers to the subject. If the same term "
+            "could reasonably refer to different meanings across domains, add "
+            "only the minimal parenthesized domain qualifier needed for "
+            "disambiguation. The title does not need to summarize, explain, or "
+            "restate the content."
         ),
     ),
     CardQualityCriterion(
