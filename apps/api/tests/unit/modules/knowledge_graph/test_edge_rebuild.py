@@ -95,16 +95,16 @@ async def test_rebuild_dry_run_plans_thresholded_top_k_edges_without_writes() ->
 
     result = await rebuild_knowledge_graph_edges(
         repo=repo,
-        edge_similarity_top_k=2,
-        edge_similarity_min_strength=0.7,
+        edge_semantic_top_k=2,
+        edge_semantic_min_strength=0.7,
         apply=False,
     )
 
     assert repo.candidate_requests == [1, 2, 3, 4]
     assert repo.events == []
     assert repo.created_edges == []
-    assert result.edge_similarity_top_k == 2
-    assert result.edge_similarity_min_strength == 0.7
+    assert result.edge_semantic_top_k == 2
+    assert result.edge_semantic_min_strength == 0.7
     assert result.node_count == 4
     assert result.planned_edge_count == 4
     assert result.inserted_edge_count == 0
@@ -122,15 +122,15 @@ async def test_rebuild_apply_clears_existing_edges_before_recreating_plan() -> N
 
     result = await rebuild_knowledge_graph_edges(
         repo=repo,
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.7,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.7,
         apply=True,
     )
 
     assert repo.events == ["clear", "create:2:1:0.7"]
     assert repo.created_edges == [(2, 1, 0.7)]
-    assert result.edge_similarity_top_k == 10
-    assert result.edge_similarity_min_strength == 0.7
+    assert result.edge_semantic_top_k == 10
+    assert result.edge_semantic_min_strength == 0.7
     assert result.node_count == 2
     assert result.planned_edge_count == 1
     assert result.inserted_edge_count == 1
@@ -150,8 +150,8 @@ async def test_bulk_rebuild_dry_run_fetches_embeddings_without_writes() -> None:
 
     result = await rebuild_knowledge_graph_edges_bulk(
         repo=repo,
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.7,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.7,
         apply=False,
     )
 
@@ -176,8 +176,8 @@ async def test_bulk_rebuild_apply_clears_then_inserts_with_same_policy() -> None
 
     result = await rebuild_knowledge_graph_edges_bulk(
         repo=repo,
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.7,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.7,
         apply=True,
     )
 
@@ -198,8 +198,8 @@ def test_embedding_planner_matches_historical_threshold_top_k_policy() -> None:
             RebuildNodeEmbedding(node_id=2, embedding=[0.9, 0.1]),
             RebuildNodeEmbedding(node_id=3, embedding=[0.8, 0.2]),
         ],
-        edge_similarity_top_k=1,
-        edge_similarity_min_strength=0.7,
+        edge_semantic_top_k=1,
+        edge_semantic_min_strength=0.7,
         chunk_size=2,
     )
 

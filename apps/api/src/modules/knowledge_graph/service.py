@@ -143,6 +143,16 @@ class KnowledgeGraphRepoProtocol(Protocol):
         *,
         query_embedding: list[float],
         excluded_node_ids: Sequence[int],
+        limit: int,
+    ) -> list[SimilarNodeCandidate]: ...
+
+    async def search_title_mention_candidates(
+        self,
+        *,
+        content: str,
+        query_embedding: list[float],
+        excluded_node_ids: Sequence[int],
+        limit: int,
     ) -> list[SimilarNodeCandidate]: ...
 
     async def create_edge_with_adjacency(
@@ -176,13 +186,17 @@ class KnowledgeGraphService:
         self,
         *,
         repo: KnowledgeGraphRepoProtocol,
-        edge_similarity_top_k: int,
-        edge_similarity_min_strength: float,
+        edge_title_mention_top_k: int,
+        edge_semantic_top_k: int,
+        edge_semantic_min_strength: float,
+        edge_semantic_candidate_limit: int,
         taxonomy_projection_port: KnowledgeGraphTaxonomyProjectionPort | None = None,
     ) -> None:
         self._repo = repo
-        self._edge_similarity_top_k = edge_similarity_top_k
-        self._edge_similarity_min_strength = edge_similarity_min_strength
+        self._edge_title_mention_top_k = edge_title_mention_top_k
+        self._edge_semantic_top_k = edge_semantic_top_k
+        self._edge_semantic_min_strength = edge_semantic_min_strength
+        self._edge_semantic_candidate_limit = edge_semantic_candidate_limit
         self._taxonomy_projection_port = taxonomy_projection_port
 
     async def search_searchable_cards(
@@ -390,35 +404,79 @@ class KnowledgeGraphService:
                 await self._taxonomy_projection_port.assign_node_to_root_unclassified(
                     node_id=node_id,
                 )
-            candidates = await self._repo.search_similarity_candidates(
-                query_embedding=embedding,
-                excluded_node_ids=[node_id],
-            )
-            threshold_candidates = [
-                candidate
-                for candidate in candidates
-                if candidate.similarity >= self._edge_similarity_min_strength
-            ]
-            for candidate in threshold_candidates[: self._edge_similarity_top_k]:
-                edge_id = await self._repo.create_edge_with_adjacency(
-                    source_node_id=node_id,
-                    related_node_id=candidate.node_id,
-                    strength=candidate.similarity,
+
+            selected_node_ids: list[int] = []
+            selected_node_id_set: set[int] = set()
+
+            if self._edge_title_mention_top_k > 0:
+                title_mention_candidates = await self._repo.search_title_mention_candidates(
+                    content=content,
+                    query_embedding=embedding,
+                    excluded_node_ids=[node_id],
+                    limit=self._edge_title_mention_top_k,
                 )
-                if self._taxonomy_projection_port is not None:
-                    leaf_ids_by_node_id = (
-                        await self._taxonomy_projection_port.list_leaf_ids_for_node_ids(
-                            node_ids=[node_id, candidate.node_id]
-                        )
+                title_mention_edge_count = 0
+                for candidate in title_mention_candidates:
+                    if candidate.node_id in selected_node_id_set:
+                        continue
+                    await self._create_edge_with_projection(
+                        source_node_id=node_id,
+                        related_node_id=candidate.node_id,
+                        strength=candidate.similarity,
                     )
-                    for leaf_id in sorted(set(leaf_ids_by_node_id.values())):
-                        await self._taxonomy_projection_port.add_projected_edge_ids_for_leaf(
-                            leaf_id=leaf_id,
-                            edge_ids=[edge_id],
-                        )
+                    selected_node_ids.append(candidate.node_id)
+                    selected_node_id_set.add(candidate.node_id)
+                    title_mention_edge_count += 1
+                    if title_mention_edge_count >= self._edge_title_mention_top_k:
+                        break
+
+            if self._edge_semantic_top_k > 0:
+                candidates = await self._repo.search_similarity_candidates(
+                    query_embedding=embedding,
+                    excluded_node_ids=[node_id, *selected_node_ids],
+                    limit=self._edge_semantic_candidate_limit,
+                )
+                semantic_edge_count = 0
+                for candidate in candidates:
+                    if candidate.node_id in selected_node_id_set:
+                        continue
+                    if candidate.similarity < self._edge_semantic_min_strength:
+                        continue
+                    await self._create_edge_with_projection(
+                        source_node_id=node_id,
+                        related_node_id=candidate.node_id,
+                        strength=candidate.similarity,
+                    )
+                    selected_node_ids.append(candidate.node_id)
+                    selected_node_id_set.add(candidate.node_id)
+                    semantic_edge_count += 1
+                    if semantic_edge_count >= self._edge_semantic_top_k:
+                        break
 
             await self._repo.commit()
             return node_id
         except Exception:
             await self._repo.rollback()
             raise
+
+    async def _create_edge_with_projection(
+        self,
+        *,
+        source_node_id: int,
+        related_node_id: int,
+        strength: float,
+    ) -> None:
+        edge_id = await self._repo.create_edge_with_adjacency(
+            source_node_id=source_node_id,
+            related_node_id=related_node_id,
+            strength=strength,
+        )
+        if self._taxonomy_projection_port is not None:
+            leaf_ids_by_node_id = await self._taxonomy_projection_port.list_leaf_ids_for_node_ids(
+                node_ids=[source_node_id, related_node_id]
+            )
+            for leaf_id in sorted(set(leaf_ids_by_node_id.values())):
+                await self._taxonomy_projection_port.add_projected_edge_ids_for_leaf(
+                    leaf_id=leaf_id,
+                    edge_ids=[edge_id],
+                )

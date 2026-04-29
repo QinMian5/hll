@@ -75,8 +75,10 @@ async def test_classification_flow_assigns_leaf_and_keeps_failed_node_unassigned
     session_tool = TaxonomyClassificationSessionTool(taxonomy_port=taxonomy_service)
     knowledge_service = KnowledgeGraphService(
         repo=KnowledgeRepo(session=db_session),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.0,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.0,
+        edge_semantic_candidate_limit=10,
     )
 
     class _Runner:

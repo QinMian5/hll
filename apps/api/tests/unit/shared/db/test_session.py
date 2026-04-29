@@ -28,8 +28,10 @@ def runtime_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("KNOWLEDGE_API_EMBEDDING_TIMEOUT_SECONDS", "10")
     monkeypatch.setenv("KNOWLEDGE_API_SEARCH_MAX_MATCHED", "3")
     monkeypatch.setenv("KNOWLEDGE_API_SEARCH_MAX_CONNECTED", "7")
-    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SIMILARITY_TOP_K", "10")
-    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH", "0.37")
+    monkeypatch.setenv("KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K", "2")
+    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K", "4")
+    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH", "0.61")
+    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT", "9")
     monkeypatch.setenv("KNOWLEDGE_API_LOG_FILE_PATH", "logs/api/app.log")
     return Settings()
 

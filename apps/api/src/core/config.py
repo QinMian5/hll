@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from tempfile import gettempdir
+from typing import Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
 
 _DEFAULT_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE = str(
@@ -33,8 +34,10 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = Field(gt=0)
     search_max_matched: int = Field(ge=1)
     search_max_connected: int = Field(ge=1)
-    edge_similarity_top_k: int = Field(ge=1)
-    edge_similarity_min_strength: float = Field(ge=0.0, le=1.0)
+    edge_title_mention_top_k: int = Field(ge=0)
+    edge_semantic_top_k: int = Field(ge=0)
+    edge_semantic_min_strength: float = Field(ge=0.0, le=1.0)
+    edge_semantic_candidate_limit: int = Field(ge=0)
     log_level: str = Field(default="INFO", min_length=1)
     log_file_path: str
     log_file_max_bytes: int = Field(default=10_485_760, gt=0)
@@ -50,6 +53,15 @@ class Settings(BaseSettings):
     taxonomy_classification_cursor_timeout_seconds: float = Field(default=180.0, gt=0)
     taxonomy_classification_cursor_max_retries: int = Field(default=3, ge=1)
     taxonomy_classification_max_workers: int = Field(default=8, ge=1)
+
+    @model_validator(mode="after")
+    def validate_edge_initialization_settings(self) -> Self:
+        if self.edge_semantic_candidate_limit < self.edge_semantic_top_k:
+            raise ValueError(
+                "edge_semantic_candidate_limit must be greater than or equal to "
+                "edge_semantic_top_k."
+            )
+        return self
 
 
 class MigrationSettings(BaseSettings):

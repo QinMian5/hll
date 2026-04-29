@@ -19,8 +19,10 @@ RUNTIME_REQUIRED_ENV = {
     "KNOWLEDGE_API_EMBEDDING_TIMEOUT_SECONDS": "10",
     "KNOWLEDGE_API_SEARCH_MAX_MATCHED": "3",
     "KNOWLEDGE_API_SEARCH_MAX_CONNECTED": "7",
-    "KNOWLEDGE_API_EDGE_SIMILARITY_TOP_K": "10",
-    "KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH": "0.37",
+    "KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K": "2",
+    "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K": "4",
+    "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH": "0.61",
+    "KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT": "9",
     "KNOWLEDGE_API_LOG_FILE_PATH": "logs/api/app.log",
 }
 
@@ -95,15 +97,39 @@ def test_load_settings_reads_database_url_from_environment(
     )
 
 
-def test_load_settings_reads_edge_similarity_threshold_from_environment(
+def test_load_settings_reads_edge_initialization_policy_from_environment(
     isolated_env: pytest.MonkeyPatch,
 ) -> None:
     _set_env(
         isolated_env,
-        RUNTIME_REQUIRED_ENV | {"KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH": "0.83"},
+        RUNTIME_REQUIRED_ENV
+        | {
+            "KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K": "0",
+            "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K": "5",
+            "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH": "0.83",
+            "KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT": "11",
+        },
     )
     settings = config_module.Settings()
-    assert settings.edge_similarity_min_strength == 0.83
+    assert settings.edge_title_mention_top_k == 0
+    assert settings.edge_semantic_top_k == 5
+    assert settings.edge_semantic_min_strength == 0.83
+    assert settings.edge_semantic_candidate_limit == 11
+
+
+def test_load_settings_rejects_semantic_candidate_limit_below_semantic_top_k(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        RUNTIME_REQUIRED_ENV
+        | {
+            "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K": "5",
+            "KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT": "4",
+        },
+    )
+    with pytest.raises(ValidationError, match="edge_semantic_candidate_limit"):
+        config_module.Settings()
 
 
 def test_load_settings_requires_database_url(

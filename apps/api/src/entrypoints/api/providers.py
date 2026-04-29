@@ -70,8 +70,10 @@ def get_knowledge_graph_service(
 ) -> KnowledgeGraphService:
     return build_knowledge_graph_service(
         session=session,
-        edge_similarity_top_k=settings.edge_similarity_top_k,
-        edge_similarity_min_strength=settings.edge_similarity_min_strength,
+        edge_title_mention_top_k=settings.edge_title_mention_top_k,
+        edge_semantic_top_k=settings.edge_semantic_top_k,
+        edge_semantic_min_strength=settings.edge_semantic_min_strength,
+        edge_semantic_candidate_limit=settings.edge_semantic_candidate_limit,
     )
 
 

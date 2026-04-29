@@ -25,8 +25,10 @@ async def run_backfill(*, apply: bool) -> TaxonomyRootUnclassifiedBackfillResult
         projection_port = (
             build_knowledge_graph_service(
                 session=session,
-                edge_similarity_top_k=runtime.settings.edge_similarity_top_k,
-                edge_similarity_min_strength=runtime.settings.edge_similarity_min_strength,
+                edge_title_mention_top_k=runtime.settings.edge_title_mention_top_k,
+                edge_semantic_top_k=runtime.settings.edge_semantic_top_k,
+                edge_semantic_min_strength=runtime.settings.edge_semantic_min_strength,
+                edge_semantic_candidate_limit=runtime.settings.edge_semantic_candidate_limit,
             )
             if apply
             else None

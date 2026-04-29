@@ -35,8 +35,10 @@ async def _create_node(
 def _service(db_session: AsyncSession) -> KnowledgeGraphService:
     return KnowledgeGraphService(
         repo=KnowledgeRepo(session=db_session),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
 

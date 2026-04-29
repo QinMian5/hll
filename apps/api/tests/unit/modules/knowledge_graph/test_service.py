@@ -7,7 +7,7 @@ Out of scope: SQL statement correctness and FastAPI route wiring.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import pytest
@@ -40,6 +40,11 @@ class _StubRepo:
     created_suggested_edits: list[tuple[int, int, str, str, str]] | None = None
     vector_candidates: list[VectorSearchCandidate] | None = None
     lexical_candidates: list[LexicalSearchCandidate] | None = None
+    title_mention_candidates: list[SimilarNodeCandidate] | None = None
+    semantic_candidates: list[SimilarNodeCandidate] | None = None
+    title_mention_limits: list[int] = field(default_factory=list)
+    semantic_candidate_limits: list[int] = field(default_factory=list)
+    semantic_excluded_node_ids: list[list[int]] = field(default_factory=list)
     next_edge_id: int = 500
     next_suggested_edit_id: int = 700
     committed: bool = False
@@ -226,14 +231,32 @@ class _StubRepo:
         *,
         query_embedding: list[float],
         excluded_node_ids: Sequence[int],
+        limit: int,
     ) -> list[SimilarNodeCandidate]:
         assert query_embedding == [0.3, 0.2, 0.1]
-        assert excluded_node_ids == [99]
+        self.semantic_excluded_node_ids.append(list(excluded_node_ids))
+        self.semantic_candidate_limits.append(limit)
+        if self.semantic_candidates is not None:
+            return list(self.semantic_candidates)
         return [
             SimilarNodeCandidate(node_id=4, similarity=0.91),
             SimilarNodeCandidate(node_id=8, similarity=0.49),
             SimilarNodeCandidate(node_id=11, similarity=0.5),
         ]
+
+    async def search_title_mention_candidates(
+        self,
+        *,
+        content: str,
+        query_embedding: list[float],
+        excluded_node_ids: Sequence[int],
+        limit: int,
+    ) -> list[SimilarNodeCandidate]:
+        assert content
+        assert query_embedding == [0.3, 0.2, 0.1]
+        assert excluded_node_ids == [99]
+        self.title_mention_limits.append(limit)
+        return list(self.title_mention_candidates or [])
 
     async def create_edge_with_adjacency(
         self,
@@ -306,8 +329,10 @@ async def test_search_searchable_cards_returns_records_with_node_id_title_conten
             ],
             lexical_candidates=[],
         ),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
     records = await service.search_searchable_cards(
         query_text="quantum mechanics",
@@ -385,8 +410,10 @@ async def test_search_searchable_cards_prioritizes_title_matches_over_content_on
                 ),
             ],
         ),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     records = await service.search_searchable_cards(
@@ -413,8 +440,10 @@ async def test_search_searchable_cards_preserves_vector_only_fallback() -> None:
             ],
             lexical_candidates=[],
         ),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     records = await service.search_searchable_cards(
@@ -441,8 +470,10 @@ async def test_submit_card_suggested_edit_stores_pending_suggestion_against_base
     )
     service = KnowledgeGraphService(
         repo=repo,
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     record = await service.submit_card_suggested_edit(
@@ -467,8 +498,10 @@ async def test_submit_card_suggested_edit_rejects_unknown_base_version() -> None
     repo = _StubRepo(card_versions_by_key={}, created_suggested_edits=[])
     service = KnowledgeGraphService(
         repo=repo,
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     with pytest.raises(CardVersionNotFoundError):
@@ -500,8 +533,10 @@ async def test_submit_card_suggested_edit_rejects_noop_against_base_version() ->
     )
     service = KnowledgeGraphService(
         repo=repo,
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     with pytest.raises(CardSuggestedEditNoChangeError):
@@ -533,8 +568,10 @@ async def test_submit_card_suggested_edit_accepts_stale_existing_base_version() 
     )
     service = KnowledgeGraphService(
         repo=repo,
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     record = await service.submit_card_suggested_edit(
@@ -555,8 +592,10 @@ async def test_submit_card_suggested_edit_accepts_stale_existing_base_version() 
 async def test_get_connected_titles_dedups_by_node_id_and_excludes_titles() -> None:
     service = KnowledgeGraphService(
         repo=_StubRepo(),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
     titles = await service.get_connected_titles(
         matched_node_ids=[1, 2],
@@ -571,8 +610,10 @@ async def test_get_connected_titles_dedups_by_node_id_and_excludes_titles() -> N
 async def test_list_projection_edges_for_node_ids() -> None:
     service = KnowledgeGraphService(
         repo=_StubRepo(),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     records = await service.list_projection_edges_for_node_ids(node_ids=[3, 1, 2])
@@ -586,8 +627,10 @@ async def test_list_projection_edges_for_node_ids() -> None:
 async def test_list_projection_edges_touching_node_ids() -> None:
     service = KnowledgeGraphService(
         repo=_StubRepo(),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     records = await service.list_projection_edges_touching_node_ids(node_ids=[3, 1, 2])
@@ -601,8 +644,10 @@ async def test_list_projection_edges_touching_node_ids() -> None:
 async def test_list_projection_edges_for_edge_ids() -> None:
     service = KnowledgeGraphService(
         repo=_StubRepo(),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     records = await service.list_projection_edges_for_edge_ids(edge_ids=[9, 3])
@@ -617,8 +662,10 @@ async def test_list_projection_edges_for_edge_ids() -> None:
 async def test_list_projection_card_titles_for_node_ids_omits_content() -> None:
     service = KnowledgeGraphService(
         repo=_StubRepo(),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     records = await service.list_projection_card_titles_for_node_ids(node_ids=[9, 3, 9])
@@ -633,13 +680,111 @@ async def test_list_projection_card_titles_for_node_ids_omits_content() -> None:
 async def test_list_adjacent_edge_ids_for_node_ids() -> None:
     service = KnowledgeGraphService(
         repo=_StubRepo(),
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
     )
 
     edge_ids = await service.list_adjacent_edge_ids_for_node_ids(node_ids=[8, 2, 8])
 
     assert edge_ids == [702, 708]
+
+
+@pytest.mark.anyio
+async def test_materialize_card_from_ingestion_uses_configured_title_mention_budget() -> None:
+    repo = _StubRepo(
+        created_nodes=[],
+        created_edges=[],
+        title_mention_candidates=[
+            SimilarNodeCandidate(node_id=4, similarity=0.95),
+            SimilarNodeCandidate(node_id=11, similarity=0.9),
+            SimilarNodeCandidate(node_id=18, similarity=0.85),
+        ],
+        semantic_candidates=[],
+    )
+    service = KnowledgeGraphService(
+        repo=repo,
+        edge_title_mention_top_k=2,
+        edge_semantic_top_k=0,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=5,
+    )
+
+    await service.materialize_card_from_ingestion(
+        title="Card X",
+        content="Gamma references several existing card titles.",
+        embedding=[0.3, 0.2, 0.1],
+    )
+
+    assert repo.title_mention_limits == [2]
+    assert repo.created_edges == [
+        (99, 4, 0.95),
+        (99, 11, 0.9),
+    ]
+    assert repo.semantic_candidate_limits == []
+
+
+@pytest.mark.anyio
+async def test_materialize_card_from_ingestion_uses_configured_semantic_budget_and_limit() -> None:
+    repo = _StubRepo(
+        created_nodes=[],
+        created_edges=[],
+        title_mention_candidates=[SimilarNodeCandidate(node_id=4, similarity=0.95)],
+        semantic_candidates=[
+            SimilarNodeCandidate(node_id=11, similarity=0.91),
+            SimilarNodeCandidate(node_id=18, similarity=0.8),
+            SimilarNodeCandidate(node_id=20, similarity=0.79),
+        ],
+    )
+    service = KnowledgeGraphService(
+        repo=repo,
+        edge_title_mention_top_k=1,
+        edge_semantic_top_k=2,
+        edge_semantic_min_strength=0.8,
+        edge_semantic_candidate_limit=7,
+    )
+
+    await service.materialize_card_from_ingestion(
+        title="Card X",
+        content="Gamma references a title and semantic neighbors.",
+        embedding=[0.3, 0.2, 0.1],
+    )
+
+    assert repo.semantic_candidate_limits == [7]
+    assert repo.semantic_excluded_node_ids == [[99, 4]]
+    assert repo.created_edges == [
+        (99, 4, 0.95),
+        (99, 11, 0.91),
+        (99, 18, 0.8),
+    ]
+
+
+@pytest.mark.anyio
+async def test_materialize_card_from_ingestion_can_disable_each_candidate_pool() -> None:
+    repo = _StubRepo(
+        created_nodes=[],
+        created_edges=[],
+        title_mention_candidates=[SimilarNodeCandidate(node_id=4, similarity=0.95)],
+        semantic_candidates=[SimilarNodeCandidate(node_id=11, similarity=0.91)],
+    )
+    service = KnowledgeGraphService(
+        repo=repo,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=0,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=3,
+    )
+
+    await service.materialize_card_from_ingestion(
+        title="Card X",
+        content="Gamma",
+        embedding=[0.3, 0.2, 0.1],
+    )
+
+    assert repo.title_mention_limits == []
+    assert repo.semantic_candidate_limits == []
+    assert repo.created_edges == []
 
 
 @pytest.mark.anyio
@@ -650,8 +795,10 @@ async def test_materialize_card_from_ingestion_creates_node_and_threshold_edges(
     )
     service = KnowledgeGraphService(
         repo=repo,
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
         taxonomy_projection_port=taxonomy_projection_port,
     )
 
@@ -689,8 +836,10 @@ async def test_materialize_card_from_ingestion_rolls_back_and_reraises() -> None
     )
     service = KnowledgeGraphService(
         repo=repo,
-        edge_similarity_top_k=10,
-        edge_similarity_min_strength=0.5,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
         taxonomy_projection_port=taxonomy_projection_port,
     )
 

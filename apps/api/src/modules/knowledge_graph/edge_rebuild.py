@@ -29,8 +29,8 @@ class RebuildNodeEmbedding:
 
 @dataclass(slots=True, frozen=True)
 class EdgeRebuildResult:
-    edge_similarity_top_k: int
-    edge_similarity_min_strength: float
+    edge_semantic_top_k: int
+    edge_semantic_min_strength: float
     node_count: int
     planned_edge_count: int
     inserted_edge_count: int
@@ -69,13 +69,13 @@ class EdgeRebuildBulkRepoProtocol(Protocol):
 
 def _validate_rebuild_policy(
     *,
-    edge_similarity_top_k: int,
-    edge_similarity_min_strength: float,
+    edge_semantic_top_k: int,
+    edge_semantic_min_strength: float,
 ) -> None:
-    if edge_similarity_top_k < 1:
-        raise ValueError("edge_similarity_top_k must be at least 1.")
-    if edge_similarity_min_strength < 0.0 or edge_similarity_min_strength > 1.0:
-        raise ValueError("edge_similarity_min_strength must be between 0.0 and 1.0.")
+    if edge_semantic_top_k < 1:
+        raise ValueError("edge_semantic_top_k must be at least 1.")
+    if edge_semantic_min_strength < 0.0 or edge_semantic_min_strength > 1.0:
+        raise ValueError("edge_semantic_min_strength must be between 0.0 and 1.0.")
 
 
 def _validate_chunk_size(*, chunk_size: int) -> None:
@@ -86,13 +86,13 @@ def _validate_chunk_size(*, chunk_size: int) -> None:
 def plan_knowledge_graph_edges_from_embeddings(
     *,
     nodes: Sequence[RebuildNodeEmbedding],
-    edge_similarity_top_k: int,
-    edge_similarity_min_strength: float,
+    edge_semantic_top_k: int,
+    edge_semantic_min_strength: float,
     chunk_size: int = 256,
 ) -> list[PlannedEdge]:
     _validate_rebuild_policy(
-        edge_similarity_top_k=edge_similarity_top_k,
-        edge_similarity_min_strength=edge_similarity_min_strength,
+        edge_semantic_top_k=edge_semantic_top_k,
+        edge_semantic_min_strength=edge_semantic_min_strength,
     )
     _validate_chunk_size(chunk_size=chunk_size)
     if not nodes:
@@ -113,7 +113,7 @@ def plan_knowledge_graph_edges_from_embeddings(
 
             source_dot_products = dot_products[chunk_offset, :source_index]
             strengths = np.clip((source_dot_products + 1.0) / 2.0, 0.0, 1.0)
-            eligible_indices = np.flatnonzero(strengths >= edge_similarity_min_strength)
+            eligible_indices = np.flatnonzero(strengths >= edge_semantic_min_strength)
             if eligible_indices.size == 0:
                 continue
 
@@ -123,7 +123,7 @@ def plan_knowledge_graph_edges_from_embeddings(
                     -strengths[eligible_indices],
                 )
             )
-            selected_indices = eligible_indices[ordered_candidate_offsets[:edge_similarity_top_k]]
+            selected_indices = eligible_indices[ordered_candidate_offsets[:edge_semantic_top_k]]
             for related_index in selected_indices:
                 planned_edges.append(
                     PlannedEdge(
@@ -139,12 +139,12 @@ def plan_knowledge_graph_edges_from_embeddings(
 async def plan_knowledge_graph_edges(
     *,
     repo: EdgeRebuildRepoProtocol,
-    edge_similarity_top_k: int,
-    edge_similarity_min_strength: float,
+    edge_semantic_top_k: int,
+    edge_semantic_min_strength: float,
 ) -> tuple[int, list[PlannedEdge]]:
     _validate_rebuild_policy(
-        edge_similarity_top_k=edge_similarity_top_k,
-        edge_similarity_min_strength=edge_similarity_min_strength,
+        edge_semantic_top_k=edge_semantic_top_k,
+        edge_semantic_min_strength=edge_semantic_min_strength,
     )
 
     node_ids = await repo.fetch_node_ids_in_rebuild_order()
@@ -157,9 +157,9 @@ async def plan_knowledge_graph_edges(
         threshold_candidates = [
             candidate
             for candidate in candidates
-            if candidate.similarity >= edge_similarity_min_strength
+            if candidate.similarity >= edge_semantic_min_strength
         ]
-        for candidate in threshold_candidates[:edge_similarity_top_k]:
+        for candidate in threshold_candidates[:edge_semantic_top_k]:
             planned_edges.append(
                 PlannedEdge(
                     source_node_id=source_node_id,
@@ -174,20 +174,20 @@ async def plan_knowledge_graph_edges(
 async def rebuild_knowledge_graph_edges(
     *,
     repo: EdgeRebuildRepoProtocol,
-    edge_similarity_top_k: int,
-    edge_similarity_min_strength: float,
+    edge_semantic_top_k: int,
+    edge_semantic_min_strength: float,
     apply: bool,
 ) -> EdgeRebuildResult:
     node_count, planned_edges = await plan_knowledge_graph_edges(
         repo=repo,
-        edge_similarity_top_k=edge_similarity_top_k,
-        edge_similarity_min_strength=edge_similarity_min_strength,
+        edge_semantic_top_k=edge_semantic_top_k,
+        edge_semantic_min_strength=edge_semantic_min_strength,
     )
 
     if not apply:
         return EdgeRebuildResult(
-            edge_similarity_top_k=edge_similarity_top_k,
-            edge_similarity_min_strength=edge_similarity_min_strength,
+            edge_semantic_top_k=edge_semantic_top_k,
+            edge_semantic_min_strength=edge_semantic_min_strength,
             node_count=node_count,
             planned_edge_count=len(planned_edges),
             inserted_edge_count=0,
@@ -205,8 +205,8 @@ async def rebuild_knowledge_graph_edges(
         inserted_edge_count += 1
 
     return EdgeRebuildResult(
-        edge_similarity_top_k=edge_similarity_top_k,
-        edge_similarity_min_strength=edge_similarity_min_strength,
+        edge_semantic_top_k=edge_semantic_top_k,
+        edge_semantic_min_strength=edge_semantic_min_strength,
         node_count=node_count,
         planned_edge_count=len(planned_edges),
         inserted_edge_count=inserted_edge_count,
@@ -217,25 +217,25 @@ async def rebuild_knowledge_graph_edges(
 async def rebuild_knowledge_graph_edges_bulk(
     *,
     repo: EdgeRebuildBulkRepoProtocol,
-    edge_similarity_top_k: int,
-    edge_similarity_min_strength: float,
+    edge_semantic_top_k: int,
+    edge_semantic_min_strength: float,
     apply: bool,
 ) -> EdgeRebuildResult:
     _validate_rebuild_policy(
-        edge_similarity_top_k=edge_similarity_top_k,
-        edge_similarity_min_strength=edge_similarity_min_strength,
+        edge_semantic_top_k=edge_semantic_top_k,
+        edge_semantic_min_strength=edge_semantic_min_strength,
     )
     nodes = await repo.fetch_rebuild_nodes_with_embeddings()
     planned_edges = plan_knowledge_graph_edges_from_embeddings(
         nodes=nodes,
-        edge_similarity_top_k=edge_similarity_top_k,
-        edge_similarity_min_strength=edge_similarity_min_strength,
+        edge_semantic_top_k=edge_semantic_top_k,
+        edge_semantic_min_strength=edge_semantic_min_strength,
     )
 
     if not apply:
         return EdgeRebuildResult(
-            edge_similarity_top_k=edge_similarity_top_k,
-            edge_similarity_min_strength=edge_similarity_min_strength,
+            edge_semantic_top_k=edge_semantic_top_k,
+            edge_semantic_min_strength=edge_semantic_min_strength,
             node_count=len(nodes),
             planned_edge_count=len(planned_edges),
             inserted_edge_count=0,
@@ -246,8 +246,8 @@ async def rebuild_knowledge_graph_edges_bulk(
         planned_edges=planned_edges,
     )
     return EdgeRebuildResult(
-        edge_similarity_top_k=edge_similarity_top_k,
-        edge_similarity_min_strength=edge_similarity_min_strength,
+        edge_semantic_top_k=edge_semantic_top_k,
+        edge_semantic_min_strength=edge_semantic_min_strength,
         node_count=len(nodes),
         planned_edge_count=len(planned_edges),
         inserted_edge_count=inserted_edge_count,

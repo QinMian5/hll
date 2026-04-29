@@ -465,13 +465,21 @@ class KnowledgeRepo:
         *,
         query_embedding: list[float],
         excluded_node_ids: Sequence[int],
+        limit: int,
     ) -> list[SimilarNodeCandidate]:
+        if limit <= 0:
+            return []
+
         neg_inner_product = Node.embedding.max_inner_product(query_embedding).label(
             "neg_inner_product"
         )
-        statement = select(Node.id, neg_inner_product).order_by(
-            neg_inner_product.asc(),
-            Node.id.asc(),
+        statement = (
+            select(Node.id, neg_inner_product)
+            .order_by(
+                neg_inner_product.asc(),
+                Node.id.asc(),
+            )
+            .limit(limit)
         )
         if excluded_node_ids:
             statement = statement.where(Node.id.not_in(excluded_node_ids))
@@ -480,6 +488,42 @@ class KnowledgeRepo:
             SimilarNodeCandidate(
                 node_id=row.id,
                 # pgvector <#> returns negative inner product for index-friendly ASC order.
+                similarity=_dot_product_to_similarity(-float(row.neg_inner_product)),
+            )
+            for row in rows
+        ]
+
+    async def search_title_mention_candidates(
+        self,
+        *,
+        content: str,
+        query_embedding: list[float],
+        excluded_node_ids: Sequence[int],
+        limit: int,
+    ) -> list[SimilarNodeCandidate]:
+        if limit <= 0:
+            return []
+
+        neg_inner_product = Node.embedding.max_inner_product(query_embedding).label(
+            "neg_inner_product"
+        )
+        content_vector = func.to_tsvector("simple", content)
+        title_phrase_query = func.phraseto_tsquery("simple", Node.title)
+        statement = (
+            select(Node.id, neg_inner_product)
+            .where(content_vector.op("@@")(title_phrase_query))
+            .order_by(
+                neg_inner_product.asc(),
+                Node.id.asc(),
+            )
+            .limit(limit)
+        )
+        if excluded_node_ids:
+            statement = statement.where(Node.id.not_in(excluded_node_ids))
+        rows = (await self._session.execute(statement)).all()
+        return [
+            SimilarNodeCandidate(
+                node_id=row.id,
                 similarity=_dot_product_to_similarity(-float(row.neg_inner_product)),
             )
             for row in rows

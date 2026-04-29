@@ -15,12 +15,16 @@ from modules.taxonomy.repo import TaxonomyRepo
 def build_knowledge_graph_service(
     *,
     session: AsyncSession,
-    edge_similarity_top_k: int,
-    edge_similarity_min_strength: float,
+    edge_title_mention_top_k: int,
+    edge_semantic_top_k: int,
+    edge_semantic_min_strength: float,
+    edge_semantic_candidate_limit: int,
 ) -> KnowledgeGraphService:
     return KnowledgeGraphService(
         repo=KnowledgeRepo(session=session),
-        edge_similarity_top_k=edge_similarity_top_k,
-        edge_similarity_min_strength=edge_similarity_min_strength,
+        edge_title_mention_top_k=edge_title_mention_top_k,
+        edge_semantic_top_k=edge_semantic_top_k,
+        edge_semantic_min_strength=edge_semantic_min_strength,
+        edge_semantic_candidate_limit=edge_semantic_candidate_limit,
         taxonomy_projection_port=TaxonomyRepo(session=session),
     )
