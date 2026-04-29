@@ -350,14 +350,14 @@ export function AppShell() {
       data-testid="app-shell"
     >
       <aside
-        className="hidden h-screen shrink-0 border-r border-[#e0e4eb] lg:flex lg:w-[320px]"
+        className="hidden h-screen shrink-0 border-r border-[#e0e4eb] md:flex md:w-60 lg:w-64 xl:w-72 2xl:w-80"
         data-testid="app-shell-sidebar"
       >
         <SidebarContent pathname={pathname} session={session} />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header
-          className="flex h-16 w-full shrink-0 items-center gap-3 overflow-hidden border-b border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] px-4 lg:hidden"
+          className="flex h-16 w-full shrink-0 items-center gap-3 overflow-hidden border-b border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] px-4 md:hidden"
           data-testid="app-shell-mobile-header"
         >
           <button
@@ -381,7 +381,7 @@ export function AppShell() {
       </div>
       {isDrawerOpen ? (
         <div
-          className="fixed inset-0 z-50 flex bg-transparent lg:hidden"
+          className="fixed inset-0 z-50 flex bg-transparent md:hidden"
           data-testid="app-shell-mobile-overlay"
         >
           <aside

@@ -123,12 +123,15 @@ describe("AppShell", () => {
     );
     expect(screen.getByTestId("app-shell-sidebar")).toHaveClass(
       "hidden",
-      "lg:flex",
-      "lg:w-[320px]",
+      "md:flex",
+      "md:w-60",
+      "lg:w-64",
+      "xl:w-72",
+      "2xl:w-80",
     );
     expect(screen.getByTestId("app-shell-mobile-header")).toHaveClass(
       "h-16",
-      "lg:hidden",
+      "md:hidden",
     );
     expect(
       screen.getByTestId("app-shell-mobile-header").parentElement,
@@ -183,6 +186,9 @@ describe("AppShell", () => {
     expect(screen.getByTestId("app-shell-mobile-drawer")).toHaveClass(
       "w-[320px]",
       "bg-[rgba(255,255,255,0.72)]",
+    );
+    expect(screen.getByTestId("app-shell-mobile-overlay")).toHaveClass(
+      "md:hidden",
     );
     expect(
       screen.getByRole("button", { name: "Close navigation" }),
