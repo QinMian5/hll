@@ -11,3 +11,5 @@ __pycache__/
 
 infra/env/.env*
 !infra/env/.env.example
+
+/backups/
