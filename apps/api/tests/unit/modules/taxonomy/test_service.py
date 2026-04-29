@@ -15,6 +15,7 @@ from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionCardTitle,
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
     TaxonomyLeafAssignment,
+    TaxonomyLeafAssignmentCount,
     TaxonomyNodeRecord,
 )
 from modules.taxonomy.schema import (
@@ -31,6 +32,7 @@ class _StubRepo:
     children: list[TaxonomyNodeRecord] = field(default_factory=list)
     assignment: TaxonomyAssignmentRecord | None = None
     assigned_leaf_assignments: list[TaxonomyLeafAssignment] = field(default_factory=list)
+    assigned_leaf_counts: list[TaxonomyLeafAssignmentCount] = field(default_factory=list)
     assigned_leaf_node_ids: list[int] = field(default_factory=list)
     projected_edge_ids: list[int] = field(default_factory=list)
     set_result: TaxonomyAssignmentRecord | None = None
@@ -38,6 +40,7 @@ class _StubRepo:
     rolled_back: bool = False
     fail_on_set: bool = False
     list_final_assignments_called: bool = False
+    list_leaf_assignment_counts_called: bool = False
     list_assigned_node_ids_for_leaf_called_with: list[int] = field(default_factory=list)
     list_projected_edge_ids_for_leaf_called_with: list[int] = field(default_factory=list)
     add_projected_edge_batches: list[tuple[int, list[int]]] = field(default_factory=list)
@@ -63,6 +66,10 @@ class _StubRepo:
     async def list_final_assignments(self) -> list[TaxonomyLeafAssignment]:
         self.list_final_assignments_called = True
         return list(self.assigned_leaf_assignments)
+
+    async def list_leaf_assignment_counts(self) -> list[TaxonomyLeafAssignmentCount]:
+        self.list_leaf_assignment_counts_called = True
+        return list(self.assigned_leaf_counts)
 
     async def list_assigned_node_ids_for_leaf(self, *, leaf_id: int) -> list[int]:
         self.list_assigned_node_ids_for_leaf_called_with.append(leaf_id)
@@ -156,6 +163,28 @@ class _StubProjectionPort:
     ) -> list[int]:
         self.adjacent_edge_id_request_batches.append(list(node_ids))
         return list(self.adjacent_edge_ids)
+
+
+@dataclass(slots=True)
+class _StubViewCache:
+    descendant_counts: dict[int, int] | None = None
+    stored_descendant_counts: dict[int, int] | None = None
+    lock_acquired: bool = False
+    get_descendant_counts_called: bool = False
+    set_descendant_counts_called: bool = False
+    acquire_descendant_counts_lock_called: bool = False
+
+    async def get_descendant_counts(self) -> dict[int, int] | None:
+        self.get_descendant_counts_called = True
+        return self.descendant_counts
+
+    async def set_descendant_counts(self, counts: dict[int, int]) -> None:
+        self.set_descendant_counts_called = True
+        self.stored_descendant_counts = dict(counts)
+
+    async def acquire_descendant_counts_lock(self) -> bool:
+        self.acquire_descendant_counts_lock_called = True
+        return self.lock_acquired
 
 
 def _leaf_assignment() -> TaxonomyAssignmentRecord:
@@ -264,6 +293,9 @@ async def test_get_root_view_omits_children_without_descendant_cards() -> None:
         assigned_leaf_assignments=[
             TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=4),
         ],
+        assigned_leaf_counts=[
+            TaxonomyLeafAssignmentCount(taxonomy_leaf_id=4, card_count=1),
+        ],
     )
     service = TaxonomyService(repo=repo)
 
@@ -273,6 +305,8 @@ async def test_get_root_view_omits_children_without_descendant_cards() -> None:
     assert view.breadcrumb == []
     assert [child.id for child in view.children] == [2]
     assert [child.descendant_card_count for child in view.children] == [1]
+    assert repo.list_leaf_assignment_counts_called is True
+    assert repo.list_final_assignments_called is False
 
 
 @pytest.mark.anyio
@@ -287,6 +321,10 @@ async def test_get_node_view_returns_branch_shape_for_non_leaf() -> None:
         assigned_leaf_assignments=[
             TaxonomyLeafAssignment(node_id=21, taxonomy_leaf_id=3),
             TaxonomyLeafAssignment(node_id=22, taxonomy_leaf_id=4),
+        ],
+        assigned_leaf_counts=[
+            TaxonomyLeafAssignmentCount(taxonomy_leaf_id=3, card_count=1),
+            TaxonomyLeafAssignmentCount(taxonomy_leaf_id=4, card_count=1),
         ],
     )
     service = TaxonomyService(repo=repo)
@@ -311,6 +349,9 @@ async def test_get_node_view_omits_empty_branch_children() -> None:
         assigned_leaf_assignments=[
             TaxonomyLeafAssignment(node_id=22, taxonomy_leaf_id=4),
         ],
+        assigned_leaf_counts=[
+            TaxonomyLeafAssignmentCount(taxonomy_leaf_id=4, card_count=1),
+        ],
     )
     service = TaxonomyService(repo=repo)
 
@@ -319,6 +360,52 @@ async def test_get_node_view_omits_empty_branch_children() -> None:
     assert isinstance(view, TaxonomyNodeBranchViewResponse)
     assert [child.id for child in view.children] == [2]
     assert [child.descendant_card_count for child in view.children] == [1]
+
+
+@pytest.mark.anyio
+async def test_get_root_view_uses_cached_descendant_counts_when_available() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            TaxonomyNodeRecord(id=3, parent_id=1, name="Unclassified", depth=1, is_leaf=True),
+        ],
+    )
+    cache = _StubViewCache(descendant_counts={1: 5, 2: 5, 3: 0})
+    service = TaxonomyService(repo=repo, view_cache=cache)
+
+    view = await service.get_root_view()
+
+    assert [child.id for child in view.children] == [2]
+    assert [child.descendant_card_count for child in view.children] == [5]
+    assert cache.get_descendant_counts_called is True
+    assert cache.acquire_descendant_counts_lock_called is False
+    assert repo.list_leaf_assignment_counts_called is False
+    assert repo.list_final_assignments_called is False
+
+
+@pytest.mark.anyio
+async def test_get_root_view_rebuilds_and_caches_descendant_counts_on_cache_miss() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            TaxonomyNodeRecord(id=4, parent_id=2, name="Unclassified", depth=2, is_leaf=True),
+        ],
+        assigned_leaf_counts=[
+            TaxonomyLeafAssignmentCount(taxonomy_leaf_id=4, card_count=2),
+        ],
+    )
+    cache = _StubViewCache(descendant_counts=None, lock_acquired=True)
+    service = TaxonomyService(repo=repo, view_cache=cache)
+
+    view = await service.get_root_view()
+
+    assert [child.id for child in view.children] == [2]
+    assert cache.acquire_descendant_counts_lock_called is True
+    assert cache.stored_descendant_counts == {1: 2, 2: 2, 4: 2}
+    assert repo.list_leaf_assignment_counts_called is True
+    assert repo.list_final_assignments_called is False
 
 
 @pytest.mark.anyio

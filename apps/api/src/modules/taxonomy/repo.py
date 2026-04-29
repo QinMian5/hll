@@ -16,6 +16,7 @@ from modules.knowledge_graph.model import Node
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
     TaxonomyLeafAssignment,
+    TaxonomyLeafAssignmentCount,
     TaxonomyNodeRecord,
 )
 from modules.taxonomy.model import (
@@ -254,6 +255,27 @@ class TaxonomyRepo:
             TaxonomyLeafAssignment(
                 node_id=row.node_id,
                 taxonomy_leaf_id=row.taxonomy_leaf_id,
+            )
+            for row in rows
+        ]
+
+    async def list_leaf_assignment_counts(self) -> list[TaxonomyLeafAssignmentCount]:
+        rows = (
+            await self._session.execute(
+                select(
+                    NodeTaxonomyAssignment.taxonomy_node_id.label("taxonomy_leaf_id"),
+                    func.count(NodeTaxonomyAssignment.node_id).label("card_count"),
+                )
+                .join(TaxonomyNode, NodeTaxonomyAssignment.taxonomy_node_id == TaxonomyNode.id)
+                .where(TaxonomyNode.is_leaf.is_(True))
+                .group_by(NodeTaxonomyAssignment.taxonomy_node_id)
+                .order_by(NodeTaxonomyAssignment.taxonomy_node_id.asc())
+            )
+        ).all()
+        return [
+            TaxonomyLeafAssignmentCount(
+                taxonomy_leaf_id=row.taxonomy_leaf_id,
+                card_count=row.card_count,
             )
             for row in rows
         ]

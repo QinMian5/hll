@@ -233,6 +233,33 @@ async def test_list_final_assignments_returns_leaf_assignments() -> None:
 
 
 @pytest.mark.anyio
+async def test_list_leaf_assignment_counts_returns_grouped_leaf_counts() -> None:
+    class _AssignmentCountRow:
+        def __init__(self, taxonomy_leaf_id: int, card_count: int) -> None:
+            self.taxonomy_leaf_id = taxonomy_leaf_id
+            self.card_count = card_count
+
+    session = _StubSession(
+        execute_results=[
+            _StubExecuteResult(
+                rows=[
+                    _AssignmentCountRow(11, 3),
+                    _AssignmentCountRow(15, 8),
+                ]
+            )
+        ]
+    )
+    repo = _repo_with_stub(session)
+
+    counts = await repo.list_leaf_assignment_counts()
+
+    assert [count.model_dump() for count in counts] == [
+        {"taxonomy_leaf_id": 11, "card_count": 3},
+        {"taxonomy_leaf_id": 15, "card_count": 8},
+    ]
+
+
+@pytest.mark.anyio
 async def test_list_assigned_node_ids_for_leaf_returns_sorted_node_ids_for_one_leaf() -> None:
     class _LeafNodeRow:
         def __init__(self, node_id: int) -> None:

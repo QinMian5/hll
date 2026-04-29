@@ -59,3 +59,10 @@ class TaxonomyLeafAssignment(BaseModel):
 
     node_id: int = Field(gt=0)
     taxonomy_leaf_id: int = Field(gt=0)
+
+
+class TaxonomyLeafAssignmentCount(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    taxonomy_leaf_id: int = Field(gt=0)
+    card_count: int = Field(ge=0)

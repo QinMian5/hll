@@ -15,6 +15,7 @@ from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionCardTitle,
 from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
     TaxonomyLeafAssignment,
+    TaxonomyLeafAssignmentCount,
     TaxonomyNodeRecord,
     TaxonomyTreeNode,
 )
@@ -47,6 +48,8 @@ class TaxonomyRepoProtocol(Protocol):
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None: ...
 
     async def list_final_assignments(self) -> list[TaxonomyLeafAssignment]: ...
+
+    async def list_leaf_assignment_counts(self) -> list[TaxonomyLeafAssignmentCount]: ...
 
     async def list_assigned_node_ids_for_leaf(self, *, leaf_id: int) -> list[int]: ...
 
@@ -109,6 +112,14 @@ class TaxonomyKnowledgeProjectionPort(Protocol):
     ) -> list[int]: ...
 
 
+class TaxonomyViewCachePort(Protocol):
+    async def get_descendant_counts(self) -> dict[int, int] | None: ...
+
+    async def set_descendant_counts(self, counts: dict[int, int]) -> None: ...
+
+    async def acquire_descendant_counts_lock(self) -> bool: ...
+
+
 @dataclass(slots=True)
 class _LeafGraphProjection:
     edges: list[ProjectionEdge]
@@ -131,9 +142,11 @@ class TaxonomyService:
         *,
         repo: TaxonomyRepoProtocol,
         knowledge_projection_port: TaxonomyKnowledgeProjectionPort | None = None,
+        view_cache: TaxonomyViewCachePort | None = None,
     ) -> None:
         self._repo = repo
         self._knowledge_projection_port = knowledge_projection_port
+        self._view_cache = view_cache
 
     async def list_tree(self) -> list[TaxonomyTreeNode]:
         records = await self._repo.list_tree_nodes()
@@ -501,10 +514,16 @@ class TaxonomyService:
         node_by_id: dict[int, TaxonomyNodeRecord],
         child_ids_by_parent: dict[int | None, list[int]],
     ) -> dict[int, int]:
-        assignments = await self._repo.list_final_assignments()
+        if self._view_cache is not None:
+            cached_counts = await self._view_cache.get_descendant_counts()
+            if cached_counts is not None:
+                return {node_id: cached_counts.get(node_id, 0) for node_id in node_by_id}
+            await self._view_cache.acquire_descendant_counts_lock()
+
+        assignment_counts = await self._repo.list_leaf_assignment_counts()
         descendant_counts = dict.fromkeys(node_by_id, 0)
-        for assignment in assignments:
-            descendant_counts[assignment.taxonomy_leaf_id] += 1
+        for assignment_count in assignment_counts:
+            descendant_counts[assignment_count.taxonomy_leaf_id] += assignment_count.card_count
 
         for node in sorted(
             node_by_id.values(),
@@ -514,6 +533,9 @@ class TaxonomyService:
             if node.parent_id is None:
                 continue
             descendant_counts[node.parent_id] += descendant_counts[node.id]
+
+        if self._view_cache is not None:
+            await self._view_cache.set_descendant_counts(descendant_counts)
 
         return descendant_counts
 

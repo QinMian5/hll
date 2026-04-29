@@ -6,9 +6,10 @@ Out of scope: HTTP route declarations and worker actor execution loops.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import Depends
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.config import Settings
@@ -36,6 +37,7 @@ from modules.knowledge_graph.service import KnowledgeGraphService
 from modules.search.service import SearchService
 from modules.taxonomy.repo import TaxonomyRepo
 from modules.taxonomy.service import TaxonomyService
+from modules.taxonomy.view_cache import TaxonomyRedisProtocol, TaxonomyViewRedisCache
 from shared.integrations import EmbeddingClient
 
 
@@ -97,10 +99,14 @@ def get_taxonomy_service(
     knowledge_projection_port: Annotated[
         KnowledgeGraphProjectionPort, Depends(get_knowledge_graph_service)
     ],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> TaxonomyService:
     return TaxonomyService(
         repo=TaxonomyRepo(session=session),
         knowledge_projection_port=knowledge_projection_port,
+        view_cache=TaxonomyViewRedisCache(
+            redis=cast(TaxonomyRedisProtocol, Redis.from_url(settings.redis_url))
+        ),
     )
 
 
