@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 
-import { KnowledgeRichText } from "../../../../shared/ui";
+import { KnowledgeRichText, ScrollArea } from "../../../../shared/ui";
 import type { SearchResultCardEditPayload } from "../../../search/components/SearchResultCard";
 import type { LayoutViewport } from "../layout/taxonomyLayoutTypes";
 import { projectLeafWorldPoint } from "./LeafTitleLabelsOverlay";
@@ -34,6 +34,13 @@ export interface LeafDisclosureOverlayHandle {
 
 const DISCLOSURE_GAP_PX = 16;
 const DISCLOSURE_EDGE_PADDING_PX = 12;
+const DISCLOSURE_CARD_SIZE_CLASS =
+  "[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-md)] [--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-md)] [--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-md)] lg:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-lg)] lg:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-lg)] lg:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-lg)] xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-xl)] xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-xl)] xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-xl)] 2xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-2xl)] 2xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-2xl)] 2xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-2xl)]";
+const DISCLOSURE_CARD_CLASS = `absolute z-[22] m-0 pointer-events-auto flex h-[var(--leaf-disclosure-card-height)] w-[min(var(--leaf-disclosure-card-width),calc(100%-24px))] flex-col items-start gap-2 overflow-hidden rounded-knowledge-leaf-disclosure border border-[rgba(133,163,214,0.34)] bg-white px-4 py-4 text-left shadow-[0_8px_18px_rgba(59,82,125,0.1)] ${DISCLOSURE_CARD_SIZE_CLASS}`;
+const DISCLOSURE_CONTENT_SCROLL_CLASS =
+  "[--scroll-area-padding-right:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] h-[var(--leaf-disclosure-card-content-height)] w-full flex-none";
+const DISCLOSURE_CONTENT_VIEWPORT_CLASS =
+  "overflow-x-hidden overflow-y-auto [&_[data-testid=knowledge-rich-text-content]]:text-[12px] [&_[data-testid=knowledge-rich-text-content]]:leading-[17px] [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-text-muted";
 
 interface OverlayPosition {
   readonly left: number;
@@ -157,6 +164,18 @@ function LeafDisclosureHeader({
   );
 }
 
+function LeafDisclosureContent({ content }: { readonly content: string }) {
+  return (
+    <ScrollArea
+      className={DISCLOSURE_CONTENT_SCROLL_CLASS}
+      data-testid="taxonomy-leaf-disclosure-content-scroll-area"
+      viewportClassName={DISCLOSURE_CONTENT_VIEWPORT_CLASS}
+    >
+      <KnowledgeRichText text={content} variant="content" />
+    </ScrollArea>
+  );
+}
+
 export const LeafDisclosureOverlay = forwardRef<
   LeafDisclosureOverlayHandle,
   LeafDisclosureOverlayProps
@@ -229,10 +248,15 @@ export const LeafDisclosureOverlay = forwardRef<
       viewport,
     });
   const sharedProps = {
-    className:
-      "absolute z-[22] flex flex-col items-start gap-2 border border-[rgba(133,163,214,0.34)] bg-white px-4 py-[14px] text-left shadow-[0_8px_18px_rgba(59,82,125,0.1)] [&_[data-testid=knowledge-rich-text-content]]:text-[12px] [&_[data-testid=knowledge-rich-text-content]]:leading-[17px] [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-text-muted",
+    className: DISCLOSURE_CARD_CLASS,
     "data-disclosure-mode": disclosure.mode,
     "data-testid": "taxonomy-leaf-disclosure-overlay",
+    onClick: stopCanvasPropagation,
+    onDoubleClick: stopCanvasPropagation,
+    onKeyDown: stopCanvasPropagation,
+    onPointerDown: stopCanvasPropagation,
+    onPointerUp: stopCanvasPropagation,
+    onWheel: stopCanvasPropagation,
     style: {
       left: currentPosition.left,
       top: currentPosition.top,
@@ -245,13 +269,6 @@ export const LeafDisclosureOverlay = forwardRef<
       <dialog
         {...sharedProps}
         aria-label="Selected knowledge card"
-        className={`${sharedProps.className} pointer-events-auto w-[min(344px,calc(100%-24px))]`}
-        onClick={stopCanvasPropagation}
-        onDoubleClick={stopCanvasPropagation}
-        onKeyDown={stopCanvasPropagation}
-        onPointerDown={stopCanvasPropagation}
-        onPointerUp={stopCanvasPropagation}
-        onWheel={stopCanvasPropagation}
         open
         ref={(element) => {
           elementRef.current = element;
@@ -262,7 +279,7 @@ export const LeafDisclosureOverlay = forwardRef<
           onSuggestEdit={onSuggestEdit}
           title={disclosure.node.title}
         />
-        <KnowledgeRichText text={disclosure.node.content} variant="content" />
+        <LeafDisclosureContent content={disclosure.node.content} />
       </dialog>
     );
   }
@@ -270,7 +287,6 @@ export const LeafDisclosureOverlay = forwardRef<
   return (
     <div
       {...sharedProps}
-      className={`${sharedProps.className} pointer-events-auto w-[min(320px,calc(100%-24px))] sm:w-[304px]`}
       ref={(element) => {
         elementRef.current = element;
       }}
@@ -280,7 +296,7 @@ export const LeafDisclosureOverlay = forwardRef<
         onSuggestEdit={onSuggestEdit}
         title={disclosure.node.title}
       />
-      <KnowledgeRichText text={disclosure.node.content} variant="content" />
+      <LeafDisclosureContent content={disclosure.node.content} />
     </div>
   );
 });

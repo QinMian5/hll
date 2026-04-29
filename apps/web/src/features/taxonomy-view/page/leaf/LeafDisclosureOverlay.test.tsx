@@ -35,6 +35,56 @@ function makeDisclosure(
 }
 
 describe("LeafDisclosureOverlay", () => {
+  it("uses one responsive fixed-size card contract for hover and selected disclosures", () => {
+    const classNames: string[] = [];
+
+    for (const mode of ["hover", "selected"] as const) {
+      const { unmount } = render(
+        <LeafDisclosureOverlay
+          canvas={{ height: 900, width: 1404 }}
+          disclosure={makeDisclosure(mode)}
+          viewport={{ target: [700, 450, 0], zoom: 0 }}
+        />,
+      );
+
+      const disclosure = screen.getByTestId("taxonomy-leaf-disclosure-overlay");
+      classNames.push(disclosure.className);
+
+      expect(disclosure).toHaveClass("rounded-knowledge-leaf-disclosure");
+      expect(disclosure).toHaveClass(
+        "w-[min(var(--leaf-disclosure-card-width),calc(100%-24px))]",
+      );
+      expect(disclosure).toHaveClass("h-[var(--leaf-disclosure-card-height)]");
+      expect(disclosure).toHaveClass(
+        "[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-md)]",
+      );
+      expect(disclosure).toHaveClass(
+        "lg:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-lg)]",
+      );
+      expect(disclosure).toHaveClass(
+        "xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-xl)]",
+      );
+      expect(disclosure).toHaveClass(
+        "2xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-2xl)]",
+      );
+
+      const scrollArea = screen.getByTestId(
+        "taxonomy-leaf-disclosure-content-scroll-area",
+      );
+
+      expect(scrollArea).toHaveClass(
+        "h-[var(--leaf-disclosure-card-content-height)]",
+      );
+      expect(scrollArea).toHaveClass(
+        "[--scroll-area-scrollbar-width:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)]",
+      );
+
+      unmount();
+    }
+
+    expect(classNames[0]).toBe(classNames[1]);
+  });
+
   it("renders hover disclosure with title, content, and edit affordance", () => {
     const onSuggestEdit = vi.fn();
 

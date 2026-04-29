@@ -58,6 +58,19 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-dialog-width: 480px;
   --spacing-knowledge-dialog-padding: 24px;
   --spacing-knowledge-icon-action: 24px;
+  --spacing-knowledge-leaf-disclosure-content-height-2xl: 144px;
+  --spacing-knowledge-leaf-disclosure-content-height-lg: 112px;
+  --spacing-knowledge-leaf-disclosure-content-height-md: 96px;
+  --spacing-knowledge-leaf-disclosure-content-height-xl: 128px;
+  --spacing-knowledge-leaf-disclosure-height-2xl: 208px;
+  --spacing-knowledge-leaf-disclosure-height-lg: 176px;
+  --spacing-knowledge-leaf-disclosure-height-md: 160px;
+  --spacing-knowledge-leaf-disclosure-height-xl: 192px;
+  --spacing-knowledge-leaf-disclosure-scrollbar-width: 6px;
+  --spacing-knowledge-leaf-disclosure-width-2xl: 416px;
+  --spacing-knowledge-leaf-disclosure-width-lg: 352px;
+  --spacing-knowledge-leaf-disclosure-width-md: 320px;
+  --spacing-knowledge-leaf-disclosure-width-xl: 384px;
   --spacing-knowledge-section-gap: 16px;
   --spacing-knowledge-surface-padding: 24px;
 
@@ -69,6 +82,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-account-menu-offset-y: 92px;
 
   --radius-knowledge-control: 8px;
+  --radius-knowledge-leaf-disclosure: 8px;
   --radius-knowledge-surface: 8px;
 
   --shadow-knowledge-input: 0 1px 2px rgb(16 24 40 / 4%);
