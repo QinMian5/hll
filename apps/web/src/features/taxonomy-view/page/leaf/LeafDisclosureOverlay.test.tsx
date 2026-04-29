@@ -52,7 +52,7 @@ describe("LeafDisclosureOverlay", () => {
 
       expect(disclosure).toHaveClass("rounded-knowledge-leaf-disclosure");
       expect(disclosure).toHaveClass(
-        "w-[min(var(--leaf-disclosure-card-width),calc(100%-24px))]",
+        "w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))]",
       );
       expect(disclosure).toHaveClass("h-[var(--leaf-disclosure-card-height)]");
       expect(disclosure).toHaveClass(
