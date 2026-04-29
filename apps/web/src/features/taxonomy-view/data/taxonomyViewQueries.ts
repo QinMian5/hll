@@ -34,6 +34,8 @@ export type TaxonomyRootView = TaxonomyRootViewContract;
 export type TaxonomyLeafView = TaxonomyLeafViewContract;
 export type TaxonomyNodeView = TaxonomyNodeViewContract;
 type TaxonomyLeafEdgeTuple = TaxonomyLeafLayoutSliceResponse["edges"][number];
+const LEAF_LAYOUT_SLICE_STALE_TIME_MS = 5 * 60 * 1000;
+const LEAF_LAYOUT_SLICE_GC_TIME_MS = 30 * 60 * 1000;
 
 export interface TaxonomyLeafLayoutBounds {
   readonly min_x: number;
@@ -241,8 +243,11 @@ export function taxonomyLeafLayoutSliceQueryOptions(
   bounds: TaxonomyLeafLayoutBounds,
 ) {
   return queryOptions({
+    gcTime: LEAF_LAYOUT_SLICE_GC_TIME_MS,
+    placeholderData: (previousData) => previousData,
     queryFn: () => fetchTaxonomyLeafLayoutSlice(leafId, bounds),
     queryKey: taxonomyViewQueryKeys.leafLayoutSlice(leafId, bounds),
+    staleTime: LEAF_LAYOUT_SLICE_STALE_TIME_MS,
   });
 }
 

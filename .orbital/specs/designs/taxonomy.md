@@ -40,7 +40,8 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - **Leaf graph scope rule:** Leaf view includes all inner cards for the leaf plus all one-hop outer neighbor cards; recursion depth is fixed to one hop.
   - **Edge scope rule:** Leaf view returns only `inner-inner` and `inner-outer` edges. `outer-outer` edges are excluded.
   - **Node scope marker:** Leaf graph node payload includes explicit `scope` field with values `inner` or `outer`.
-  - **Leaf layout ownership rule:** Leaf card graph layout is computed by the backend as stable global world coordinates. Frontend clients use these world coordinates for viewport transforms and do not solve the leaf graph layout.
+  - **Leaf layout ownership rule:** Leaf card graph layout is computed by the backend as stable global world coordinates through a deterministic static force simulation. Frontend clients use these world coordinates for viewport transforms and do not solve the leaf graph layout.
+  - **Leaf layout force rule:** Leaf layout generation uses deterministic center-out spiral seeding, relation-strength link distance/strength, many-body repulsion, collision radius, and weak centering semantics aligned with the accepted legacy `d3-force` leaf graph behavior. The simulation runs to a fixed tick count and does not use runtime randomness.
   - **Leaf data-plane rule:** Leaf browsing is split into a leaf metadata surface, a viewport-scoped layout slice surface, and node-detail surfaces. The layout slice surface carries backend-computed world coordinates plus local topology for the requested world bounds. The detail surfaces carry `title` and `content` only for requested node ids.
   - **Leaf hydration rule:** Entering a leaf returns leaf metadata and does not include the full one-hop graph, node `title`, or node `content`.
   - **Leaf detail request rule:** Node details are fetched by explicit node-id batches scoped to the active leaf; the initial leaf view payload excludes node `title` and `content`.
@@ -264,7 +265,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - The repository layer exposes a leaf-scoped assignment read that returns only the node ids assigned to one taxonomy leaf.
 - Leaf graph edge expansion reads `edge_id` membership from `taxonomy_leaf_projection_edges` for the active `leaf_id`, then joins to `edges` to obtain current endpoints and `strength`.
 - Leaf graph node scope is reconstructed from two sources only: inner membership from `node_taxonomy_assignments` and projected edge endpoints from `taxonomy_leaf_projection_edges`.
-- Leaf layout generation computes stable global world coordinates from the leaf-scoped one-hop graph and stores the derived coordinates in Redis.
+- Leaf layout generation computes stable global world coordinates from the leaf-scoped one-hop graph through the deterministic force simulation and stores the derived coordinates in Redis.
 - Leaf layout viewport reads return only nodes inside requested world bounds plus edges whose endpoints are both in the returned node set.
 - Leaf detail hydration validates requested node ids against cached leaf layout membership or leaf-scoped projection membership without loading title/content for every node in that graph.
 - Leaf detail hydration reads `title` and `content` only for the requested node ids after membership validation succeeds.
@@ -287,6 +288,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - Branch node view payloads omit direct children whose descendant subtree has zero assigned cards.
   - Leaf node view payloads return metadata for backend layout consumption without returning the full one-hop graph.
   - `GET /api/v1/taxonomy/view/leaves/{id}/layout` returns backend-computed world coordinates and local edges for the requested world bounds.
+  - Leaf layout generation responds to edge strength in the deterministic force geometry while remaining stable for identical inputs and layout algorithm version.
   - `POST /api/v1/taxonomy/view/leaves/{id}/details` returns `title/content` only for requested node ids inside the active leaf graph.
   - Leaf edge reads use the leaf projection table and stay scoped to the requested leaf graph.
   - Leaf detail hydration does not require loading title/content for every node in the expanded one-hop graph.

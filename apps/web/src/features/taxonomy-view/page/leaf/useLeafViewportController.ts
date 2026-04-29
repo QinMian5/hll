@@ -25,6 +25,22 @@ export function expandLeafWorldBounds(
   };
 }
 
+export function snapLeafWorldBoundsToTile(
+  bounds: LeafWorldBounds,
+  tileSize: number,
+): LeafWorldBounds {
+  if (tileSize <= 0) {
+    throw new Error("Leaf layout tile size must be positive.");
+  }
+
+  return {
+    bottom: Math.ceil(bounds.bottom / tileSize) * tileSize,
+    left: Math.floor(bounds.left / tileSize) * tileSize,
+    right: Math.ceil(bounds.right / tileSize) * tileSize,
+    top: Math.floor(bounds.top / tileSize) * tileSize,
+  };
+}
+
 export function leafWorldBoundsFromViewport(
   input: BuildLeafViewportStateInput,
 ): LeafWorldBounds {

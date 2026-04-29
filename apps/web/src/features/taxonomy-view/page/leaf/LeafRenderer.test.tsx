@@ -24,6 +24,7 @@ vi.mock("./LeafDeckScene", () => ({
   LeafDeckScene: ({
     activeFocusNodeId,
     hoveredPointNodeId,
+    initialViewport,
     isPointInteractionEnabled,
     onCanvasClick,
     onPointClick,
@@ -34,6 +35,10 @@ vi.mock("./LeafDeckScene", () => ({
   }: {
     readonly activeFocusNodeId: number | null;
     readonly hoveredPointNodeId: number | null;
+    readonly initialViewport: {
+      readonly target: readonly [number, number, number];
+      readonly zoom: number;
+    };
     readonly isPointInteractionEnabled: boolean;
     readonly onCanvasClick: () => void;
     readonly onPointClick: (nodeId: number) => void;
@@ -70,7 +75,7 @@ vi.mock("./LeafDeckScene", () => ({
       <button
         onClick={() =>
           onViewportChange({
-            target: [700, 450, 0],
+            target: initialViewport.target,
             zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM,
           })
         }
@@ -81,7 +86,7 @@ vi.mock("./LeafDeckScene", () => ({
       <button
         onClick={() =>
           onViewportChange({
-            target: [700, 450, 0],
+            target: initialViewport.target,
             zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM - 0.1,
           })
         }
@@ -92,7 +97,11 @@ vi.mock("./LeafDeckScene", () => ({
       <button
         onClick={() =>
           onViewportFrameChange?.({
-            target: [740, 480, 0],
+            target: [
+              initialViewport.target[0] + 40,
+              initialViewport.target[1] + 30,
+              0,
+            ],
             zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM,
           })
         }
@@ -198,23 +207,28 @@ function makeLeafView(): TaxonomyLeafView {
     },
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",
-    layout_version: "taxonomy-leaf-layout-v1",
+    layout_version: "taxonomy-leaf-layout-v2",
     node_kind: "leaf",
     node_count: 2,
-    world_bounds: { max_x: 744, max_y: 484, min_x: 696, min_y: 446 },
+    world_bounds: { max_x: 44, max_y: 34, min_x: -44, min_y: -34 },
   };
 }
 
 function makeLeafLayoutSliceResponse(): TaxonomyLeafLayoutSliceResponse {
   return {
     edges: [[10, 11, 0.8]],
-    layout_version: "taxonomy-leaf-layout-v1",
+    layout_version: "taxonomy-leaf-layout-v2",
     leaf_id: 2,
     nodes: [
-      { id: 10, scope: "inner", x: 700, y: 450 },
-      { id: 11, scope: "outer", x: 740, y: 480 },
+      { id: 10, scope: "inner", x: 0, y: 0 },
+      { id: 11, scope: "outer", x: 40, y: 30 },
     ],
-    requested_bounds: { max_x: 1562, max_y: 1060, min_x: -162, min_y: -160 },
+    requested_bounds: {
+      max_x: 1024,
+      max_y: 1024,
+      min_x: -1024,
+      min_y: -1024,
+    },
   };
 }
 
@@ -299,7 +313,6 @@ describe("LeafRenderer", () => {
 
     render(
       <LeafRenderer
-        center={{ x: 700, y: 450 }}
         leafView={makeLeafView()}
         viewport={{ height: 900, width: 1404 }}
       />,
@@ -318,10 +331,10 @@ describe("LeafRenderer", () => {
     expect(mockUseTaxonomyLeafLayoutSliceQuery).toHaveBeenCalledWith(
       2,
       {
-        max_x: 1562,
-        max_y: 1060,
-        min_x: -162,
-        min_y: -160,
+        max_x: 1024,
+        max_y: 1024,
+        min_x: -1024,
+        min_y: -1024,
       },
       expect.objectContaining({ enabled: true }),
     );
@@ -349,7 +362,6 @@ describe("LeafRenderer", () => {
 
     render(
       <LeafRenderer
-        center={{ x: 700, y: 450 }}
         leafView={makeLeafView()}
         viewport={{ height: 900, width: 1404 }}
       />,
@@ -405,7 +417,6 @@ describe("LeafRenderer", () => {
 
     render(
       <LeafRenderer
-        center={{ x: 700, y: 450 }}
         leafView={makeLeafView()}
         onSuggestEdit={onSuggestEdit}
         viewport={{ height: 900, width: 1404 }}
@@ -466,7 +477,6 @@ describe("LeafRenderer", () => {
 
     render(
       <LeafRenderer
-        center={{ x: 700, y: 450 }}
         leafView={makeLeafView()}
         viewport={{ height: 900, width: 1404 }}
       />,
@@ -521,7 +531,6 @@ describe("LeafRenderer", () => {
 
     render(
       <LeafRenderer
-        center={{ x: 700, y: 450 }}
         leafView={makeLeafView()}
         viewport={{ height: 900, width: 1404 }}
       />,
@@ -552,7 +561,6 @@ describe("LeafRenderer", () => {
 
     render(
       <LeafRenderer
-        center={{ x: 700, y: 450 }}
         leafView={makeLeafView()}
         viewport={{ height: 900, width: 1404 }}
       />,

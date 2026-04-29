@@ -96,6 +96,7 @@ out_of_scope: Taxonomy API payload derivation, backend layout computation, page-
   - **Zoom activation rule:** Point-title hydration and point interaction are gated by deck orthographic viewport zoom `0.85`. Below `0.85`, all leaf nodes remain in non-interactive point mode. At or above `0.85`, point-title mode is active and point glyphs can be hovered or clicked.
   - **Viewport rule:** When point-title mode is active, only nodes inside the viewport plus overscan may render title labels. Nodes outside that region remain points even if their details are already cached.
   - **Movement rule:** Panning or viewport changes trigger incremental title hydration only for newly entered overscan nodes. Already hydrated node titles and disclosure details reuse cache entries.
+  - **Leaf layout slice stability rule:** Leaf layout requests snap the viewport-plus-overscan bounds to fixed global-world tiles before calling the layout slice endpoint. While a newly entered tile is pending, the renderer keeps displaying the last successful layout slice instead of clearing the scene.
   - **Tailwind-first implementation rule:** Bubble composition, spacing, typography, and disclosure styling are carried primarily through Tailwind utility classes colocated with the React structure. Handwritten CSS is reserved only for library overrides or visual effects that cannot be expressed cleanly through utilities.
   - **Determinism rule:** Branch layout uses deterministic seed ordering, and leaf rendering treats backend world coordinates as stable anchors so revisiting the same leaf layout version yields stable geometry.
   - **Shared canvas rule:** Branch and leaf layouts project into the same stable canvas shell. Layout changes must not change the outer shell height or the breadcrumb/loading/error overlay contract.
@@ -130,6 +131,7 @@ out_of_scope: Taxonomy API payload derivation, backend layout computation, page-
   - Leaf camera motion remains smooth because deck.gl view-state updates do not force whole-tree React rerenders on every pointer frame.
   - Leaf view displays non-interactive nodes as points below the zoom threshold and adds viewport-scoped title labels plus point-glyph interaction above the threshold.
   - Leaf layout slices are requested only for the viewport plus overscan region and are reused while still valid for the active leaf layout version.
+  - Leaf layout slice requests use stable snapped world-tile bounds so small drags do not create a new request key for every frame.
   - Leaf node titles are requested only for returned layout-slice nodes inside the viewport plus overscan region and are reused from cache during continued navigation.
   - Leaf node content is requested only for hover or selected disclosure targets and is reused from cache during continued interaction.
   - Viewport-scoped leaf title hydration remains responsive because title requests are bounded to the requested node ids and do not trigger whole-graph detail reads on the backend.

@@ -8,6 +8,7 @@ import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
 import {
   buildLeafViewportState,
   selectLeafHydrationNodeIds,
+  snapLeafWorldBoundsToTile,
 } from "./useLeafViewportController";
 
 function makeLayoutPointNode(options: {
@@ -87,5 +88,24 @@ describe("leaf viewport controller helpers", () => {
     expect(
       selectLeafHydrationNodeIds(layoutNodes, offscreenState.bounds),
     ).toHaveLength(0);
+  });
+
+  it("snaps nearby world bounds to stable layout tiles", () => {
+    const first = snapLeafWorldBoundsToTile(
+      { bottom: 610, left: -862, right: 862, top: -610 },
+      1024,
+    );
+    const second = snapLeafWorldBoundsToTile(
+      { bottom: 624, left: -840, right: 884, top: -588 },
+      1024,
+    );
+
+    expect(first).toEqual({
+      bottom: 1024,
+      left: -1024,
+      right: 1024,
+      top: -1024,
+    });
+    expect(second).toEqual(first);
   });
 });

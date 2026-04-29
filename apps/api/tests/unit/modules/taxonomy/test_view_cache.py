@@ -99,7 +99,7 @@ async def test_leaf_layout_cache_stores_and_reads_layout_payload() -> None:
     redis = _FakeRedis()
     cache = TaxonomyViewRedisCache(redis=redis)
     layout = TaxonomyLeafLayout(
-        layout_version="taxonomy-leaf-layout-v1",
+        layout_version="taxonomy-leaf-layout-v2",
         generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
         world_bounds=TaxonomyLeafWorldBounds(
             min_x=-5.0,
@@ -119,14 +119,14 @@ async def test_leaf_layout_cache_stores_and_reads_layout_payload() -> None:
     cached = await cache.get_leaf_layout(leaf_id=9)
 
     assert cached == layout
-    assert redis.set_calls[0][0] == "taxonomy:view:v1:leaf-layout:9"
+    assert redis.set_calls[0][0] == "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v2:9"
     assert redis.set_calls[0][2] == TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS
 
 
 @pytest.mark.anyio
 async def test_leaf_layout_cache_rejects_malformed_payload() -> None:
     redis = _FakeRedis()
-    redis.values["taxonomy:view:v1:leaf-layout:9"] = '{"nodes":"bad"}'
+    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v2:9"] = '{"nodes":"bad"}'
     cache = TaxonomyViewRedisCache(redis=redis)
 
     with pytest.raises(ValueError, match="leaf layout cache payload"):
@@ -141,4 +141,6 @@ async def test_leaf_layout_lock_uses_per_leaf_single_flight_key() -> None:
     acquired = await cache.acquire_leaf_layout_lock(leaf_id=9)
 
     assert acquired is True
-    assert redis.set_calls == [("taxonomy:view:v1:leaf-layout:9:lock", "1", 30, True)]
+    assert redis.set_calls == [
+        ("taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v2:9:lock", "1", 30, True)
+    ]

@@ -41,7 +41,7 @@ function createClient(overrides: Partial<TaxonomyViewInternalApi> = {}) {
   return {
     getTaxonomyLeafLayoutSlice: vi.fn(async () => ({
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-leaf-layout-v1",
+      layout_version: "taxonomy-leaf-layout-v2",
       leaf_id: 7,
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },
@@ -182,7 +182,7 @@ describe("taxonomy view route", () => {
     });
     expect(response.body).toEqual({
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-leaf-layout-v1",
+      layout_version: "taxonomy-leaf-layout-v2",
       leaf_id: 7,
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },

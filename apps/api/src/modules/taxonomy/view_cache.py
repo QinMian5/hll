@@ -11,6 +11,7 @@ from typing import Protocol
 from pydantic import ValidationError
 
 from modules.taxonomy.dto import TaxonomyLeafLayout
+from modules.taxonomy.layout import TAXONOMY_LEAF_LAYOUT_VERSION
 
 TAXONOMY_VIEW_COUNT_CACHE_TTL_SECONDS = 60
 TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS = 600
@@ -123,4 +124,4 @@ def _descendant_counts_key() -> str:
 
 
 def _leaf_layout_key(*, leaf_id: int) -> str:
-    return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:leaf-layout:{leaf_id}"
+    return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:leaf-layout:{TAXONOMY_LEAF_LAYOUT_VERSION}:{leaf_id}"

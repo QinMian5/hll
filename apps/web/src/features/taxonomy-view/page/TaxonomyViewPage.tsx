@@ -312,7 +312,6 @@ export function TaxonomyViewPage() {
           {nodeQuery.data?.node_kind === "leaf" ? (
             <Suspense fallback={null}>
               <LeafRenderer
-                center={layoutCenter}
                 key={nodeQuery.data.current_node.id}
                 leafView={nodeQuery.data}
                 onSuggestEdit={handleSuggestEdit}

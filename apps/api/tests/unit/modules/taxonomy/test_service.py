@@ -451,7 +451,7 @@ async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
     assert isinstance(view, TaxonomyNodeLeafViewResponse)
     assert view.node_kind == "leaf"
     assert [item.id for item in view.breadcrumb] == [1, 2]
-    assert view.layout_version == "taxonomy-leaf-layout-v1"
+    assert view.layout_version == "taxonomy-leaf-layout-v2"
     assert view.world_bounds.min_x < 0.0
     assert view.world_bounds.min_y < 0.0
     assert view.world_bounds.max_x > 0.0
@@ -486,17 +486,20 @@ async def test_get_leaf_layout_slice_returns_backend_coordinates_for_requested_b
 
     layout_slice = await service.get_leaf_layout_slice(
         node_id=2,
-        min_x=90.0,
-        min_y=-10.0,
-        max_x=110.0,
-        max_y=10.0,
+        min_x=-1000.0,
+        min_y=-1000.0,
+        max_x=1000.0,
+        max_y=1000.0,
     )
 
     assert layout_slice.leaf_id == 2
-    assert [(node.id, node.scope) for node in layout_slice.nodes] == [(11, "inner")]
-    assert layout_slice.nodes[0].x == pytest.approx(100.0)
-    assert layout_slice.nodes[0].y == pytest.approx(0.0)
-    assert layout_slice.edges == []
+    assert [(node.id, node.scope) for node in layout_slice.nodes] == [
+        (11, "inner"),
+        (12, "inner"),
+        (77, "outer"),
+    ]
+    assert all(node.x != 0.0 or node.y != 0.0 for node in layout_slice.nodes)
+    assert layout_slice.edges == [(11, 12, 0.91), (12, 77, 0.66)]
 
 
 @pytest.mark.anyio

@@ -24,7 +24,6 @@ import {
   useTaxonomyLeafNodeTitlesQuery,
 } from "../../data/taxonomyViewQueries";
 import type {
-  LayoutPoint,
   LayoutViewport,
   TaxonomyLayoutNode,
 } from "../layout/taxonomyLayoutTypes";
@@ -39,6 +38,7 @@ import {
 import {
   buildDefaultLeafViewport,
   LEAF_HYDRATION_OVERSCAN,
+  LEAF_LAYOUT_TILE_SIZE,
 } from "./leafRendererConfig";
 import type {
   LeafDisclosureState,
@@ -52,10 +52,10 @@ import {
 import {
   buildLeafViewportState,
   selectLeafHydrationNodeIds,
+  snapLeafWorldBoundsToTile,
 } from "./useLeafViewportController";
 
 interface LeafRendererProps {
-  readonly center: LayoutPoint;
   readonly leafView: TaxonomyLeafView;
   readonly onSuggestEdit?: (card: SearchResultCardEditPayload) => void;
   readonly viewport: LayoutViewport;
@@ -137,7 +137,6 @@ function buildDisclosureNode(options: {
 }
 
 export function LeafRenderer({
-  center,
   leafView,
   onSuggestEdit,
   viewport,
@@ -145,9 +144,25 @@ export function LeafRenderer({
   const shellRef = useRef<HTMLDivElement | null>(null);
   const titleLabelsRef = useRef<LeafTitleLabelsOverlayHandle | null>(null);
   const disclosureRef = useRef<LeafDisclosureOverlayHandle | null>(null);
+  const lastLeafLayoutSliceRef = useRef<
+    TaxonomyLeafLayoutSliceResponse | undefined
+  >(undefined);
+  const {
+    max_x: leafWorldMaxX,
+    max_y: leafWorldMaxY,
+    min_x: leafWorldMinX,
+    min_y: leafWorldMinY,
+  } = leafView.world_bounds;
+  const initialLeafViewportCenter = useMemo(
+    () => ({
+      x: (leafWorldMinX + leafWorldMaxX) / 2,
+      y: (leafWorldMinY + leafWorldMaxY) / 2,
+    }),
+    [leafWorldMaxX, leafWorldMaxY, leafWorldMinX, leafWorldMinY],
+  );
   const initialDeckViewport = useMemo(
-    () => buildDefaultLeafViewport(center),
-    [center],
+    () => buildDefaultLeafViewport(initialLeafViewportCenter),
+    [initialLeafViewportCenter],
   );
   const [canvasViewport, setCanvasViewport] = useState(viewport);
   const [deckViewportSnapshot, setDeckViewportSnapshot] =
@@ -177,6 +192,7 @@ export function LeafRenderer({
     setSelectedNodeId(null);
     setLeafTitleCache({});
     setLeafDetailCache({});
+    lastLeafLayoutSliceRef.current = undefined;
   }, [initialDeckViewport, leafNodeId]);
 
   const handleViewportFrameChange = useCallback(
@@ -246,7 +262,13 @@ export function LeafRenderer({
     [canvasViewport, deferredDeckViewportSnapshot],
   );
   const leafLayoutBounds = useMemo(
-    () => toLayoutBounds(viewportState.overscanBounds),
+    () =>
+      toLayoutBounds(
+        snapLeafWorldBoundsToTile(
+          viewportState.overscanBounds,
+          LEAF_LAYOUT_TILE_SIZE,
+        ),
+      ),
     [viewportState.overscanBounds],
   );
   const leafLayoutQuery = useTaxonomyLeafLayoutSliceQuery(
@@ -254,9 +276,16 @@ export function LeafRenderer({
     leafLayoutBounds,
     { enabled: Number.isFinite(leafNodeId) },
   );
+  useEffect(() => {
+    if (leafLayoutQuery.data) {
+      lastLeafLayoutSliceRef.current = leafLayoutQuery.data;
+    }
+  }, [leafLayoutQuery.data]);
+  const renderLeafLayoutSlice =
+    leafLayoutQuery.data ?? lastLeafLayoutSliceRef.current;
   const leafLayout = useMemo(
-    () => buildRenderableLeafLayout(leafLayoutQuery.data),
-    [leafLayoutQuery.data],
+    () => buildRenderableLeafLayout(renderLeafLayoutSlice),
+    [renderLeafLayoutSlice],
   );
 
   useEffect(() => {
