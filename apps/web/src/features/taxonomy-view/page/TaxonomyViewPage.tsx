@@ -105,6 +105,10 @@ export function TaxonomyViewPage() {
   const rootMode = activeNodeId === null;
   const activeQuery = rootMode ? rootQuery : nodeQuery;
   const breadcrumbs = rootMode ? [] : (nodeQuery.data?.breadcrumb ?? []);
+  const displayBreadcrumbs =
+    breadcrumbs[0]?.parent_id === null && breadcrumbs[0].name === "Root"
+      ? breadcrumbs.slice(1)
+      : breadcrumbs;
   const layoutCenter = useMemo(
     () => ({
       x: canvasViewport.width / 2,
@@ -203,7 +207,7 @@ export function TaxonomyViewPage() {
           >
             Root
           </button>
-          {breadcrumbs.flatMap((item) => [
+          {displayBreadcrumbs.flatMap((item) => [
             <ChevronRight
               aria-hidden="true"
               className="size-3.5 shrink-0 text-[rgba(117,133,161,0.56)]"
@@ -212,10 +216,10 @@ export function TaxonomyViewPage() {
             />,
             <button
               aria-current={
-                item.id === breadcrumbs.at(-1)?.id ? "page" : undefined
+                item.id === displayBreadcrumbs.at(-1)?.id ? "page" : undefined
               }
               className={
-                item.id === breadcrumbs.at(-1)?.id
+                item.id === displayBreadcrumbs.at(-1)?.id
                   ? breadcrumbCurrentClasses
                   : breadcrumbMutedClasses
               }

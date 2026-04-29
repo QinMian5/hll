@@ -335,6 +335,74 @@ describe("TaxonomyViewPage", () => {
     );
   });
 
+  it("does not duplicate the root crumb when backend breadcrumb already starts at Root", async () => {
+    rootQueryState = makeQueryResult({
+      data: makeRootView({
+        children: [
+          {
+            depth: 1,
+            descendant_card_count: 54,
+            id: 4,
+            is_leaf: true,
+            name: "Unclassified",
+            parent_id: 3,
+          },
+        ],
+      }),
+    });
+    nodeQueryStates.set(
+      4,
+      makeQueryResult({
+        data: makeLeafNodeView({
+          breadcrumb: [
+            {
+              depth: 0,
+              id: 3,
+              is_leaf: false,
+              name: "Root",
+              parent_id: null,
+            },
+            {
+              depth: 1,
+              id: 4,
+              is_leaf: true,
+              name: "Unclassified",
+              parent_id: 3,
+            },
+          ],
+          current_node: {
+            depth: 1,
+            id: 4,
+            is_leaf: true,
+            name: "Unclassified",
+            parent_id: 3,
+          },
+        }),
+      }),
+    );
+
+    render(<TaxonomyViewPage />);
+
+    const unclassifiedNode = within(screen.getByTestId("reactflow-mock"))
+      .getByText("Unclassified")
+      .closest("[data-node-scope='branch']");
+
+    expect(unclassifiedNode).not.toBeNull();
+
+    fireEvent.click(unclassifiedNode as HTMLElement);
+
+    expect(
+      await screen.findByTestId("taxonomy-leaf-renderer"),
+    ).toHaveTextContent("Unclassified");
+    expect(screen.getAllByRole("button", { name: "Root" })).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: "Unclassified" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getAllByTestId("taxonomy-breadcrumb-separator")).toHaveLength(
+      1,
+    );
+  });
+
   it("renders branch breadcrumbs with Figma chevrons and responsive offsets", async () => {
     nodeQueryStates.set(
       1,
