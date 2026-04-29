@@ -39,15 +39,15 @@ def test_get_ingestion_service_builds_sender_from_ingestion_queue(
         _fake_publish_ingestion_task,
     )
 
-    class FakeIngestionIdempotencyRepo:
+    class FakeIngestionRequestRepo:
         def __init__(self, *, session: object) -> None:
             captured["session"] = session
             captured["repo"] = self
 
     monkeypatch.setattr(
         api_providers,
-        "IngestionIdempotencyRepo",
-        FakeIngestionIdempotencyRepo,
+        "IngestionRequestRepo",
+        FakeIngestionRequestRepo,
     )
 
     settings = SimpleNamespace(redis_url=redis_url)
@@ -55,7 +55,7 @@ def test_get_ingestion_service_builds_sender_from_ingestion_queue(
 
     service = api_providers.get_ingestion_service(settings=settings, session=session)
     task = IngestionTask(
-        ingestion_id="ing_123",
+        ingestion_id=123,
         request_id="req_123",
         title="Title",
         content="Content",
@@ -63,7 +63,7 @@ def test_get_ingestion_service_builds_sender_from_ingestion_queue(
     result = service.task_publisher(task)
 
     assert isinstance(service, IngestionService)
-    assert service.idempotency_repo is captured["repo"]
+    assert service.ingestion_repo is captured["repo"]
     assert result is None
     assert captured["redis_url"] == redis_url
     assert captured["task"] == task

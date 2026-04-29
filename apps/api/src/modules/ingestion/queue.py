@@ -7,7 +7,7 @@ Out of scope: Knowledge-graph persistence rules and HTTP transport contracts.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TypedDict
 
 import dramatiq
 from dramatiq.brokers.redis import RedisBroker
@@ -18,14 +18,21 @@ INGESTION_QUEUE_NAME = "ingestion"
 INGESTION_ACTOR_NAME = "enqueue_ingestion_task"
 
 
-@dataclass(slots=True, frozen=True)
-class IngestionTask:
-    ingestion_id: str
+class IngestionTaskPayload(TypedDict):
+    ingestion_id: int
     request_id: str
     title: str
     content: str
 
-    def to_payload(self) -> dict[str, str]:
+
+@dataclass(slots=True, frozen=True)
+class IngestionTask:
+    ingestion_id: int
+    request_id: str
+    title: str
+    content: str
+
+    def to_payload(self) -> IngestionTaskPayload:
         return {
             "ingestion_id": self.ingestion_id,
             "request_id": self.request_id,
@@ -34,9 +41,9 @@ class IngestionTask:
         }
 
     @classmethod
-    def from_payload(cls, payload: dict[str, Any]) -> IngestionTask:
+    def from_payload(cls, payload: IngestionTaskPayload) -> IngestionTask:
         return cls(
-            ingestion_id=str(payload["ingestion_id"]),
+            ingestion_id=int(payload["ingestion_id"]),
             request_id=str(payload["request_id"]),
             title=str(payload["title"]),
             content=str(payload["content"]),

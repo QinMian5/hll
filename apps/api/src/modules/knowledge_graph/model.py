@@ -36,7 +36,7 @@ NODE_SEARCH_VECTOR_SQL = (
 class Node(Base):
     __tablename__ = "nodes"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     current_version: Mapped[int] = mapped_column(
@@ -79,7 +79,7 @@ class Node(Base):
 class CardVersion(Base):
     __tablename__ = "card_versions"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     node_id: Mapped[int] = mapped_column(
         ForeignKey("nodes.id", ondelete="CASCADE"),
         nullable=False,
@@ -103,7 +103,7 @@ class CardVersion(Base):
 class CardSuggestedEdit(Base):
     __tablename__ = "card_suggested_edits"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     node_id: Mapped[int] = mapped_column(Integer, nullable=False)
     base_version: Mapped[int] = mapped_column(Integer, nullable=False)
     suggested_title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -148,7 +148,7 @@ class CardSuggestedEdit(Base):
 class Edge(Base):
     __tablename__ = "edges"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     node_a_id: Mapped[int] = mapped_column(
         ForeignKey("nodes.id", ondelete="CASCADE"),
         nullable=False,

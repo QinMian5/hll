@@ -28,6 +28,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `card_suggested_edits`
 - `edges`
 - `adjacency`
+- `ingestion_requests`
 - `taxonomy_nodes`
 - `node_taxonomy_assignments`
 - `taxonomy_leaf_projection_edges`
@@ -133,7 +134,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
   - inserts create the current assignment for a node.
   - updates move the current assignment for a node.
 - Trigger implementation rule:
-  - leaf-only assignment trigger is maintained through one dedicated migration scoped to trigger/function DDL.
+  - leaf-only assignment trigger is maintained through API Alembic migration DDL scoped to trigger/function integrity.
 
 ### Taxonomy Leaf Projection Edges
 - Composite primary key: `(leaf_id, edge_id)`.
@@ -144,6 +145,20 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - Projection rule:
   - rows store leaf-edge membership only.
   - mutable edge values are read from `edges`.
+
+### Ingestion Requests
+- `id`: integer primary key and public `ingestion_id` returned by `POST /api/v1/cards`.
+- `idempotency_key`: nullable text.
+- `payload_hash`: non-null 64-character SHA-256 hash of the normalized accepted payload.
+- `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
+- Required indexes:
+  - partial unique index on `idempotency_key` where `idempotency_key IS NOT NULL`
+- Write semantics:
+  - every newly accepted ingestion request inserts one append-only row before queue dispatch
+  - submissions without a non-empty `Idempotency-Key` store `NULL` and always allocate independent integer ids
+  - same non-empty idempotency key and same payload hash reuses the existing row id through repository-owned atomic get-or-create semantics without enqueueing another task
+  - same non-empty idempotency key and different payload hash is rejected by the ingestion service before enqueueing
+  - queue publish failure before accepted-request completion rolls back the inserted row
 
 ### Taxonomy Classification Jobs
 - `id`: integer primary key.
@@ -159,7 +174,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `created_at`: non-null timestamp with timezone.
 - `updated_at`: non-null timestamp with timezone.
 - Required constraints:
-  - uniqueness over non-null `job_id` values.
+  - partial unique index on `job_id` where `job_id IS NOT NULL`.
   - partial uniqueness over `(scope_node_id, source_unclassified_node_id, node_id)` for active outstanding rows only, where `processed_at IS NULL` and `terminal_state IS NULL`.
 - Active-linkage rule:
   - processed accepted results, invalid accepted results recorded as local processing errors, and terminal non-accepted rows do not block a later operator submission for the same scope/source/card.
@@ -180,6 +195,9 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `updated_at`: non-null timestamp with timezone.
 - Required constraints:
   - uniqueness over `event_id`.
+- Write semantics:
+  - webhook intake uses repository-owned atomic insert-on-conflict semantics for `event_id`.
+  - duplicate webhook deliveries return the existing event row without creating another wakeup.
 - Required indexes:
   - pending-event lookup by `processed_at` and creation order.
 

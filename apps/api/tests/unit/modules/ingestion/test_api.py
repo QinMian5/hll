@@ -37,7 +37,7 @@ class _FakeIngestionService:
         self.seen_idempotency_key = idempotency_key
         return IngestionAcceptedResponse(
             accepted=True,
-            ingestion_id="ing_1234567890abcdef1234567890abcdef",
+            ingestion_id=123,
         )
 
 
@@ -59,7 +59,7 @@ async def test_ingestion_valid_payload_returns_202(async_client: AsyncClient) ->
     assert response.status_code == 202
     assert response.json() == {
         "accepted": True,
-        "ingestion_id": "ing_1234567890abcdef1234567890abcdef",
+        "ingestion_id": 123,
     }
 
 

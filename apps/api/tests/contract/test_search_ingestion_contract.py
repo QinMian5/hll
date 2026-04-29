@@ -82,3 +82,6 @@ def test_ingestion_openapi_includes_idempotency_header_and_responses(
     assert "202" in responses
     assert "409" in responses
     assert "422" in responses
+    response_schema_name = responses["202"]["content"]["application/json"]["schema"]["$ref"]
+    response_schema = openapi["components"]["schemas"][response_schema_name.rsplit("/", 1)[-1]]
+    assert response_schema["properties"]["ingestion_id"]["type"] == "integer"

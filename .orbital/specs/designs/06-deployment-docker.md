@@ -262,7 +262,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Known startup failures must fail explicitly and stop rollout progression.
 - Silent fallback and partial startup in known invalid states are forbidden.
 - Error details must remain observable in logs for debugging.
-- Ingestion enqueue failures are logged and observable while accepted-ingestion response semantics remain unchanged.
+- Ingestion queue publish failures during request acceptance are logged and returned as `503`; worker failures after acceptance remain asynchronous and log-observable.
 
 ## Deferred to Later Phases
 - Backup and restore strategy definition.

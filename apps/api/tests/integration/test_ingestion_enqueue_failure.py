@@ -15,6 +15,7 @@ from httpx import AsyncClient
 
 from entrypoints.api import providers as api_providers
 from modules.ingestion.queue import IngestionTask
+from modules.ingestion.repo import IngestionRequest, IngestionRequestResolution
 from modules.ingestion.service import IngestionService
 
 DependencyOverrides = dict[Callable[..., Any], Callable[..., Any]]
@@ -26,18 +27,45 @@ class _FailingPublisher:
         raise RuntimeError("queue unavailable")
 
 
+@dataclass(slots=True)
+class _MemoryIngestionRequestRepo:
+    rollback_count: int = 0
+
+    async def get_or_create_request(
+        self,
+        *,
+        idempotency_key: str | None,
+        payload_hash: str,
+    ) -> IngestionRequestResolution:
+        return IngestionRequestResolution(
+            request=IngestionRequest(
+                id=1,
+                idempotency_key=idempotency_key,
+                payload_hash=payload_hash,
+            ),
+            created=True,
+        )
+
+    async def commit(self) -> None:
+        raise AssertionError("commit should not run after enqueue failure")
+
+    async def rollback(self) -> None:
+        self.rollback_count += 1
+
+
 @pytest.fixture
 def dependency_overrides() -> DependencyOverrides:
     return {
         api_providers.get_ingestion_service: lambda: IngestionService(
-            task_publisher=_FailingPublisher()
+            task_publisher=_FailingPublisher(),
+            ingestion_repo=_MemoryIngestionRequestRepo(),
         )
     }
 
 
 @pytest.mark.integration
 @pytest.mark.anyio
-async def test_valid_ingestion_payload_returns_202_even_if_enqueue_fails(
+async def test_valid_ingestion_payload_returns_503_if_enqueue_fails(
     async_client: AsyncClient,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -48,9 +76,8 @@ async def test_valid_ingestion_payload_returns_202_even_if_enqueue_fails(
         json={"title": "Title", "content": "Content"},
     )
 
-    assert response.status_code == 202
-    assert response.json()["accepted"] is True
-    assert response.json()["ingestion_id"].startswith("ing_")
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "INFRA_QUEUE_UNAVAILABLE"
     matching_records = [
         record for record in caplog.records if record.message == "ingestion.enqueue_failed"
     ]

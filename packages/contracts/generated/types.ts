@@ -176,7 +176,7 @@ export interface components {
        */
       accepted: true;
       /** Ingestion Id */
-      ingestion_id: string;
+      ingestion_id: number;
     };
     /** IngestionCreateRequest */
     IngestionCreateRequest: {

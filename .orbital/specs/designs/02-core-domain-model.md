@@ -197,9 +197,12 @@ class Adjacency(Base):
 - `Edge` is an undirected relation between two distinct nodes.
 - V1 stores one canonical edge per unordered node pair.
 - `Edge.strength` uses normalized range `[0, 1]`.
-- V1 initialization rule is `strength = (dot_product + 1) / 2`.
-- V1 edge materialization threshold is runtime-configurable via `KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH`.
-- Threshold is a business rule and is not persisted as a transport field.
+- V1 initialization selects edges from title-mention and semantic candidate pools.
+- Title-mention candidates are existing nodes whose normalized title appears as a complete normalized phrase in the new card content.
+- Semantic candidates are selected by embedding similarity.
+- Candidate budgets, semantic candidate pool size, and semantic strength threshold are runtime policy.
+- V1 initialization rule for persisted strength is `strength = (dot_product + 1) / 2`.
+- Edge initialization policy is not persisted as a transport field.
 
 ## Read Model
 - V1 read result model is `Subgraph`.

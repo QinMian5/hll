@@ -5,6 +5,8 @@ Out of scope: Redis network connectivity and worker process lifecycle behavior.
 
 from __future__ import annotations
 
+from typing import get_type_hints
+
 import pytest
 
 import modules.ingestion.queue as broker_module
@@ -56,7 +58,7 @@ def test_get_broker_raises_when_broker_construction_fails(
 
 def test_ingestion_task_payload_roundtrip() -> None:
     task = broker_module.IngestionTask(
-        ingestion_id="ing_123",
+        ingestion_id=123,
         request_id="req_abc",
         title="Title",
         content="Content",
@@ -65,6 +67,10 @@ def test_ingestion_task_payload_roundtrip() -> None:
     payload = task.to_payload()
     rebuilt = broker_module.IngestionTask.from_payload(payload)
 
+    assert get_type_hints(broker_module.IngestionTask.to_payload)["return"] is (
+        broker_module.IngestionTaskPayload
+    )
+    assert isinstance(payload["ingestion_id"], int)
     assert rebuilt == task
 
 
@@ -112,7 +118,7 @@ def test_publish_ingestion_task_enqueues_message_with_fixed_contract(
     monkeypatch.setattr(broker_module, "configure_broker", _fake_configure_broker)
 
     task = broker_module.IngestionTask(
-        ingestion_id="ing_123",
+        ingestion_id=123,
         request_id="req_abc",
         title="Title",
         content="Content",

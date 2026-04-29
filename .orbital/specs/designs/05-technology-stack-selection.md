@@ -55,7 +55,7 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - HTTP client: `httpx`
 - Public identity authority: Logto personal access token exchange plus Logto-issued access-token validation
 - Quota and token-exchange cache: Redis-backed MCP-owned state
-- Durable usage ledger: PostgreSQL through SQLAlchemy 2 and app-local Alembic assets owned by `apps/mcp`
+- Durable usage and agent-search analytics ledgers: PostgreSQL through SQLAlchemy 2 and app-local Alembic assets owned by `apps/mcp`
 - Internal backend contract consumption: generated internal Python client under `packages/contracts/generated/python/` derived from repository OpenAPI artifacts
 
 #### Why selected

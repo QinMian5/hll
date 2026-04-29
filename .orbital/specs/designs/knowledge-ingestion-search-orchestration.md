@@ -43,7 +43,8 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 
 ### ingestion
 - Owns write-side HTTP acceptance endpoint and async dispatch orchestration.
-- Accepts valid payloads and returns `202 Accepted`.
+- Records each newly accepted request in `ingestion_requests` before queue dispatch.
+- Returns `202 Accepted` only after the accepted request has an integer database id and the queue message has been published.
 - Owns ingestion-scoped queue broker configuration and publish adapter (Redis + Dramatiq).
 - Worker path persists node/edge truth through `knowledge_graph` write service.
 
@@ -61,12 +62,16 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Response:
   - invalid payload: `4xx` via global error-governance mapping
   - repeated `Idempotency-Key` with conflicting payload: `409 Conflict`
+  - queue unavailable before accepted-request completion: `503 Service Unavailable`
   - valid first submission: `202 Accepted`
   - repeated `Idempotency-Key` with identical payload: `202 Accepted`
+  - accepted response body includes `accepted: true` and integer `ingestion_id`
 - Idempotency behavior:
   - requests with the same non-empty `Idempotency-Key` and same card payload are treated as the same logical accepted submission
-  - repeated accepted submissions for the same idempotency key and same card payload must return `202 Accepted` without enqueueing duplicate ingestion work or materializing duplicate knowledge cards
+  - repeated accepted submissions for the same idempotency key and same card payload must return `202 Accepted` with the original integer `ingestion_id` without enqueueing duplicate ingestion work or materializing duplicate knowledge cards
   - repeated idempotency keys with different card payloads are rejected with `409 Conflict`
+  - requests without a non-empty `Idempotency-Key` always allocate independent integer `ingestion_id` values
+  - idempotency get-or-create is repository-owned and database-atomic; service code must not implement a separate check-then-insert sequence
 
 ### Search Endpoint
 - Route: `GET /api/v1/search?query=<string>`
@@ -157,14 +162,35 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 ## Async Processing Flow
 1. API validates ingestion request payload.
 2. API returns `4xx` for invalid payload.
-3. API enforces idempotency when a non-empty `Idempotency-Key` header is present.
-4. API publishes Dramatiq message through ingestion-owned publisher adapter for the first accepted submission of one idempotency key.
-5. API returns `202` for valid payload.
-6. Worker actor receives task and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
-7. Worker persists node and edges through `knowledge_graph` write service.
-8. Worker persists the node's formal initial card version and current version projection through `knowledge_graph` write service.
-9. Worker computes edge strength as `(dot_product + 1) / 2`, applies configured threshold/top-k, then persists `Edge` and `Adjacency`.
-10. Worker assigns the new node to `Root -> Unclassified` through taxonomy-owned assignment services.
+3. API computes a stable payload hash from normalized card title and content.
+4. API resolves the accepted request through repository-owned atomic get-or-create semantics.
+5. API inserts a new `ingestion_requests` row for each first accepted submission and uses the database-assigned integer row id as `ingestion_id`.
+6. API publishes a typed ingestion-task payload through ingestion-owned publisher adapter only for newly accepted submissions.
+7. API rolls back the accepted-request row and returns `503` if queue publish fails before request acceptance completes.
+8. API returns `202` for valid accepted payloads after publish succeeds.
+9. Worker actor receives task and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
+10. Worker persists node truth through `knowledge_graph` write service.
+11. Worker persists the node's formal initial card version and current version projection through `knowledge_graph` write service.
+12. Worker assigns the new node to `Root -> Unclassified` through taxonomy-owned assignment services.
+13. Worker builds title-mention edge candidates from existing card titles that are complete normalized phrase matches inside the new card content.
+14. Worker ranks title-mention candidates by embedding similarity descending and node id ascending, then persists at most the configured title-mention edge budget.
+15. Worker builds semantic edge candidates from embedding similarity, bounded by the configured semantic candidate limit.
+16. Worker removes nodes already selected through title-mention matching, applies the configured semantic strength threshold, ranks by similarity descending and node id ascending, then persists at most the configured semantic edge budget.
+17. Worker computes persisted edge strength as `(dot_product + 1) / 2` for selected candidates.
+18. Worker persists selected `Edge` and `Adjacency` rows.
+
+## Edge Initialization
+- Edge initialization is performed only on the ingestion write path.
+- Title-mention candidates are existing nodes whose normalized title appears as a complete normalized phrase in the new card content.
+- Title-mention candidate ordering is embedding similarity descending, then node id ascending.
+- The title-mention edge count is bounded by `KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K`.
+- Semantic candidates are retrieved by embedding similarity with a candidate pool bounded by `KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT`.
+- Semantic candidates already selected by title mention are excluded from semantic edge selection.
+- Semantic candidates must meet `KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH`.
+- Semantic candidate ordering is embedding similarity descending, then node id ascending.
+- The semantic edge count is bounded by `KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K`.
+- Edge budget configuration is runtime-owned and may be adjusted without changing the domain model.
+- Edge selection preserves the existing canonical unordered-pair storage rule.
 
 ## Card Version Rollout Invariant
 - New ingested nodes create `nodes.current_version = 1` and `card_versions(version = 1)` in the same write path.
@@ -197,6 +223,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - PostgreSQL full-text search is required for lexical card retrieval and ranking.
 - PostgreSQL remains persistent source of truth.
 - Runtime configuration values are sourced from `.env` via `pydantic-settings`.
+- Edge initialization configuration is sourced from `KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K`, `KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K`, `KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH`, and `KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT`.
 
 ## Failure Handling
 - Invalid request payloads are client-visible as `4xx`.
@@ -216,11 +243,19 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 ## Validation
 - **Checks:**
   - `POST /api/v1/cards` contract checks (`4xx` invalid, `202` valid)
+  - ingestion response-contract checks verifying `ingestion_id` is an integer
+  - ingestion request checks verifying submissions without a non-empty `Idempotency-Key` still allocate independent database ids
   - ingestion idempotency checks verifying first same-key submission publishes once and returns `202 Accepted`
   - ingestion idempotency checks verifying same-key same-payload replay returns `202 Accepted` without enqueueing duplicate ingestion work or materializing duplicate knowledge cards
   - ingestion idempotency checks verifying same-key conflicting payload returns `409 Conflict`
   - ingestion idempotency checks verifying timeout or connection-loss retry after an already accepted original request converges through same-key replay
+  - ingestion queue-failure checks verifying failed publish before accepted-request completion returns `503` and rolls back the accepted-request row
   - ingestion worker checks verifying newly created nodes receive `Root -> Unclassified` assignment
+  - ingestion edge-initialization checks verifying title-mention edge selection respects the configured title-mention budget
+  - ingestion edge-initialization checks verifying title-mention candidates are ordered by embedding similarity with stable node-id tie-breaking
+  - ingestion edge-initialization checks verifying semantic edge selection respects the configured semantic candidate limit and semantic edge budget
+  - ingestion edge-initialization checks verifying semantic edge selection excludes nodes already selected through title mention
+  - configuration checks verifying edge initialization settings are accepted as runtime policy and are not hard-coded into algorithm tests
   - `GET /api/v1/search` contract checks
   - search ranking checks verifying exact-title and title-token lexical matches rank ahead of content-only matches
   - search ranking checks verifying semantic vector candidates remain eligible when lexical matches are absent

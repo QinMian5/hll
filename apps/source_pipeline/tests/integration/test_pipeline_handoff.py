@@ -27,7 +27,7 @@ async def test_handoff_posts_card_to_knowledge_ingestion_with_stable_idempotency
             202,
             json={
                 "accepted": True,
-                "ingestion_id": "ing_0123456789abcdef0123456789abcdef",
+                "ingestion_id": 123,
             },
         )
 

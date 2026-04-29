@@ -91,9 +91,8 @@
             "type": "boolean"
           },
           "ingestion_id": {
-            "pattern": "^ing_[0-9a-f]{32}$",
             "title": "Ingestion Id",
-            "type": "string"
+            "type": "integer"
           }
         },
         "required": [

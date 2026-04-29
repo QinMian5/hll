@@ -15,6 +15,7 @@ from modules.ingestion.queue import (
     INGESTION_ACTOR_NAME,
     INGESTION_QUEUE_NAME,
     IngestionTask,
+    IngestionTaskPayload,
 )
 
 logger = get_logger(__name__)
@@ -25,7 +26,7 @@ logger = get_logger(__name__)
     actor_name=INGESTION_ACTOR_NAME,
 )
 def enqueue_ingestion_task(
-    task_payload: dict[str, str],
+    task_payload: IngestionTaskPayload,
 ) -> None:
     task = IngestionTask.from_payload(task_payload)
     logger.info(

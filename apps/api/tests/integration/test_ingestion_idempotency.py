@@ -10,8 +10,9 @@ from dataclasses import dataclass
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.errors import InfrastructureError
 from modules.ingestion.queue import IngestionTask
-from modules.ingestion.repo import IngestionIdempotencyRepo
+from modules.ingestion.repo import IngestionRequestRepo
 from modules.ingestion.schema import IngestionCreateRequest
 from modules.ingestion.service import IngestionIdempotencyConflictError, IngestionService
 
@@ -33,13 +34,39 @@ class _FailingPublisher:
 @pytest.mark.integration
 @pytest.mark.db
 @pytest.mark.anyio
+async def test_accept_without_idempotency_key_stores_unkeyed_request(
+    db_session: AsyncSession,
+) -> None:
+    publisher = _RecorderPublisher(calls=[])
+    service = IngestionService(
+        task_publisher=publisher,
+        ingestion_repo=IngestionRequestRepo(session=db_session),
+    )
+
+    response = await service.accept(
+        payload=IngestionCreateRequest(title="Title", content="Content"),
+        request_id="req_without_key",
+    )
+
+    stored_record = await IngestionRequestRepo(session=db_session).get_by_id(
+        ingestion_id=response.ingestion_id
+    )
+    assert stored_record is not None
+    assert stored_record.id == response.ingestion_id
+    assert stored_record.idempotency_key is None
+    assert len(publisher.calls) == 1
+
+
+@pytest.mark.integration
+@pytest.mark.db
+@pytest.mark.anyio
 async def test_idempotent_accept_stores_record_and_replay_does_not_republish(
     db_session: AsyncSession,
 ) -> None:
     publisher = _RecorderPublisher(calls=[])
     service = IngestionService(
         task_publisher=publisher,
-        idempotency_repo=IngestionIdempotencyRepo(session=db_session),
+        ingestion_repo=IngestionRequestRepo(session=db_session),
     )
 
     first_response = await service.accept(
@@ -48,11 +75,11 @@ async def test_idempotent_accept_stores_record_and_replay_does_not_republish(
         idempotency_key="source-candidate-1",
     )
 
-    stored_record = await IngestionIdempotencyRepo(session=db_session).get_by_key(
+    stored_record = await IngestionRequestRepo(session=db_session).get_by_idempotency_key(
         idempotency_key="source-candidate-1"
     )
     assert stored_record is not None
-    assert stored_record.ingestion_id == first_response.ingestion_id
+    assert stored_record.id == first_response.ingestion_id
     assert stored_record.payload_hash
 
     replay_response = await service.accept(
@@ -74,17 +101,17 @@ async def test_idempotent_accept_publish_failure_rolls_back_and_retry_publishes_
 ) -> None:
     failing_service = IngestionService(
         task_publisher=_FailingPublisher(),
-        idempotency_repo=IngestionIdempotencyRepo(session=db_session),
+        ingestion_repo=IngestionRequestRepo(session=db_session),
     )
 
-    with pytest.raises(RuntimeError, match="broker down"):
+    with pytest.raises(InfrastructureError):
         await failing_service.accept(
             payload=IngestionCreateRequest(title="Title", content="Content"),
             request_id="req_publish_failure",
             idempotency_key="source-candidate-publish-retry",
         )
 
-    rolled_back_record = await IngestionIdempotencyRepo(session=db_session).get_by_key(
+    rolled_back_record = await IngestionRequestRepo(session=db_session).get_by_idempotency_key(
         idempotency_key="source-candidate-publish-retry"
     )
     assert rolled_back_record is None
@@ -92,7 +119,7 @@ async def test_idempotent_accept_publish_failure_rolls_back_and_retry_publishes_
     retry_publisher = _RecorderPublisher(calls=[])
     retry_service = IngestionService(
         task_publisher=retry_publisher,
-        idempotency_repo=IngestionIdempotencyRepo(session=db_session),
+        ingestion_repo=IngestionRequestRepo(session=db_session),
     )
     retry_response = await retry_service.accept(
         payload=IngestionCreateRequest(title="Title", content="Content"),
@@ -100,11 +127,11 @@ async def test_idempotent_accept_publish_failure_rolls_back_and_retry_publishes_
         idempotency_key="source-candidate-publish-retry",
     )
 
-    stored_record = await IngestionIdempotencyRepo(session=db_session).get_by_key(
+    stored_record = await IngestionRequestRepo(session=db_session).get_by_idempotency_key(
         idempotency_key="source-candidate-publish-retry"
     )
     assert stored_record is not None
-    assert stored_record.ingestion_id == retry_response.ingestion_id
+    assert stored_record.id == retry_response.ingestion_id
     assert len(retry_publisher.calls) == 1
     assert retry_publisher.calls[0].request_id == "req_retry"
 
@@ -118,7 +145,7 @@ async def test_idempotent_accept_rejects_conflicting_payload(
     publisher = _RecorderPublisher(calls=[])
     service = IngestionService(
         task_publisher=publisher,
-        idempotency_repo=IngestionIdempotencyRepo(session=db_session),
+        ingestion_repo=IngestionRequestRepo(session=db_session),
     )
     first_response = await service.accept(
         payload=IngestionCreateRequest(title="Title", content="Content"),
@@ -134,11 +161,11 @@ async def test_idempotent_accept_rejects_conflicting_payload(
         )
 
     assert len(publisher.calls) == 1
-    stored_record = await IngestionIdempotencyRepo(session=db_session).get_by_key(
+    stored_record = await IngestionRequestRepo(session=db_session).get_by_idempotency_key(
         idempotency_key="source-candidate-2"
     )
     assert stored_record is not None
-    assert stored_record.ingestion_id == first_response.ingestion_id
+    assert stored_record.id == first_response.ingestion_id
 
 
 @pytest.mark.integration
@@ -150,7 +177,7 @@ async def test_replay_after_lost_response_converges_on_original_ingestion_id(
     first_publisher = _RecorderPublisher(calls=[])
     first_service = IngestionService(
         task_publisher=first_publisher,
-        idempotency_repo=IngestionIdempotencyRepo(session=db_session),
+        ingestion_repo=IngestionRequestRepo(session=db_session),
     )
     first_response = await first_service.accept(
         payload=IngestionCreateRequest(title="Title", content="Content"),
@@ -161,7 +188,7 @@ async def test_replay_after_lost_response_converges_on_original_ingestion_id(
     replay_publisher = _RecorderPublisher(calls=[])
     replay_service = IngestionService(
         task_publisher=replay_publisher,
-        idempotency_repo=IngestionIdempotencyRepo(session=db_session),
+        ingestion_repo=IngestionRequestRepo(session=db_session),
     )
     replay_response = await replay_service.accept(
         payload=IngestionCreateRequest(title="Title", content="Content"),

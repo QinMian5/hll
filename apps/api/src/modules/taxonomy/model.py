@@ -36,7 +36,7 @@ class TaxonomyNode(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("taxonomy_nodes.id"),
         nullable=True,
@@ -58,7 +58,7 @@ class NodeTaxonomyAssignment(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     node_id: Mapped[int] = mapped_column(
         ForeignKey("nodes.id", ondelete="CASCADE"),
         nullable=False,

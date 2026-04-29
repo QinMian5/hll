@@ -229,8 +229,9 @@ AppError
 - Validation errors are normalized to status `422` with stable `APPLICATION_API_INPUT_INVALID` code.
 - Unknown internal errors still require explicit non-empty `hint`.
 - `DOMAIN_*` and `APPLICATION_*` mappings follow frozen subtype sets and deterministic priorities.
-- Infrastructure temporary-unavailability cases return `503` except accepted-ingestion asynchronous downstream failures; unknown internals return `500`.
-- Ingestion endpoint returns `202` on valid accepted payloads while preserving internal log observability for downstream asynchronous failures.
+- Infrastructure temporary-unavailability cases return `503`; unknown internals return `500`.
+- Ingestion queue publish failure before accepted-request completion returns `503` and remains log-observable.
+- Ingestion worker failures after accepted-request completion remain asynchronous downstream failures and do not rewrite the prior `202` response.
 - Startup-critical config/DB failures are fail-fast and log-observable.
 - Logs for every error path carry `request_id` and semantic error identity.
 

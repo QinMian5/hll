@@ -59,6 +59,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Expose the public `search` tool for external model clients.
   - Own Logto personal-access-token exchange and access-token validation for MCP callers.
   - Own MCP account-level quota, token-level quota, and usage attribution.
+  - Own MCP-only successful agent-search analytics persistence for future offline path and ranking analysis.
   - Own MCP usage-summary read semantics for internal dashboard consumption.
   - Call private backend search API through generated contract artifacts over Docker-network HTTP.
 - **Non-responsibilities:**
@@ -68,6 +69,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Backend domain ranking semantics.
   - Graph persistence ownership.
   - Taxonomy persistence ownership.
+  - Browser web analytics.
   - Non-search MCP tools.
 
 ### Backend API
