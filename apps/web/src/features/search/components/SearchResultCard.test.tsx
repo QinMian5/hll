@@ -78,9 +78,9 @@ describe("SearchResultCard", () => {
     );
 
     expect(card).toHaveClass("h-[176px]");
-    expect(card).toHaveClass("shadow-[0_18px_52px_rgba(107,132,189,0.09)]");
+    expect(card).toHaveClass("shadow-none");
     expect(card).not.toHaveClass("md:w-[316px]");
-    expect(card).not.toHaveClass("shadow-none");
+    expect(card).not.toHaveClass("shadow-[0_18px_52px_rgba(107,132,189,0.09)]");
     expect(contentRegion).toHaveClass(
       "min-h-0",
       "flex-1",
@@ -183,7 +183,7 @@ describe("SearchResultCard", () => {
     });
   });
 
-  it("exposes the Figma hover search hint and elevation transition state classes", () => {
+  it("exposes the Figma hover search hint and no-shadow transition state classes", () => {
     render(
       <SearchResultCard
         content="Projected content."
@@ -200,21 +200,23 @@ describe("SearchResultCard", () => {
 
     expect(searchHint).toHaveAttribute("aria-hidden", "true");
     expect(card).toHaveClass(
-      "transition-[opacity,transform,border-color,box-shadow]",
+      "transition-[opacity,transform,border-color]",
       "group-hover/search-results-grid:opacity-80",
       "hover:opacity-100",
       "hover:-translate-y-1",
       "hover:scale-[1.008]",
       "hover:border-[#006bff]/40",
-      "hover:shadow-[0_4px_14px_rgba(20,39,79,0.08),0_24px_58px_rgba(107,133,189,0.18)]",
       "focus-within:opacity-100",
       "focus-within:-translate-y-1",
       "focus-within:scale-[1.008]",
       "focus-within:border-[#006bff]/40",
-      "focus-within:shadow-[0_4px_14px_rgba(20,39,79,0.08),0_24px_58px_rgba(107,133,189,0.18)]",
-      "shadow-[0_18px_52px_rgba(107,132,189,0.09)]",
+      "shadow-none",
     );
-    expect(card).not.toHaveClass("shadow-none");
+    expect(card).not.toHaveClass(
+      "shadow-[0_18px_52px_rgba(107,132,189,0.09)]",
+      "hover:shadow-[0_4px_14px_rgba(20,39,79,0.08),0_24px_58px_rgba(107,133,189,0.18)]",
+      "focus-within:shadow-[0_4px_14px_rgba(20,39,79,0.08),0_24px_58px_rgba(107,133,189,0.18)]",
+    );
     expect(searchHint).toHaveClass(
       "absolute",
       "top-[-8px]",
