@@ -1,4 +1,4 @@
-// abstract: Contract tests for taxonomy branch and leaf layout helpers.
+// abstract: Contract tests for taxonomy branch layout helpers.
 // out_of_scope: React Flow component mounting and browser-level visual fidelity.
 
 import { describe, expect, it } from "vitest";
@@ -10,7 +10,6 @@ import {
   buildBranchBubbleMetrics,
   buildBranchLayout,
 } from "./buildBranchLayout";
-import { buildLeafLayout, LEAF_POINT_DIAMETER } from "./buildLeafLayout";
 
 function roundPosition(position: { readonly x: number; readonly y: number }) {
   return {
@@ -53,22 +52,6 @@ function circlesOverlap(
     leftCenter.y - rightCenter.y,
   );
   return distance < left.style.width / 2 + right.style.width / 2;
-}
-
-function distanceBetweenNodeCenters(
-  left: {
-    readonly position: { readonly x: number; readonly y: number };
-    readonly style: { readonly height: number; readonly width: number };
-  },
-  right: {
-    readonly position: { readonly x: number; readonly y: number };
-    readonly style: { readonly height: number; readonly width: number };
-  },
-) {
-  const leftCenter = nodeCenter(left);
-  const rightCenter = nodeCenter(right);
-
-  return Math.hypot(leftCenter.x - rightCenter.x, leftCenter.y - rightCenter.y);
 }
 
 function expectNodePosition<
@@ -237,172 +220,5 @@ describe("branch layout contracts", () => {
       ),
     ).toBe(true);
     expect(result.nodes.every((node) => node.style.width <= 132)).toBe(true);
-  });
-});
-
-describe("leaf layout contracts", () => {
-  it("returns point-mode skeleton nodes and preserves supplied edges by default", () => {
-    const result = buildLeafLayout({
-      center: { x: 700, y: 450 },
-      edges: [[10, 11, 0.8]],
-      nodes: [
-        { id: 10, scope: "inner" },
-        { id: 11, scope: "outer" },
-      ],
-      viewport: { height: 900, width: 1404 },
-    });
-
-    expect(result.nodes).toHaveLength(2);
-    expect(result.edges).toHaveLength(1);
-    expect(result.nodes[0]?.data.renderMode).toBe("point");
-    expect(result.nodes[0]?.data.label).toBe("");
-    expect(result.nodes[0]?.data.content).toBeUndefined();
-  });
-
-  it("keeps all leaf nodes as uniform point geometry", () => {
-    const result = buildLeafLayout({
-      center: { x: 700, y: 450 },
-      edges: [[10, 11, 0.8]],
-      nodes: [
-        { id: 10, scope: "inner" },
-        { id: 11, scope: "outer" },
-      ],
-      viewport: { height: 900, width: 1404 },
-    });
-
-    expect(
-      result.nodes.map((node) => ({
-        height: node.style.height,
-        mode: node.data.renderMode,
-        scope: node.data.scope,
-        width: node.style.width,
-      })),
-    ).toEqual([
-      {
-        height: LEAF_POINT_DIAMETER,
-        mode: "point",
-        scope: "inner",
-        width: LEAF_POINT_DIAMETER,
-      },
-      {
-        height: LEAF_POINT_DIAMETER,
-        mode: "point",
-        scope: "outer",
-        width: LEAF_POINT_DIAMETER,
-      },
-    ]);
-  });
-
-  it("keeps strongly connected leaf points compact enough to read as a graph edge", () => {
-    const result = buildLeafLayout({
-      center: { x: 700, y: 450 },
-      edges: [[10, 11, 1]],
-      nodes: [
-        { id: 10, scope: "inner" },
-        { id: 11, scope: "outer" },
-      ],
-      viewport: { height: 900, width: 1404 },
-    });
-
-    const firstNode = expectNodePosition(result.nodes[0]);
-    const secondNode = expectNodePosition(result.nodes[1]);
-
-    expect(distanceBetweenNodeCenters(firstNode, secondNode)).toBeLessThan(
-      Math.min(1404, 900) * 0.16,
-    );
-  });
-
-  it("preserves locked node centers without changing point dimensions", () => {
-    const skeleton = buildLeafLayout({
-      center: { x: 700, y: 450 },
-      edges: [],
-      nodes: [{ id: 10, scope: "inner" }],
-      viewport: { height: 900, width: 1404 },
-    });
-    const skeletonNode = skeleton.nodes[0];
-    const lockedCenter = {
-      x: (skeletonNode?.position.x ?? 0) + (skeletonNode?.style.width ?? 0) / 2,
-      y:
-        (skeletonNode?.position.y ?? 0) + (skeletonNode?.style.height ?? 0) / 2,
-    };
-
-    const result = buildLeafLayout({
-      center: { x: 700, y: 450 },
-      edges: [],
-      lockedNodeCentersById: new Map([[10, lockedCenter]]),
-      nodes: [{ id: 10, scope: "inner" }],
-      viewport: { height: 900, width: 1404 },
-    });
-
-    const pointNode = result.nodes[0];
-
-    expect(pointNode?.style.width).toBe(LEAF_POINT_DIAMETER);
-    expect(pointNode?.style.height).toBe(LEAF_POINT_DIAMETER);
-    expect(
-      (pointNode?.position.x ?? 0) + (pointNode?.style.width ?? 0) / 2,
-    ).toBeCloseTo(lockedCenter.x, 4);
-    expect(
-      (pointNode?.position.y ?? 0) + (pointNode?.style.height ?? 0) / 2,
-    ).toBeCloseTo(lockedCenter.y, 4);
-  });
-
-  it("keeps rounded positions stable for identical graph input", () => {
-    const input = {
-      center: { x: 700, y: 450 },
-      edges: [
-        [10, 11, 0.8],
-        [11, 12, 0.5],
-      ] as const,
-      nodes: [
-        { id: 10, scope: "inner" as const },
-        { id: 11, scope: "outer" as const },
-        { id: 12, scope: "outer" as const },
-      ],
-      viewport: { height: 900, width: 1404 },
-    };
-
-    const first = buildLeafLayout(input);
-    const second = buildLeafLayout(input);
-
-    expect(second.nodes.map((node) => node.id)).toEqual(
-      first.nodes.map((node) => node.id),
-    );
-    expect(second.nodes.map((node) => roundPosition(node.position))).toEqual(
-      first.nodes.map((node) => roundPosition(node.position)),
-    );
-  });
-
-  it("pulls highly connected hub nodes toward the center zone", () => {
-    const center = { x: 700, y: 450 };
-    const result = buildLeafLayout({
-      center,
-      edges: [
-        [50, 10, 1],
-        [50, 20, 1],
-        [50, 30, 1],
-        [50, 40, 1],
-      ],
-      nodes: [
-        { id: 10, scope: "outer" },
-        { id: 20, scope: "outer" },
-        { id: 30, scope: "inner" },
-        { id: 40, scope: "outer" },
-        { id: 50, scope: "inner" },
-      ],
-      viewport: { height: 900, width: 1404 },
-    });
-
-    const hub = result.nodes.find((node) => node.id === "leaf-50");
-    const otherNodes = result.nodes.filter((node) => node.id !== "leaf-50");
-    const hubNode = expectNodePosition(hub);
-    const averageOtherDistance =
-      otherNodes.reduce(
-        (sum, node) => sum + distanceFromCenter(node.position, center),
-        0,
-      ) / otherNodes.length;
-
-    expect(distanceFromCenter(hubNode.position, center)).toBeLessThan(
-      averageOtherDistance,
-    );
   });
 });

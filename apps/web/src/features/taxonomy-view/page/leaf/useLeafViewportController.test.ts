@@ -3,12 +3,39 @@
 
 import { describe, expect, it } from "vitest";
 
-import { buildLeafLayout } from "../layout/buildLeafLayout";
+import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
 import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
 import {
   buildLeafViewportState,
   selectLeafHydrationNodeIds,
 } from "./useLeafViewportController";
+
+function makeLayoutPointNode(options: {
+  readonly id: number;
+  readonly scope: "inner" | "outer";
+  readonly x: number;
+  readonly y: number;
+}): TaxonomyLayoutNode {
+  return {
+    data: {
+      depth: 0,
+      graphNodeId: options.id,
+      label: "",
+      renderMode: "point",
+      scope: options.scope,
+      targetNodeId: null,
+      tooltip: "",
+    },
+    id: `leaf-${options.id}`,
+    position: { x: options.x, y: options.y },
+    style: {
+      borderRadius: "8px",
+      height: 8,
+      width: 8,
+    },
+    type: "bubble",
+  };
+}
 
 describe("leaf viewport controller helpers", () => {
   it("keeps point-title mode inactive below the activation zoom", () => {
@@ -39,15 +66,10 @@ describe("leaf viewport controller helpers", () => {
   });
 
   it("selects only nodes intersecting the overscan bounds", () => {
-    const layout = buildLeafLayout({
-      center: { x: 700, y: 450 },
-      edges: [[10, 11, 0.8]],
-      nodes: [
-        { id: 10, scope: "inner" },
-        { id: 11, scope: "outer" },
-      ],
-      viewport: { height: 900, width: 1404 },
-    });
+    const layoutNodes = [
+      makeLayoutPointNode({ id: 10, scope: "inner", x: 696, y: 446 }),
+      makeLayoutPointNode({ id: 11, scope: "outer", x: 736, y: 476 }),
+    ];
     const centeredState = buildLeafViewportState({
       canvas: { height: 900, width: 1404 },
       overscan: 0,
@@ -60,10 +82,10 @@ describe("leaf viewport controller helpers", () => {
     });
 
     expect(
-      selectLeafHydrationNodeIds(layout.nodes, centeredState.bounds),
+      selectLeafHydrationNodeIds(layoutNodes, centeredState.bounds),
     ).toEqual(expect.arrayContaining([10, 11]));
     expect(
-      selectLeafHydrationNodeIds(layout.nodes, offscreenState.bounds),
+      selectLeafHydrationNodeIds(layoutNodes, offscreenState.bounds),
     ).toHaveLength(0);
   });
 });
