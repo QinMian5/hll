@@ -12,9 +12,18 @@ from typing import Protocol
 
 from knowledge_contracts_client import SearchResponse
 
+from knowledge_mcp.analytics.repository import (
+    AgentSearchEvent,
+    MatchedSearchResult,
+)
+from knowledge_mcp.analytics.repository import (
+    query_hash as analytics_query_hash,
+)
 from knowledge_mcp.auth.verifier import AuthenticatedPrincipal
 from knowledge_mcp.quota.store import QuotaDecision
 from knowledge_mcp.usage.repository import SearchUsageEvent
+
+SEARCH_ALGORITHM_VERSION = 1
 
 
 class SearchService(Protocol):
@@ -35,6 +44,10 @@ class UsageRepository(Protocol):
     async def record_search_event(self, event: SearchUsageEvent) -> None: ...
 
 
+class AgentSearchAnalyticsRepository(Protocol):
+    async def record_agent_search_event(self, event: AgentSearchEvent) -> None: ...
+
+
 PrincipalProvider = Callable[[], Awaitable[AuthenticatedPrincipal]]
 
 
@@ -51,13 +64,17 @@ class SearchTool:
         search_service: SearchService,
         quota_store: QuotaStore,
         usage_repository: UsageRepository,
+        agent_search_analytics_repository: AgentSearchAnalyticsRepository,
         principal_provider: PrincipalProvider | None = None,
+        search_algorithm_version: int = SEARCH_ALGORITHM_VERSION,
         monotonic_clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._search_service = search_service
         self._quota_store = quota_store
         self._usage_repository = usage_repository
+        self._agent_search_analytics_repository = agent_search_analytics_repository
         self._principal_provider = principal_provider
+        self._search_algorithm_version = search_algorithm_version
         self._monotonic_clock = monotonic_clock
 
     async def search(
@@ -66,6 +83,7 @@ class SearchTool:
         *,
         principal: AuthenticatedPrincipal | None = None,
         request_id: str = "unknown",
+        mcp_session_id: str = "unknown",
     ) -> dict[str, object]:
         normalized_query = query.strip()
         if not normalized_query:
@@ -116,6 +134,12 @@ class SearchTool:
             connected_count=len(response.connected_titles),
             duration_ms=self._elapsed_ms(start),
         )
+        await self._record_agent_search_analytics(
+            principal=resolved_principal,
+            mcp_session_id=mcp_session_id,
+            raw_query=query,
+            response=response,
+        )
         return {
             "matched_cards": [card.model_dump(mode="json") for card in response.matched_cards],
             "connected_titles": response.connected_titles,
@@ -150,6 +174,31 @@ class SearchTool:
                 connected_count=connected_count,
                 cost_units=1,
                 duration_ms=duration_ms,
+            )
+        )
+
+    async def _record_agent_search_analytics(
+        self,
+        *,
+        principal: AuthenticatedPrincipal,
+        mcp_session_id: str,
+        raw_query: str,
+        response: SearchResponse,
+    ) -> None:
+        await self._agent_search_analytics_repository.record_agent_search_event(
+            AgentSearchEvent(
+                user_sub=principal.user_sub,
+                pat_fingerprint=principal.pat_fingerprint,
+                mcp_session_id=mcp_session_id,
+                raw_query=raw_query,
+                query_hash=analytics_query_hash(raw_query),
+                matched_count=len(response.matched_cards),
+                connected_count=len(response.connected_titles),
+                matched_results=[
+                    MatchedSearchResult(node_id=card.node_id, rank=index)
+                    for index, card in enumerate(response.matched_cards, start=1)
+                ],
+                search_algorithm_version=self._search_algorithm_version,
             )
         )
 

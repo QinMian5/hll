@@ -8,6 +8,7 @@ from __future__ import annotations
 import pytest
 from knowledge_contracts_client import MatchedCard, SearchResponse
 
+from knowledge_mcp.analytics.repository import AgentSearchEvent
 from knowledge_mcp.auth.verifier import AuthenticatedPrincipal
 from knowledge_mcp.quota.store import QuotaDecision
 from knowledge_mcp.search_tool import SearchTool
@@ -38,6 +39,11 @@ class FakeUsageRepository:
         return None
 
 
+class FakeAgentSearchAnalyticsRepository:
+    async def record_agent_search_event(self, event: AgentSearchEvent) -> None:
+        return None
+
+
 async def _principal() -> AuthenticatedPrincipal:
     return AuthenticatedPrincipal(
         user_sub="user_123",
@@ -52,6 +58,7 @@ async def test_mcp_server_exposes_only_search_tool() -> None:
         search_service=FakeSearchService(),
         quota_store=FakeQuotaStore(),
         usage_repository=FakeUsageRepository(),
+        agent_search_analytics_repository=FakeAgentSearchAnalyticsRepository(),
         principal_provider=_principal,
     )
     server = create_mcp_server(search_tool=search_tool)

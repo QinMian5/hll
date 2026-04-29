@@ -13,6 +13,7 @@ from knowledge_contracts_client import SearchClient
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
+from knowledge_mcp.analytics.session import SessionAgentSearchAnalyticsRepository
 from knowledge_mcp.auth.context import load_current_principal
 from knowledge_mcp.auth.middleware import AccessTokenVerifier, TokenExchangeClient
 from knowledge_mcp.auth.service_token import ServiceTokenVerifier, ServiceTokenVerifierSettings
@@ -114,6 +115,9 @@ def build_runtime_resources(settings: Settings) -> RuntimeResources:
         prefix=settings.quota_redis_prefix,
     )
     usage_repository = SessionUsageRepository(session_factory=session_factory)
+    agent_search_analytics_repository = SessionAgentSearchAnalyticsRepository(
+        session_factory=session_factory
+    )
     search_tool = SearchTool(
         search_service=InternalSearchService(
             client=SearchClient(
@@ -123,6 +127,7 @@ def build_runtime_resources(settings: Settings) -> RuntimeResources:
         ),
         quota_store=quota_store,
         usage_repository=usage_repository,
+        agent_search_analytics_repository=agent_search_analytics_repository,
         principal_provider=load_current_principal,
     )
 

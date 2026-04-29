@@ -1,34 +1,45 @@
 """
-Abstract: SQLAlchemy table definition for MCP-owned usage ledger writes.
+Abstract: SQLAlchemy declarative table model for MCP-owned usage ledger writes.
 Out of scope: Quota decision logic and usage analytics queries.
 """
 
 from __future__ import annotations
 
-from sqlalchemy import Column, DateTime, Index, Integer, MetaData, Table, Text, func
-from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
+from datetime import datetime
 
-metadata = MetaData()
+from sqlalchemy import DateTime, Index, Integer, Text, func
+from sqlalchemy.orm import Mapped, mapped_column
 
-search_usage_events = Table(
-    "search_usage_events",
-    metadata,
-    Column("id", PostgreSQLUUID(as_uuid=True), primary_key=True),
-    Column("created_at", DateTime(timezone=True), nullable=False, server_default=func.now()),
-    Column("request_id", Text, nullable=False),
-    Column("user_sub", Text, nullable=False),
-    Column("pat_fingerprint", Text, nullable=False),
-    Column("tool_name", Text, nullable=False),
-    Column("query_hash", Text, nullable=False),
-    Column("status", Text, nullable=False),
-    Column("error_code", Text, nullable=True),
-    Column("matched_count", Integer, nullable=False),
-    Column("connected_count", Integer, nullable=False),
-    Column("cost_units", Integer, nullable=False),
-    Column("duration_ms", Integer, nullable=False),
-    Index("ix_mcp_search_usage_events_user_created", "user_sub", "created_at"),
-    Index("ix_mcp_search_usage_events_pat_created", "pat_fingerprint", "created_at"),
-    Index("ix_mcp_search_usage_events_tool_created", "tool_name", "created_at"),
-)
+from knowledge_mcp.db.metadata import Base
 
-__all__ = ["metadata", "search_usage_events"]
+
+class SearchUsageEventRow(Base):
+    __tablename__ = "search_usage_events"
+    __table_args__ = (
+        Index("ix_mcp_search_usage_events_user_created", "user_sub", "created_at"),
+        Index("ix_mcp_search_usage_events_pat_created", "pat_fingerprint", "created_at"),
+        Index("ix_mcp_search_usage_events_tool_created", "tool_name", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    request_id: Mapped[str] = mapped_column(Text, nullable=False)
+    user_sub: Mapped[str] = mapped_column(Text, nullable=False)
+    pat_fingerprint: Mapped[str] = mapped_column(Text, nullable=False)
+    tool_name: Mapped[str] = mapped_column(Text, nullable=False)
+    query_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    matched_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    connected_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    cost_units: Mapped[int] = mapped_column(Integer, nullable=False)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+search_usage_events = SearchUsageEventRow.__table__
+
+__all__ = ["SearchUsageEventRow", "search_usage_events"]

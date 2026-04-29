@@ -10,8 +10,10 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+from knowledge_mcp.analytics import model as analytics_model
 from knowledge_mcp.config import load_migration_settings
-from knowledge_mcp.usage.model import metadata
+from knowledge_mcp.db.metadata import metadata
+from knowledge_mcp.usage import model as usage_model
 
 config = context.config
 
@@ -23,6 +25,7 @@ migration_settings = load_migration_settings()
 config.set_main_option("sqlalchemy.url", migration_settings.database_url)
 
 target_metadata = metadata
+_registered_models = (analytics_model, usage_model)
 
 
 def run_migrations_offline() -> None:

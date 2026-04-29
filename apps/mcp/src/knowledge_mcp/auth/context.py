@@ -23,28 +23,36 @@ _request_id_context: ContextVar[str | None] = ContextVar(
     "knowledge_mcp_request_id",
     default=None,
 )
+_mcp_session_id_context: ContextVar[str | None] = ContextVar(
+    "knowledge_mcp_session_id",
+    default=None,
+)
 
 
 @dataclass(frozen=True)
 class AuthContextTokens:
     principal: Token[AuthenticatedPrincipal | None]
     request_id: Token[str | None]
+    mcp_session_id: Token[str | None]
 
 
 def set_auth_context(
     *,
     principal: AuthenticatedPrincipal,
     request_id: str,
+    mcp_session_id: str,
 ) -> AuthContextTokens:
     return AuthContextTokens(
         principal=_principal_context.set(principal),
         request_id=_request_id_context.set(request_id),
+        mcp_session_id=_mcp_session_id_context.set(mcp_session_id),
     )
 
 
 def reset_auth_context(tokens: AuthContextTokens) -> None:
     _principal_context.reset(tokens.principal)
     _request_id_context.reset(tokens.request_id)
+    _mcp_session_id_context.reset(tokens.mcp_session_id)
 
 
 def current_principal() -> AuthenticatedPrincipal:
@@ -60,3 +68,7 @@ async def load_current_principal() -> AuthenticatedPrincipal:
 
 def current_request_id() -> str:
     return _request_id_context.get() or "unknown"
+
+
+def current_mcp_session_id() -> str:
+    return _mcp_session_id_context.get() or "unknown"

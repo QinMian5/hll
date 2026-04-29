@@ -6,9 +6,8 @@ Out of scope: Query hashing policy, quota enforcement, and analytics reads.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Protocol
-from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 from sqlalchemy import func, insert, select
@@ -27,8 +26,6 @@ class ExecuteResult(Protocol):
 
 
 class SearchUsageEvent(BaseModel):
-    id: UUID = Field(default_factory=uuid4)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     request_id: str = Field(min_length=1)
     user_sub: str = Field(min_length=1)
     pat_fingerprint: str = Field(min_length=1)

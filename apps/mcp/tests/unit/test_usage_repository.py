@@ -8,7 +8,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
 
 import pytest
 
@@ -46,8 +45,6 @@ async def test_record_search_event_inserts_mcp_usage_row_without_raw_query_or_pa
 
     await repository.record_search_event(
         SearchUsageEvent(
-            id=UUID("00000000-0000-0000-0000-000000000001"),
-            created_at=datetime(2026, 4, 27, tzinfo=UTC),
             request_id="request-1",
             user_sub="user_123",
             pat_fingerprint="pat_fingerprint",
@@ -65,6 +62,8 @@ async def test_record_search_event_inserts_mcp_usage_row_without_raw_query_or_pa
     compiled = session.statements[0].compile()
     assert "search_usage_events" in str(compiled)
     assert "mcp_usage.search_usage_events" not in str(compiled)
+    assert "id" not in compiled.params
+    assert "created_at" not in compiled.params
     assert compiled.params["user_sub"] == "user_123"
     assert compiled.params["pat_fingerprint"] == "pat_fingerprint"
     assert "raw search query" not in compiled.params.values()

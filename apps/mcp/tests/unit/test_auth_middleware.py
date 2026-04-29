@@ -11,7 +11,7 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
-from knowledge_mcp.auth.context import current_principal, current_request_id
+from knowledge_mcp.auth.context import current_mcp_session_id, current_principal, current_request_id
 from knowledge_mcp.auth.fingerprint import fingerprint_pat
 from knowledge_mcp.auth.middleware import AuthContextMiddleware
 from knowledge_mcp.auth.token_exchange import (
@@ -67,6 +67,7 @@ async def _context_route(_: object) -> Response:
     principal = current_principal()
     return JSONResponse(
         {
+            "mcp_session_id": current_mcp_session_id(),
             "request_id": current_request_id(),
             "user_sub": principal.user_sub,
             "pat_fingerprint": principal.pat_fingerprint,
@@ -131,12 +132,14 @@ async def test_middleware_exchanges_pat_and_sets_request_context() -> None:
             headers={
                 "authorization": "Bearer pat_secret_value",
                 "origin": "https://app.example.com",
+                "mcp-session-id": "mcp-session-1",
                 "x-request-id": "request-1",
             },
         )
 
     assert response.status_code == 200
     assert response.json() == {
+        "mcp_session_id": "mcp-session-1",
         "request_id": "request-1",
         "user_sub": "user_123",
         "pat_fingerprint": expected_fingerprint,

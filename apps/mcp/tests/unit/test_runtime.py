@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 
+from knowledge_mcp.analytics.session import SessionAgentSearchAnalyticsRepository
 from knowledge_mcp.config import Settings
 from knowledge_mcp.runtime import build_runtime_resources
 from knowledge_mcp.search_tool import SearchTool
@@ -43,6 +44,10 @@ async def test_runtime_resources_wire_search_tool_and_auth_middleware_dependenci
         assert resources.auth_middleware_kwargs["pat_fingerprint_secret"] == "x" * 32
         assert resources.auth_middleware_kwargs["allowed_origins"] == (
             "https://knowledge.example.com",
+        )
+        assert isinstance(
+            resources.search_tool._agent_search_analytics_repository,
+            SessionAgentSearchAnalyticsRepository,
         )
         assert resources.quota_summary_service is resources.search_tool._quota_store
     finally:

@@ -117,7 +117,12 @@ class AuthContextMiddleware:
             return
 
         request_id = headers.get("x-request-id") or str(uuid4())
-        context_tokens = set_auth_context(principal=principal, request_id=request_id)
+        mcp_session_id = headers.get("mcp-session-id") or str(uuid4())
+        context_tokens = set_auth_context(
+            principal=principal,
+            request_id=request_id,
+            mcp_session_id=mcp_session_id,
+        )
         try:
             await self._app(scope, receive, send)
         finally:
