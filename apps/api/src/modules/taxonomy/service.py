@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Literal, Protocol
 
 from core.errors import ApplicationError, DomainError, ErrorCode
@@ -18,11 +19,13 @@ from modules.taxonomy.dto import (
     TaxonomyTreeNode,
 )
 from modules.taxonomy.schema import (
-    TaxonomyLeafGraphNodeResponse,
+    TaxonomyLeafLayoutNodeResponse,
+    TaxonomyLeafLayoutSliceResponse,
     TaxonomyLeafNodeDetailResponse,
     TaxonomyLeafNodeDetailsResponse,
     TaxonomyLeafNodeTitleResponse,
     TaxonomyLeafNodeTitlesResponse,
+    TaxonomyLeafWorldBoundsResponse,
     TaxonomyNodeBranchViewResponse,
     TaxonomyNodeLeafViewResponse,
     TaxonomyNodeViewResponse,
@@ -30,6 +33,8 @@ from modules.taxonomy.schema import (
     TaxonomyViewChildResponse,
     TaxonomyViewNodeResponse,
 )
+
+TAXONOMY_LEAF_LAYOUT_VERSION = "taxonomy-leaf-layout-v1"
 
 
 class TaxonomyRepoProtocol(Protocol):
@@ -176,17 +181,11 @@ class TaxonomyService:
             child_ids_by_parent.get(root.id, []),
             key=lambda node_id: (node_by_id[node_id].name, node_by_id[node_id].id),
         )
-        children = [
-            TaxonomyViewChildResponse(
-                id=node_by_id[node_id].id,
-                parent_id=node_by_id[node_id].parent_id,
-                name=node_by_id[node_id].name,
-                depth=node_by_id[node_id].depth,
-                is_leaf=node_by_id[node_id].is_leaf,
-                descendant_card_count=descendant_counts[node_id],
-            )
-            for node_id in root_child_ids
-        ]
+        children = _view_children_from_node_ids(
+            child_ids=root_child_ids,
+            node_by_id=node_by_id,
+            descendant_counts=descendant_counts,
+        )
         return TaxonomyRootViewResponse(breadcrumb=[], children=children)
 
     async def get_node_view(self, *, node_id: int) -> TaxonomyNodeViewResponse:
@@ -227,17 +226,11 @@ class TaxonomyService:
                     node_by_id[child_node_id].id,
                 ),
             )
-            children = [
-                TaxonomyViewChildResponse(
-                    id=node_by_id[child_node_id].id,
-                    parent_id=node_by_id[child_node_id].parent_id,
-                    name=node_by_id[child_node_id].name,
-                    depth=node_by_id[child_node_id].depth,
-                    is_leaf=node_by_id[child_node_id].is_leaf,
-                    descendant_card_count=descendant_counts[child_node_id],
-                )
-                for child_node_id in child_ids
-            ]
+            children = _view_children_from_node_ids(
+                child_ids=child_ids,
+                node_by_id=node_by_id,
+                descendant_counts=descendant_counts,
+            )
             return TaxonomyNodeBranchViewResponse(
                 node_kind="branch",
                 current_node=_view_node_from_record(current_node),
@@ -249,35 +242,86 @@ class TaxonomyService:
             raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
 
         leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
-        nodes = sorted(
-            (
-                TaxonomyLeafGraphNodeResponse(
-                    id=node_id,
-                    scope=scope,
-                )
-                for node_id, scope in leaf_graph.scope_by_node_id.items()
-            ),
-            key=lambda node: node.id,
-        )
-
-        edge_items = sorted(
-            (
-                (
-                    edge.node_a_id,
-                    edge.node_b_id,
-                    edge.strength,
-                )
-                for edge in leaf_graph.edges
-            ),
-            key=lambda edge: (edge[0], edge[1]),
-        )
-
         return TaxonomyNodeLeafViewResponse(
             node_kind="leaf",
             current_node=_view_node_from_record(current_node),
             breadcrumb=breadcrumb,
+            layout_version=TAXONOMY_LEAF_LAYOUT_VERSION,
+            world_bounds=TaxonomyLeafWorldBoundsResponse(
+                min_x=0.0,
+                min_y=0.0,
+                max_x=0.0,
+                max_y=0.0,
+            ),
+            node_count=len(leaf_graph.scope_by_node_id),
+            edge_count=len(leaf_graph.edges),
+            generated_at=datetime.now(UTC),
+        )
+
+    async def get_leaf_layout_slice(
+        self,
+        *,
+        node_id: int,
+        min_x: float,
+        min_y: float,
+        max_x: float,
+        max_y: float,
+    ) -> TaxonomyLeafLayoutSliceResponse:
+        tree_nodes = await self._repo.list_tree_nodes()
+        node_by_id, _ = _index_tree(tree_nodes)
+        if not node_by_id:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message="Taxonomy tree is not available.",
+                hint="Import taxonomy data and retry.",
+            )
+
+        current_node = node_by_id.get(node_id)
+        if current_node is None:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message=f"Taxonomy node {node_id} was not found.",
+                hint="Use an existing taxonomy node id and retry.",
+            )
+        if not current_node.is_leaf:
+            raise ApplicationError(
+                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+                message="Leaf layout request requires a leaf taxonomy node.",
+                hint="Use a leaf taxonomy node id and retry.",
+            )
+
+        leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
+        include_origin = min_x <= 0 <= max_x and min_y <= 0 <= max_y
+        nodes = (
+            [
+                TaxonomyLeafLayoutNodeResponse(
+                    id=graph_node_id,
+                    scope=scope,
+                    x=0.0,
+                    y=0.0,
+                )
+                for graph_node_id, scope in sorted(leaf_graph.scope_by_node_id.items())
+            ]
+            if include_origin
+            else []
+        )
+        returned_node_ids = {node.id for node in nodes}
+        edges = [
+            (edge.node_a_id, edge.node_b_id, edge.strength)
+            for edge in leaf_graph.edges
+            if edge.node_a_id in returned_node_ids and edge.node_b_id in returned_node_ids
+        ]
+        return TaxonomyLeafLayoutSliceResponse(
+            leaf_id=current_node.id,
+            layout_version=TAXONOMY_LEAF_LAYOUT_VERSION,
+            requested_bounds=TaxonomyLeafWorldBoundsResponse(
+                min_x=min_x,
+                min_y=min_y,
+                max_x=max_x,
+                max_y=max_y,
+            ),
             nodes=nodes,
-            edges=edge_items,
+            edges=edges,
         )
 
     async def _validate_leaf_detail_node_ids(
@@ -526,6 +570,26 @@ def _index_tree(
     for node in tree_nodes:
         child_ids_by_parent[node.parent_id].append(node.id)
     return (node_by_id, child_ids_by_parent)
+
+
+def _view_children_from_node_ids(
+    *,
+    child_ids: list[int],
+    node_by_id: dict[int, TaxonomyNodeRecord],
+    descendant_counts: dict[int, int],
+) -> list[TaxonomyViewChildResponse]:
+    return [
+        TaxonomyViewChildResponse(
+            id=node_by_id[node_id].id,
+            parent_id=node_by_id[node_id].parent_id,
+            name=node_by_id[node_id].name,
+            depth=node_by_id[node_id].depth,
+            is_leaf=node_by_id[node_id].is_leaf,
+            descendant_card_count=descendant_counts[node_id],
+        )
+        for node_id in child_ids
+        if descendant_counts[node_id] > 0
+    ]
 
 
 def _require_single_root(

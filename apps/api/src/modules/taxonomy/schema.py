@@ -5,6 +5,7 @@ Out of scope: Taxonomy persistence queries and classification orchestration rule
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -34,6 +35,18 @@ class TaxonomyRootViewResponse(TaxonomyViewResponseModel):
 class TaxonomyLeafGraphNodeResponse(TaxonomyViewResponseModel):
     id: int = Field(gt=0)
     scope: Literal["inner", "outer"]
+
+
+class TaxonomyLeafWorldBoundsResponse(TaxonomyViewResponseModel):
+    min_x: float
+    min_y: float
+    max_x: float
+    max_y: float
+
+
+class TaxonomyLeafLayoutNodeResponse(TaxonomyLeafGraphNodeResponse):
+    x: float
+    y: float
 
 
 class TaxonomyLeafNodeDetailResponse(TaxonomyViewResponseModel):
@@ -82,7 +95,18 @@ class TaxonomyNodeLeafViewResponse(TaxonomyViewResponseModel):
     node_kind: Literal["leaf"]
     current_node: TaxonomyViewNodeResponse
     breadcrumb: list[TaxonomyViewNodeResponse]
-    nodes: list[TaxonomyLeafGraphNodeResponse]
+    layout_version: str = Field(min_length=1)
+    world_bounds: TaxonomyLeafWorldBoundsResponse
+    node_count: int = Field(ge=0)
+    edge_count: int = Field(ge=0)
+    generated_at: datetime
+
+
+class TaxonomyLeafLayoutSliceResponse(TaxonomyViewResponseModel):
+    leaf_id: int = Field(gt=0)
+    layout_version: str = Field(min_length=1)
+    requested_bounds: TaxonomyLeafWorldBoundsResponse
+    nodes: list[TaxonomyLeafLayoutNodeResponse]
     edges: list[TaxonomyLeafGraphEdgeResponse]
 
 

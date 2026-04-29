@@ -10,6 +10,7 @@ from collections.abc import Callable
 from fastapi import APIRouter, Depends
 
 from modules.taxonomy.schema import (
+    TaxonomyLeafLayoutSliceResponse,
     TaxonomyLeafNodeDetailsRequest,
     TaxonomyLeafNodeDetailsResponse,
     TaxonomyLeafNodeTitlesRequest,
@@ -37,6 +38,26 @@ def build_router(*, get_taxonomy_service: TaxonomyServiceProvider) -> APIRouter:
         taxonomy_service: TaxonomyService = Depends(get_taxonomy_service),
     ) -> TaxonomyNodeViewResponse:
         return await taxonomy_service.get_node_view(node_id=node_id)
+
+    @router.get(
+        "/view/leaves/{node_id}/layout",
+        response_model=TaxonomyLeafLayoutSliceResponse,
+    )
+    async def get_leaf_layout_slice(
+        node_id: int,
+        min_x: float,
+        min_y: float,
+        max_x: float,
+        max_y: float,
+        taxonomy_service: TaxonomyService = Depends(get_taxonomy_service),
+    ) -> TaxonomyLeafLayoutSliceResponse:
+        return await taxonomy_service.get_leaf_layout_slice(
+            node_id=node_id,
+            min_x=min_x,
+            min_y=min_y,
+            max_x=max_x,
+            max_y=max_y,
+        )
 
     @router.post(
         "/view/leaves/{node_id}/details",

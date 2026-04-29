@@ -1,6 +1,6 @@
 ---
-abstract: Taxonomy module design for authoritative operator-managed tree truth, visible Unclassified leaves, movable node-to-leaf assignments, and drill-down view APIs.
-out_of_scope: AI classification job orchestration, worker-side execution mechanics, and semantic-space snapshot architecture.
+abstract: Taxonomy module design for authoritative operator-managed tree truth, backend-owned view read models, movable node-to-leaf assignments, and drill-down view APIs.
+out_of_scope: AI classification job orchestration, worker-side execution mechanics, frontend visual styling, and semantic-space snapshot architecture.
 ---
 
 # Design: taxonomy
@@ -11,13 +11,13 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the `taxonomy` module as the active browsing backbone: authoritative operator-managed taxonomy tree storage, visible `Unclassified` bucket leaves, current node-to-leaf assignment truth, and taxonomy-query-driven view APIs.
+- **Purpose:** Define the `taxonomy` module as the active browsing backbone: authoritative operator-managed taxonomy tree storage, current node-to-leaf assignment truth, backend-owned taxonomy view read models, and taxonomy-query-driven view APIs.
 - **Scope/Boundaries:** Covers taxonomy ownership, persistence shape, operator tree mutation boundaries, integrity constraints, assignment movement semantics, and branch/leaf view contracts consumed by the taxonomy browsing frontend.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Constraint Projection
 - **Governing Constraints:** Module boundaries remain explicit, persistent truth stays isolated by owner, and behavior-changing design decisions stay synchronized in active specs.
-- **Detail Commitments:** Taxonomy is an operator-managed tree stored in the API database. The tree has one real `Root` node. Every regular taxonomy node has one system-created direct child leaf named `Unclassified`. Each knowledge node has exactly one current taxonomy leaf assignment. New knowledge nodes are assigned to `Root -> Unclassified` during ingestion. Taxonomy browsing is query-driven from backend and not precomputed through semantic-map snapshot rebuilds.
+- **Detail Commitments:** Taxonomy is an operator-managed tree stored in the API database. The tree has one real `Root` node. Every regular taxonomy node has one system-created direct child leaf named `Unclassified`. Each knowledge node has exactly one current taxonomy leaf assignment. New knowledge nodes are assigned to `Root -> Unclassified` during ingestion. Taxonomy browsing is query-driven from backend-owned view read models and not precomputed through semantic-map snapshot rebuilds.
 - **Update Rule:** Requirement-level constraints remain stable while taxonomy structure, mutation, assignment, and view API details are maintained here as implementation-facing truth.
 
 ## Design Approach
@@ -26,7 +26,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - **Module ownership:** `apps/api/src/modules/taxonomy` owns taxonomy tree reads, taxonomy tree writes, assignment reads/writes, default assignment resolution, and taxonomy view API contracts.
   - **Authoritative source:** Persisted taxonomy rows are runtime/system truth. Operator-provided classification outlines are inputs to taxonomy-owned import or mutation services.
   - **Root invariant:** Exactly one taxonomy node has `parent_id IS NULL`; its name is `Root`, its depth is `0`, and it is not a leaf.
-  - **Unclassified bucket invariant:** Every regular taxonomy node has exactly one direct child named `Unclassified` with `is_leaf=true`. This child is a real taxonomy node and is visible through taxonomy view reads.
+  - **Unclassified bucket invariant:** Every regular taxonomy node has exactly one direct child named `Unclassified` with `is_leaf=true`. This child is a real taxonomy node in authoritative tree reads.
   - **System bucket naming rule:** The system-owned bucket name is exactly `Unclassified`. Parent names are not prefixed into bucket names.
   - **Assignment result model:** Each knowledge node binds to exactly one current taxonomy leaf.
   - **Assignment movement rule:** Assignment writes may create an initial leaf assignment or move an existing assignment to another valid taxonomy leaf.
@@ -36,15 +36,16 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - **Operator mutation rule:** First-version taxonomy structure mutation is script-driven. HTTP APIs do not expose taxonomy mutation commands.
   - **Child creation rule:** Creating a regular child category automatically creates its own `Unclassified` child leaf.
   - **Browsing mode:** Drill-down click navigation (`root -> ... -> leaf`) is the active browsing mode.
-  - **Branch visibility rule:** Branch payloads return direct children with `descendant_card_count`; empty operator-created categories and `Unclassified` bucket leaves remain representable in the tree response.
+  - **Branch visibility rule:** Branch payloads return direct children with `descendant_card_count > 0`. Direct children with no assigned cards anywhere in their descendant subtree are omitted from taxonomy view payloads.
   - **Leaf graph scope rule:** Leaf view includes all inner cards for the leaf plus all one-hop outer neighbor cards; recursion depth is fixed to one hop.
   - **Edge scope rule:** Leaf view returns only `inner-inner` and `inner-outer` edges. `outer-outer` edges are excluded.
   - **Node scope marker:** Leaf graph node payload includes explicit `scope` field with values `inner` or `outer`.
-  - **Leaf data-plane rule:** Leaf browsing is split into a skeleton graph surface and a node-detail surface. The skeleton surface carries the full one-hop graph topology needed for point-mode browsing. The detail surface carries `title` and `content` only for requested node ids.
-  - **Leaf hydration rule:** Entering a leaf returns the full one-hop skeleton payload in one response and does not include node `title` or `content`.
+  - **Leaf layout ownership rule:** Leaf card graph layout is computed by the backend as stable global world coordinates. Frontend clients use these world coordinates for viewport transforms and do not solve the leaf graph layout.
+  - **Leaf data-plane rule:** Leaf browsing is split into a leaf metadata surface, a viewport-scoped layout slice surface, and node-detail surfaces. The layout slice surface carries backend-computed world coordinates plus local topology for the requested world bounds. The detail surfaces carry `title` and `content` only for requested node ids.
+  - **Leaf hydration rule:** Entering a leaf returns leaf metadata and does not include the full one-hop graph, node `title`, or node `content`.
   - **Leaf detail request rule:** Node details are fetched by explicit node-id batches scoped to the active leaf; the initial leaf view payload excludes node `title` and `content`.
   - **Leaf read-model rule:** Leaf browsing uses the authoritative current-assignment table for inner-node membership and one dedicated leaf projection table for one-hop edge membership. The projection stores only `(leaf_id, edge_id)` pairs and does not duplicate mutable edge fields such as `strength`.
-  - **Read-performance rule:** Taxonomy view read paths must avoid full-graph or full-assignment work when the request scope is smaller. Root and branch payloads may aggregate descendant counts across the tree, but leaf-specific reads must use leaf-scoped assignment lookups, leaf-scoped projection-edge reads, and node-id-scoped detail reads.
+  - **Read-performance rule:** Taxonomy view read paths must avoid full-graph or full-assignment work when the request scope is smaller. Root and branch payloads use cached descendant counts derived from current assignments. Leaf-specific reads must use leaf-scoped assignment lookups, leaf-scoped projection-edge reads, cached backend layout coordinates, viewport-bounded layout slice reads, and node-id-scoped detail reads.
 
 ## Persistence Projection
 
@@ -98,6 +99,15 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - creating an edge inserts projection rows for the leaf of each endpoint node, resulting in one row when both endpoints share a leaf and at most two rows otherwise.
   - mutable edge fields such as `strength` are read from `edges` at query time through `edge_id` and are not copied into the projection.
 
+### Taxonomy View Redis Read Model
+- Redis stores recomputable taxonomy view read models only. PostgreSQL remains the authoritative source for taxonomy nodes, current assignments, projection-edge membership, knowledge nodes, and edge fields.
+- Branch count read models store descendant card counts by taxonomy node id and support root and branch child filtering without scanning all assignments on every view request.
+- Leaf layout read models store backend-computed global world coordinates for the one-hop leaf graph, layout bounds, layout algorithm version, generated timestamp, and node scope metadata.
+- Redis cache keys include a schema or layout algorithm version so incompatible read-model shapes are not reused across implementation changes.
+- Cache entries may be temporarily stale. Expired or missing entries are rebuilt from PostgreSQL truth.
+- Rebuild paths use a Redis lock or equivalent single-flight guard so concurrent requests do not run duplicate expensive recomputations for the same read model.
+- Redis loss, flush, or expiry must not create drift because every cached value is derived from PostgreSQL truth.
+
 ### Trigger Rule
 - Inserts and updates on `node_taxonomy_assignments` must be rejected unless `taxonomy_node_id` points to `taxonomy_nodes.is_leaf = true`.
 - Root uniqueness index DDL and leaf-only trigger/function DDL are maintained by API Alembic migrations scoped to taxonomy integrity concerns.
@@ -131,7 +141,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - Success payload:
   - no `current_node` field.
   - `breadcrumb` is an empty array.
-  - `children` array for direct children of the real `Root` node; each item:
+  - `children` array for direct children of the real `Root` node whose descendant subtree contains at least one assigned card; each item:
     - `id`
     - `parent_id`
     - `name`
@@ -159,16 +169,52 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
       - `depth`
       - `is_leaf`
   - branch case (`node_kind=branch`):
-    - `children` (direct children only) using the same child item shape as root endpoint
+    - `children` (direct children only, filtered to descendants with assigned cards) using the same child item shape as root endpoint
   - leaf case (`node_kind=leaf`):
-    - `nodes` array, each item:
-      - `id`
-      - `scope` with value `inner` or `outer`
-    - `edges` array, each item:
-      - numeric tuple `[source_node_id, target_node_id, strength]`
+    - `layout_version`
+    - `world_bounds` object:
+      - `min_x`
+      - `min_y`
+      - `max_x`
+      - `max_y`
+    - `node_count`
+    - `edge_count`
+    - `generated_at`
 - Failure behavior:
   - `404` when taxonomy node id is unknown.
   - `404` when taxonomy root is unavailable.
+  - request-shape errors follow global error-governance behavior.
+
+### Leaf Layout Viewport Endpoint
+- Route: `GET /api/v1/taxonomy/view/leaves/{node_id}/layout`
+- Request query parameters:
+  - `min_x`
+  - `min_y`
+  - `max_x`
+  - `max_y`
+- Success payload:
+  - `leaf_id`
+  - `layout_version`
+  - `requested_bounds` object:
+    - `min_x`
+    - `min_y`
+    - `max_x`
+    - `max_y`
+  - `nodes` array ordered by `id ASC`; each item:
+    - `id`
+    - `scope` with value `inner` or `outer`
+    - `x`
+    - `y`
+  - `edges` array ordered by `(source_node_id ASC, target_node_id ASC)`; each item:
+    - numeric tuple `[source_node_id, target_node_id, strength]`
+- Slice rule:
+  - the frontend sends world bounds that already include its desired viewport overscan.
+  - `nodes` includes layout nodes whose world coordinate falls inside the requested bounds.
+  - `edges` includes graph edges whose canonical source and target nodes are both present in the returned `nodes` set.
+- Failure behavior:
+  - `404` when taxonomy leaf id is unknown.
+  - `404` when taxonomy root is unavailable.
+  - `400` when `node_id` is not a leaf taxonomy node.
   - request-shape errors follow global error-governance behavior.
 
 ### Leaf Detail Endpoint
@@ -189,9 +235,9 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 ## Response Ordering Rules
 - `breadcrumb` is ordered root-to-current.
 - branch `children` are ordered by `name ASC`, tie-break by `id ASC`.
-- leaf `nodes` are ordered by `id ASC`.
-- leaf `edges` are deduplicated by undirected pair and ordered by `(source_node_id ASC, target_node_id ASC)`.
-- every leaf `edges` tuple uses canonical undirected endpoint ordering with `source_node_id < target_node_id`.
+- leaf layout slice `nodes` are ordered by `id ASC`.
+- leaf layout slice `edges` are deduplicated by undirected pair and ordered by `(source_node_id ASC, target_node_id ASC)`.
+- every leaf layout slice `edges` tuple uses canonical undirected endpoint ordering with `source_node_id < target_node_id`.
 - leaf detail `nodes` are ordered to match request `node_ids`.
 
 ## Read And Write Responsibilities
@@ -202,23 +248,27 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - default assignment to `Root -> Unclassified`;
   - assignment movement between valid leaves;
   - regular child category creation with automatic `Unclassified` child creation;
-  - aggregate descendant counts for branch view payloads;
+  - cached aggregate descendant counts for branch view payloads;
   - branch/leaf drill-down view payloads with breadcrumb context;
+  - backend-computed global world coordinates for leaf graph layout;
+  - viewport-bounded leaf layout slices;
   - leaf node-detail hydration for explicit node-id batches within one active leaf graph.
 - The taxonomy module does not provide:
   - AI classification job submission or result consumption;
   - confidence scoring workflows;
   - semantic-map snapshot/tile contracts;
-  - authoritative node positions for frontend graph layout.
+  - frontend camera state, pan/zoom transforms, hover state, selection state, or visual styling.
 
 ## Query Performance Projection
-- Root and branch descendant counts are computed from persisted current assignments, but leaf-specific read paths do not load the full assignment table when one leaf id is already known.
+- Root and branch descendant counts are served from the Redis taxonomy view read model and recomputed from persisted current assignments on cache miss or expiry.
 - The repository layer exposes a leaf-scoped assignment read that returns only the node ids assigned to one taxonomy leaf.
 - Leaf graph edge expansion reads `edge_id` membership from `taxonomy_leaf_projection_edges` for the active `leaf_id`, then joins to `edges` to obtain current endpoints and `strength`.
 - Leaf graph node scope is reconstructed from two sources only: inner membership from `node_taxonomy_assignments` and projected edge endpoints from `taxonomy_leaf_projection_edges`.
-- Leaf detail hydration validates requested node ids against the active one-hop graph without loading title/content for every node in that graph.
+- Leaf layout generation computes stable global world coordinates from the leaf-scoped one-hop graph and stores the derived coordinates in Redis.
+- Leaf layout viewport reads return only nodes inside requested world bounds plus edges whose endpoints are both in the returned node set.
+- Leaf detail hydration validates requested node ids against cached leaf layout membership or leaf-scoped projection membership without loading title/content for every node in that graph.
 - Leaf detail hydration reads `title` and `content` only for the requested node ids after membership validation succeeds.
-- Taxonomy read performance fixes remain inside the taxonomy and knowledge-graph repository/service boundaries and do not change the external HTTP contracts.
+- Taxonomy read performance behavior remains inside the taxonomy and knowledge-graph repository/service boundaries while the taxonomy view HTTP contracts expose backend-owned branch filtering and viewport-bounded leaf layout slices.
 
 ## Validation
 - **Checks:**
@@ -232,9 +282,11 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - New ingestion-created nodes receive assignment to `Root -> Unclassified`.
   - Operator backfill assigns only unassigned knowledge nodes to `Root -> Unclassified`.
   - Non-leaf assignment writes are rejected by trigger.
-  - `GET /api/v1/taxonomy/view/root` returns direct children of `Root` with `breadcrumb=[]`.
+  - `GET /api/v1/taxonomy/view/root` returns non-empty direct children of `Root` with `breadcrumb=[]`.
   - `GET /api/v1/taxonomy/view/nodes/{id}` returns correct discriminated payload for branch/leaf.
-  - Leaf skeleton payload excludes `outer-outer` edges and includes `scope` markers.
+  - Branch node view payloads omit direct children whose descendant subtree has zero assigned cards.
+  - Leaf node view payloads return metadata for backend layout consumption without returning the full one-hop graph.
+  - `GET /api/v1/taxonomy/view/leaves/{id}/layout` returns backend-computed world coordinates and local edges for the requested world bounds.
   - `POST /api/v1/taxonomy/view/leaves/{id}/details` returns `title/content` only for requested node ids inside the active leaf graph.
   - Leaf edge reads use the leaf projection table and stay scoped to the requested leaf graph.
   - Leaf detail hydration does not require loading title/content for every node in the expanded one-hop graph.

@@ -253,7 +253,7 @@ async def test_set_current_assignment_rolls_back_and_reraises() -> None:
 
 
 @pytest.mark.anyio
-async def test_get_root_view_returns_direct_children_of_single_root_even_when_empty() -> None:
+async def test_get_root_view_omits_children_without_descendant_cards() -> None:
     repo = _StubRepo(
         tree_nodes=[
             TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
@@ -271,8 +271,8 @@ async def test_get_root_view_returns_direct_children_of_single_root_even_when_em
 
     assert isinstance(view, TaxonomyRootViewResponse)
     assert view.breadcrumb == []
-    assert [child.id for child in view.children] == [2, 3]
-    assert [child.descendant_card_count for child in view.children] == [1, 0]
+    assert [child.id for child in view.children] == [2]
+    assert [child.descendant_card_count for child in view.children] == [1]
 
 
 @pytest.mark.anyio
@@ -300,7 +300,29 @@ async def test_get_node_view_returns_branch_shape_for_non_leaf() -> None:
 
 
 @pytest.mark.anyio
-async def test_get_node_view_returns_leaf_shape_with_scopes_and_canonical_edges() -> None:
+async def test_get_node_view_omits_empty_branch_children() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="A", depth=1, is_leaf=False),
+            TaxonomyNodeRecord(id=3, parent_id=1, name="B", depth=1, is_leaf=True),
+            TaxonomyNodeRecord(id=4, parent_id=2, name="A1", depth=2, is_leaf=True),
+        ],
+        assigned_leaf_assignments=[
+            TaxonomyLeafAssignment(node_id=22, taxonomy_leaf_id=4),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    view = await service.get_node_view(node_id=1)
+
+    assert isinstance(view, TaxonomyNodeBranchViewResponse)
+    assert [child.id for child in view.children] == [2]
+    assert [child.descendant_card_count for child in view.children] == [1]
+
+
+@pytest.mark.anyio
+async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
     repo = _StubRepo(
         tree_nodes=[
             TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
@@ -342,20 +364,15 @@ async def test_get_node_view_returns_leaf_shape_with_scopes_and_canonical_edges(
     assert isinstance(view, TaxonomyNodeLeafViewResponse)
     assert view.node_kind == "leaf"
     assert [item.id for item in view.breadcrumb] == [1, 2]
-    assert [node.model_dump() for node in view.nodes] == [
-        {"id": 11, "scope": "inner"},
-        {"id": 12, "scope": "inner"},
-        {"id": 77, "scope": "outer"},
-    ]
-    assert [(node.id, node.scope) for node in view.nodes] == [
-        (11, "inner"),
-        (12, "inner"),
-        (77, "outer"),
-    ]
-    assert view.edges == [
-        (11, 12, 0.91),
-        (12, 77, 0.66),
-    ]
+    assert view.layout_version == "taxonomy-leaf-layout-v1"
+    assert view.world_bounds.model_dump() == {
+        "min_x": 0.0,
+        "min_y": 0.0,
+        "max_x": 0.0,
+        "max_y": 0.0,
+    }
+    assert view.node_count == 3
+    assert view.edge_count == 2
     assert repo.list_assigned_node_ids_for_leaf_called_with == [2]
     assert repo.list_projected_edge_ids_for_leaf_called_with == [2]
     assert repo.list_final_assignments_called is False

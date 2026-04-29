@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -16,10 +17,13 @@ from httpx import AsyncClient
 from core.errors import ApplicationError, DomainError, ErrorCode
 from entrypoints.api import providers as api_providers
 from modules.taxonomy.schema import (
+    TaxonomyLeafLayoutNodeResponse,
+    TaxonomyLeafLayoutSliceResponse,
     TaxonomyLeafNodeDetailResponse,
     TaxonomyLeafNodeDetailsResponse,
     TaxonomyLeafNodeTitleResponse,
     TaxonomyLeafNodeTitlesResponse,
+    TaxonomyLeafWorldBoundsResponse,
     TaxonomyNodeBranchViewResponse,
     TaxonomyNodeLeafViewResponse,
     TaxonomyRootViewResponse,
@@ -107,7 +111,46 @@ class _FakeTaxonomyService:
                     is_leaf=True,
                 ),
             ],
-            nodes=[],
+            layout_version="taxonomy-leaf-layout-v1",
+            world_bounds=TaxonomyLeafWorldBoundsResponse(
+                min_x=0.0,
+                min_y=0.0,
+                max_x=0.0,
+                max_y=0.0,
+            ),
+            node_count=3,
+            edge_count=2,
+            generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+        )
+
+    async def get_leaf_layout_slice(
+        self,
+        *,
+        node_id: int,
+        min_x: float,
+        min_y: float,
+        max_x: float,
+        max_y: float,
+    ) -> TaxonomyLeafLayoutSliceResponse:
+        assert node_id == 2
+        assert (min_x, min_y, max_x, max_y) == (-10.0, -20.0, 30.0, 40.0)
+        return TaxonomyLeafLayoutSliceResponse(
+            leaf_id=2,
+            layout_version="taxonomy-leaf-layout-v1",
+            requested_bounds=TaxonomyLeafWorldBoundsResponse(
+                min_x=-10.0,
+                min_y=-20.0,
+                max_x=30.0,
+                max_y=40.0,
+            ),
+            nodes=[
+                TaxonomyLeafLayoutNodeResponse(
+                    id=11,
+                    scope="inner",
+                    x=1.5,
+                    y=2.5,
+                )
+            ],
             edges=[],
         )
 
@@ -184,6 +227,21 @@ class _FakeTaxonomyNotFoundService:
         node_id: int,
         node_ids: list[int],
     ) -> TaxonomyLeafNodeDetailsResponse:
+        raise DomainError(
+            code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+            message=f"Taxonomy node {node_id} was not found.",
+            hint="Use an existing taxonomy node id and retry.",
+        )
+
+    async def get_leaf_layout_slice(
+        self,
+        *,
+        node_id: int,
+        min_x: float,
+        min_y: float,
+        max_x: float,
+        max_y: float,
+    ) -> TaxonomyLeafLayoutSliceResponse:
         raise DomainError(
             code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
             message=f"Taxonomy node {node_id} was not found.",
@@ -309,8 +367,52 @@ async def test_node_view_route_returns_leaf_payload_for_leaf(
     payload = response.json()
     assert payload["node_kind"] == "leaf"
     assert payload["current_node"]["id"] == 2
-    assert payload["nodes"] == []
-    assert payload["edges"] == []
+    assert payload["layout_version"] == "taxonomy-leaf-layout-v1"
+    assert payload["world_bounds"] == {
+        "min_x": 0.0,
+        "min_y": 0.0,
+        "max_x": 0.0,
+        "max_y": 0.0,
+    }
+    assert payload["node_count"] == 3
+    assert payload["edge_count"] == 2
+    assert payload["generated_at"] == "2026-04-29T12:00:00Z"
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_route_returns_requested_layout_slice(
+    async_client: AsyncClient,
+) -> None:
+    response = await async_client.get(
+        "/api/v1/taxonomy/view/leaves/2/layout",
+        params={
+            "min_x": -10.0,
+            "min_y": -20.0,
+            "max_x": 30.0,
+            "max_y": 40.0,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "leaf_id": 2,
+        "layout_version": "taxonomy-leaf-layout-v1",
+        "requested_bounds": {
+            "min_x": -10.0,
+            "min_y": -20.0,
+            "max_x": 30.0,
+            "max_y": 40.0,
+        },
+        "nodes": [
+            {
+                "id": 11,
+                "scope": "inner",
+                "x": 1.5,
+                "y": 2.5,
+            }
+        ],
+        "edges": [],
+    }
 
 
 @pytest.mark.anyio
