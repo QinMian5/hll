@@ -25,16 +25,18 @@ def test_projection_registers_taxonomy_classification_tables() -> None:
     } <= set(Base.metadata.tables)
 
 
-def test_jobs_projection_contains_job_id_unique_constraint() -> None:
+def test_jobs_projection_contains_job_id_partial_unique_index() -> None:
     table = cast(Table, TaxonomyClassificationJob.__table__)
-    unique_constraints = [
-        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
-    ]
-    unique_column_sets = [
-        {column.name for column in constraint.columns} for constraint in unique_constraints
+    indexes = [
+        index
+        for index in table.indexes
+        if isinstance(index, Index) and {column.name for column in index.columns} == {"job_id"}
     ]
 
-    assert {"job_id"} in unique_column_sets
+    assert indexes
+    assert indexes[0].unique
+    predicate = str(indexes[0].dialect_options["postgresql"]["where"])
+    assert "job_id IS NOT NULL" in predicate
     assert table.c.job_id.nullable is True
 
 

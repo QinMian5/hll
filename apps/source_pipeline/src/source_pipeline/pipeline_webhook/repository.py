@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from source_pipeline.db.models import JobQueueWebhookEvent, JobQueueWebhookWakeup
@@ -19,29 +20,38 @@ class JobQueueWebhookEventRepository:
         self._session = session
 
     async def record_event(self, payload: JobQueueWebhookPayload) -> JobQueueWebhookEvent:
-        existing = await self._session.scalar(
-            select(JobQueueWebhookEvent)
-            .where(JobQueueWebhookEvent.event_id == payload.event_id)
-            .limit(1)
+        statement = (
+            insert(JobQueueWebhookEvent)
+            .values(
+                event_id=payload.event_id,
+                event_type=payload.event_type,
+                job_id=payload.job_id,
+                queue_name=payload.queue_name,
+                submission_id=payload.submission_id,
+                terminal_state=payload.terminal_state,
+                occurred_at=payload.occurred_at,
+                payload=payload.model_dump(mode="json"),
+            )
+            .on_conflict_do_nothing(index_elements=["event_id"])
+            .returning(JobQueueWebhookEvent)
         )
-        if existing is not None:
+        record = await self._session.scalar(statement)
+        if record is None:
+            existing = await self._session.scalar(
+                select(JobQueueWebhookEvent)
+                .where(JobQueueWebhookEvent.event_id == payload.event_id)
+                .limit(1)
+            )
+            if existing is None:
+                raise RuntimeError("Webhook event conflict did not return an existing row.")
             return existing
 
-        record = JobQueueWebhookEvent(
-            event_id=payload.event_id,
-            event_type=payload.event_type,
-            job_id=payload.job_id,
-            queue_name=payload.queue_name,
-            submission_id=payload.submission_id,
-            terminal_state=payload.terminal_state,
-            occurred_at=payload.occurred_at,
-            payload=payload.model_dump(mode="json"),
+        wakeup_statement = (
+            insert(JobQueueWebhookWakeup)
+            .values(event_id=record.event_id)
+            .on_conflict_do_nothing(index_elements=["event_id"])
         )
-        self._session.add(record)
-        await self._session.flush()
-
-        self._session.add(JobQueueWebhookWakeup(event_id=record.event_id))
-        await self._session.flush()
+        await self._session.execute(wakeup_statement)
         return record
 
     async def list_pending_events(self, *, limit: int) -> list[JobQueueWebhookEvent]:

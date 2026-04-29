@@ -5,11 +5,13 @@ Out of scope: HTTP receiver authentication and runtime orchestration behavior.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
-from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from source_pipeline.db.models import JobQueueWebhookEvent, JobQueueWebhookWakeup
 from source_pipeline.pipeline_webhook.contracts import JobQueueWebhookPayload
@@ -81,6 +83,57 @@ async def test_duplicate_event_id_returns_existing_row_without_second_wakeup(
 
     assert second.id == first.id
     assert await count_wakeups(db_session, event_id="evt-duplicate") == 1
+
+
+async def test_concurrent_duplicate_event_id_returns_existing_row_without_second_wakeup(
+    db_engine: AsyncEngine,
+) -> None:
+    event_id = f"evt-concurrent-{uuid4().hex}"
+    payload = build_payload(event_id=event_id)
+    first_flushed = asyncio.Event()
+    release_first_commit = asyncio.Event()
+
+    async def record_first_and_hold_commit() -> int:
+        async with (
+            AsyncSession(db_engine, expire_on_commit=False) as session,
+            session.begin(),
+        ):
+            event = await JobQueueWebhookEventRepository(session).record_event(payload)
+            first_flushed.set()
+            await release_first_commit.wait()
+            return event.id
+
+    async def record_duplicate() -> int:
+        await first_flushed.wait()
+        async with (
+            AsyncSession(db_engine, expire_on_commit=False) as session,
+            session.begin(),
+        ):
+            event = await JobQueueWebhookEventRepository(session).record_event(payload)
+            return event.id
+
+    try:
+        first_task = asyncio.create_task(record_first_and_hold_commit())
+        await first_flushed.wait()
+        second_task = asyncio.create_task(record_duplicate())
+        await asyncio.sleep(0.1)
+        release_first_commit.set()
+
+        first_id, second_id = await asyncio.gather(first_task, second_task)
+
+        async with AsyncSession(db_engine, expire_on_commit=False) as session:
+            assert first_id == second_id
+            assert await count_wakeups(session, event_id=event_id) == 1
+    finally:
+        release_first_commit.set()
+        async with AsyncSession(db_engine, expire_on_commit=False) as session:
+            await session.execute(
+                delete(JobQueueWebhookWakeup).where(JobQueueWebhookWakeup.event_id == event_id)
+            )
+            await session.execute(
+                delete(JobQueueWebhookEvent).where(JobQueueWebhookEvent.event_id == event_id)
+            )
+            await session.commit()
 
 
 async def test_payload_contract_rejects_result_payload_and_lease_token() -> None:

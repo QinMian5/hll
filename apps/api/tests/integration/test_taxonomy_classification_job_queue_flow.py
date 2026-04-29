@@ -5,15 +5,17 @@ Out of scope: Live job-queue-mcp transport and webhook authentication.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
-from sqlalchemy import event, func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, event, func, select
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from modules.knowledge_graph.model import Node
 from modules.taxonomy.model import TaxonomyNode
@@ -183,6 +185,74 @@ async def _count_wakeups(db_session: AsyncSession, *, event_id: str) -> int:
         .where(TaxonomyClassificationWebhookWakeup.event_id == event_id)
     )
     return int(count or 0)
+
+
+def _webhook_payload(*, event_id: str, job_id: int) -> TaxonomyClassificationWebhookPayload:
+    return TaxonomyClassificationWebhookPayload.model_validate(
+        {
+            "event_id": event_id,
+            "event_type": "result.accepted",
+            "job_id": job_id,
+            "queue_name": "taxonomy_classification",
+            "occurred_at": datetime(2026, 4, 26, 15, 0, tzinfo=UTC),
+            "submission_id": job_id + 1000,
+        }
+    )
+
+
+async def test_concurrent_duplicate_webhook_event_id_reuses_existing_event(
+    db_engine: AsyncEngine,
+) -> None:
+    event_id = f"evt-taxonomy-concurrent-{uuid4().hex}"
+    payload = _webhook_payload(event_id=event_id, job_id=9001)
+    first_flushed = asyncio.Event()
+    release_first_commit = asyncio.Event()
+
+    async def record_first_and_hold_commit() -> int:
+        async with (
+            AsyncSession(db_engine, expire_on_commit=False) as session,
+            session.begin(),
+        ):
+            event = await TaxonomyClassificationWebhookRepository(session).record_event(payload)
+            first_flushed.set()
+            await release_first_commit.wait()
+            return event.id
+
+    async def record_duplicate() -> int:
+        await first_flushed.wait()
+        async with (
+            AsyncSession(db_engine, expire_on_commit=False) as session,
+            session.begin(),
+        ):
+            event = await TaxonomyClassificationWebhookRepository(session).record_event(payload)
+            return event.id
+
+    try:
+        first_task = asyncio.create_task(record_first_and_hold_commit())
+        await first_flushed.wait()
+        second_task = asyncio.create_task(record_duplicate())
+        await asyncio.sleep(0.1)
+        release_first_commit.set()
+
+        first_id, second_id = await asyncio.gather(first_task, second_task)
+
+        async with AsyncSession(db_engine, expire_on_commit=False) as session:
+            assert first_id == second_id
+            assert await _count_wakeups(session, event_id=event_id) == 1
+    finally:
+        release_first_commit.set()
+        async with AsyncSession(db_engine, expire_on_commit=False) as session:
+            await session.execute(
+                delete(TaxonomyClassificationWebhookWakeup).where(
+                    TaxonomyClassificationWebhookWakeup.event_id == event_id
+                )
+            )
+            await session.execute(
+                delete(TaxonomyClassificationWebhookEvent).where(
+                    TaxonomyClassificationWebhookEvent.event_id == event_id
+                )
+            )
+            await session.commit()
 
 
 async def test_scope_resolution_scope_name_unique_case_insensitive(

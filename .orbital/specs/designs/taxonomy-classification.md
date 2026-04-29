@@ -102,7 +102,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - pending local events wake the background runtime;
   - accepted result payloads are reread from `GET /results/{job_id}`;
   - low-frequency polling/reconcile checks outstanding job links to compensate for missed notifications or exhausted remote delivery retries.
-- The webhook receiver does not move assignments or read result payloads. It returns after authenticated idempotent event persistence.
+- The webhook receiver does not move assignments or read result payloads. It returns after authenticated atomic idempotent event persistence.
 - The webhook receiver rejects authenticated notifications whose `queue_name` does not match the configured taxonomy-classification queue before writing any local event.
 - The background runtime owns event processing, result reads, validation, assignment movement, terminal checkpoint updates, and processed/error markers.
 - Webhook receiver authentication remains module-owned and validates incoming delivery tokens against the `knowledge` Logto authority. The job-queue producer/result-reader SDK is not the authority for incoming webhook delivery-token validation.
@@ -147,7 +147,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - Job submission failures leave assignments unchanged and are visible in operator output or runtime logs.
 - Accepted results with unknown child ids, out-of-scope child ids, missing target `Unclassified` leaves, or stale card-source assignments are recorded as locally processed errors and do not move assignments.
 - Terminal non-accepted queue states are recorded to stop repeated local result reads for the affected job.
-- Duplicate webhook deliveries are accepted idempotently.
+- Duplicate webhook deliveries are accepted idempotently through repository-owned atomic event insertion and do not create duplicate local wakeups.
 - Duplicate operator submission runs do not submit another active job for the same card and scope when a linked outstanding job already exists. Processed and terminal job rows do not block later operator submissions.
 - Runtime errors preserve enough local state for a later runtime tick to retry unprocessed events or reconcile outstanding jobs.
 

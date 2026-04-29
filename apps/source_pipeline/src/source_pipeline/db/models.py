@@ -27,7 +27,7 @@ from source_pipeline.db.base import Base
 class WorkflowRun(Base):
     __tablename__ = "workflow_runs"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     source_kind: Mapped[str] = mapped_column(Text, nullable=False)
     config_payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -40,7 +40,7 @@ class WorkflowRun(Base):
 class WorkflowUnit(Base):
     __tablename__ = "workflow_units"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     workflow_run_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("workflow_runs.id", ondelete="CASCADE"),
@@ -77,7 +77,7 @@ class CardCandidate(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     workflow_unit_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("workflow_units.id", ondelete="CASCADE"),
@@ -111,7 +111,7 @@ class JobQueueWebhookEvent(Base):
         Index("ix_job_queue_webhook_events_pending", "processed_at", "created_at"),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     event_id: Mapped[str] = mapped_column(Text, nullable=False)
     event_type: Mapped[str] = mapped_column(Text, nullable=False)
     job_id: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -138,7 +138,7 @@ class JobQueueWebhookWakeup(Base):
     __tablename__ = "job_queue_webhook_wakeups"
     __table_args__ = (UniqueConstraint("event_id", name="uq_job_queue_webhook_wakeups_event_id"),)
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     event_id: Mapped[str] = mapped_column(
         Text,
         ForeignKey("job_queue_webhook_events.event_id", ondelete="CASCADE"),

@@ -10,6 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 from sqlalchemy import delete, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.taxonomy_classification.model import (
@@ -48,29 +49,38 @@ class TaxonomyClassificationWebhookRepository:
         self,
         payload: TaxonomyClassificationWebhookPayload,
     ) -> TaxonomyClassificationWebhookEvent:
-        existing = await self._session.scalar(
-            select(TaxonomyClassificationWebhookEvent)
-            .where(TaxonomyClassificationWebhookEvent.event_id == payload.event_id)
-            .limit(1)
+        statement = (
+            insert(TaxonomyClassificationWebhookEvent)
+            .values(
+                event_id=payload.event_id,
+                event_type=payload.event_type,
+                job_id=payload.job_id,
+                queue_name=payload.queue_name,
+                submission_id=payload.submission_id,
+                terminal_state=payload.terminal_state,
+                occurred_at=payload.occurred_at,
+                payload=payload.model_dump(mode="json"),
+            )
+            .on_conflict_do_nothing(index_elements=["event_id"])
+            .returning(TaxonomyClassificationWebhookEvent)
         )
-        if existing is not None:
+        record = await self._session.scalar(statement)
+        if record is None:
+            existing = await self._session.scalar(
+                select(TaxonomyClassificationWebhookEvent)
+                .where(TaxonomyClassificationWebhookEvent.event_id == payload.event_id)
+                .limit(1)
+            )
+            if existing is None:
+                raise RuntimeError("Webhook event conflict did not return an existing row.")
             return existing
 
-        record = TaxonomyClassificationWebhookEvent(
-            event_id=payload.event_id,
-            event_type=payload.event_type,
-            job_id=payload.job_id,
-            queue_name=payload.queue_name,
-            submission_id=payload.submission_id,
-            terminal_state=payload.terminal_state,
-            occurred_at=payload.occurred_at,
-            payload=payload.model_dump(mode="json"),
+        wakeup_statement = (
+            insert(TaxonomyClassificationWebhookWakeup)
+            .values(event_id=record.event_id)
+            .on_conflict_do_nothing(index_elements=["event_id"])
         )
-        self._session.add(record)
-        await self._session.flush()
-
-        self._session.add(TaxonomyClassificationWebhookWakeup(event_id=record.event_id))
-        await self._session.flush()
+        await self._session.execute(wakeup_statement)
         return record
 
     async def list_pending_events(

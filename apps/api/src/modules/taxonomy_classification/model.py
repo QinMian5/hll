@@ -27,7 +27,12 @@ from shared.db.base import Base
 class TaxonomyClassificationJob(Base):
     __tablename__ = "taxonomy_classification_jobs"
     __table_args__ = (
-        UniqueConstraint("job_id", name="uq_taxonomy_classification_jobs_job_id"),
+        Index(
+            "uq_taxonomy_classification_jobs_job_id",
+            "job_id",
+            unique=True,
+            postgresql_where=text("job_id IS NOT NULL"),
+        ),
         Index(
             "uq_taxonomy_classification_jobs_active_scope_source_node",
             "scope_node_id",
@@ -38,7 +43,7 @@ class TaxonomyClassificationJob(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     scope_node_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("taxonomy_nodes.id"),
@@ -82,7 +87,7 @@ class TaxonomyClassificationWebhookEvent(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     event_id: Mapped[str] = mapped_column(Text, nullable=False)
     event_type: Mapped[str] = mapped_column(Text, nullable=False)
     job_id: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -111,7 +116,7 @@ class TaxonomyClassificationWebhookWakeup(Base):
         UniqueConstraint("event_id", name="uq_taxonomy_classification_webhook_wakeups_event_id"),
     )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
     event_id: Mapped[str] = mapped_column(
         Text,
         ForeignKey("taxonomy_classification_webhook_events.event_id", ondelete="CASCADE"),
