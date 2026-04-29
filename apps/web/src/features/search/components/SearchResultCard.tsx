@@ -36,7 +36,7 @@ export function SearchResultCard({
 
   return (
     <div
-      className="group/card relative flex h-[176px] w-full shrink-0 flex-col items-start gap-3 overflow-visible rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] px-4 pt-4 pb-4 shadow-none transition-[opacity,transform,border-color] duration-150 will-change-transform group-hover/search-results-grid:opacity-80 hover:z-10 hover:-translate-y-1 hover:scale-[1.008] hover:border-[#006bff]/40 hover:opacity-100 focus-within:z-10 focus-within:-translate-y-1 focus-within:scale-[1.008] focus-within:border-[#006bff]/40 focus-within:opacity-100"
+      className="group/card relative flex h-[176px] w-full shrink-0 flex-col items-start gap-3 overflow-visible rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] px-4 pt-4 pb-4 shadow-[0_18px_52px_rgba(107,132,189,0.09)] transition-[opacity,transform,border-color,box-shadow] duration-150 will-change-transform group-hover/search-results-grid:opacity-80 hover:z-10 hover:-translate-y-1 hover:scale-[1.008] hover:border-[#006bff]/40 hover:opacity-100 hover:shadow-[0_4px_14px_rgba(20,39,79,0.08),0_24px_58px_rgba(107,133,189,0.18)] focus-within:z-10 focus-within:-translate-y-1 focus-within:scale-[1.008] focus-within:border-[#006bff]/40 focus-within:opacity-100 focus-within:shadow-[0_4px_14px_rgba(20,39,79,0.08),0_24px_58px_rgba(107,133,189,0.18)]"
       data-testid="search-result-card"
     >
       <span
