@@ -131,7 +131,7 @@ export function SearchPage() {
           >
             <section className="flex min-h-0 min-w-0 flex-col gap-3 lg:h-full lg:gap-4">
               <h1 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
-                Search Results
+                Search results
               </h1>
               <div
                 className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
@@ -161,7 +161,7 @@ export function SearchPage() {
               data-testid="search-suggestions-panel"
             >
               <h2 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
-                Other related results
+                Related results
               </h2>
               <div
                 className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"

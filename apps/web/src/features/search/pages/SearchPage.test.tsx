@@ -131,7 +131,8 @@ describe("SearchPage", () => {
       expect(screen.getByTestId("search-results-grid")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("search-suggestions-panel")).toBeInTheDocument();
-    expect(screen.getByText("Other related results")).toBeInTheDocument();
+    expect(screen.getByText("Search results")).toBeInTheDocument();
+    expect(screen.getByText("Related results")).toBeInTheDocument();
     expect(screen.getByDisplayValue("matrix")).toBeInTheDocument();
     expect(screen.getByTestId("search-icon-button")).toBeInTheDocument();
     expect(screen.queryByTestId("search-empty-state")).not.toBeInTheDocument();
