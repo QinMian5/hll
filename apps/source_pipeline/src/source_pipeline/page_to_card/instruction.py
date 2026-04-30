@@ -17,7 +17,7 @@ Work only from the provided payload.
 The payload represents one source unit and includes the source title,
 source content, and source metadata.
 
-Your task is to identify the independent atomic knowledge units in this
+Your task is to identify the independent knowledge units in this
 source unit and express them as knowledge cards.
 
 A knowledge card has exactly two semantic fields:
@@ -36,11 +36,11 @@ Additional extraction requirements:
 - Do not invent claims that are not supported by the provided source unit.
 
 Extraction policy:
-- Extract the worthwhile independent atomic knowledge units supported by
+- Extract the worthwhile independent knowledge units supported by
   the provided source unit.
 - Prioritize foundational and reusable knowledge units over incidental
   details, boilerplate, navigation text, or editorial noise.
-- If no worthwhile atomic knowledge units are present, return no cards.
+- If no worthwhile knowledge units are present, return no cards.
 """.strip()
 
 

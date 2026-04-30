@@ -5,7 +5,10 @@ Out of scope: Queue transport behavior and downstream handoff logic.
 
 from __future__ import annotations
 
-from source_pipeline.card_review.contracts import export_card_review_output_schema
+import pytest
+from pydantic import ValidationError
+
+from source_pipeline.card_review.contracts import ReviewResult, export_card_review_output_schema
 from source_pipeline.card_review.instruction import build_card_review_instruction
 
 
@@ -13,34 +16,32 @@ def test_card_review_schema_is_exported_from_python_contracts() -> None:
     schema = export_card_review_output_schema()
 
     assert schema["type"] == "object"
-    assert "title_validity" in schema["properties"]
-    assert "passed" not in schema["properties"]
+    assert set(schema["properties"]) == {"passed", "reason"}
+    assert schema["required"] == ["passed"]
+    assert "title_validity" not in schema["properties"]
 
 
-def test_card_review_schema_carries_review_semantics_in_field_descriptions() -> None:
-    schema = export_card_review_output_schema()
-    title_validity = schema["properties"]["title_validity"]["description"]
-
-    assert "most concise unambiguous identifier" in title_validity
-    assert "does not need to summarize, explain, or restate the content" in title_validity
-    assert "precisely scoped" not in title_validity
-    assert "Title Case" in schema["properties"]["title_style_validity"]["description"]
-    assert (
-        "meaningful context or explanation beyond the title"
-        in schema["properties"]["content_coherence"]["description"]
+def test_review_result_requires_reason_only_for_failed_reviews() -> None:
+    assert ReviewResult(passed=True, reason=None).passed is True
+    assert ReviewResult(passed=True, reason="Optional pass explanation.").passed is True
+    assert ReviewResult(passed=False, reason="The content has unresolved references.").passed is (
+        False
     )
-    assert (
-        "not the smallest possible fact fragment"
-        in schema["properties"]["content_atomicity"]["description"]
-    )
-    assert "$ or $$" in schema["properties"]["content_latex_validity"]["description"]
+
+    with pytest.raises(ValidationError):
+        ReviewResult(passed=False, reason=None)
 
 
-def test_card_review_instruction_stays_minimal_when_schema_carries_dimension_details() -> None:
+def test_card_review_instruction_carries_unified_quality_standard() -> None:
     instruction = build_card_review_instruction()
 
     assert "Review the provided candidate knowledge card." in instruction
     assert "Evaluate only the provided title and content." in instruction
+    assert "Each card represents one knowledge unit." in instruction
+    assert "Title Case" in instruction
+    assert "<Subject> (<Domain>)" in instruction
+    assert "self-contained, and self-explanatory" in instruction
+    assert "Definitions, qualifiers, mechanisms, examples, or implications" in instruction
     assert "Do not use external retrieval, memory, or hidden context." in instruction
     assert "Reasons must explain the judgment only" in instruction
     assert "title_validity" not in instruction

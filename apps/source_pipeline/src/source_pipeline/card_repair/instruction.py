@@ -17,8 +17,8 @@ The payload contains:
 - card: the rejected candidate card with title and content
 - review: the accepted review result for that card
 
-Use the failed review dimensions and their reasons to repair the card.
-If the card can be repaired, produce one or more corrected atomic card drafts.
+Use the review result and reason to repair the card.
+If the card can be repaired, produce one or more corrected card drafts.
 If the card cannot be repaired from the provided card and review result, produce no cards.
 Return card drafts that are focused, compact, and context-sufficient.
 Choose the appropriate granularity from the provided card and review result.

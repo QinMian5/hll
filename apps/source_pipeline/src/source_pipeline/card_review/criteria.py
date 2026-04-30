@@ -1,88 +1,30 @@
 """
-Abstract: Shared card-quality criteria for source-pipeline card tasks.
+Abstract: Shared card-quality standard for source-pipeline card tasks.
 Out of scope: Queue transport behavior and worker protocol instructions.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True, slots=True)
-class CardQualityCriterion:
-    title: str
-    description: str
-
-
-CARD_QUALITY_CRITERIA: tuple[CardQualityCriterion, ...] = (
-    CardQualityCriterion(
-        title="title_validity",
-        description=(
-            "The title is the most concise unambiguous identifier for one "
-            "knowledge unit. Prefer the established canonical term or concept "
-            "name when it uniquely refers to the subject. If the same term "
-            "could reasonably refer to different meanings across domains, add "
-            "only the minimal parenthesized domain qualifier needed for "
-            "disambiguation. The title does not need to summarize, explain, or "
-            "restate the content."
-        ),
-    ),
-    CardQualityCriterion(
-        title="title_content_alignment",
-        description=(
-            "The title accurately and sufficiently indicates the actual topic "
-            "discussed by the content."
-        ),
-    ),
-    CardQualityCriterion(
-        title="title_style_validity",
-        description=(
-            "The title follows <subject> or <subject> (<domain>); <subject> is "
-            "preferred by default; the parenthesized domain is used only for "
-            "minimal disambiguation; the title uses Title Case with minor "
-            "function words such as 'a', 'an', 'the', 'of', and 'in' lowercase "
-            "unless they begin the title; full sentences, definition-like "
-            "phrases, colon-separated explanatory labels, and unnecessary "
-            "qualifiers are invalid."
-        ),
-    ),
-    CardQualityCriterion(
-        title="content_coherence",
-        description=(
-            "The content is self-contained and self-explanatory given standard "
-            "domain terminology. It provides meaningful context or explanation "
-            "beyond the title and avoids unresolved references, hidden "
-            "assumptions, bare attribute statements, or implicit external "
-            "prerequisites that should be stated."
-        ),
-    ),
-    CardQualityCriterion(
-        title="content_atomicity",
-        description=(
-            "The content represents one focused knowledge unit, not the smallest "
-            "possible fact fragment. Closely related definitions, qualifiers, "
-            "mechanisms, examples, or implications may remain together when they "
-            "make that unit understandable. Content should be split only when it "
-            "contains multiple knowledge units that can stand alone as "
-            "independently useful cards."
-        ),
-    ),
-    CardQualityCriterion(
-        title="content_latex_validity",
-        description=(
-            "LaTeX math uses \\( and \\) for inline formulas and \\[ and \\] for "
-            "display formulas; $ or $$ delimiters, mismatched delimiters, and malformed "
-            "LaTeX syntax are invalid."
-        ),
-    ),
+CARD_QUALITY_STANDARD = (
+    "Each card represents one knowledge unit.\n\n"
+    "The title must follow Title Case style and must not include qualifiers beyond what "
+    "is needed for minimal disambiguation. If the same term could reasonably refer to "
+    "different meanings across domains, add a parenthesized domain qualifier for "
+    "disambiguation: <Subject> (<Domain>).\n\n"
+    "The title should be self-descriptive, allowing readers to infer the main topic "
+    "without reading the content. Each card should maintain a one-to-one mapping between "
+    "title and content, ensuring topical coherence.\n\n"
+    "Given standard domain terminology, the content must be focused, compact, "
+    "self-contained, and self-explanatory. It must not contain hidden assumptions, "
+    "external prerequisites, missing context, hidden dependencies, or unresolved "
+    "references.\n\n"
+    "Definitions, qualifiers, mechanisms, examples, or implications may stay together "
+    "when they help readers understand the same knowledge unit.\n\n"
+    "Content LaTeX validity:\n"
+    "If the content contains LaTeX math, inline math must use \\( and \\), display math "
+    "must use \\[ and \\], and malformed LaTeX or $ / $$ delimiters are not allowed."
 )
-
-CRITERIA_BY_TITLE = {criterion.title: criterion for criterion in CARD_QUALITY_CRITERIA}
 
 
 def build_quality_criteria_instruction_text() -> str:
-    lines = ["Card quality criteria:"]
-    lines.extend(
-        f"- {criterion.title}: {criterion.description}" for criterion in CARD_QUALITY_CRITERIA
-    )
-    return "\n".join(lines)
+    return f"Card quality standard:\n{CARD_QUALITY_STANDARD}"

@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from source_pipeline.card_repair.contracts import CardRepairInput
 from source_pipeline.card_repair.instruction import build_card_repair_instruction
-from source_pipeline.card_review.contracts import ReviewItem, ReviewResult
+from source_pipeline.card_review.contracts import ReviewResult
 from source_pipeline.card_review.instruction import build_card_review_instruction
 from source_pipeline.db.models import CardCandidate, WorkflowRun, WorkflowUnit
 from source_pipeline.page_to_card.contracts import CardDraft
@@ -77,15 +77,8 @@ def build_review_result(*, job_id: int, passed: bool = True) -> AcceptedJobResul
         submission_id=1,
         received_at=datetime(2026, 4, 20, 23, 1, tzinfo=UTC),
         result_payload=ReviewResult(
-            title_validity=ReviewItem(passed=True, reason=None),
-            title_content_alignment=ReviewItem(passed=True, reason=None),
-            title_style_validity=ReviewItem(
-                passed=passed,
-                reason=None if passed else "Title style is invalid.",
-            ),
-            content_coherence=ReviewItem(passed=True, reason=None),
-            content_atomicity=ReviewItem(passed=True, reason=None),
-            content_latex_validity=ReviewItem(passed=True, reason=None),
+            passed=passed,
+            reason=None if passed else "The card does not satisfy the quality standard.",
         ).model_dump(mode="json"),
     )
 
@@ -412,7 +405,7 @@ async def test_tick_submits_repair_job_for_failed_review_once(db_session: AsyncS
     assert client.created_jobs[0]["instruction"] == build_card_repair_instruction()
     repair_input = CardRepairInput.model_validate(client.created_jobs[0]["payload"])
     assert repair_input.card.title == "bad title"
-    assert repair_input.review.title_style_validity.passed is False
+    assert repair_input.review.passed is False
 
 
 async def test_tick_repair_empty_cards_stops_lineage(db_session: AsyncSession) -> None:

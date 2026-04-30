@@ -14,21 +14,13 @@ from source_pipeline.card_repair.contracts import (
     export_card_repair_output_schema,
 )
 from source_pipeline.card_repair.instruction import build_card_repair_instruction
-from source_pipeline.card_review.contracts import ReviewItem, ReviewResult
-from source_pipeline.card_review.criteria import CARD_QUALITY_CRITERIA
+from source_pipeline.card_review.contracts import ReviewResult
+from source_pipeline.card_review.criteria import CARD_QUALITY_STANDARD
 from source_pipeline.page_to_card.contracts import CardDraft
 
 
 def _passing_review() -> ReviewResult:
-    item = ReviewItem(passed=True)
-    return ReviewResult(
-        title_validity=item,
-        title_content_alignment=item,
-        title_style_validity=item,
-        content_coherence=item,
-        content_atomicity=item,
-        content_latex_validity=item,
-    )
+    return ReviewResult(passed=True, reason=None)
 
 
 def test_card_repair_input_accepts_rejected_card_and_review_result() -> None:
@@ -38,15 +30,20 @@ def test_card_repair_input_accepts_rejected_card_and_review_result() -> None:
     )
 
     assert repair_input.card.title == "Quantum State"
-    assert repair_input.review.content_atomicity.passed is True
+    assert repair_input.review.passed is True
 
 
 def test_card_repair_input_rejects_extra_fields() -> None:
     with pytest.raises(ValidationError):
-        CardRepairInput(
-            card=CardDraft(title="Quantum State", content="A quantum state describes a system."),
-            review=_passing_review(),
-            unexpected=True,
+        CardRepairInput.model_validate(
+            {
+                "card": {
+                    "title": "Quantum State",
+                    "content": "A quantum state describes a system.",
+                },
+                "review": _passing_review().model_dump(mode="json"),
+                "unexpected": True,
+            }
         )
 
 
@@ -79,7 +76,8 @@ def test_card_repair_instruction_includes_shared_quality_dimensions_without_prot
     assert "focused, compact, and context-sufficient" in instruction
     assert "Choose the appropriate granularity" in instruction
     assert "Do not optimize for the shortest possible statement." in instruction
+    assert "Use the review result and reason to repair the card." in instruction
     assert "Do not use external retrieval, memory, or hidden context." in instruction
     assert "Return ONLY a JSON object" not in instruction
-    for criterion in CARD_QUALITY_CRITERIA:
-        assert criterion.title in instruction
+    assert CARD_QUALITY_STANDARD in instruction
+    assert "failed review dimensions" not in instruction

@@ -104,29 +104,25 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - **`card-review` fan-out rule:** Each `CardCandidate` without a review job produces one independent `card-review` job.
   - **`card-review` queue name:** The card-review step submits jobs to the `card_review` queue.
   - **`card-review` input contract:** The step input is one `CardDraft`.
-  - **`card-review` task guidance split:** The `card-review` job instruction stays minimal and task-framing only. The detailed six-dimension review semantics live in the Pydantic-authored output-schema field descriptions exported with the job contract.
+  - **`card-review` task guidance:** The `card-review` job instruction carries the unified card quality standard and asks for one overall judgment. The instruction remains task-specific and does not carry transport-generic worker protocol rules.
   - **`card-review` result contract:** The accepted result payload contains exactly:
-    - `title_validity`
-    - `title_content_alignment`
-    - `title_style_validity`
-    - `content_coherence`
-    - `content_atomicity`
-    - `content_latex_validity`
-    The contract does not add a top-level aggregate `passed` field.
-  - **Review pass rule:** A `card-review` result passes only when all six dimensions have `passed=true`.
+    - `passed`
+    - `reason`
+    `passed` is the overall judgment for the candidate card. `reason` explains why the card failed and is required when `passed=false`.
+  - **Review pass rule:** A `card-review` result passes when `passed=true`.
   - **Accepted-card handoff rule:** Passing `card-review` results are forwarded through `pipeline_handoff` to the knowledge ingestion HTTP endpoint `POST /api/v1/cards` with only the candidate title and content in the request body. Every handoff request for one `CardCandidate` carries the same stable `Idempotency-Key` header derived from source-pipeline candidate identity. `pipeline_handoff` marks `ingestion_handoff_done=true` only after the knowledge API accepts the request with `202 Accepted`.
   - **Rejected-card repair rule:** Failed `card-review` results create one `card-repair` job for the rejected candidate when no repair job exists for that candidate.
   - **`card-repair` queue name:** The repair step submits jobs to the `card_repair` queue.
   - **`card-repair` input contract:** The step input is one object with:
     - `card`: the rejected `CardDraft`
     - `review`: the accepted `CardReviewResult`
-  - **`card-repair` task guidance:** The `card-repair` instruction explains how to repair the candidate using only the rejected card and review result. It includes the six card-quality dimensions so the worker can repair toward focused, compact, and context-sufficient card drafts under the same standard enforced by review. The instruction does not include transport-generic worker protocol rules.
+  - **`card-repair` task guidance:** The `card-repair` instruction explains how to repair the candidate using only the rejected card, review result, and review reason. It includes the unified card quality standard so the worker can repair toward focused, compact, context-sufficient card drafts under the same standard enforced by review. The instruction does not include transport-generic worker protocol rules.
   - **`card-repair` result contract:** The accepted result payload is a JSON object with one required field:
     - `cards`
     The `cards` field is an array of `CardDraft`. `{ "cards": [] }` is a valid accepted result and means the rejected candidate cannot be repaired from the provided card and review result.
   - **Repair child-candidate rule:** Each `CardDraft` returned by `card-repair` creates one child `CardCandidate` with `parent_candidate_id` pointing to the rejected candidate. Each child candidate re-enters `card-review`.
   - **Repair loop rule:** The first version does not set a maximum repair-attempt count. A lineage stops only when a candidate passes review and completes ingestion handoff, a repair result returns no cards, or a required queue job reaches a terminal non-accepted state.
-  - **Shared quality criteria rule:** The six card-quality criteria are maintained as shared source-pipeline task guidance and projected consistently into page extraction, card review schema descriptions, and card repair instructions.
+  - **Shared quality standard rule:** One unified card-quality standard is maintained as shared source-pipeline task guidance and projected consistently into page extraction, card review instructions, and card repair instructions.
   - **Handoff retry rule:** If knowledge ingestion handoff fails before `202 Accepted`, `ingestion_handoff_done` remains false and a later orchestrator tick retries the handoff with the same stable `Idempotency-Key`.
   - **Candidate idempotency rule:** Repeated ticks must not duplicate review jobs, repair jobs, ingestion handoffs, or child candidates. Child-candidate creation is idempotent for one parent candidate, one repair job, and one repair-result ordinal. Knowledge ingestion treats repeated `POST /api/v1/cards` requests carrying the same `Idempotency-Key` as the same logical accepted submission, so ambiguous network failures do not materialize duplicate cards.
   - **Queue-as-truth rule:** Local webhook events are notification triggers only. The runtime rereads accepted results from `GET /results/{job_id}` and rereads current job state from the queue operator/result surfaces during reconcile. It stores only the terminal non-accepted checkpoint needed to stop repeated local polling and does not mirror accepted payloads, full lifecycle history, leases, or submission history into local tables.
@@ -135,13 +131,13 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   - **Low-frequency reconcile rule:** `pipeline_runtime` keeps a low-frequency reconcile path for outstanding job linkages. Reconcile is a compensation path for missed notifications, configuration errors, or exhausted remote delivery retries; it is not the primary result-consumption path.
   - **No source discovery in runtime:** `pipeline_runtime` consumes only persisted `WorkflowUnit` state created by intake. Source selection remains outside the runtime.
   - **Knowledge persistence boundary:** Source pipeline does not write knowledge graph tables, compute embeddings, create edges, update adjacency, or assign taxonomy. Accepted card persistence is performed by the knowledge ingestion API and worker runtime.
-  - **Card quality criteria:** Page extraction, card review, and card repair share these criteria:
-    - `title_validity`: the title is the most concise unambiguous identifier for one knowledge unit. Prefer the established canonical term or concept name when it uniquely refers to the subject. If the same term could reasonably refer to different meanings across domains, add only the minimal parenthesized domain qualifier needed for disambiguation. The title does not need to summarize, explain, or restate the content.
-    - `title_content_alignment`: the title accurately and sufficiently indicates the actual topic discussed by the content.
-    - `title_style_validity`: the title follows `<subject>` or `<subject> (<domain>)`; `<subject>` is preferred by default; the parenthesized domain is used only for minimal disambiguation; the title uses Title Case with minor function words such as `a`, `an`, `the`, `of`, and `in` lowercase unless they begin the title; full sentences, definition-like phrases, colon-separated explanatory labels, and unnecessary qualifiers are invalid.
-    - `content_coherence`: the content is self-contained and self-explanatory given standard domain terminology, provides meaningful context or explanation beyond the title, and avoids unresolved references, hidden assumptions, bare attribute statements, or implicit external prerequisites that should be stated.
-    - `content_atomicity`: the content represents one focused knowledge unit, not the smallest possible fact fragment; closely related definitions, qualifiers, mechanisms, examples, or implications may remain together when they make that unit understandable; content should be split only when it contains multiple knowledge units that can stand alone as independently useful cards.
-    - `content_latex_validity`: LaTeX math uses `\(` and `\)` for inline formulas and `\[` and `\]` for display formulas; `$`, `$$`, mismatched delimiters, and malformed LaTeX syntax are invalid.
+  - **Card quality standard:** Page extraction, card review, and card repair share this standard:
+    - Each card represents one knowledge unit.
+    - The title follows Title Case and includes no qualifiers beyond minimal disambiguation. If the same term could reasonably refer to different meanings across domains, the title uses `<Subject> (<Domain>)`.
+    - The title is self-descriptive enough for readers to infer the main topic without reading the content. Each card maintains a one-to-one mapping between title and content.
+    - Given standard domain terminology, the content is focused, compact, self-contained, and self-explanatory. It does not rely on hidden assumptions, external prerequisites, missing context, hidden dependencies, or unresolved references.
+    - Definitions, qualifiers, mechanisms, examples, or implications may stay together when they help readers understand the same knowledge unit.
+    - LaTeX math uses `\(` and `\)` for inline formulas and `\[` and `\]` for display formulas. Malformed LaTeX and `$` or `$$` delimiters are invalid.
 - **Interactions:**
   1. An external caller submits one source-processing config to `pipeline_intake`.
   2. `pipeline_intake` validates the config, creates one `WorkflowRun`, and materializes the corresponding `WorkflowUnit` rows.
@@ -151,8 +147,8 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
   6. `pipeline_runtime` processes the local event. For accepted result events, it rereads the accepted `result_payload["cards"]` result and creates missing initial `CardCandidate` rows by page result ordinal. For terminal non-accepted events, it records the affected job's terminal checkpoint and stops page-result fan-out plus repeated local polling for that job.
   7. `pipeline_runtime` submits one `card-review` job for each candidate that lacks `review_job_id`.
   8. `job-queue-mcp` delivers a notification when each `card-review` job has an accepted result or reaches a terminal non-accepted state.
-  9. For accepted review results, `pipeline_runtime` rereads the result payload. When all review dimensions pass, `pipeline_handoff` posts the candidate title and content to `POST /api/v1/cards` with a stable `Idempotency-Key` and marks `ingestion_handoff_done=true` after `202 Accepted`.
-  10. When any accepted review dimension fails, `pipeline_runtime` submits one `card-repair` job for the candidate when no repair job exists.
+  9. For accepted review results, `pipeline_runtime` rereads the result payload. When `passed=true`, `pipeline_handoff` posts the candidate title and content to `POST /api/v1/cards` with a stable `Idempotency-Key` and marks `ingestion_handoff_done=true` after `202 Accepted`.
+  10. When `passed=false`, `pipeline_runtime` submits one `card-repair` job for the candidate when no repair job exists.
   11. `job-queue-mcp` delivers a notification when each `card-repair` job has an accepted result or reaches a terminal non-accepted state.
   12. For accepted repair results, `pipeline_runtime` rereads the result payload and creates child `CardCandidate` rows for each repaired card returned by `card-repair`.
   13. Child candidates re-enter the same review flow.
@@ -181,7 +177,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
 - **Checks:**
   - Spec review confirms source intake, orchestration runtime, and step contracts are formal project-owned app boundaries rather than `human_workspace` scripts.
   - Contract tests verify `SourceUnit`, `CardDraft`, `CardReviewResult`, `CardRepairInput`, and `CardRepairResult` shapes.
-  - Instruction tests verify page extraction, card review, and card repair share the same six card-quality criteria without duplicating transport-generic worker protocol instructions.
+  - Instruction tests verify page extraction, card review, and card repair share the same card-quality standard without duplicating transport-generic worker protocol instructions.
   - PostgreSQL-backed integration tests verify `workflow_runs`, `workflow_units`, and `card_candidates` are sufficient for restart/resume behavior without mirroring queue lifecycle state.
   - Webhook receiver tests verify `knowledge` Logto token validation, duplicate event handling, event persistence, and local wakeup behavior.
   - Queue integration tests verify accepted `page-to-card` notifications lead the runtime to reread results, create candidates, and fan out into one `card-review` job per candidate.

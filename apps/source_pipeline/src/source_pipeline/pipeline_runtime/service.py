@@ -475,16 +475,7 @@ class PipelineRuntimeService:
 
 
 def _review_passed(review: ReviewResult) -> bool:
-    return all(
-        (
-            review.title_validity.passed,
-            review.title_content_alignment.passed,
-            review.title_style_validity.passed,
-            review.content_coherence.passed,
-            review.content_atomicity.passed,
-            review.content_latex_validity.passed,
-        )
-    )
+    return review.passed
 
 
 def _terminal_non_accepted_state(state: str | None) -> bool:
