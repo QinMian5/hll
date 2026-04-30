@@ -117,6 +117,7 @@ function LeafDisclosureContent({ content }: { readonly content: string }) {
     <ScrollArea
       className={DISCLOSURE_CONTENT_SCROLL_CLASS}
       data-testid="taxonomy-leaf-disclosure-content-scroll-area"
+      viewportFillsContainer={false}
       viewportClassName={DISCLOSURE_CONTENT_VIEWPORT_CLASS}
     >
       <KnowledgeRichText text={content} variant="content" />

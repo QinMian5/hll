@@ -89,6 +89,26 @@ describe("LeafDisclosureOverlay", () => {
     expect(classNames[0]).toBe(classNames[1]);
   });
 
+  it("lets short content hug its natural height instead of filling the maximum content region", () => {
+    render(
+      <LeafDisclosureOverlay
+        canvas={{ height: 900, width: 1404 }}
+        disclosure={makeDisclosure("selected")}
+        viewport={{ target: [700, 450, 0], zoom: 0 }}
+      />,
+    );
+
+    const scrollArea = screen.getByTestId(
+      "taxonomy-leaf-disclosure-content-scroll-area",
+    );
+    const scrollViewport = scrollArea.firstElementChild;
+
+    expect(scrollArea).toHaveClass(
+      "max-h-[var(--leaf-disclosure-card-content-height)]",
+    );
+    expect(scrollViewport).not.toHaveClass("h-full");
+  });
+
   it("allows long disclosure titles to scroll horizontally", () => {
     const disclosure = makeDisclosure("selected");
 

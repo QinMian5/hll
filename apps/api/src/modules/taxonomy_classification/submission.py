@@ -188,6 +188,11 @@ class TaxonomyClassificationSubmissionService:
                 children=[
                     TaxonomyClassificationChildPayload(name=child.name)
                     for child in resolved_scope.regular_children
+                ]
+                + [
+                    TaxonomyClassificationChildPayload(
+                        name=resolved_scope.source_unclassified_node.name
+                    )
                 ],
             )
             metadata: dict[str, object] = {

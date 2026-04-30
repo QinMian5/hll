@@ -63,7 +63,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - **Payload:** one JSON object containing:
   - `scope_path`: current root-to-scope breadcrumb path, formatted as names separated by ` / `, for example `Root / Science / Mathematics`
   - `card`: `{title, content}`
-  - `children`: array of direct regular child category options for the scope, each item containing only `name`
+  - `children`: array of target category options for the scope, each item containing only `name`; it contains each direct regular child category plus the scope's direct `Unclassified` leaf.
 - **Instruction:** task-specific guidance tells the worker only to classify the supplied card within the supplied taxonomy scope path into exactly one supplied direct child taxonomy category, or keep it in `Unclassified` when no child fits. Output formatting and case-insensitive name matching are enforced by the separate output schema and runtime validation, not repeated in the instruction text.
 - **Output schema:** one JSON object containing:
   - `{ "target_name": <non-empty child name or Unclassified> }`

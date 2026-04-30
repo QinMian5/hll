@@ -549,7 +549,7 @@ async def test_operator_submission_creates_one_job_per_card_in_scope_unclassifie
     assert payload == {
         "scope_path": "Root",
         "card": {"title": node.title, "content": node.content},
-        "children": [{"name": "Science"}],
+        "children": [{"name": "Science"}, {"name": "Unclassified"}],
     }
 
 
