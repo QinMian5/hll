@@ -112,15 +112,23 @@ def test_compose_contains_source_pipeline_webhook_receiver_service() -> None:
     assert 'profiles: ["webhook_receiver"]' in stripped_dev
 
 
-def test_prod_compose_wires_knowledge_logto_for_webhook_receiver() -> None:
+def test_prod_compose_requires_knowledge_logto_for_webhook_receiver() -> None:
     base_logto_block = _service_block(BASE_COMPOSE, "logto")
     base_receiver_block = _service_block(BASE_COMPOSE, "source_pipeline_webhook_receiver")
     prod_nginx_block = _service_block(PROD_COMPOSE, "nginx")
     stripped_logto = [line.strip() for line in base_logto_block]
     stripped_receiver = [line.strip() for line in base_receiver_block]
     stripped_nginx = [line.strip() for line in prod_nginx_block]
+    expected_endpoint = (
+        "ENDPOINT: ${KNOWLEDGE_LOGTO_ENDPOINT:?KNOWLEDGE_LOGTO_ENDPOINT is required}"
+    )
+    expected_admin_endpoint = (
+        "ADMIN_ENDPOINT: "
+        "${KNOWLEDGE_LOGTO_ADMIN_ENDPOINT:?KNOWLEDGE_LOGTO_ADMIN_ENDPOINT is required}"
+    )
 
-    assert "ENDPOINT: ${KNOWLEDGE_LOGTO_ENDPOINT:-}" in stripped_logto
+    assert expected_endpoint in stripped_logto
+    assert expected_admin_endpoint in stripped_logto
     assert "logto:" in stripped_receiver
     assert "condition: service_healthy" in stripped_receiver
     assert "- knowledge-logto.orbitalis.org" in stripped_nginx
