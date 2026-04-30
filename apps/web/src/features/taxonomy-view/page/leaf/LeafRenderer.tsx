@@ -51,6 +51,7 @@ import {
 } from "./useLeafSceneModel";
 import {
   buildLeafViewportState,
+  isLeafPointTitleModeActive,
   selectLeafHydrationNodeIds,
   snapLeafWorldBoundsToTile,
 } from "./useLeafViewportController";
@@ -169,6 +170,9 @@ export function LeafRenderer({
     useState(initialDeckViewport);
   const deferredDeckViewportSnapshot = useDeferredValue(deckViewportSnapshot);
   const liveViewportRef = useRef(initialDeckViewport);
+  const [isPointTitleModeActive, setIsPointTitleModeActive] = useState(() =>
+    isLeafPointTitleModeActive(initialDeckViewport.zoom),
+  );
   const [hoveredPointNodeId, setHoveredPointNodeId] = useState<number | null>(
     null,
   );
@@ -188,6 +192,9 @@ export function LeafRenderer({
 
     liveViewportRef.current = initialDeckViewport;
     setDeckViewportSnapshot(initialDeckViewport);
+    setIsPointTitleModeActive(
+      isLeafPointTitleModeActive(initialDeckViewport.zoom),
+    );
     setHoveredPointNodeId(null);
     setSelectedNodeId(null);
     setLeafTitleCache({});
@@ -198,6 +205,10 @@ export function LeafRenderer({
   const handleViewportFrameChange = useCallback(
     (viewport: typeof initialDeckViewport) => {
       liveViewportRef.current = viewport;
+      setIsPointTitleModeActive((currentValue) => {
+        const nextValue = isLeafPointTitleModeActive(viewport.zoom);
+        return currentValue === nextValue ? currentValue : nextValue;
+      });
       titleLabelsRef.current?.syncViewport(viewport);
       disclosureRef.current?.syncViewport(viewport);
     },
@@ -289,16 +300,16 @@ export function LeafRenderer({
   );
 
   useEffect(() => {
-    if (viewportState.isPointTitleModeActive) {
+    if (isPointTitleModeActive) {
       return;
     }
 
     setHoveredPointNodeId(null);
     setSelectedNodeId(null);
-  }, [viewportState.isPointTitleModeActive]);
+  }, [isPointTitleModeActive]);
 
   const visibleTitleNodeIds = useMemo(() => {
-    if (!viewportState.isPointTitleModeActive) {
+    if (!isPointTitleModeActive) {
       return [];
     }
 
@@ -306,7 +317,7 @@ export function LeafRenderer({
       leafLayout.nodes,
       viewportState.overscanBounds,
     );
-  }, [leafLayout.nodes, viewportState]);
+  }, [isPointTitleModeActive, leafLayout.nodes, viewportState.overscanBounds]);
 
   const missingTitleNodeIds = useMemo(
     () =>
@@ -320,8 +331,7 @@ export function LeafRenderer({
     leafNodeId,
     missingTitleNodeIds,
     {
-      enabled:
-        viewportState.isPointTitleModeActive && missingTitleNodeIds.length > 0,
+      enabled: isPointTitleModeActive && missingTitleNodeIds.length > 0,
     },
   );
 
@@ -350,7 +360,7 @@ export function LeafRenderer({
   }, [leafTitlesQuery.data]);
 
   const detailTargetNodeIds = useMemo(() => {
-    if (!viewportState.isPointTitleModeActive) {
+    if (!isPointTitleModeActive) {
       return [];
     }
 
@@ -359,11 +369,7 @@ export function LeafRenderer({
     }
 
     return hoveredPointNodeId === null ? [] : [hoveredPointNodeId];
-  }, [
-    hoveredPointNodeId,
-    selectedNodeId,
-    viewportState.isPointTitleModeActive,
-  ]);
+  }, [hoveredPointNodeId, isPointTitleModeActive, selectedNodeId]);
   const missingDetailNodeIds = useMemo(
     () =>
       detailTargetNodeIds.filter(
@@ -376,8 +382,7 @@ export function LeafRenderer({
     leafNodeId,
     missingDetailNodeIds,
     {
-      enabled:
-        viewportState.isPointTitleModeActive && missingDetailNodeIds.length > 0,
+      enabled: isPointTitleModeActive && missingDetailNodeIds.length > 0,
     },
   );
 
@@ -453,11 +458,11 @@ export function LeafRenderer({
       ),
     [scene.pointNodes],
   );
-  const activeFocusNodeId = viewportState.isPointTitleModeActive
+  const activeFocusNodeId = isPointTitleModeActive
     ? (selectedNodeId ?? hoveredPointNodeId)
     : null;
   const disclosure = useMemo<LeafDisclosureState | null>(() => {
-    if (!viewportState.isPointTitleModeActive) {
+    if (!isPointTitleModeActive) {
       return null;
     }
 
@@ -482,10 +487,10 @@ export function LeafRenderer({
     return null;
   }, [
     hoveredPointNodeId,
+    isPointTitleModeActive,
     leafDetailCache,
     pointNodesById,
     selectedNodeId,
-    viewportState.isPointTitleModeActive,
   ]);
   const hiddenLabelNodeId = disclosure?.node.graphNodeId ?? null;
   const hydrationError = leafLayoutQuery.isError
@@ -498,18 +503,18 @@ export function LeafRenderer({
 
   const handlePointHover = useCallback(
     (nodeId: number | null) => {
-      if (!viewportState.isPointTitleModeActive) {
+      if (!isPointTitleModeActive) {
         setHoveredPointNodeId(null);
         return;
       }
 
       setHoveredPointNodeId(nodeId);
     },
-    [viewportState.isPointTitleModeActive],
+    [isPointTitleModeActive],
   );
   const handlePointClick = useCallback(
     (nodeId: number) => {
-      if (!viewportState.isPointTitleModeActive) {
+      if (!isPointTitleModeActive) {
         return;
       }
 
@@ -517,7 +522,7 @@ export function LeafRenderer({
         currentNodeId === nodeId ? null : nodeId,
       );
     },
-    [viewportState.isPointTitleModeActive],
+    [isPointTitleModeActive],
   );
   const handleCanvasClick = useCallback(() => {
     setSelectedNodeId(null);
@@ -548,7 +553,7 @@ export function LeafRenderer({
           activeFocusNodeId={activeFocusNodeId}
           hoveredPointNodeId={hoveredPointNodeId}
           initialViewport={initialDeckViewport}
-          isPointInteractionEnabled={viewportState.isPointTitleModeActive}
+          isPointInteractionEnabled={isPointTitleModeActive}
           onCanvasClick={handleCanvasClick}
           onPointClick={handlePointClick}
           onPointHover={handlePointHover}

@@ -7,6 +7,7 @@ import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
 import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
 import {
   buildLeafViewportState,
+  isLeafPointTitleModeActive,
   selectLeafHydrationNodeIds,
   snapLeafWorldBoundsToTile,
 } from "./useLeafViewportController";
@@ -39,17 +40,16 @@ function makeLayoutPointNode(options: {
 }
 
 describe("leaf viewport controller helpers", () => {
-  it("keeps point-title mode inactive below the activation zoom", () => {
-    const state = buildLeafViewportState({
-      canvas: { height: 900, width: 1404 },
-      overscan: 160,
-      viewport: {
-        target: [702, 450, 0],
-        zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM - 0.1,
-      },
-    });
-
-    expect(state.isPointTitleModeActive).toBe(false);
+  it("uses one inclusive zoom threshold for point-title mode", () => {
+    expect(
+      isLeafPointTitleModeActive(LEAF_POINT_TITLE_ACTIVATION_ZOOM - 0.001),
+    ).toBe(false);
+    expect(isLeafPointTitleModeActive(LEAF_POINT_TITLE_ACTIVATION_ZOOM)).toBe(
+      true,
+    );
+    expect(
+      isLeafPointTitleModeActive(LEAF_POINT_TITLE_ACTIVATION_ZOOM + 0.001),
+    ).toBe(true);
   });
 
   it("computes world and overscan bounds from orthographic viewport state", () => {
@@ -59,7 +59,6 @@ describe("leaf viewport controller helpers", () => {
       viewport: { target: [702, 450, 0], zoom: 1 },
     });
 
-    expect(state.isPointTitleModeActive).toBe(true);
     expect(state.bounds.left).toBeCloseTo(351);
     expect(state.bounds.right).toBeCloseTo(1053);
     expect(state.overscanBounds.left).toBeLessThan(state.bounds.left);

@@ -73,23 +73,29 @@ vi.mock("./LeafDeckScene", () => ({
       </div>
       <div data-testid="leaf-scene-edge-count">{scene.edges.length}</div>
       <button
-        onClick={() =>
-          onViewportChange({
+        onClick={() => {
+          const nextViewport = {
             target: initialViewport.target,
             zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM,
-          })
-        }
+          };
+
+          onViewportFrameChange?.(nextViewport);
+          onViewportChange(nextViewport);
+        }}
         type="button"
       >
         Zoom in
       </button>
       <button
-        onClick={() =>
-          onViewportChange({
+        onClick={() => {
+          const nextViewport = {
             target: initialViewport.target,
             zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM - 0.1,
-          })
-        }
+          };
+
+          onViewportFrameChange?.(nextViewport);
+          onViewportChange(nextViewport);
+        }}
         type="button"
       >
         Zoom out
@@ -108,6 +114,28 @@ vi.mock("./LeafDeckScene", () => ({
         type="button"
       >
         Frame move
+      </button>
+      <button
+        onClick={() =>
+          onViewportFrameChange?.({
+            target: initialViewport.target,
+            zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+          })
+        }
+        type="button"
+      >
+        Live zoom in
+      </button>
+      <button
+        onClick={() =>
+          onViewportFrameChange?.({
+            target: initialViewport.target,
+            zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM - 0.1,
+          })
+        }
+        type="button"
+      >
+        Live zoom out
       </button>
       <button
         onClick={() => {
@@ -551,6 +579,44 @@ describe("LeafRenderer", () => {
     expect(
       screen.getByTestId("leaf-scene-title-label-count"),
     ).toHaveTextContent("0");
+    expect(
+      screen.queryByTestId("taxonomy-leaf-disclosure-overlay"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("toggles point-title mode from live deck zoom frames without waiting for a viewport snapshot", async () => {
+    installSuccessfulQueryMocks();
+
+    render(
+      <LeafRenderer
+        leafView={makeLeafView()}
+        viewport={{ height: 900, width: 1404 }}
+      />,
+    );
+
+    expect(
+      await screen.findByTestId("leaf-point-interaction-enabled"),
+    ).toHaveTextContent("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Live zoom in" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("leaf-point-interaction-enabled"),
+      ).toHaveTextContent("true");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Click 10" }));
+
+    await screen.findByTestId("taxonomy-leaf-disclosure-overlay");
+
+    fireEvent.click(screen.getByRole("button", { name: "Live zoom out" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("leaf-point-interaction-enabled"),
+      ).toHaveTextContent("false");
+    });
     expect(
       screen.queryByTestId("taxonomy-leaf-disclosure-overlay"),
     ).not.toBeInTheDocument();

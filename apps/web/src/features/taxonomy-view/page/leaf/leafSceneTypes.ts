@@ -28,7 +28,6 @@ export interface BuildLeafViewportStateInput {
 
 export interface LeafViewportState {
   readonly bounds: LeafWorldBounds;
-  readonly isPointTitleModeActive: boolean;
   readonly overscanBounds: LeafWorldBounds;
   readonly viewport: LeafOrthographicViewport;
 }

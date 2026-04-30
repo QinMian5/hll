@@ -13,6 +13,10 @@ function scaleFromZoom(zoom: number) {
   return 2 ** zoom;
 }
 
+export function isLeafPointTitleModeActive(zoom: number) {
+  return zoom >= LEAF_POINT_TITLE_ACTIVATION_ZOOM;
+}
+
 export function expandLeafWorldBounds(
   bounds: LeafWorldBounds,
   overscan: number,
@@ -68,8 +72,6 @@ export function buildLeafViewportState(
 
   return {
     bounds,
-    isPointTitleModeActive:
-      input.viewport.zoom >= LEAF_POINT_TITLE_ACTIVATION_ZOOM,
     overscanBounds: expandLeafWorldBounds(bounds, input.overscan),
     viewport: input.viewport,
   };
