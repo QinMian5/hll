@@ -1,141 +1,315 @@
-// abstract: Routed unified documentation hub for project overview and MCP client setup guidance.
-// out_of_scope: Docs search indexing, markdown content loading, live token generation, and external client execution.
+// abstract: Figma-projected MCP client setup page for the Docs route.
+// out_of_scope: Markdown content loading, live token generation, and external MCP client execution.
 
-const startHereItems = [
-  {
-    body: "What the Knowledge Graph is, where Search and Graph View fit, and how the project exposes public web and MCP surfaces.",
-    title: "Project overview",
-  },
-  {
-    body: "How model clients connect to the public MCP endpoint with a user-created personal access token.",
-    title: "MCP access",
-  },
-  {
-    body: "How token scope, account quota, and usage attribution work before a client starts calling search.",
-    title: "Security and quota",
-  },
-] as const;
+import { Copy } from "lucide-react";
+import { useMemo, useState } from "react";
 
-const clientItems = [
-  {
-    body: "Add the Knowledge MCP endpoint to Codex, then use a Dashboard token as the bearer credential for search.",
-    command: "codex mcp add knowledge --url https://<your-host>/mcp",
-    title: "Codex",
-  },
-  {
-    body: "Register the same MCP endpoint in Claude Code project settings and keep personal token values out of shared files.",
-    command: ".claude/settings.local.json",
-    title: "Claude Code",
-  },
-] as const;
+import { ScrollArea } from "../../../shared/ui";
+import { cn } from "../../../shared/utils";
 
-function SectionCard({
-  body,
-  title,
-}: {
-  readonly body: string;
+type DocsClientId = "codex" | "claude-code" | "openclaw";
+
+interface DocsSetupStep {
+  readonly command: string;
+  readonly description: string;
+  readonly label: string;
   readonly title: string;
+}
+
+interface DocsClient {
+  readonly configurationTitle: string;
+  readonly iconSrc: string;
+  readonly id: DocsClientId;
+  readonly name: string;
+  readonly panelTitle: string;
+  readonly steps: readonly DocsSetupStep[];
+}
+
+const docsClients: readonly DocsClient[] = [
+  {
+    configurationTitle: "Codex Configuration",
+    iconSrc: "/docs-clients/codex-icon.png",
+    id: "codex",
+    name: "Codex",
+    panelTitle: "Connect Knowledge to Codex",
+    steps: [
+      {
+        command: "codex mcp add knowledge --url https://<your-host>/mcp",
+        description: "Add the Knowledge MCP server to Codex.",
+        label: "Terminal",
+        title: "Add the MCP server",
+      },
+      {
+        command: "codex mcp login knowledge",
+        description:
+          "Open the browser-based OAuth flow and authorize Codex to access your Knowledge account.",
+        label: "Terminal",
+        title: "Authenticate with OAuth",
+      },
+      {
+        command: "codex mcp list",
+        description: "Confirm Knowledge appears as a registered MCP server.",
+        label: "Terminal",
+        title: "Verify the connection",
+      },
+    ],
+  },
+  {
+    configurationTitle: "Claude Code Configuration",
+    iconSrc: "/docs-clients/claudecode-icon.png",
+    id: "claude-code",
+    name: "Claude Code",
+    panelTitle: "Connect Knowledge to Claude Code",
+    steps: [
+      {
+        command:
+          "claude mcp add --transport http knowledge https://<your-host>/mcp",
+        description:
+          "Add the Knowledge MCP server to Claude Code using HTTP transport.",
+        label: "Terminal",
+        title: "Add the MCP server",
+      },
+      {
+        command: "/mcp",
+        description:
+          "Run the MCP menu command in Claude Code and follow the browser sign-in flow.",
+        label: "Claude Code",
+        title: "Authenticate with OAuth",
+      },
+      {
+        command: "claude mcp list",
+        description:
+          "Confirm Knowledge appears in Claude Code's MCP server list.",
+        label: "Terminal",
+        title: "Verify the connection",
+      },
+    ],
+  },
+  {
+    configurationTitle: "OpenClaw Configuration",
+    iconSrc: "/docs-clients/openclaw-icon.png",
+    id: "openclaw",
+    name: "OpenClaw",
+    panelTitle: "Connect Knowledge to OpenClaw",
+    steps: [
+      {
+        command: `openclaw mcp set knowledge '{"url":"https://<your-host>/mcp"}'`,
+        description:
+          "Register the Knowledge MCP server in OpenClaw's client-side MCP registry.",
+        label: "Terminal",
+        title: "Save the MCP server",
+      },
+      {
+        command: "openclaw mcp show knowledge --json",
+        description:
+          "Review the saved server definition before using it from an OpenClaw runtime.",
+        label: "Terminal",
+        title: "Inspect the saved configuration",
+      },
+      {
+        command: "openclaw mcp list",
+        description: "Confirm Knowledge appears in the OpenClaw MCP registry.",
+        label: "Terminal",
+        title: "Verify the registry entry",
+      },
+    ],
+  },
+];
+
+const scrollAreaTheme =
+  "[--scroll-area-padding-right:var(--spacing-docs-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-docs-scrollbar-width)] [--scroll-area-thumb-color:var(--color-docs-scrollbar-thumb)] [--scroll-area-track-color:var(--color-docs-scrollbar-track)]";
+
+function copyCommand(command: string) {
+  if (typeof navigator === "undefined" || navigator.clipboard === undefined) {
+    return;
+  }
+
+  void navigator.clipboard.writeText(command).catch(() => undefined);
+}
+
+function ClientRow({
+  client,
+  isSelected,
+  onSelect,
+}: {
+  readonly client: DocsClient;
+  readonly isSelected: boolean;
+  readonly onSelect: () => void;
 }) {
   return (
-    <article className="rounded-lg border border-[#e0e4eb] bg-white p-5">
-      <h3 className="m-0 text-[15px] leading-5 font-medium text-[#131c2d]">
-        {title}
-      </h3>
-      <p className="mt-2 mb-0 text-[13px] leading-5 text-[#606e87]">{body}</p>
-    </article>
+    <button
+      aria-controls="docs-client-configuration-panel"
+      aria-pressed={isSelected}
+      className={cn(
+        "flex h-docs-client-row-height w-full shrink-0 items-center gap-docs-client-row-gap rounded-knowledge-surface border p-docs-control-padding text-left transition-colors",
+        isSelected
+          ? "border-docs-border-accent bg-knowledge-surface-accent-soft"
+          : "border-knowledge-border-card bg-knowledge-surface-card hover:border-docs-border-accent hover:bg-knowledge-surface-accent-soft",
+      )}
+      onClick={onSelect}
+      type="button"
+    >
+      <img
+        alt=""
+        className="size-docs-client-icon-size shrink-0 object-cover"
+        src={client.iconSrc}
+      />
+      <span className="min-w-0 flex-1 text-docs-client-label font-semibold text-knowledge-text-default">
+        {client.name}
+      </span>
+    </button>
   );
 }
 
-function ClientCard({
-  body,
+function TerminalCommand({
   command,
-  title,
+  label,
 }: {
-  readonly body: string;
   readonly command: string;
-  readonly title: string;
+  readonly label: string;
 }) {
   return (
-    <article className="rounded-lg border border-[#e0e4eb] bg-white p-5">
-      <h3 className="m-0 text-[15px] leading-5 font-medium text-[#131c2d]">
-        {title}
-      </h3>
-      <p className="mt-2 mb-0 text-[13px] leading-5 text-[#606e87]">{body}</p>
-      <code className="mt-4 block overflow-x-auto rounded-md border border-[#e0e4eb] bg-[#f8fafc] px-3 py-2 text-[12px] leading-5 text-[#131c2d]">
-        {command}
-      </code>
+    <div className="flex w-full shrink-0 flex-col items-start overflow-hidden rounded-knowledge-surface bg-docs-terminal-body">
+      <div className="flex h-docs-terminal-header-height w-full shrink-0 items-center gap-docs-control-gap bg-docs-terminal-header px-docs-terminal-padding">
+        <span className="min-w-0 flex-1 text-docs-terminal-label font-medium text-knowledge-text-inverse">
+          {label}
+        </span>
+        <button
+          aria-label={`Copy command: ${command}`}
+          className="flex size-docs-icon-button-size shrink-0 items-center justify-center rounded-docs-icon-button text-docs-terminal-action transition-colors hover:bg-docs-terminal-action-hover-bg hover:text-docs-terminal-action-hover"
+          onClick={() => copyCommand(command)}
+          title="Copy command"
+          type="button"
+        >
+          <Copy
+            aria-hidden="true"
+            className="size-docs-copy-icon-size"
+            strokeWidth={2}
+          />
+        </button>
+      </div>
+      <div className="flex w-full shrink-0 flex-col items-start bg-docs-terminal-body p-docs-terminal-padding">
+        <code className="w-full whitespace-pre-wrap break-words font-mono text-docs-terminal text-knowledge-text-inverse">
+          {command}
+        </code>
+      </div>
+    </div>
+  );
+}
+
+function SetupStep({
+  index,
+  step,
+}: {
+  readonly index: number;
+  readonly step: DocsSetupStep;
+}) {
+  return (
+    <article className="flex w-full shrink-0 items-start gap-docs-step-row-gap">
+      <div className="flex size-docs-step-badge-size shrink-0 items-center justify-center rounded-full border border-docs-border-accent bg-knowledge-surface-accent-soft text-center text-docs-terminal-label font-semibold text-knowledge-text-default">
+        {index + 1}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-docs-content-gap">
+        <h3 className="m-0 w-full text-docs-step-title font-semibold text-knowledge-text-default">
+          {step.title}
+        </h3>
+        <p className="m-0 w-full text-docs-step-body text-knowledge-text-muted">
+          {step.description}
+        </p>
+        <TerminalCommand command={step.command} label={step.label} />
+      </div>
     </article>
   );
 }
 
 export function DocsPage() {
+  const [selectedClientId, setSelectedClientId] =
+    useState<DocsClientId>("codex");
+  const selectedClient = useMemo(
+    () =>
+      docsClients.find((client) => client.id === selectedClientId) ??
+      docsClients[0],
+    [selectedClientId],
+  );
+
   return (
     <main
-      className="h-full overflow-auto px-4 py-5 sm:px-6 md:px-8 md:py-8"
+      className="flex h-full min-h-0 w-full flex-col gap-docs-page-gap overflow-hidden bg-docs-page-bg p-4 md:px-8 md:pt-6 md:pb-8"
       data-testid="docs-route-page"
     >
-      <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-8">
-        <header className="flex flex-col gap-3">
-          <p className="m-0 text-[12px] leading-4 font-medium tracking-[0.08em] text-[#2563eb] uppercase">
-            Knowledge Graph
-          </p>
-          <div className="flex flex-col gap-2">
-            <h1 className="m-0 text-[28px] leading-9 font-medium text-[#131c2d]">
-              Docs
-            </h1>
-            <p className="m-0 max-w-[680px] text-[14px] leading-6 text-[#606e87]">
-              Guides for understanding Knowledge Graph and connecting model
-              clients.
-            </p>
-          </div>
-        </header>
+      <header className="flex h-9 shrink-0 items-center overflow-hidden md:h-16">
+        <h1 className="m-0 min-w-0 flex-1 text-docs-page-title font-semibold text-knowledge-text-default">
+          MCP Client Setup
+        </h1>
+      </header>
 
+      <div
+        className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,2fr)] gap-4 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)] lg:grid-rows-none xl:grid-cols-[288px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]"
+        data-testid="docs-workspace"
+      >
         <section
-          aria-labelledby="docs-start-here"
-          className="flex flex-col gap-4"
+          aria-labelledby="docs-clients-title"
+          className="flex min-h-0 flex-col gap-4 overflow-hidden rounded-knowledge-surface lg:h-full"
         >
           <h2
-            className="m-0 text-[18px] leading-7 font-medium text-[#131c2d]"
-            id="docs-start-here"
+            className="m-0 w-full shrink-0 text-docs-section-title font-semibold text-knowledge-text-default"
+            id="docs-clients-title"
           >
-            Start here
+            Clients
           </h2>
-          <div className="grid gap-3 lg:grid-cols-3">
-            {startHereItems.map((item) => (
-              <SectionCard
-                body={item.body}
-                key={item.title}
-                title={item.title}
+          <ScrollArea
+            className={cn("min-h-0 flex-1", scrollAreaTheme)}
+            data-testid="docs-client-scroll-area"
+            viewportClassName="flex min-h-full flex-col gap-4"
+          >
+            {docsClients.map((client) => (
+              <ClientRow
+                client={client}
+                isSelected={client.id === selectedClient.id}
+                key={client.id}
+                onSelect={() => setSelectedClientId(client.id)}
               />
             ))}
-          </div>
+          </ScrollArea>
         </section>
 
         <section
-          aria-labelledby="docs-client-configuration"
-          className="flex flex-col gap-4"
+          aria-labelledby="docs-client-configuration-title"
+          className="flex min-h-0 flex-col gap-4 overflow-hidden"
         >
-          <div className="flex flex-col gap-1">
-            <h2
-              className="m-0 text-[18px] leading-7 font-medium text-[#131c2d]"
-              id="docs-client-configuration"
+          <h2
+            className="m-0 w-full shrink-0 text-docs-section-title font-semibold text-knowledge-text-default"
+            id="docs-client-configuration-title"
+          >
+            {selectedClient.configurationTitle}
+          </h2>
+          <div
+            className="flex min-h-0 flex-1 flex-col items-start gap-4 overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-4 md:p-knowledge-surface-padding"
+            data-testid="docs-setup-panel"
+            id="docs-client-configuration-panel"
+          >
+            <div
+              className="flex w-full shrink-0 flex-col items-start"
+              data-testid="docs-setup-panel-header"
             >
-              Client configuration
-            </h2>
-            <p className="m-0 text-[13px] leading-5 text-[#606e87]">
-              Use Dashboard to create personal tokens; keep full client setup
-              guidance here.
-            </p>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {clientItems.map((item) => (
-              <ClientCard
-                body={item.body}
-                command={item.command}
-                key={item.title}
-                title={item.title}
-              />
-            ))}
+              <p className="m-0 w-full text-docs-panel-title font-semibold text-knowledge-text-default">
+                {selectedClient.panelTitle}
+              </p>
+            </div>
+            <div className="h-px w-full shrink-0 bg-knowledge-divider-subtle" />
+            <ScrollArea
+              className={cn("min-h-0 flex-1", scrollAreaTheme)}
+              data-testid="docs-steps-scroll-area"
+              viewportClassName="flex min-h-full flex-col gap-4"
+            >
+              {selectedClient.steps.map((step, index) => (
+                <SetupStep
+                  index={index}
+                  key={`${selectedClient.id}-${step.title}`}
+                  step={step}
+                />
+              ))}
+            </ScrollArea>
           </div>
         </section>
       </div>

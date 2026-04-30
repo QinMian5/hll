@@ -31,6 +31,15 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --color-knowledge-border-input: #e5e5e5;
   --color-knowledge-border-subtle: #e0e4eb;
   --color-knowledge-divider-subtle: rgb(214 227 247 / 74%);
+  --color-docs-border-accent: rgb(147 197 253 / 90%);
+  --color-docs-page-bg: #f8fafc;
+  --color-docs-scrollbar-thumb: rgb(148 163 184 / 72%);
+  --color-docs-scrollbar-track: #dee6f4;
+  --color-docs-terminal-action: #e2e8f0;
+  --color-docs-terminal-action-hover: #ffffff;
+  --color-docs-terminal-action-hover-bg: rgb(255 255 255 / 10%);
+  --color-docs-terminal-body: #0f172a;
+  --color-docs-terminal-header: #111827;
   --color-knowledge-input-placeholder: #8a94a6;
   --color-knowledge-muted-surface: rgb(248 250 253 / 90%);
   --color-knowledge-overlay-scrim: rgb(0 0 0 / 32%);
@@ -49,6 +58,22 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --text-knowledge-body--line-height: 22px;
   --text-knowledge-caption: 13px;
   --text-knowledge-caption--line-height: 18px;
+  --text-docs-client-label: 13px;
+  --text-docs-client-label--line-height: 20px;
+  --text-docs-page-title: 28px;
+  --text-docs-page-title--line-height: 36px;
+  --text-docs-panel-title: 15px;
+  --text-docs-panel-title--line-height: 20px;
+  --text-docs-section-title: 20px;
+  --text-docs-section-title--line-height: 28px;
+  --text-docs-step-body: 13px;
+  --text-docs-step-body--line-height: 20px;
+  --text-docs-step-title: 14px;
+  --text-docs-step-title--line-height: 20px;
+  --text-docs-terminal: 12px;
+  --text-docs-terminal--line-height: 20px;
+  --text-docs-terminal-label: 12px;
+  --text-docs-terminal-label--line-height: 16px;
   --text-knowledge-title: 16px;
   --text-knowledge-title--line-height: 22px;
   --text-knowledge-dialog-title: 18px;
@@ -61,6 +86,20 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-action-button-x: 16px;
   --spacing-knowledge-control: 40px;
   --spacing-knowledge-dialog-width: 480px;
+  --spacing-docs-client-icon-size: 36px;
+  --spacing-docs-client-row-gap: 12px;
+  --spacing-docs-client-row-height: 64px;
+  --spacing-docs-control-gap: 8px;
+  --spacing-docs-control-padding: 12px;
+  --spacing-docs-content-gap: 8px;
+  --spacing-docs-copy-icon-size: 16px;
+  --spacing-docs-icon-button-size: 32px;
+  --spacing-docs-page-gap: 20px;
+  --spacing-docs-scrollbar-width: 8px;
+  --spacing-docs-step-badge-size: 28px;
+  --spacing-docs-step-row-gap: 16px;
+  --spacing-docs-terminal-header-height: 36px;
+  --spacing-docs-terminal-padding: 12px;
   --spacing-knowledge-dialog-padding: 24px;
   --spacing-knowledge-icon-action: 24px;
   --spacing-knowledge-leaf-disclosure-content-height-2xl: 144px;
@@ -87,6 +126,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-account-menu-offset-y: 92px;
 
   --radius-knowledge-control: 8px;
+  --radius-docs-icon-button: 4px;
   --radius-knowledge-leaf-disclosure: 8px;
   --radius-knowledge-surface: 8px;
 
@@ -104,6 +144,8 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   font-synthesis: none;
   line-height: 1.5;
   font-weight: 400;
+  --scroll-area-thumb-color: var(--color-docs-scrollbar-thumb);
+  --scroll-area-track-color: var(--color-docs-scrollbar-track);
   text-rendering: optimizeLegibility;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;

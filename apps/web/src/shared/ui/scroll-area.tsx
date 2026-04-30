@@ -22,7 +22,7 @@ export function ScrollArea({
       <div
         className={cn(
           viewportFillsContainer ? "h-full" : undefined,
-          "overflow-auto pr-[var(--scroll-area-padding-right,0.5rem)] [scrollbar-color:rgba(127,145,179,0.9)_rgba(222,230,244,1)] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[var(--scroll-area-scrollbar-width,0.25rem)] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[#dee6f4] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(127,145,179,0.9)]",
+          "overflow-auto pr-[var(--scroll-area-padding-right,0.5rem)] [scrollbar-color:var(--scroll-area-thumb-color)_var(--scroll-area-track-color)] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-[var(--scroll-area-scrollbar-width,0.25rem)] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[var(--scroll-area-track-color)] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--scroll-area-thumb-color)]",
           viewportClassName,
         )}
       >
