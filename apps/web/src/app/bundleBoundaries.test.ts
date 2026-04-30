@@ -1,15 +1,19 @@
 // abstract: Architecture tests that keep heavy browser-only features out of the initial route bundle.
 // out_of_scope: Runtime rendering behavior and exact production chunk byte budgets.
 
+/// <reference types="node" />
+
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import viteConfigSource from "../../vite.config.ts?raw";
 import searchPageSource from "../features/search/pages/index.tsx?raw";
 import leafRendererSource from "../features/taxonomy-view/page/leaf/LeafRenderer.tsx?raw";
 import taxonomySource from "../features/taxonomy-view/page/TaxonomyViewPage.tsx?raw";
-import globalCss from "../index.css?raw";
 import richTextSource from "../shared/ui/knowledge-rich-text.tsx?raw";
 import routerSource from "./router.tsx?raw";
+
+const globalCss = readFileSync("src/index.css", "utf8");
 
 describe("browser bundle boundaries", () => {
   it("keeps route components behind TanStack lazy route boundaries", () => {
@@ -51,6 +55,15 @@ describe("browser bundle boundaries", () => {
     );
     expect(globalCss).not.toContain("katex/dist/katex.min.css");
     expect(richTextSource).toContain('import "katex/dist/katex.min.css"');
+  });
+
+  it("pins every Tailwind font family token and browser default text to Geist", () => {
+    expect(globalCss).toContain('--font-knowledge-geist: "Geist", sans-serif;');
+    expect(globalCss).toContain("--font-sans: var(--font-knowledge-geist);");
+    expect(globalCss).toContain("--font-mono: var(--font-knowledge-geist);");
+    expect(globalCss).toContain("--font-serif: var(--font-knowledge-geist);");
+    expect(globalCss).toContain("font-family: var(--font-knowledge-geist);");
+    expect(globalCss).toContain("font-family: inherit;");
   });
 
   it("loads the deck.gl scene implementation only inside leaf mode", () => {

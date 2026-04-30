@@ -7,6 +7,11 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
 */
 
 @theme {
+  --font-knowledge-geist: "Geist", sans-serif;
+  --font-mono: var(--font-knowledge-geist);
+  --font-sans: var(--font-knowledge-geist);
+  --font-serif: var(--font-knowledge-geist);
+
   --color-knowledge-brand: #006bff;
   --color-knowledge-brand-hover: #005ee0;
   --color-knowledge-danger: #d83232;
@@ -95,7 +100,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
 
 :root {
   color: #10233b;
-  font-family: "Geist", sans-serif;
+  font-family: var(--font-knowledge-geist);
   font-synthesis: none;
   line-height: 1.5;
   font-weight: 400;
@@ -104,8 +109,11 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   -webkit-font-smoothing: antialiased;
 }
 
-* {
+*,
+::before,
+::after {
   box-sizing: border-box;
+  font-family: inherit;
 }
 
 html,

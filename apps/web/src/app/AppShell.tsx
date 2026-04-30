@@ -348,7 +348,7 @@ export function AppShell() {
 
   return (
     <div
-      className="flex h-screen min-h-screen w-full overflow-hidden bg-[#f8fafc] font-['Geist',sans-serif]"
+      className="flex h-screen min-h-screen w-full overflow-hidden bg-[#f8fafc] font-sans"
       data-testid="app-shell"
     >
       <aside

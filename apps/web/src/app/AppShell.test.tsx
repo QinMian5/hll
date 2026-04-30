@@ -125,7 +125,7 @@ describe("AppShell", () => {
     );
     expect(screen.getByTestId("app-shell")).toHaveClass(
       "bg-[#f8fafc]",
-      "font-['Geist',sans-serif]",
+      "font-sans",
       "min-h-screen",
       "w-full",
     );
