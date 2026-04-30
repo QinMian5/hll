@@ -57,6 +57,15 @@ const searchRoute = createRoute({
   }),
 });
 
+const docsRoute = createRoute({
+  component: lazyRouteComponent(
+    () => import("../features/docs/pages"),
+    "DocsPage",
+  ),
+  getParentRoute: () => rootRoute,
+  path: "docs",
+});
+
 const dashboardRoute = createRoute({
   component: lazyRouteComponent(
     () => import("../features/dashboard/pages"),
@@ -80,6 +89,7 @@ const routeTree = rootRoute.addChildren([
   overviewRoute,
   graphRoute,
   searchRoute,
+  docsRoute,
   dashboardRoute,
   settingsRoute,
 ]);

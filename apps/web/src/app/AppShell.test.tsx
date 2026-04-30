@@ -23,6 +23,10 @@ vi.mock("../features/taxonomy-view/page/TaxonomyViewPage", () => ({
   TaxonomyViewPage: () => <div data-testid="mock-graph-page">Graph page</div>,
 }));
 
+vi.mock("../features/docs/pages", () => ({
+  DocsPage: () => <div data-testid="mock-docs-page">Docs page</div>,
+}));
+
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
     headers: { "Content-Type": "application/json" },
@@ -104,6 +108,10 @@ describe("AppShell", () => {
       "data-nav-state",
       "inactive",
     );
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "data-nav-state",
+      "inactive",
+    );
     expect(
       screen.queryByRole("link", { name: "Dashboard" }),
     ).not.toBeInTheDocument();
@@ -154,6 +162,10 @@ describe("AppShell", () => {
       "href",
       "/search",
     );
+    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+      "href",
+      "/docs",
+    );
     expect(
       screen.queryByRole("link", { name: "Dashboard" }),
     ).not.toBeInTheDocument();
@@ -198,6 +210,11 @@ describe("AppShell", () => {
         .getByTestId("app-shell-mobile-drawer")
         .querySelector('[data-nav-state="active"]'),
     ).toHaveTextContent("Graph View");
+    expect(
+      screen
+        .getByTestId("app-shell-mobile-drawer")
+        .querySelector('a[href="/docs"]'),
+    ).toHaveTextContent("Docs");
     expect(
       screen
         .getByTestId("app-shell-mobile-drawer")

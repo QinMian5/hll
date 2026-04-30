@@ -21,10 +21,14 @@ describe("browser bundle boundaries", () => {
       'import { SearchPage } from "../features/search/pages"',
     );
     expect(routerSource).not.toContain(
+      'import { DocsPage } from "../features/docs/pages"',
+    );
+    expect(routerSource).not.toContain(
       'import { TaxonomyViewPage } from "../features/taxonomy-view/page/TaxonomyViewPage"',
     );
     expect(routerSource).toContain('import("../features/overview/pages")');
     expect(routerSource).toContain('import("../features/search/pages")');
+    expect(routerSource).toContain('import("../features/docs/pages")');
     expect(routerSource).toContain(
       'import("../features/taxonomy-view/page/TaxonomyViewPage")',
     );

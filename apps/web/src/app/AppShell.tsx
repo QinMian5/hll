@@ -3,6 +3,7 @@
 
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
+  BookOpen,
   ChevronRight,
   House,
   LayoutDashboard,
@@ -20,7 +21,7 @@ import { cn } from "../shared/utils";
 import type { WebSessionResponse } from "../shared/web-api/session";
 import { useWebSessionQuery } from "../shared/web-api/sessionQueries";
 
-type AppRoute = "/overview" | "/graph" | "/search";
+type AppRoute = "/overview" | "/graph" | "/search" | "/docs";
 
 interface NavItem {
   readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
@@ -38,6 +39,7 @@ const navItems: readonly NavItem[] = [
   { icon: House, label: "Overview", to: "/overview" },
   { icon: Network, label: "Graph View", to: "/graph" },
   { icon: SearchIcon, label: "Search", to: "/search" },
+  { icon: BookOpen, label: "Docs", to: "/docs" },
 ];
 
 const githubRepositoryUrl = "https://github.com/QinMian5/knowledge";

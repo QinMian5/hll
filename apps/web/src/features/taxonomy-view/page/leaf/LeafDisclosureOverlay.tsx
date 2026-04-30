@@ -34,11 +34,15 @@ export interface LeafDisclosureOverlayHandle {
 const DISCLOSURE_GAP_PX = 16;
 const DISCLOSURE_CARD_SIZE_CLASS =
   "[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-md)] [--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-md)] [--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-md)] lg:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-lg)] lg:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-lg)] lg:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-lg)] xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-xl)] xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-xl)] xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-xl)] 2xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-2xl)] 2xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-2xl)] 2xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-2xl)]";
-const DISCLOSURE_CARD_CLASS = `absolute top-0 left-0 z-[22] m-0 pointer-events-auto flex h-[var(--leaf-disclosure-card-height)] w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))] flex-col items-start gap-2 overflow-hidden rounded-knowledge-leaf-disclosure border border-[rgba(133,163,214,0.34)] bg-white px-4 py-4 text-left shadow-[0_8px_18px_rgba(59,82,125,0.1)] ${DISCLOSURE_CARD_SIZE_CLASS}`;
+const DISCLOSURE_CARD_CLASS = `absolute top-0 left-0 z-[22] m-0 pointer-events-auto flex max-h-[var(--leaf-disclosure-card-height)] w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))] flex-col items-start gap-2 overflow-hidden rounded-knowledge-leaf-disclosure border border-[rgba(133,163,214,0.34)] bg-white px-4 py-4 text-left shadow-[0_8px_18px_rgba(59,82,125,0.1)] ${DISCLOSURE_CARD_SIZE_CLASS}`;
+const DISCLOSURE_TITLE_SCROLL_CLASS =
+  "min-w-0 flex-1 overflow-x-auto overflow-y-hidden pr-1 [scrollbar-color:rgba(127,145,179,0.9)_rgba(222,230,244,1)] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-[var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-[#dee6f4] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[rgba(127,145,179,0.9)]";
+const DISCLOSURE_TITLE_TRACK_CLASS =
+  "w-max min-w-full whitespace-nowrap [&_[data-testid=knowledge-rich-text-title]]:whitespace-nowrap [&_[data-testid=knowledge-rich-text-title]]:text-[13px] [&_[data-testid=knowledge-rich-text-title]]:leading-[18px] [&_[data-testid=knowledge-rich-text-title]]:font-medium [&_[data-testid=knowledge-rich-text-title]]:text-knowledge-text-default";
 const DISCLOSURE_CONTENT_SCROLL_CLASS =
-  "[--scroll-area-padding-right:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] h-[var(--leaf-disclosure-card-content-height)] w-full flex-none";
+  "[--scroll-area-padding-right:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] max-h-[var(--leaf-disclosure-card-content-height)] min-h-0 w-full";
 const DISCLOSURE_CONTENT_VIEWPORT_CLASS =
-  "overflow-x-hidden overflow-y-auto [&_[data-testid=knowledge-rich-text-content]]:text-[12px] [&_[data-testid=knowledge-rich-text-content]]:leading-[17px] [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-text-muted";
+  "max-h-[var(--leaf-disclosure-card-content-height)] overflow-x-hidden overflow-y-auto [&_[data-testid=knowledge-rich-text-content]]:text-[12px] [&_[data-testid=knowledge-rich-text-content]]:leading-[17px] [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-text-muted";
 
 interface OverlayPosition {
   readonly left: number;
@@ -81,8 +85,16 @@ function LeafDisclosureHeader({
 }) {
   return (
     <div className="flex h-6 w-full shrink-0 items-center justify-between gap-2 overflow-hidden">
-      <div className="min-w-0 flex-1 [&_[data-testid=knowledge-rich-text-title]]:text-[13px] [&_[data-testid=knowledge-rich-text-title]]:leading-[18px] [&_[data-testid=knowledge-rich-text-title]]:font-medium [&_[data-testid=knowledge-rich-text-title]]:text-knowledge-text-default">
-        <KnowledgeRichText text={title} variant="title" />
+      <div
+        className={DISCLOSURE_TITLE_SCROLL_CLASS}
+        data-testid="taxonomy-leaf-disclosure-title-scroll-area"
+      >
+        <div
+          className={DISCLOSURE_TITLE_TRACK_CLASS}
+          data-testid="taxonomy-leaf-disclosure-title-track"
+        >
+          <KnowledgeRichText text={title} variant="title" />
+        </div>
       </div>
       {onSuggestEdit ? (
         <button

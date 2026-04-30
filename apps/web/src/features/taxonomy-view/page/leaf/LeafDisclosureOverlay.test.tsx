@@ -35,7 +35,7 @@ function makeDisclosure(
 }
 
 describe("LeafDisclosureOverlay", () => {
-  it("uses one responsive fixed-size card contract for hover and selected disclosures", () => {
+  it("uses one responsive maximum-height card contract for hover and selected disclosures", () => {
     const classNames: string[] = [];
 
     for (const mode of ["hover", "selected"] as const) {
@@ -54,7 +54,12 @@ describe("LeafDisclosureOverlay", () => {
       expect(disclosure).toHaveClass(
         "w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))]",
       );
-      expect(disclosure).toHaveClass("h-[var(--leaf-disclosure-card-height)]");
+      expect(disclosure).toHaveClass(
+        "max-h-[var(--leaf-disclosure-card-height)]",
+      );
+      expect(disclosure).not.toHaveClass(
+        "h-[var(--leaf-disclosure-card-height)]",
+      );
       expect(disclosure).toHaveClass(
         "[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-md)]",
       );
@@ -73,6 +78,9 @@ describe("LeafDisclosureOverlay", () => {
       );
 
       expect(scrollArea).toHaveClass(
+        "max-h-[var(--leaf-disclosure-card-content-height)]",
+      );
+      expect(scrollArea).not.toHaveClass(
         "h-[var(--leaf-disclosure-card-content-height)]",
       );
       expect(scrollArea).toHaveClass(
@@ -83,6 +91,36 @@ describe("LeafDisclosureOverlay", () => {
     }
 
     expect(classNames[0]).toBe(classNames[1]);
+  });
+
+  it("allows long disclosure titles to scroll horizontally", () => {
+    const disclosure = makeDisclosure("selected");
+
+    render(
+      <LeafDisclosureOverlay
+        canvas={{ height: 900, width: 1404 }}
+        disclosure={{
+          ...disclosure,
+          node: {
+            ...disclosure.node,
+            title:
+              "A very long disclosure title that should remain on one line and overflow horizontally inside the header",
+          },
+        }}
+        viewport={{ target: [700, 450, 0], zoom: 0 }}
+      />,
+    );
+
+    const titleScrollArea = screen.getByTestId(
+      "taxonomy-leaf-disclosure-title-scroll-area",
+    );
+    const titleTrack = screen.getByTestId(
+      "taxonomy-leaf-disclosure-title-track",
+    );
+
+    expect(titleScrollArea).toHaveClass("overflow-x-auto");
+    expect(titleScrollArea).toHaveClass("overflow-y-hidden");
+    expect(titleTrack).toHaveClass("whitespace-nowrap");
   });
 
   it("renders hover disclosure with title, content, and edit affordance", () => {
