@@ -29,8 +29,8 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - **Producer/result-reader SDK boundary:** `taxonomy_classification` uses the upstream `job_queue_mcp_client.producer.AsyncClient` and `job_queue_mcp_client.auth.ClientCredentialsTokenProvider` public facades directly for job submission, result reads, and machine-to-machine token acquisition. The module owns classification payload construction, output schema export, local linkage persistence, result validation, and assignment movement.
   - **One-shot submission rule:** Operator scripts enqueue the cards that are currently unclassified at run time. The module does not run a continuous service that automatically submits every future `Unclassified` card.
   - **Single-card job rule:** One knowledge card is processed by exactly one queue job for one scope classification attempt.
-  - **Node context contract:** The worker receives only the selected card's `id`, `title`, and `content`, plus the current scope and available sibling target categories.
-  - **Human-structure rule:** The worker must choose among existing human-created direct child categories of the current scope or keep the card in the current scope's `Unclassified` leaf. The worker cannot create taxonomy nodes, request new taxonomy nodes, or move a card to the parent scope.
+  - **Node context contract:** The worker receives only the selected card's `title` and `content`, the current scope breadcrumb path, and available sibling target category names.
+  - **Human-structure rule:** The worker must choose among existing human-created direct child category names of the current scope or keep the card in the current scope's `Unclassified` leaf. The worker cannot create taxonomy nodes, request new taxonomy nodes, or move a card to the parent scope.
   - **Move target rule:** Choosing a child category moves the card assignment to that child category's `Unclassified` leaf.
   - **Keep-unclassified rule:** Choosing `Unclassified` keeps the card assignment at the current scope's `Unclassified` leaf and records the classification attempt as processed.
   - **Validation-before-move rule:** The runtime applies accepted results only after verifying that the card is still assigned to the source `Unclassified` leaf, the selected child still exists, the selected child belongs directly to the scope node, and the selected child's `Unclassified` leaf exists.
@@ -61,16 +61,13 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - **Queue name:** `taxonomy_classification`.
 - **Priority:** first-version default is `normal`.
 - **Payload:** one JSON object containing:
-  - `scope_node`: `{id, name}`
-  - `source_unclassified_node`: `{id, name}`
-  - `card`: `{id, title, content}`
-  - `children`: array of direct regular child category options for the scope, each item containing a stable child id and name
-  - `allow_unclassified`: `true`
-- **Instruction:** task-specific guidance tells the worker to choose exactly one target using only the payload content. The instruction does not offer parent-scope movement as an allowed action.
+  - `scope_path`: current root-to-scope breadcrumb path, formatted as names separated by ` / `, for example `Root / Science / Mathematics`
+  - `card`: `{title, content}`
+  - `children`: array of direct regular child category options for the scope, each item containing only `name`
+- **Instruction:** task-specific guidance tells the worker only to classify the supplied card within the supplied taxonomy scope path into exactly one supplied direct child taxonomy category, or keep it in `Unclassified` when no child fits. Output formatting and case-insensitive name matching are enforced by the separate output schema and runtime validation, not repeated in the instruction text.
 - **Output schema:** one JSON object containing:
-  - `{ "target": { "kind": "child", "child_id": <positive integer>, "reason": <non-empty text> } }`
-  - or `{ "target": { "kind": "unclassified", "reason": <non-empty text> } }`
-- **Result-use rule:** `reason` is an audit field. Publishing a valid move depends on structural validation, not on a confidence threshold.
+  - `{ "target_name": <non-empty child name or Unclassified> }`
+- **Result-use rule:** Publishing a valid move depends on structural validation against current taxonomy state. A `target_name` matches either a direct regular child of the scope or the scope's `Unclassified` leaf case-insensitively.
 
 ## Runtime State
 - The module persists local queue linkage and local notification state needed for restart/resume behavior.
@@ -145,7 +142,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 
 ## Failure Handling
 - Job submission failures leave assignments unchanged and are visible in operator output or runtime logs.
-- Accepted results with unknown child ids, out-of-scope child ids, missing target `Unclassified` leaves, or stale card-source assignments are recorded as locally processed errors and do not move assignments.
+- Accepted results with unknown child names, missing target `Unclassified` leaves, or stale card-source assignments are recorded as locally processed errors and do not move assignments.
 - Terminal non-accepted queue states are recorded to stop repeated local result reads for the affected job.
 - Duplicate webhook deliveries are accepted idempotently through repository-owned atomic event insertion and do not create duplicate local wakeups.
 - Duplicate operator submission runs do not submit another active job for the same card and scope when a linked outstanding job already exists. Processed and terminal job rows do not block later operator submissions.
@@ -167,7 +164,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Webhook receiver tests verify authentication, duplicate event handling, event persistence, and local wakeup behavior.
   - Runtime tests verify accepted valid child targets move assignments to the target child's `Unclassified` leaf.
   - Runtime tests verify accepted `unclassified` targets keep the current assignment and mark the job processed.
-  - Runtime tests verify invalid target ids, out-of-scope child ids, stale source assignments, and missing target `Unclassified` leaves record errors without moving assignments.
+  - Runtime tests verify unknown target names, stale source assignments, and missing target `Unclassified` leaves record errors without moving assignments.
   - Runtime tests verify terminal non-accepted queue states stop repeated processing for that job.
   - Reconcile tests verify outstanding job links are checked at low frequency through the result-read surface.
 - **Evidence:**

@@ -11,7 +11,7 @@ from typing import Protocol
 
 from job_queue_mcp_client.errors import ResultNotReadyError
 from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.repo import KnowledgeRepo
@@ -179,17 +179,19 @@ class TaxonomyClassificationRuntimeService:
         job: TaxonomyClassificationJob,
         accepted: TaxonomyClassificationAcceptedResult,
     ) -> int:
-        if accepted.target.kind == "unclassified":
+        target_name = accepted.target_name.strip()
+        if target_name.casefold() == UNCLASSIFIED_NODE_NAME.casefold():
             return job.source_unclassified_node_id
 
-        child_id = accepted.target.child_id
-        if child_id is None:
-            raise ValueError("child target is missing child_id")
-        child = await self._session.get(TaxonomyNode, child_id)
-        if child is None or child.parent_id != job.scope_node_id:
-            raise ValueError("out-of-scope child target")
-        if child.is_leaf:
-            raise ValueError("child target must be a regular taxonomy node")
+        child = await self._session.scalar(
+            select(TaxonomyNode)
+            .where(TaxonomyNode.parent_id == job.scope_node_id)
+            .where(TaxonomyNode.is_leaf.is_(False))
+            .where(func.lower(TaxonomyNode.name) == target_name.lower())
+            .limit(1)
+        )
+        if child is None:
+            raise ValueError("unknown child target")
 
         target_leaf = await self._session.scalar(
             select(TaxonomyNode)

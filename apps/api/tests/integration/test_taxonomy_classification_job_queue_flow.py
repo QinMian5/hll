@@ -15,6 +15,7 @@ from uuid import uuid4
 import pytest
 from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
 from sqlalchemy import delete, event, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from modules.knowledge_graph.model import Node
@@ -361,7 +362,7 @@ async def test_scope_resolution_scope_path_missing_segment_fails_with_context(
     assert "Root / Science" in message
 
 
-async def test_scope_resolution_scope_path_ambiguous_segment_fails_with_context(
+async def test_taxonomy_nodes_reject_case_insensitive_sibling_name_duplicates(
     db_session: AsyncSession,
 ) -> None:
     root = TaxonomyNode(parent_id=None, name="Root", depth=0, is_leaf=False)
@@ -377,23 +378,11 @@ async def test_scope_resolution_scope_path_ambiguous_segment_fails_with_context(
     )
     await db_session.flush()
     await _create_regular_child(db_session, parent=root, name="Science")
-    await _create_regular_child(db_session, parent=root, name="science")
-    await db_session.commit()
 
-    with pytest.raises(TaxonomyClassificationScopeResolutionError) as exc_info:
-        await resolve_taxonomy_classification_scopes(
-            db_session,
-            TaxonomyClassificationSubmissionSelection(
-                kind="scope_path",
-                scope_path=("Root", "SCIENCE"),
-            ),
-        )
+    with pytest.raises(IntegrityError, match="uq_taxonomy_nodes_parent_lower_name"):
+        await _create_regular_child(db_session, parent=root, name="science")
 
-    message = str(exc_info.value)
-    assert "Ambiguous taxonomy path segment" in message
-    assert "Root" in message
-    assert "Root / Science" in message
-    assert "Root / science" in message
+    await db_session.rollback()
 
 
 async def test_scope_resolution_all_unclassified_returns_scopes_and_no_child_marker(
@@ -425,7 +414,9 @@ async def test_scope_resolution_all_unclassified_returns_scopes_and_no_child_mar
 async def test_valid_child_result_moves_assignment_to_child_unclassified_leaf(
     db_session: AsyncSession,
 ) -> None:
-    root, root_unclassified, science, science_unclassified = await _create_taxonomy_tree(db_session)
+    root, root_unclassified, _science, science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
     node = await _create_node(db_session)
     taxonomy_repo = TaxonomyRepo(session=db_session)
     await taxonomy_repo.set_current_assignment(
@@ -449,13 +440,7 @@ async def test_valid_child_result_moves_assignment_to_child_unclassified_leaf(
             {
                 7001: _accepted_result(
                     job_id=7001,
-                    result_payload={
-                        "target": {
-                            "kind": "child",
-                            "child_id": science.id,
-                            "reason": "The card belongs under Science.",
-                        }
-                    },
+                    result_payload={"target_name": "science"},
                 )
             }
         ),
@@ -472,10 +457,51 @@ async def test_valid_child_result_moves_assignment_to_child_unclassified_leaf(
     assert assignment.taxonomy_node.id == science_unclassified.id
 
 
+async def test_unclassified_result_name_keeps_source_unclassified_assignment(
+    db_session: AsyncSession,
+) -> None:
+    root, root_unclassified, _science, _science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    node = await _create_node(db_session)
+    taxonomy_repo = TaxonomyRepo(session=db_session)
+    await taxonomy_repo.set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    db_session.add(
+        TaxonomyClassificationJob(
+            scope_node_id=root.id,
+            source_unclassified_node_id=root_unclassified.id,
+            node_id=node.id,
+            job_id=7004,
+        )
+    )
+    await db_session.commit()
+    await _record_event(db_session, event_id="evt-keep-unclassified-name", job_id=7004)
+
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=FakeJobQueueClient(
+            {7004: _accepted_result(job_id=7004, result_payload={"target_name": "unclassified"})}
+        ),
+    )
+
+    processed_count = await service.process_pending_webhook_events(
+        now=datetime(2026, 4, 26, 15, 2, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assignment = await taxonomy_repo.get_assignment_for_node(node_id=node.id)
+    assert processed_count == 1
+    assert assignment is not None
+    assert assignment.taxonomy_node.id == root_unclassified.id
+
+
 async def test_operator_submission_creates_one_job_per_card_in_scope_unclassified(
     db_session: AsyncSession,
 ) -> None:
-    root, root_unclassified, science, _science_unclassified = await _create_taxonomy_tree(
+    root, root_unclassified, _science, _science_unclassified = await _create_taxonomy_tree(
         db_session
     )
     node = await _create_node(db_session)
@@ -520,9 +546,11 @@ async def test_operator_submission_creates_one_job_per_card_in_scope_unclassifie
         "node_id": node.id,
     }
     payload = client.created_jobs[0]["payload"]
-    assert payload["source_unclassified_node"]["id"] == root_unclassified.id
-    assert payload["card"]["id"] == node.id
-    assert payload["children"] == [{"id": science.id, "name": "Science"}]
+    assert payload == {
+        "scope_path": "Root",
+        "card": {"title": node.title, "content": node.content},
+        "children": [{"name": "Science"}],
+    }
 
 
 async def test_operator_submission_persists_local_intent_before_remote_job_create(
@@ -741,13 +769,7 @@ async def test_invalid_child_result_is_terminal_local_error_without_assignment_m
             {
                 7002: _accepted_result(
                     job_id=7002,
-                    result_payload={
-                        "target": {
-                            "kind": "child",
-                            "child_id": 999999,
-                            "reason": "Bad child id.",
-                        }
-                    },
+                    result_payload={"target_name": "Unknown"},
                 )
             }
         ),
@@ -767,7 +789,7 @@ async def test_invalid_child_result_is_terminal_local_error_without_assignment_m
 
     assert processed_count == 1
     assert job.processed_at is not None
-    assert "out-of-scope child" in (job.last_error or "")
+    assert "unknown child target" in (job.last_error or "")
     assert event is not None
     assert event.processed_at is not None
     assert await _count_wakeups(db_session, event_id="evt-invalid-child") == 0
@@ -792,7 +814,7 @@ async def test_processed_keep_unclassified_job_does_not_block_later_submission(
         node_id=node.id,
         job_id=7003,
         processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
-        target_payload={"target": {"kind": "unclassified"}},
+        target_payload={"target_name": "Unclassified"},
     )
     db_session.add(processed_job)
     await db_session.commit()

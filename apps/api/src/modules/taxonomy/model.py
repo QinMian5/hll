@@ -34,6 +34,13 @@ class TaxonomyNode(Base):
             unique=True,
             postgresql_where=text("parent_id IS NULL"),
         ),
+        Index(
+            "uq_taxonomy_nodes_parent_lower_name",
+            "parent_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("parent_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

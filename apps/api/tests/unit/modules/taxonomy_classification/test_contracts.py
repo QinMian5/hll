@@ -14,61 +14,58 @@ from modules.taxonomy_classification.contracts import (
 )
 
 
-def test_job_payload_carries_scope_card_children_and_unclassified_option() -> None:
+def test_job_payload_carries_scope_path_card_and_child_names_without_ids() -> None:
     payload = TaxonomyClassificationJobPayload.model_validate(
         {
-            "scope_node": {"id": 10, "name": "Science"},
-            "source_unclassified_node": {"id": 11, "name": "Unclassified"},
-            "card": {"id": 41, "title": "Linear Algebra", "content": "Vector spaces"},
+            "scope_path": "Root / Science",
+            "card": {"title": "Linear Algebra", "content": "Vector spaces"},
             "children": [
-                {"id": 20, "name": "Mathematics"},
-                {"id": 30, "name": "Physics"},
+                {"name": "Mathematics"},
+                {"name": "Physics"},
             ],
-            "allow_unclassified": True,
         }
     )
 
-    assert payload.scope_node.id == 10
-    assert payload.source_unclassified_node.name == "Unclassified"
+    assert payload.scope_path == "Root / Science"
+    assert payload.card.title == "Linear Algebra"
     assert [child.name for child in payload.children] == ["Mathematics", "Physics"]
-    assert payload.allow_unclassified is True
 
 
-def test_accepted_result_allows_child_target() -> None:
-    result = TaxonomyClassificationAcceptedResult.model_validate(
-        {
-            "target": {
-                "kind": "child",
-                "child_id": 20,
-                "reason": "The card discusses mathematics.",
+def test_job_payload_rejects_internal_ids_and_source_leaf_context() -> None:
+    with pytest.raises(ValueError, match=r"extra_forbidden"):
+        TaxonomyClassificationJobPayload.model_validate(
+            {
+                "scope_node": {"id": 10, "name": "Science"},
+                "source_unclassified_node": {"id": 11, "name": "Unclassified"},
+                "card": {"id": 41, "title": "Linear Algebra", "content": "Vector spaces"},
+                "children": [{"id": 20, "name": "Mathematics"}],
+                "allow_unclassified": True,
             }
-        }
-    )
-
-    assert result.target.kind == "child"
-    assert result.target.child_id == 20
-
-
-def test_accepted_result_requires_child_id_for_child_target() -> None:
-    with pytest.raises(ValueError, match="child_id"):
-        TaxonomyClassificationAcceptedResult.model_validate(
-            {"target": {"kind": "child", "reason": "Missing child id."}}
         )
 
 
-def test_accepted_result_keeps_unclassified_without_child_id() -> None:
-    result = TaxonomyClassificationAcceptedResult.model_validate(
-        {"target": {"kind": "unclassified", "reason": "No direct child fits."}}
-    )
+def test_accepted_result_allows_child_name_target() -> None:
+    result = TaxonomyClassificationAcceptedResult.model_validate({"target_name": "Mathematics"})
 
-    assert result.target.kind == "unclassified"
-    assert result.target.child_id is None
+    assert result.target_name == "Mathematics"
 
 
-def test_accepted_result_rejects_parent_target_kind() -> None:
-    with pytest.raises(ValueError, match=r"child|unclassified"):
+def test_accepted_result_allows_unclassified_target_by_name() -> None:
+    result = TaxonomyClassificationAcceptedResult.model_validate({"target_name": "unclassified"})
+
+    assert result.target_name == "unclassified"
+
+
+def test_accepted_result_rejects_legacy_kind_reason_and_id_shape() -> None:
+    with pytest.raises(ValueError, match=r"extra_forbidden"):
         TaxonomyClassificationAcceptedResult.model_validate(
-            {"target": {"kind": "parent", "reason": "Move this up one level."}}
+            {
+                "target": {
+                    "kind": "child",
+                    "child_id": 20,
+                    "reason": "The card discusses mathematics.",
+                }
+            }
         )
 
 
@@ -76,4 +73,5 @@ def test_output_schema_exports_target_shape_for_job_queue() -> None:
     schema = export_taxonomy_classification_output_schema()
 
     assert schema["type"] == "object"
-    assert "target" in schema["properties"]
+    assert "target_name" in schema["properties"]
+    assert "target" not in schema["properties"]

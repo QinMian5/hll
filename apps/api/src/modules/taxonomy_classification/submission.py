@@ -14,8 +14,8 @@ from modules.knowledge_graph.model import Node
 from modules.taxonomy.model import NodeTaxonomyAssignment
 from modules.taxonomy_classification.contracts import (
     TaxonomyClassificationCardPayload,
+    TaxonomyClassificationChildPayload,
     TaxonomyClassificationJobPayload,
-    TaxonomyClassificationNodeRef,
     export_taxonomy_classification_output_schema,
 )
 from modules.taxonomy_classification.dto import (
@@ -180,24 +180,15 @@ class TaxonomyClassificationSubmissionService:
         submitted_count = 0
         for local_job, card in pending_jobs:
             payload = TaxonomyClassificationJobPayload(
-                scope_node=TaxonomyClassificationNodeRef(
-                    id=resolved_scope.scope_node.id,
-                    name=resolved_scope.scope_node.name,
-                ),
-                source_unclassified_node=TaxonomyClassificationNodeRef(
-                    id=resolved_scope.source_unclassified_node.id,
-                    name=resolved_scope.source_unclassified_node.name,
-                ),
+                scope_path=" / ".join(resolved_scope.breadcrumb),
                 card=TaxonomyClassificationCardPayload(
-                    id=card.id,
                     title=card.title,
                     content=card.content,
                 ),
                 children=[
-                    TaxonomyClassificationNodeRef(id=child.id, name=child.name)
+                    TaxonomyClassificationChildPayload(name=child.name)
                     for child in resolved_scope.regular_children
                 ],
-                allow_unclassified=True,
             )
             metadata: dict[str, object] = {
                 "scope_node_id": resolved_scope.scope_node.id,

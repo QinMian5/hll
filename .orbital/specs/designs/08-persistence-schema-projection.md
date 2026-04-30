@@ -120,6 +120,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - Required constraints:
   - `depth >= 0`
   - uniqueness over `(parent_id, name)`
+  - unique partial index over `(parent_id, lower(name))` where `parent_id IS NOT NULL`, preventing same-level child names that differ only by case
   - partial unique index enforcing at most one row with `parent_id IS NULL`
 - Required read-order rule:
   - sibling rows selected with `ORDER BY name ASC`.

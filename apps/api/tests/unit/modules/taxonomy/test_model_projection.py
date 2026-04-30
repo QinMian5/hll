@@ -44,6 +44,21 @@ def test_taxonomy_nodes_projection_contains_single_root_partial_index() -> None:
     assert str(root_indexes[0].dialect_options["postgresql"]["where"]) == "parent_id IS NULL"
 
 
+def test_taxonomy_nodes_projection_contains_case_insensitive_sibling_name_index() -> None:
+    table = cast(Table, TaxonomyNode.__table__)
+    indexes = [constraint for constraint in table.indexes if isinstance(constraint, Index)]
+    sibling_indexes = [
+        index for index in indexes if index.name == "uq_taxonomy_nodes_parent_lower_name"
+    ]
+
+    assert sibling_indexes
+    assert sibling_indexes[0].unique is True
+    assert str(sibling_indexes[0].dialect_options["postgresql"]["where"]) == (
+        "parent_id IS NOT NULL"
+    )
+    assert "lower(name)" in str(sibling_indexes[0].expressions[1])
+
+
 def test_node_taxonomy_assignments_projection_contains_unique_node_constraint() -> None:
     table = cast(Table, NodeTaxonomyAssignment.__table__)
     unique_constraints = [
