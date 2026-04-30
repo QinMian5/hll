@@ -36,6 +36,13 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `taxonomy_classification_webhook_events`
 - `taxonomy_classification_webhook_wakeups`
 
+### Development Bootstrap Snapshot
+- `scripts/export-prod-api-bootstrap-snapshot.sh` exports a production data-only snapshot for development bootstrap.
+- The export is read-only against production PostgreSQL and is scoped to the API tables listed in this section.
+- `alembic_version` is excluded; Alembic migrations remain the schema source of truth.
+- `scripts/bootstrap-dev-api-from-prod-snapshot.sh` targets `infra/env/.env.dev`, runs development migrations, stops development API writer services, truncates the scoped API tables with `RESTART IDENTITY CASCADE`, and restores the snapshot.
+- The snapshot preserves current card IDs, titles, content, embeddings, edge relationships, taxonomy nodes, node taxonomy assignments, taxonomy projection edges, ingestion request rows, and taxonomy classification orchestration rows.
+
 ### Nodes
 - `id`: integer primary key.
 - `title`: non-null text.
