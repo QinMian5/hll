@@ -25,24 +25,3 @@ dev = [
     "ruff>=0.15.8",
     "ty>=0.0.27",
 ]
-
-[tool.ruff]
-line-length = 100
-target-version = "py314"
-
-[tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF", "ANN", "TID"]
-
-[tool.pytest.ini_options]
-addopts = "--strict-markers --maxfail=1"
-testpaths = ["tests"]
-markers = [
-    "unit: Fast and deterministic unit tests.",
-    "integration: Tests that cross process, filesystem, or service boundaries.",
-    "db: Tests requiring isolated backend runtime dependencies (PostgreSQL/Redis).",
-    "migration: Tests validating migration bootstrap and schema upgrade behavior.",
-    "anyio: Run async tests with AnyIO backend.",
-]
-
-[tool.ty.src]
-include = ["src"]

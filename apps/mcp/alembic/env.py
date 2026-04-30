@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from alembic import context
 from knowledge_mcp.analytics import model as analytics_model
 from knowledge_mcp.config import load_migration_settings
 from knowledge_mcp.db.metadata import metadata

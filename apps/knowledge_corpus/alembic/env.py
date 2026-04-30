@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import engine_from_config, pool, text
 from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.schema import CreateSchema
 
-from alembic import context
 from knowledge_corpus.config import load_migration_settings, load_settings
 from knowledge_corpus.db.base import Base
 from knowledge_corpus.wikipedia import model as wikipedia_model

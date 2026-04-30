@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from alembic import context
 from source_pipeline.config import load_migration_settings
 from source_pipeline.db import models as db_models
 from source_pipeline.db.base import Base

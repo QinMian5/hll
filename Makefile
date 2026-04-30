@@ -45,8 +45,12 @@ test-db-down:
 fix:
 	uv run --project apps/api ruff check --fix apps/api/src
 	uv run --project apps/api ruff format apps/api/src
-	uv run --project apps/mcp ruff check --fix apps/mcp/src apps/mcp/tests
-	uv run --project apps/mcp ruff format apps/mcp/src apps/mcp/tests
+	uv run --project apps/knowledge_corpus ruff check --fix apps/knowledge_corpus/src apps/knowledge_corpus/tests apps/knowledge_corpus/alembic
+	uv run --project apps/knowledge_corpus ruff format apps/knowledge_corpus/src apps/knowledge_corpus/tests apps/knowledge_corpus/alembic
+	uv run --project apps/mcp ruff check --fix apps/mcp/src apps/mcp/tests apps/mcp/alembic
+	uv run --project apps/mcp ruff format apps/mcp/src apps/mcp/tests apps/mcp/alembic
+	uv run --project apps/source_pipeline ruff check --fix apps/source_pipeline/src apps/source_pipeline/tests apps/source_pipeline/alembic
+	uv run --project apps/source_pipeline ruff format apps/source_pipeline/src apps/source_pipeline/tests apps/source_pipeline/alembic
 	pnpm run js:fix
 
 test:

@@ -9,10 +9,10 @@ from dataclasses import dataclass
 from typing import TypedDict, cast
 
 import httpx
-from knowledge_contracts_client import SearchClient
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
+from knowledge_contracts_client import SearchClient
 from knowledge_mcp.analytics.session import SessionAgentSearchAnalyticsRepository
 from knowledge_mcp.auth.context import load_current_principal
 from knowledge_mcp.auth.middleware import AccessTokenVerifier, TokenExchangeClient

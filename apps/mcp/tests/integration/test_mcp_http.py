@@ -6,8 +6,8 @@ Out of scope: Live HTTP ingress, Logto, Redis, and PostgreSQL services.
 from __future__ import annotations
 
 import pytest
-from knowledge_contracts_client import MatchedCard, SearchResponse
 
+from knowledge_contracts_client import MatchedCard, SearchResponse
 from knowledge_mcp.analytics.repository import AgentSearchEvent
 from knowledge_mcp.auth.verifier import AuthenticatedPrincipal
 from knowledge_mcp.quota.store import QuotaDecision

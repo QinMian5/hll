@@ -10,17 +10,19 @@ CORPUS_DIR="$ROOT_DIR/apps/knowledge_corpus"
 MCP_DIR="$ROOT_DIR/apps/mcp"
 SOURCE_PIPELINE_DIR="$ROOT_DIR/apps/source_pipeline"
 
+cd "$ROOT_DIR"
+
 echo "[typecheck] backend (ty)"
-uv run --project "$API_DIR" ty check --project "$API_DIR" "$API_DIR/src"
+uv run --project "$API_DIR" ty check --project "$API_DIR" apps/api/src
 
 echo "[typecheck] knowledge corpus (ty)"
-uv run --project "$CORPUS_DIR" ty check --project "$CORPUS_DIR" "$CORPUS_DIR/src"
+uv run --project "$CORPUS_DIR" ty check --project "$CORPUS_DIR" apps/knowledge_corpus/src
 
 echo "[typecheck] mcp (ty)"
-uv run --project "$MCP_DIR" ty check --project "$MCP_DIR" "$MCP_DIR/src"
+uv run --project "$MCP_DIR" ty check --project "$MCP_DIR" apps/mcp/src
 
 echo "[typecheck] source pipeline (ty)"
-uv run --project "$SOURCE_PIPELINE_DIR" ty check --project "$SOURCE_PIPELINE_DIR" "$SOURCE_PIPELINE_DIR/src"
+uv run --project "$SOURCE_PIPELINE_DIR" ty check --project "$SOURCE_PIPELINE_DIR" apps/source_pipeline/src
 
 echo "[typecheck] js/ts (tsc)"
 pnpm run js:typecheck

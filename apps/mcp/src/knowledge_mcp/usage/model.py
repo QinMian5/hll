@@ -6,8 +6,9 @@ Out of scope: Quota decision logic and usage analytics queries.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import cast
 
-from sqlalchemy import DateTime, Index, Integer, Text, func
+from sqlalchemy import DateTime, Index, Integer, Table, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from knowledge_mcp.db.metadata import Base
@@ -40,6 +41,6 @@ class SearchUsageEventRow(Base):
     duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
-search_usage_events = SearchUsageEventRow.__table__
+search_usage_events = cast(Table, SearchUsageEventRow.__table__)
 
 __all__ = ["SearchUsageEventRow", "search_usage_events"]

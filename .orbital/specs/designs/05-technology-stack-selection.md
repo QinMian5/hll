@@ -22,8 +22,12 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 
 ## Selected Stack (Phase-1)
 
-### Backend
+### Python Workspace
 - Package and environment manager: root `uv` workspace with member `pyproject.toml` files
+- Python tooling policy source: repository-root `pyproject.toml`
+- Python member ownership: package metadata, dependencies, build configuration, and member-required runtime declarations
+
+### Backend
 - Language and runtime: `Python` + `Uvicorn`
 - Web framework: `FastAPI`
 - Data validation and settings: `Pydantic v2` + `pydantic-settings`

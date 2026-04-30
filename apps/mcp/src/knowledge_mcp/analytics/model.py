@@ -6,9 +6,9 @@ Out of scope: Analytics capture orchestration and query-hash policy.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import DateTime, Index, Integer, Text, func, text
+from sqlalchemy import DateTime, Index, Integer, Table, Text, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -47,6 +47,6 @@ class AgentSearchEventRow(Base):
     exported_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-agent_search_events = AgentSearchEventRow.__table__
+agent_search_events = cast(Table, AgentSearchEventRow.__table__)
 
 __all__ = ["AgentSearchEventRow", "agent_search_events"]

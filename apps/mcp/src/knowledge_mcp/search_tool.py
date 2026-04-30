@@ -11,7 +11,6 @@ from collections.abc import Awaitable, Callable
 from typing import Protocol
 
 from knowledge_contracts_client import SearchResponse
-
 from knowledge_mcp.analytics.repository import (
     AgentSearchEvent,
     MatchedSearchResult,

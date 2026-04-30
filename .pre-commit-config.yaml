@@ -10,28 +10,28 @@ repos:
     hooks:
       - id: api-ruff-format
         name: api-ruff-format
-        entry: uv run --project apps/api ruff format
+        entry: uv run --project apps/api ruff format apps/api/src
         language: system
         pass_filenames: false
         files: ^apps/api/
 
       - id: api-ruff-check-fix
         name: api-ruff-check-fix
-        entry: uv run --project apps/api ruff check --fix
+        entry: uv run --project apps/api ruff check --fix apps/api/src
         language: system
         pass_filenames: false
         files: ^apps/api/
 
       - id: api-ty-check
         name: api-ty-check
-        entry: uv run --project apps/api ty check apps/api/src
+        entry: uv run --project apps/api ty check --project apps/api apps/api/src
         language: system
         pass_filenames: false
         files: ^apps/api/
 
       - id: api-import-linter
         name: api-import-linter
-        entry: uv run --project apps/api lint-imports --config apps/api/pyproject.toml
+        entry: uv run --project apps/api lint-imports --config pyproject.toml
         language: system
         pass_filenames: false
         files: ^apps/api/
@@ -56,6 +56,27 @@ repos:
         language: system
         pass_filenames: false
         files: ^apps/knowledge_corpus/
+
+      - id: mcp-ruff-format
+        name: mcp-ruff-format
+        entry: uv run --project apps/mcp ruff format apps/mcp/src apps/mcp/tests apps/mcp/alembic
+        language: system
+        pass_filenames: false
+        files: ^apps/mcp/
+
+      - id: mcp-ruff-check-fix
+        name: mcp-ruff-check-fix
+        entry: uv run --project apps/mcp ruff check --fix apps/mcp/src apps/mcp/tests apps/mcp/alembic
+        language: system
+        pass_filenames: false
+        files: ^apps/mcp/
+
+      - id: mcp-ty-check
+        name: mcp-ty-check
+        entry: uv run --project apps/mcp ty check --project apps/mcp apps/mcp/src
+        language: system
+        pass_filenames: false
+        files: ^apps/mcp/
 
       - id: source-pipeline-ruff-format
         name: source-pipeline-ruff-format

@@ -32,6 +32,8 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 - FastAPI HTTP endpoint test governance remains governed by `fastapi-unit-test-governance`.
 - Repository-level aggregate commands are owned by `Makefile`.
 - Root `pnpm` commands are limited to JS/TS-scoped actions.
+- Repository-root `pyproject.toml` is the Python tooling policy source of truth for Ruff, ty, pytest, and import-linter.
+- Python workspace member `pyproject.toml` files own package metadata, dependency declarations, build configuration, and member-required runtime declarations.
 - The default human-facing repository command surface is `make`, `make bootstrap`, `make fix`, `make test`, `make check`, `make integration`, environment lifecycle commands, and Alembic commands.
 
 ## Phase-1 Required Gates
@@ -50,19 +52,26 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 
 ### Backend Python
 - Lint/format tool is Ruff.
-- Ruff scope for gates includes `apps/api`, `apps/knowledge_corpus`, and `apps/source_pipeline`.
+- Ruff configuration source of truth is repository-root `pyproject.toml`.
+- Ruff gate scope includes `apps/api`, `apps/knowledge_corpus`, `apps/mcp`, and `apps/source_pipeline`.
 - Ruff select set: `E,F,I,B,UP,SIM,C4,PIE,RUF,ANN,TID`.
 - Ruff ignore set: `B008`.
 - `ruff format` is for local formatting; CI gate runs read-only lint checks.
+- Ruff commands run through the relevant uv workspace member environment while resolving policy from repository-root configuration.
 
 ### Backend Tests
 - Test runner is pytest.
+- pytest configuration source of truth is repository-root `pyproject.toml`.
 - Default blocked gate runs backend unit tests for `apps/api/tests/unit`, `apps/knowledge_corpus/tests/unit`, and `apps/source_pipeline/tests/unit`.
-- Integration and contract tests are present but excluded from default blocked gate.
+- Default blocked gate runs the MCP pytest suite through the `apps/mcp` member environment.
+- API, knowledge-corpus, and source-pipeline integration and contract tests are present but excluded from default blocked gate.
 
 ### Backend Type Checking
 - Type checker is `ty`.
-- Default blocked scope includes `apps/api/src`, `apps/knowledge_corpus/src`, and `apps/source_pipeline/src`.
+- ty configuration source of truth is repository-root `pyproject.toml`.
+- Default blocked scope includes `apps/api/src`, `apps/knowledge_corpus/src`, `apps/mcp/src`, and `apps/source_pipeline/src`.
+- Default ty scope is production source only; tests are not part of the strict typecheck gate.
+- ty commands run through the relevant uv workspace member environment while resolving policy from repository-root configuration.
 
 ### Frontend
 - JS/TS lint/format tool is Biome.
@@ -95,13 +104,16 @@ out_of_scope: Detailed unit-test writing techniques, deployment topology interna
 ### Pre-commit
 - Pre-commit executes local write/fix and type validation hooks before commit.
 - Hook set is:
-  - `uv run --project apps/api ruff format`
-  - `uv run --project apps/api ruff check --fix`
-  - `uv run --project apps/api ty check apps/api/src`
-  - `uv run --project apps/api lint-imports --config apps/api/pyproject.toml`
+  - `uv run --project apps/api ruff format apps/api/src`
+  - `uv run --project apps/api ruff check --fix apps/api/src`
+  - `uv run --project apps/api ty check --project apps/api apps/api/src`
+  - `uv run --project apps/api lint-imports --config pyproject.toml`
   - `uv run --project apps/knowledge_corpus ruff format apps/knowledge_corpus/src apps/knowledge_corpus/tests apps/knowledge_corpus/alembic`
   - `uv run --project apps/knowledge_corpus ruff check --fix apps/knowledge_corpus/src apps/knowledge_corpus/tests apps/knowledge_corpus/alembic`
   - `uv run --project apps/knowledge_corpus ty check --project apps/knowledge_corpus apps/knowledge_corpus/src`
+  - `uv run --project apps/mcp ruff format apps/mcp/src apps/mcp/tests apps/mcp/alembic`
+  - `uv run --project apps/mcp ruff check --fix apps/mcp/src apps/mcp/tests apps/mcp/alembic`
+  - `uv run --project apps/mcp ty check --project apps/mcp apps/mcp/src`
   - `uv run --project apps/source_pipeline ruff format apps/source_pipeline/src apps/source_pipeline/tests apps/source_pipeline/alembic`
   - `uv run --project apps/source_pipeline ruff check --fix apps/source_pipeline/src apps/source_pipeline/tests apps/source_pipeline/alembic`
   - `uv run --project apps/source_pipeline ty check --project apps/source_pipeline apps/source_pipeline/src`
