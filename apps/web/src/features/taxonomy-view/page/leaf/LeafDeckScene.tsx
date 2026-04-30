@@ -49,6 +49,15 @@ interface DeckLeafViewState {
   readonly zoom?: number | readonly number[];
 }
 
+const TITLE_LABEL_FONT_SETTINGS = {
+  buffer: 8,
+  cutoff: 0.25,
+  fontSize: 128,
+  radius: 12,
+  sdf: true,
+  smoothing: 0.06,
+} as const;
+
 const leafView = new OrthographicView({
   controller: true,
   flipY: true,
@@ -217,12 +226,13 @@ export function LeafDeckScene({
         characterSet: "auto",
         data: visibleTitleLabelNodes,
         fontFamily: '"Geist", sans-serif',
+        fontSettings: TITLE_LABEL_FONT_SETTINGS,
         fontWeight: "500",
         getAlignmentBaseline: "top",
-        getColor: [38, 52, 77, 209],
+        getColor: [38, 52, 77, 232],
         getPixelOffset: [0, 8],
         getPosition: (label) => [label.position.x, label.position.y],
-        getSize: 11,
+        getSize: 12,
         getText: (label) => label.title,
         getTextAnchor: "middle",
         id: "taxonomy-leaf-title-labels",

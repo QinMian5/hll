@@ -159,6 +159,16 @@ describe("LeafDeckScene", () => {
     expect(titleLayer?.props.getPixelOffset).toEqual([0, 8]);
     expect(titleLayer?.props.getTextAnchor).toBe("middle");
     expect(titleLayer?.props.getAlignmentBaseline).toBe("top");
+    expect(titleLayer?.props.fontSettings).toEqual({
+      buffer: 8,
+      cutoff: 0.25,
+      fontSize: 128,
+      radius: 12,
+      sdf: true,
+      smoothing: 0.06,
+    });
+    expect(titleLayer?.props.getSize).toBe(12);
+    expect(titleLayer?.props.getColor).toEqual([38, 52, 77, 232]);
 
     const labels = titleLayer?.props.data as readonly LeafSceneTitleLabelNode[];
 
