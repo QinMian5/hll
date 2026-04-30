@@ -31,7 +31,7 @@ export interface LeafDisclosureOverlayHandle {
   syncViewport: (viewport: LeafOrthographicViewport) => void;
 }
 
-const DISCLOSURE_GAP_PX = 16;
+const DISCLOSURE_GAP_PX = 8;
 const DISCLOSURE_CARD_SIZE_CLASS =
   "[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-md)] [--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-md)] [--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-md)] lg:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-lg)] lg:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-lg)] lg:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-lg)] xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-xl)] xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-xl)] xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-xl)] 2xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-2xl)] 2xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-2xl)] 2xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-2xl)]";
 const DISCLOSURE_CARD_CLASS = `absolute top-0 left-0 z-[22] m-0 pointer-events-auto flex max-h-[var(--leaf-disclosure-card-height)] w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))] flex-col items-start gap-2 overflow-hidden rounded-knowledge-leaf-disclosure border border-[rgba(133,163,214,0.34)] bg-white px-4 py-4 text-left shadow-[0_8px_18px_rgba(59,82,125,0.1)] ${DISCLOSURE_CARD_SIZE_CLASS}`;

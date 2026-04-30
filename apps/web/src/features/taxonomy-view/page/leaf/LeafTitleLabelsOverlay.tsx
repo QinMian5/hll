@@ -51,7 +51,7 @@ export function projectLeafWorldPoint(
 }
 
 function projectedTitleTransform(projected: ProjectedPoint) {
-  return `translate3d(${projected.x}px, ${projected.y + 14}px, 0px) translate(-50%, 0%)`;
+  return `translate3d(${projected.x}px, ${projected.y + 8}px, 0px) translate(-50%, 0%)`;
 }
 
 export const LeafTitleLabelsOverlay = forwardRef<

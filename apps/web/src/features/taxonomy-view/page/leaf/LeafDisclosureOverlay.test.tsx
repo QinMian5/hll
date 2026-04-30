@@ -217,7 +217,7 @@ describe("LeafDisclosureOverlay", () => {
     const disclosure = screen.getByTestId("taxonomy-leaf-disclosure-overlay");
 
     expect(disclosure.style.transform).toBe(
-      "translate3d(702px, 466px, 0px) translate(-50%, 0%)",
+      "translate3d(702px, 458px, 0px) translate(-50%, 0%)",
     );
 
     overlayRef.current?.syncViewport({
@@ -226,7 +226,7 @@ describe("LeafDisclosureOverlay", () => {
     });
 
     expect(disclosure.style.transform).toBe(
-      "translate3d(662px, 436px, 0px) translate(-50%, 0%)",
+      "translate3d(662px, 428px, 0px) translate(-50%, 0%)",
     );
   });
 
@@ -298,7 +298,7 @@ describe("LeafDisclosureOverlay", () => {
     );
 
     expect(disclosureCard.style.transform).toBe(
-      "translate3d(1302px, 466px, 0px) translate(-50%, 0%)",
+      "translate3d(1302px, 458px, 0px) translate(-50%, 0%)",
     );
   });
 });

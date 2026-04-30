@@ -49,7 +49,7 @@ describe("LeafTitleLabelsOverlay", () => {
       left: "0px",
       opacity: "1",
       top: "0px",
-      transform: "translate3d(702px, 464px, 0px) translate(-50%, 0%)",
+      transform: "translate3d(702px, 458px, 0px) translate(-50%, 0%)",
     });
   });
 
@@ -69,7 +69,7 @@ describe("LeafTitleLabelsOverlay", () => {
     const label = screen.getByTestId("taxonomy-leaf-title-label-10");
 
     expect(label.style.transform).toContain("702px");
-    expect(label.style.transform).toContain("464px");
+    expect(label.style.transform).toContain("458px");
 
     overlayRef.current?.syncViewport({
       target: [740, 480, 0],
@@ -77,7 +77,7 @@ describe("LeafTitleLabelsOverlay", () => {
     });
 
     expect(label.style.transform).toContain("662px");
-    expect(label.style.transform).toContain("434px");
+    expect(label.style.transform).toContain("428px");
   });
 
   it("hides only the selected node label when selected disclosure owns the title", () => {
