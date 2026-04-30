@@ -22,6 +22,8 @@ TAXONOMY_VIEW_CACHE_KEY_PREFIX = "taxonomy:view:v1"
 class TaxonomyRedisProtocol(Protocol):
     async def get(self, key: str) -> str | bytes | None: ...
 
+    async def delete(self, key: str) -> int: ...
+
     async def set(
         self,
         key: str,
@@ -108,6 +110,9 @@ class TaxonomyViewRedisCache:
             payload,
             ex=TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS,
         )
+
+    async def invalidate_leaf_layout(self, *, leaf_id: int) -> None:
+        await self._redis.delete(_leaf_layout_key(leaf_id=leaf_id))
 
     async def acquire_leaf_layout_lock(self, *, leaf_id: int) -> bool:
         result = await self._redis.set(

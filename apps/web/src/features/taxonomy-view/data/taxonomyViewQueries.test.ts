@@ -42,6 +42,11 @@ async function runQuery<TResult>(
   } as never)) as TResult;
 }
 
+const leafLayoutIdentity = {
+  generatedAt: "2026-04-29T00:00:00Z",
+  layoutVersion: "taxonomy-leaf-layout-v2",
+};
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -148,12 +153,16 @@ describe("taxonomyNodeViewQueryOptions", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await runQuery<TaxonomyLeafLayoutSliceResponse>(
-      taxonomyLeafLayoutSliceQueryOptions(59, {
-        max_x: 100,
-        max_y: 200,
-        min_x: -100,
-        min_y: -200,
-      }),
+      taxonomyLeafLayoutSliceQueryOptions(
+        59,
+        {
+          max_x: 100,
+          max_y: 200,
+          min_x: -100,
+          min_y: -200,
+        },
+        leafLayoutIdentity,
+      ),
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -176,12 +185,16 @@ describe("taxonomyNodeViewQueryOptions", () => {
   });
 
   it("keeps previous leaf layout data while fetching a new viewport tile", () => {
-    const options = taxonomyLeafLayoutSliceQueryOptions(59, {
-      max_x: 100,
-      max_y: 200,
-      min_x: -100,
-      min_y: -200,
-    });
+    const options = taxonomyLeafLayoutSliceQueryOptions(
+      59,
+      {
+        max_x: 100,
+        max_y: 200,
+        min_x: -100,
+        min_y: -200,
+      },
+      leafLayoutIdentity,
+    );
     const previous: TaxonomyLeafLayoutSliceResponse = {
       edges: [[10, 11, 0.8]],
       layout_version: "taxonomy-leaf-layout-v2",
@@ -191,6 +204,17 @@ describe("taxonomyNodeViewQueryOptions", () => {
     };
     const placeholderData = options.placeholderData;
 
+    expect(options.queryKey).toEqual([
+      "taxonomy-view",
+      "leaf-layout",
+      59,
+      "taxonomy-leaf-layout-v2",
+      "2026-04-29T00:00:00Z",
+      -100,
+      -200,
+      100,
+      200,
+    ]);
     expect(options.staleTime).toBe(5 * 60 * 1000);
     expect(options.gcTime).toBe(30 * 60 * 1000);
     expect(typeof placeholderData).toBe("function");
@@ -200,6 +224,34 @@ describe("taxonomyNodeViewQueryOptions", () => {
       );
     }
     expect(placeholderData(previous, undefined as never)).toBe(previous);
+  });
+
+  it("keeps layout slices distinct when backend layout identity changes", () => {
+    const first = taxonomyLeafLayoutSliceQueryOptions(
+      59,
+      {
+        max_x: 100,
+        max_y: 200,
+        min_x: -100,
+        min_y: -200,
+      },
+      leafLayoutIdentity,
+    );
+    const second = taxonomyLeafLayoutSliceQueryOptions(
+      59,
+      {
+        max_x: 100,
+        max_y: 200,
+        min_x: -100,
+        min_y: -200,
+      },
+      {
+        generatedAt: "2026-04-29T00:05:00Z",
+        layoutVersion: "taxonomy-leaf-layout-v2",
+      },
+    );
+
+    expect(first.queryKey).not.toEqual(second.queryKey);
   });
 
   it("calls the same-origin BFF leaf title endpoint", async () => {
@@ -247,12 +299,16 @@ describe("taxonomyNodeViewQueryOptions", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await runQuery<TaxonomyLeafLayoutSliceResponse>(
-      taxonomyLeafLayoutSliceQueryOptions(59, {
-        max_x: 100,
-        max_y: 200,
-        min_x: -100,
-        min_y: -200,
-      }),
+      taxonomyLeafLayoutSliceQueryOptions(
+        59,
+        {
+          max_x: 100,
+          max_y: 200,
+          min_x: -100,
+          min_y: -200,
+        },
+        leafLayoutIdentity,
+      ),
     );
 
     expect(result.edges).toEqual([
@@ -275,12 +331,16 @@ describe("taxonomyNodeViewQueryOptions", () => {
 
     await expect(
       runQuery(
-        taxonomyLeafLayoutSliceQueryOptions(59, {
-          max_x: 100,
-          max_y: 200,
-          min_x: -100,
-          min_y: -200,
-        }),
+        taxonomyLeafLayoutSliceQueryOptions(
+          59,
+          {
+            max_x: 100,
+            max_y: 200,
+            min_x: -100,
+            min_y: -200,
+          },
+          leafLayoutIdentity,
+        ),
       ),
     ).rejects.toThrow(
       "Taxonomy leaf edge payload must contain 3 numeric values.",

@@ -86,6 +86,7 @@ vi.mock("./LeafDeckScene", () => ({
       <div data-testid="leaf-hidden-label-node-id">
         {hiddenLabelNodeId ?? "none"}
       </div>
+      <div data-testid="leaf-initial-viewport-zoom">{initialViewport.zoom}</div>
       <div data-testid="leaf-point-interaction-enabled">
         {String(isPointInteractionEnabled)}
       </div>
@@ -334,7 +335,7 @@ function makeLeafDetailsResponse(
 
 function installSuccessfulQueryMocks() {
   mockUseTaxonomyLeafLayoutSliceQuery.mockImplementation(
-    (_leafId, _bounds, options) =>
+    (_leafId, _bounds, _layoutIdentity, options) =>
       ({
         data: options.enabled ? makeLeafLayoutSliceResponse() : undefined,
         error: null,
@@ -397,6 +398,10 @@ describe("LeafRenderer", () => {
         min_x: -1024,
         min_y: -1024,
       },
+      {
+        generatedAt: "2026-04-29T00:00:00Z",
+        layoutVersion: "taxonomy-leaf-layout-v2",
+      },
       expect.objectContaining({ enabled: true }),
     );
     expect(mockUseTaxonomyLeafNodeTitlesQuery).toHaveBeenCalledWith(
@@ -415,6 +420,43 @@ describe("LeafRenderer", () => {
 
     expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
       "none",
+    );
+  });
+
+  it("fits the initial viewport to large leaf world bounds before requesting layout", async () => {
+    installSuccessfulQueryMocks();
+
+    render(
+      <LeafRenderer
+        leafView={{
+          ...makeLeafView(),
+          world_bounds: {
+            max_x: 1400,
+            max_y: 500,
+            min_x: -1400,
+            min_y: -500,
+          },
+        }}
+        viewport={{ height: 800, width: 1200 }}
+      />,
+    );
+
+    expect(
+      await screen.findByTestId("leaf-initial-viewport-zoom"),
+    ).toHaveTextContent("-");
+    expect(mockUseTaxonomyLeafLayoutSliceQuery).toHaveBeenCalledWith(
+      2,
+      {
+        max_x: expect.any(Number),
+        max_y: expect.any(Number),
+        min_x: expect.any(Number),
+        min_y: expect.any(Number),
+      },
+      {
+        generatedAt: "2026-04-29T00:00:00Z",
+        layoutVersion: "taxonomy-leaf-layout-v2",
+      },
+      expect.objectContaining({ enabled: true }),
     );
   });
 

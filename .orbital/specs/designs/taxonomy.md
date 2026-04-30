@@ -101,7 +101,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - mutable edge fields such as `strength` are read from `edges` at query time through `edge_id` and are not copied into the projection.
 
 ### Taxonomy View Redis Read Model
-- Redis stores recomputable taxonomy view read models only. PostgreSQL remains the authoritative source for taxonomy nodes, current assignments, projection-edge membership, knowledge nodes, and edge fields.
+- Redis stores recomputable taxonomy view read models only. PostgreSQL remains the authoritative source for taxonomy nodes, current assignments, projection-edge membership, knowledge nodes, and edge fields. Mutation paths that change leaf assignment or projection-edge membership invalidate the affected leaf layout read model.
 - Branch count read models store descendant card counts by taxonomy node id and support root and branch child filtering without scanning all assignments on every view request.
 - Leaf layout read models store backend-computed global world coordinates for the one-hop leaf graph, layout bounds, layout algorithm version, generated timestamp, and node scope metadata.
 - Redis cache keys include a schema or layout algorithm version so incompatible read-model shapes are not reused across implementation changes.
@@ -265,7 +265,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - The repository layer exposes a leaf-scoped assignment read that returns only the node ids assigned to one taxonomy leaf.
 - Leaf graph edge expansion reads `edge_id` membership from `taxonomy_leaf_projection_edges` for the active `leaf_id`, then joins to `edges` to obtain current endpoints and `strength`.
 - Leaf graph node scope is reconstructed from two sources only: inner membership from `node_taxonomy_assignments` and projected edge endpoints from `taxonomy_leaf_projection_edges`.
-- Leaf layout generation computes stable global world coordinates from the leaf-scoped one-hop graph through the deterministic force simulation and stores the derived coordinates in Redis.
+- Leaf layout generation computes stable global world coordinates from the leaf-scoped one-hop graph through the deterministic force simulation and stores the derived coordinates in Redis; leaf assignment and projection-edge writes invalidate affected cached layout coordinates before later reads reuse them.
 - Leaf layout viewport reads return only nodes inside requested world bounds plus edges whose endpoints are both in the returned node set.
 - Leaf detail hydration validates requested node ids against cached leaf layout membership or leaf-scoped projection membership without loading title/content for every node in that graph.
 - Leaf detail hydration reads `title` and `content` only for the requested node ids after membership validation succeeds.

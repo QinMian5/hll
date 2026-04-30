@@ -44,6 +44,7 @@ class _StubRepo:
     list_assigned_node_ids_for_leaf_called_with: list[int] = field(default_factory=list)
     list_projected_edge_ids_for_leaf_called_with: list[int] = field(default_factory=list)
     add_projected_edge_batches: list[tuple[int, list[int]]] = field(default_factory=list)
+    cleared_projected_leaf_ids: list[int] = field(default_factory=list)
     leaf_lookup_by_node_id: dict[int, int] = field(default_factory=dict)
 
     async def list_tree_nodes(self) -> list[TaxonomyNodeRecord]:
@@ -83,7 +84,7 @@ class _StubRepo:
         self.add_projected_edge_batches.append((leaf_id, list(edge_ids)))
 
     async def clear_projected_edge_ids_for_leaf(self, *, leaf_id: int) -> None:
-        assert leaf_id in (9,)
+        self.cleared_projected_leaf_ids.append(leaf_id)
 
     async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]:
         return {
@@ -173,6 +174,7 @@ class _StubViewCache:
     get_descendant_counts_called: bool = False
     set_descendant_counts_called: bool = False
     acquire_descendant_counts_lock_called: bool = False
+    invalidated_leaf_layout_ids: list[int] = field(default_factory=list)
 
     async def get_descendant_counts(self) -> dict[int, int] | None:
         self.get_descendant_counts_called = True
@@ -185,6 +187,9 @@ class _StubViewCache:
     async def acquire_descendant_counts_lock(self) -> bool:
         self.acquire_descendant_counts_lock_called = True
         return self.lock_acquired
+
+    async def invalidate_leaf_layout(self, *, leaf_id: int) -> None:
+        self.invalidated_leaf_layout_ids.append(leaf_id)
 
 
 def _leaf_assignment() -> TaxonomyAssignmentRecord:
@@ -264,6 +269,42 @@ async def test_set_current_assignment_commits_written_assignment() -> None:
     assert repo.add_projected_edge_batches == [(9, [71, 72])]
     assert repo.committed is True
     assert repo.rolled_back is False
+
+
+@pytest.mark.anyio
+async def test_set_current_assignment_invalidates_refreshed_leaf_layouts() -> None:
+    previous_assignment = TaxonomyAssignmentRecord(
+        id=7,
+        node_id=41,
+        taxonomy_node=TaxonomyNodeRecord(
+            id=4,
+            parent_id=2,
+            name="Old",
+            depth=2,
+            is_leaf=True,
+        ),
+        assigned_at=datetime(2026, 4, 5, 3, 0, tzinfo=UTC),
+    )
+    repo = _StubRepo(
+        assignment=previous_assignment,
+        set_result=_leaf_assignment(),
+        assigned_leaf_node_ids=[41],
+    )
+    cache = _StubViewCache()
+    projection_port = _StubProjectionPort(nodes=[], edges=[], adjacent_edge_ids=[71, 72])
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=projection_port,
+        view_cache=cache,
+    )
+
+    await service.set_current_assignment(
+        node_id=41,
+        taxonomy_node_id=9,
+    )
+
+    assert repo.cleared_projected_leaf_ids == [4, 9]
+    assert cache.invalidated_leaf_layout_ids == [4, 9]
 
 
 @pytest.mark.anyio

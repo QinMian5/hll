@@ -25,10 +25,17 @@ from modules.taxonomy.view_cache import (
 class _FakeRedis:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
+        self.delete_calls: list[str] = []
         self.set_calls: list[tuple[str, str, int | None, bool | None]] = []
 
     async def get(self, key: str) -> str | None:
         return self.values.get(key)
+
+    async def delete(self, key: str) -> int:
+        self.delete_calls.append(key)
+        existed = key in self.values
+        self.values.pop(key, None)
+        return int(existed)
 
     async def set(
         self,
@@ -144,3 +151,15 @@ async def test_leaf_layout_lock_uses_per_leaf_single_flight_key() -> None:
     assert redis.set_calls == [
         ("taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v2:9:lock", "1", 30, True)
     ]
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_cache_can_invalidate_versioned_leaf_payload() -> None:
+    redis = _FakeRedis()
+    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v2:9"] = "{}"
+    cache = TaxonomyViewRedisCache(redis=redis)
+
+    await cache.invalidate_leaf_layout(leaf_id=9)
+
+    assert redis.delete_calls == ["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v2:9"]
+    assert "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v2:9" not in redis.values

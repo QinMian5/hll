@@ -28,7 +28,6 @@ import type {
   TaxonomyLayoutNode,
 } from "../layout/taxonomyLayoutTypes";
 import {
-  buildDefaultLeafViewport,
   LEAF_HYDRATION_OVERSCAN,
   LEAF_LAYOUT_TILE_SIZE,
 } from "./leafRendererConfig";
@@ -42,6 +41,7 @@ import {
   buildLeafTitleLabelNodes,
 } from "./useLeafSceneModel";
 import {
+  buildInitialLeafViewport,
   buildLeafViewportState,
   isLeafPointTitleModeActive,
   selectLeafHydrationNodeIds,
@@ -144,16 +144,30 @@ export function LeafRenderer({
     min_x: leafWorldMinX,
     min_y: leafWorldMinY,
   } = leafView.world_bounds;
-  const initialLeafViewportCenter = useMemo(
+  const leafWorldBounds = useMemo<LeafWorldBounds>(
     () => ({
-      x: (leafWorldMinX + leafWorldMaxX) / 2,
-      y: (leafWorldMinY + leafWorldMaxY) / 2,
+      bottom: leafWorldMaxY,
+      left: leafWorldMinX,
+      right: leafWorldMaxX,
+      top: leafWorldMinY,
     }),
     [leafWorldMaxX, leafWorldMaxY, leafWorldMinX, leafWorldMinY],
   );
   const initialDeckViewport = useMemo(
-    () => buildDefaultLeafViewport(initialLeafViewportCenter),
-    [initialLeafViewportCenter],
+    () =>
+      buildInitialLeafViewport({
+        canvas: viewport,
+        padding: LEAF_HYDRATION_OVERSCAN,
+        worldBounds: leafWorldBounds,
+      }),
+    [leafWorldBounds, viewport],
+  );
+  const leafLayoutIdentity = useMemo(
+    () => ({
+      generatedAt: leafView.generated_at,
+      layoutVersion: leafView.layout_version,
+    }),
+    [leafView.generated_at, leafView.layout_version],
   );
   const [canvasViewport, setCanvasViewport] = useState(viewport);
   const [deckViewportSnapshot, setDeckViewportSnapshot] =
@@ -273,6 +287,7 @@ export function LeafRenderer({
   const leafLayoutQuery = useTaxonomyLeafLayoutSliceQuery(
     leafNodeId,
     leafLayoutBounds,
+    leafLayoutIdentity,
     { enabled: Number.isFinite(leafNodeId) },
   );
   useEffect(() => {

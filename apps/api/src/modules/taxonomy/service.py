@@ -129,6 +129,8 @@ class TaxonomyViewCachePort(Protocol):
 
     async def set_leaf_layout(self, *, leaf_id: int, layout: TaxonomyLeafLayout) -> None: ...
 
+    async def invalidate_leaf_layout(self, *, leaf_id: int) -> None: ...
+
     async def acquire_leaf_layout_lock(self, *, leaf_id: int) -> bool: ...
 
 
@@ -630,6 +632,8 @@ class TaxonomyService:
             leaf_id=leaf_id,
             edge_ids=adjacent_edge_ids,
         )
+        if self._view_cache is not None:
+            await self._view_cache.invalidate_leaf_layout(leaf_id=leaf_id)
 
 
 def _index_tree(

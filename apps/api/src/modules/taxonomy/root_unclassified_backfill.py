@@ -11,6 +11,7 @@ from typing import Literal, Protocol
 from modules.taxonomy.dto import TaxonomyNodeRecord
 from modules.taxonomy.projection_rebuild import (
     TaxonomyLeafProjectionRebuildKnowledgePort,
+    TaxonomyLeafProjectionRebuildViewCachePort,
     rebuild_taxonomy_leaf_projection_edges,
 )
 
@@ -74,9 +75,11 @@ class TaxonomyRootUnclassifiedBackfillService:
         *,
         repo: TaxonomyRootUnclassifiedBackfillRepoPort,
         knowledge_projection_port: TaxonomyLeafProjectionRebuildKnowledgePort | None = None,
+        view_cache: TaxonomyLeafProjectionRebuildViewCachePort | None = None,
     ) -> None:
         self._repo = repo
         self._knowledge_projection_port = knowledge_projection_port
+        self._view_cache = view_cache
 
     async def run(self, *, apply: bool) -> TaxonomyRootUnclassifiedBackfillResult:
         if not apply:
@@ -123,6 +126,7 @@ class TaxonomyRootUnclassifiedBackfillService:
                 await rebuild_taxonomy_leaf_projection_edges(
                     repo=self._repo,
                     projection_port=self._knowledge_projection_port,
+                    view_cache=self._view_cache,
                 )
                 projection_rebuilt = True
             await self._repo.commit()

@@ -6,8 +6,10 @@ Out of scope: API serving, worker actors, and database migration execution.
 from __future__ import annotations
 
 import asyncio
+from typing import cast
 
 import click
+from redis.asyncio import Redis
 
 from entrypoints.runtime import get_runtime_dependencies
 from modules.knowledge_graph.builders import build_knowledge_graph_service
@@ -18,6 +20,7 @@ from modules.knowledge_graph.edge_rebuild import (
 from modules.knowledge_graph.repo import KnowledgeRepo
 from modules.taxonomy.projection_rebuild import rebuild_taxonomy_leaf_projection_edges
 from modules.taxonomy.repo import TaxonomyRepo
+from modules.taxonomy.view_cache import TaxonomyRedisProtocol, TaxonomyViewRedisCache
 
 
 async def run_rebuild(
@@ -49,16 +52,24 @@ async def run_rebuild(
 
             if apply:
                 taxonomy_repo = TaxonomyRepo(session=session)
+                taxonomy_view_cache = TaxonomyViewRedisCache(
+                    redis=cast(
+                        TaxonomyRedisProtocol,
+                        Redis.from_url(runtime.settings.redis_url),
+                    )
+                )
                 knowledge_projection_port = build_knowledge_graph_service(
                     session=session,
                     edge_title_mention_top_k=runtime.settings.edge_title_mention_top_k,
                     edge_semantic_top_k=top_k,
                     edge_semantic_min_strength=min_strength,
                     edge_semantic_candidate_limit=(runtime.settings.edge_semantic_candidate_limit),
+                    taxonomy_view_cache=taxonomy_view_cache,
                 )
                 await rebuild_taxonomy_leaf_projection_edges(
                     repo=taxonomy_repo,
                     projection_port=knowledge_projection_port,
+                    view_cache=taxonomy_view_cache,
                 )
                 await session.commit()
             else:

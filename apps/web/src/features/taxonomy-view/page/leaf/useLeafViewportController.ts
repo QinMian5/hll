@@ -5,6 +5,7 @@ import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
 import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
 import type {
   BuildLeafViewportStateInput,
+  LeafOrthographicViewport,
   LeafViewportState,
   LeafWorldBounds,
 } from "./leafSceneTypes";
@@ -15,6 +16,39 @@ function scaleFromZoom(zoom: number) {
 
 export function isLeafPointTitleModeActive(zoom: number) {
   return zoom >= LEAF_POINT_TITLE_ACTIVATION_ZOOM;
+}
+
+export function buildInitialLeafViewport(input: {
+  readonly canvas: { readonly height: number; readonly width: number };
+  readonly padding: number;
+  readonly worldBounds: LeafWorldBounds;
+}): LeafOrthographicViewport {
+  const centerX = (input.worldBounds.left + input.worldBounds.right) / 2;
+  const centerY = (input.worldBounds.top + input.worldBounds.bottom) / 2;
+  const worldWidth = input.worldBounds.right - input.worldBounds.left;
+  const worldHeight = input.worldBounds.bottom - input.worldBounds.top;
+
+  if (
+    input.canvas.width <= 0 ||
+    input.canvas.height <= 0 ||
+    worldWidth <= 0 ||
+    worldHeight <= 0
+  ) {
+    return { target: [centerX, centerY, 0], zoom: 0 };
+  }
+
+  const availableWidth = Math.max(1, input.canvas.width - input.padding * 2);
+  const availableHeight = Math.max(1, input.canvas.height - input.padding * 2);
+  const fitScale = Math.min(
+    availableWidth / worldWidth,
+    availableHeight / worldHeight,
+  );
+  const fitZoom = Number.isFinite(fitScale) ? Math.log2(fitScale) : 0;
+
+  return {
+    target: [centerX, centerY, 0],
+    zoom: Math.min(0, fitZoom),
+  };
 }
 
 export function expandLeafWorldBounds(

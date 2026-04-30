@@ -44,6 +44,11 @@ export interface TaxonomyLeafLayoutBounds {
   readonly max_y: number;
 }
 
+export interface TaxonomyLeafLayoutIdentity {
+  readonly generatedAt: string;
+  readonly layoutVersion: string;
+}
+
 type Assert<T extends true> = T;
 type HasProperty<
   T,
@@ -132,11 +137,17 @@ function normalizeTaxonomyLeafLayoutSlicePayload(
 const taxonomyViewQueryKeys = {
   leafDetails: (leafId: number, nodeIds: readonly number[]) =>
     ["taxonomy-view", "leaf-details", leafId, ...nodeIds] as const,
-  leafLayoutSlice: (leafId: number, bounds: TaxonomyLeafLayoutBounds) =>
+  leafLayoutSlice: (
+    leafId: number,
+    bounds: TaxonomyLeafLayoutBounds,
+    layoutIdentity: TaxonomyLeafLayoutIdentity,
+  ) =>
     [
       "taxonomy-view",
       "leaf-layout",
       leafId,
+      layoutIdentity.layoutVersion,
+      layoutIdentity.generatedAt,
       bounds.min_x,
       bounds.min_y,
       bounds.max_x,
@@ -241,12 +252,17 @@ export function taxonomyLeafNodeDetailsQueryOptions(
 export function taxonomyLeafLayoutSliceQueryOptions(
   leafId: number,
   bounds: TaxonomyLeafLayoutBounds,
+  layoutIdentity: TaxonomyLeafLayoutIdentity,
 ) {
   return queryOptions({
     gcTime: LEAF_LAYOUT_SLICE_GC_TIME_MS,
     placeholderData: (previousData) => previousData,
     queryFn: () => fetchTaxonomyLeafLayoutSlice(leafId, bounds),
-    queryKey: taxonomyViewQueryKeys.leafLayoutSlice(leafId, bounds),
+    queryKey: taxonomyViewQueryKeys.leafLayoutSlice(
+      leafId,
+      bounds,
+      layoutIdentity,
+    ),
     staleTime: LEAF_LAYOUT_SLICE_STALE_TIME_MS,
   });
 }
@@ -296,10 +312,11 @@ export function useTaxonomyLeafNodeDetailsQuery(
 export function useTaxonomyLeafLayoutSliceQuery(
   leafId: number,
   bounds: TaxonomyLeafLayoutBounds,
+  layoutIdentity: TaxonomyLeafLayoutIdentity,
   options: { readonly enabled?: boolean },
 ) {
   return useQuery({
-    ...taxonomyLeafLayoutSliceQueryOptions(leafId, bounds),
+    ...taxonomyLeafLayoutSliceQueryOptions(leafId, bounds, layoutIdentity),
     enabled: options.enabled ?? true,
   });
 }

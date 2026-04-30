@@ -312,7 +312,7 @@ export function TaxonomyViewPage() {
           {nodeQuery.data?.node_kind === "leaf" ? (
             <Suspense fallback={null}>
               <LeafRenderer
-                key={nodeQuery.data.current_node.id}
+                key={`${nodeQuery.data.current_node.id}:${nodeQuery.data.layout_version}:${nodeQuery.data.generated_at}`}
                 leafView={nodeQuery.data}
                 onSuggestEdit={handleSuggestEdit}
                 viewport={canvasViewport}

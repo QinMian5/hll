@@ -6,8 +6,10 @@ Out of scope: API serving, schema migration, and job-queue classification runtim
 from __future__ import annotations
 
 import asyncio
+from typing import cast
 
 import click
+from redis.asyncio import Redis
 
 from entrypoints.runtime import get_runtime_dependencies
 from modules.knowledge_graph.builders import build_knowledge_graph_service
@@ -16,12 +18,23 @@ from modules.taxonomy.root_unclassified_backfill import (
     TaxonomyRootUnclassifiedBackfillResult,
     TaxonomyRootUnclassifiedBackfillService,
 )
+from modules.taxonomy.view_cache import TaxonomyRedisProtocol, TaxonomyViewRedisCache
 
 
 async def run_backfill(*, apply: bool) -> TaxonomyRootUnclassifiedBackfillResult:
     runtime = get_runtime_dependencies()
     async with runtime.session_factory() as session:
         taxonomy_repo = TaxonomyRepo(session=session)
+        taxonomy_view_cache = (
+            TaxonomyViewRedisCache(
+                redis=cast(
+                    TaxonomyRedisProtocol,
+                    Redis.from_url(runtime.settings.redis_url),
+                )
+            )
+            if apply
+            else None
+        )
         projection_port = (
             build_knowledge_graph_service(
                 session=session,
@@ -29,6 +42,7 @@ async def run_backfill(*, apply: bool) -> TaxonomyRootUnclassifiedBackfillResult
                 edge_semantic_top_k=runtime.settings.edge_semantic_top_k,
                 edge_semantic_min_strength=runtime.settings.edge_semantic_min_strength,
                 edge_semantic_candidate_limit=runtime.settings.edge_semantic_candidate_limit,
+                taxonomy_view_cache=taxonomy_view_cache,
             )
             if apply
             else None
@@ -36,6 +50,7 @@ async def run_backfill(*, apply: bool) -> TaxonomyRootUnclassifiedBackfillResult
         service = TaxonomyRootUnclassifiedBackfillService(
             repo=taxonomy_repo,
             knowledge_projection_port=projection_port,
+            view_cache=taxonomy_view_cache,
         )
         return await service.run(apply=apply)
 

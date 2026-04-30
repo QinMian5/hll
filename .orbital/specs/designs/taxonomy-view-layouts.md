@@ -104,7 +104,7 @@ out_of_scope: Taxonomy API payload derivation, backend layout computation, page-
 - **Interactions:**
   - Entering a branch view computes only the branch bubble layout for the current `children[]`.
   - Clicking a branch bubble transitions to the next taxonomy payload and recomputes branch layout or initializes leaf metadata inside the same mounted canvas.
-  - Entering a leaf view loads leaf metadata, requests the initial viewport layout slice from the backend, and renders returned nodes in point mode with returned true graph edges visible inside the deck.gl scene.
+  - Entering a leaf view loads leaf metadata, initializes the deck.gl orthographic overview from backend `world_bounds`, requests the initial viewport layout slice from the backend, and renders returned nodes in point mode with returned true graph edges visible inside the deck.gl scene.
   - Crossing deck orthographic viewport zoom `0.85` immediately toggles point-title mode from the live deck viewport frame; viewport slice requests, overscan computation, visible-title recomputation, and title hydration continue to use the throttled viewport snapshot.
   - Panning inside point-title mode incrementally requests newly entered layout slices and hydrates newly visible overscan nodes while leaving far-away nodes unloaded, and already visible labels remain in the deck.gl camera path while slice, hydration, and visibility decisions continue on the bounded snapshot cadence.
   - Hydrating a node for point-title mode adds title data to the cache while keeping the point coordinate as the graph anchor.
@@ -130,7 +130,7 @@ out_of_scope: Taxonomy API payload derivation, backend layout computation, page-
   - Leaf view uses deck.gl scene primitives for points, edges, and point-title labels, while rich-text disclosures render as coordinate-anchored DeckGL React children.
   - Leaf camera motion remains smooth because deck.gl view-state updates do not force whole-tree React rerenders on every pointer frame.
   - Leaf view displays non-interactive nodes as points below the zoom threshold and adds viewport-scoped title labels plus point-glyph interaction above the threshold.
-  - Leaf layout slices are requested only for the viewport plus overscan region and are reused while still valid for the active leaf layout version.
+  - Leaf layout slices are requested only for the viewport plus overscan region and are reused while still valid for the active leaf layout identity, defined by the backend layout algorithm version and generated timestamp.
   - Leaf layout slice requests use stable snapped world-tile bounds so small drags do not create a new request key for every frame.
   - Leaf node titles are requested only for returned layout-slice nodes inside the viewport plus overscan region and are reused from cache during continued navigation.
   - Leaf node content is requested only for hover or selected disclosure targets and is reused from cache during continued interaction.
