@@ -1,8 +1,8 @@
-// abstract: deck.gl scene assembly for taxonomy leaf point and edge rendering.
+// abstract: deck.gl scene assembly for taxonomy leaf point, edge, and title-label rendering.
 // out_of_scope: Taxonomy data fetching and page-shell overlays.
 
 import { OrthographicView } from "@deck.gl/core";
-import { LineLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { LineLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import { DeckGL } from "@deck.gl/react";
 import { useMemo } from "react";
 
@@ -21,11 +21,13 @@ import type {
   LeafSceneEdge,
   LeafSceneModel,
   LeafScenePointNode,
+  LeafSceneTitleLabelNode,
 } from "./leafSceneTypes";
 import { useLeafViewportStore } from "./useLeafViewportStore";
 
 interface LeafDeckSceneProps {
   readonly activeFocusNodeId: number | null;
+  readonly hiddenLabelNodeId: number | null;
   readonly hoveredPointNodeId: number | null;
   readonly initialViewport: LeafOrthographicViewport;
   readonly isPointInteractionEnabled: boolean;
@@ -45,6 +47,7 @@ const leafView = new OrthographicView({
 
 export function LeafDeckScene({
   activeFocusNodeId,
+  hiddenLabelNodeId,
   hoveredPointNodeId,
   onViewportFrameChange,
   onViewportChange,
@@ -79,6 +82,15 @@ export function LeafDeckScene({
         ? scene.pointNodes.filter((node) => focusNodeIds.has(node.graphNodeId))
         : [],
     [focusNodeIds, scene.pointNodes],
+  );
+  const visibleTitleLabelNodes = useMemo(
+    () =>
+      hiddenLabelNodeId === null
+        ? scene.titleLabelNodes
+        : scene.titleLabelNodes.filter(
+            (node) => node.graphNodeId !== hiddenLabelNodeId,
+          ),
+    [hiddenLabelNodeId, scene.titleLabelNodes],
   );
   const layers = useMemo(
     () => [
@@ -169,6 +181,26 @@ export function LeafDeckScene({
         radiusUnits: "pixels",
         stroked: true,
       }),
+      new TextLayer<LeafSceneTitleLabelNode>({
+        billboard: true,
+        characterSet: "auto",
+        data: visibleTitleLabelNodes,
+        fontFamily: '"Geist", sans-serif',
+        fontWeight: "500",
+        getAlignmentBaseline: "top",
+        getColor: [38, 52, 77, 209],
+        getPixelOffset: [0, 8],
+        getPosition: (label) => [label.position.x, label.position.y],
+        getSize: 11,
+        getText: (label) => label.title,
+        getTextAnchor: "middle",
+        id: "taxonomy-leaf-title-labels",
+        lineHeight: 1.25,
+        maxWidth: 16,
+        pickable: false,
+        sizeUnits: "pixels",
+        wordBreak: "break-word",
+      }),
     ],
     [
       activeFocusNodeId,
@@ -181,6 +213,7 @@ export function LeafDeckScene({
       onPointHover,
       scene.edges,
       scene.pointNodes,
+      visibleTitleLabelNodes,
     ],
   );
 

@@ -14,7 +14,7 @@ import {
 import { KnowledgeRichText, ScrollArea } from "../../../../shared/ui";
 import type { SearchResultCardEditPayload } from "../../../search/components/SearchResultCard";
 import type { LayoutViewport } from "../layout/taxonomyLayoutTypes";
-import { projectLeafWorldPoint } from "./LeafTitleLabelsOverlay";
+import { projectLeafWorldPoint } from "./leafProjection";
 import type {
   LeafDisclosureState,
   LeafOrthographicViewport,

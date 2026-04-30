@@ -1,4 +1,4 @@
-// abstract: Leaf-mode renderer that owns deck.gl scene state, title labels, and disclosure hydration.
+// abstract: Leaf-mode renderer that owns deck.gl scene state, title hydration, and disclosure overlays.
 // out_of_scope: Branch React Flow rendering and page-shell chrome.
 
 import {
@@ -31,10 +31,6 @@ import {
   LeafDisclosureOverlay,
   type LeafDisclosureOverlayHandle,
 } from "./LeafDisclosureOverlay";
-import {
-  LeafTitleLabelsOverlay,
-  type LeafTitleLabelsOverlayHandle,
-} from "./LeafTitleLabelsOverlay";
 import {
   buildDefaultLeafViewport,
   LEAF_HYDRATION_OVERSCAN,
@@ -143,7 +139,6 @@ export function LeafRenderer({
   viewport,
 }: LeafRendererProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const titleLabelsRef = useRef<LeafTitleLabelsOverlayHandle | null>(null);
   const disclosureRef = useRef<LeafDisclosureOverlayHandle | null>(null);
   const lastLeafLayoutSliceRef = useRef<
     TaxonomyLeafLayoutSliceResponse | undefined
@@ -209,7 +204,6 @@ export function LeafRenderer({
         const nextValue = isLeafPointTitleModeActive(viewport.zoom);
         return currentValue === nextValue ? currentValue : nextValue;
       });
-      titleLabelsRef.current?.syncViewport(viewport);
       disclosureRef.current?.syncViewport(viewport);
     },
     [],
@@ -551,6 +545,7 @@ export function LeafRenderer({
       <Suspense fallback={null}>
         <LeafDeckScene
           activeFocusNodeId={activeFocusNodeId}
+          hiddenLabelNodeId={hiddenLabelNodeId}
           hoveredPointNodeId={hoveredPointNodeId}
           initialViewport={initialDeckViewport}
           isPointInteractionEnabled={isPointTitleModeActive}
@@ -562,13 +557,6 @@ export function LeafRenderer({
           scene={scene}
         />
       </Suspense>
-      <LeafTitleLabelsOverlay
-        canvas={canvasViewport}
-        hiddenLabelNodeId={hiddenLabelNodeId}
-        ref={titleLabelsRef}
-        titleLabelNodes={scene.titleLabelNodes}
-        viewport={liveViewportRef.current}
-      />
       <LeafDisclosureOverlay
         canvas={canvasViewport}
         disclosure={disclosure}
