@@ -6,6 +6,8 @@ import { LineLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import { DeckGL } from "@deck.gl/react";
 import { useMemo } from "react";
 
+import type { SearchResultCardEditPayload } from "../../../search/components/SearchResultCard";
+import { LeafDisclosureOverlay } from "./LeafDisclosureOverlay";
 import {
   LEAF_EDGE_ACTIVE_OPACITY,
   LEAF_EDGE_BASE_OPACITY,
@@ -17,6 +19,7 @@ import {
   LEAF_POINT_OUTER_OPACITY,
 } from "./leafRendererConfig";
 import type {
+  LeafDisclosureState,
   LeafOrthographicViewport,
   LeafSceneEdge,
   LeafSceneModel,
@@ -27,6 +30,7 @@ import { useLeafViewportStore } from "./useLeafViewportStore";
 
 interface LeafDeckSceneProps {
   readonly activeFocusNodeId: number | null;
+  readonly disclosure: LeafDisclosureState | null;
   readonly hiddenLabelNodeId: number | null;
   readonly hoveredPointNodeId: number | null;
   readonly initialViewport: LeafOrthographicViewport;
@@ -34,9 +38,15 @@ interface LeafDeckSceneProps {
   readonly onCanvasClick: () => void;
   readonly onPointClick: (nodeId: number) => void;
   readonly onPointHover: (nodeId: number | null) => void;
+  readonly onSuggestEdit?: (card: SearchResultCardEditPayload) => void;
   readonly onViewportFrameChange?: (viewport: LeafOrthographicViewport) => void;
   readonly onViewportChange: (viewport: LeafOrthographicViewport) => void;
   readonly scene: LeafSceneModel;
+}
+
+interface DeckLeafViewState {
+  readonly target?: readonly number[];
+  readonly zoom?: number | readonly number[];
 }
 
 const leafView = new OrthographicView({
@@ -45,8 +55,28 @@ const leafView = new OrthographicView({
   id: "taxonomy-leaf-view",
 });
 
+function toLeafViewport(
+  viewState: DeckLeafViewState,
+  fallbackViewport: LeafOrthographicViewport,
+): LeafOrthographicViewport {
+  const target = viewState.target ?? fallbackViewport.target;
+  const nextZoom = Array.isArray(viewState.zoom)
+    ? (viewState.zoom[0] ?? fallbackViewport.zoom)
+    : (viewState.zoom ?? fallbackViewport.zoom);
+
+  return {
+    target: [
+      target[0] ?? fallbackViewport.target[0],
+      target[1] ?? fallbackViewport.target[1],
+      target[2] ?? 0,
+    ],
+    zoom: nextZoom,
+  };
+}
+
 export function LeafDeckScene({
   activeFocusNodeId,
+  disclosure,
   hiddenLabelNodeId,
   hoveredPointNodeId,
   onViewportFrameChange,
@@ -56,6 +86,7 @@ export function LeafDeckScene({
   onCanvasClick,
   onPointClick,
   onPointHover,
+  onSuggestEdit,
   scene,
 }: LeafDeckSceneProps) {
   const { publishViewport, viewState } = useLeafViewportStore({
@@ -227,26 +258,31 @@ export function LeafDeckScene({
           }
         }}
         onViewStateChange={({ viewState }) => {
-          const target = viewState.target ?? initialViewport.target;
-          const nextZoom = Array.isArray(viewState.zoom)
-            ? (viewState.zoom[0] ?? initialViewport.zoom)
-            : (viewState.zoom ?? initialViewport.zoom);
-
-          const nextViewport = {
-            target: [
-              target[0] ?? initialViewport.target[0],
-              target[1] ?? initialViewport.target[1],
-              target[2] ?? 0,
-            ],
-            zoom: nextZoom,
-          } satisfies LeafOrthographicViewport;
+          const nextViewport = toLeafViewport(viewState, initialViewport);
 
           onViewportFrameChange?.(nextViewport);
           publishViewport(nextViewport);
         }}
         viewState={{ target: [...viewState.target], zoom: viewState.zoom }}
         views={leafView}
-      />
+      >
+        {({
+          height,
+          viewState,
+          width,
+        }: {
+          readonly height: number;
+          readonly viewState: DeckLeafViewState;
+          readonly width: number;
+        }) => (
+          <LeafDisclosureOverlay
+            canvas={{ height, width }}
+            disclosure={disclosure}
+            onSuggestEdit={onSuggestEdit}
+            viewport={toLeafViewport(viewState, initialViewport)}
+          />
+        )}
+      </DeckGL>
     </div>
   );
 }

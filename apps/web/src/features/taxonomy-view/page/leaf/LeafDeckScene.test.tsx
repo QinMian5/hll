@@ -47,8 +47,30 @@ vi.mock("@deck.gl/layers", () => {
 });
 
 vi.mock("@deck.gl/react", () => ({
-  DeckGL: ({ layers }: { readonly layers: readonly unknown[] }) => (
-    <div data-layer-count={layers.length} data-testid="deck-gl-mock" />
+  DeckGL: ({
+    children,
+    layers,
+    viewState,
+  }: {
+    readonly children?: unknown;
+    readonly layers: readonly unknown[];
+    readonly viewState: {
+      readonly target: readonly [number, number, number];
+      readonly zoom: number;
+    };
+  }) => (
+    <div data-layer-count={layers.length} data-testid="deck-gl-mock">
+      {typeof children === "function"
+        ? children({
+            height: 480,
+            viewState,
+            viewport: {},
+            width: 640,
+            x: 0,
+            y: 0,
+          })
+        : children}
+    </div>
   ),
 }));
 
@@ -104,6 +126,7 @@ function renderScene(hiddenLabelNodeId: number | null) {
   render(
     <LeafDeckScene
       activeFocusNodeId={null}
+      disclosure={null}
       hiddenLabelNodeId={hiddenLabelNodeId}
       hoveredPointNodeId={null}
       initialViewport={{ target: [0, 0, 0], zoom: 0 }}
@@ -152,5 +175,44 @@ describe("LeafDeckScene", () => {
         ) => readonly [number, number]
       )(labels[0]),
     ).toEqual([10, 20]);
+  });
+
+  it("renders disclosure cards through the DeckGL child render callback", () => {
+    render(
+      <LeafDeckScene
+        activeFocusNodeId={10}
+        disclosure={{
+          mode: "selected",
+          node: {
+            content: "*Visible* content",
+            currentVersion: 3,
+            graphNodeId: 10,
+            id: "leaf-10",
+            position: { x: 10, y: 20 },
+            scope: "inner",
+            title: "Visible title",
+          },
+        }}
+        hiddenLabelNodeId={10}
+        hoveredPointNodeId={null}
+        initialViewport={{ target: [0, 0, 0], zoom: 0 }}
+        isPointInteractionEnabled={true}
+        onCanvasClick={vi.fn()}
+        onPointClick={vi.fn()}
+        onPointHover={vi.fn()}
+        onViewportChange={vi.fn()}
+        scene={makeScene()}
+      />,
+    );
+
+    const disclosure = screen.getByTestId("taxonomy-leaf-disclosure-overlay");
+
+    expect(disclosure.parentElement).toBe(screen.getByTestId("deck-gl-mock"));
+    expect(disclosure).toHaveAttribute("data-disclosure-mode", "selected");
+    expect(disclosure).toHaveTextContent("Visible title");
+    expect(disclosure).toHaveTextContent("Visible content");
+    expect(disclosure).toHaveStyle({
+      transform: "translate3d(330px, 268px, 0px) translate(-50%, 0%)",
+    });
   });
 });

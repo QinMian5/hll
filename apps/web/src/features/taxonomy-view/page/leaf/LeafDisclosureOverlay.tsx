@@ -1,15 +1,8 @@
-// abstract: DOM disclosure overlay for hovered or selected taxonomy leaf points.
+// abstract: DeckGL child disclosure overlay for hovered or selected taxonomy leaf points.
 // out_of_scope: deck.gl picking, title/detail data fetching, and graph focus semantics.
 
 import { SquarePen } from "lucide-react";
-import {
-  forwardRef,
-  type SyntheticEvent,
-  useCallback,
-  useImperativeHandle,
-  useLayoutEffect,
-  useRef,
-} from "react";
+import type { SyntheticEvent } from "react";
 
 import { KnowledgeRichText, ScrollArea } from "../../../../shared/ui";
 import type { SearchResultCardEditPayload } from "../../../search/components/SearchResultCard";
@@ -25,10 +18,6 @@ interface LeafDisclosureOverlayProps {
   readonly disclosure: LeafDisclosureState | null;
   readonly onSuggestEdit?: (card: SearchResultCardEditPayload) => void;
   readonly viewport: LeafOrthographicViewport;
-}
-
-export interface LeafDisclosureOverlayHandle {
-  syncViewport: (viewport: LeafOrthographicViewport) => void;
 }
 
 const DISCLOSURE_GAP_PX = 8;
@@ -135,58 +124,12 @@ function LeafDisclosureContent({ content }: { readonly content: string }) {
   );
 }
 
-export const LeafDisclosureOverlay = forwardRef<
-  LeafDisclosureOverlayHandle,
-  LeafDisclosureOverlayProps
->(function LeafDisclosureOverlay(
-  { canvas, disclosure, onSuggestEdit, viewport },
-  ref,
-) {
-  const elementRef = useRef<HTMLElement | null>(null);
-  const canvasRef = useRef(canvas);
-  const disclosureRef = useRef(disclosure);
-  const viewportRef = useRef(viewport);
-
-  const syncViewport = useCallback((nextViewport: LeafOrthographicViewport) => {
-    viewportRef.current = nextViewport;
-
-    const currentDisclosure = disclosureRef.current;
-    if (!currentDisclosure || !elementRef.current) {
-      return;
-    }
-
-    const nextPosition = resolvePosition({
-      canvas: canvasRef.current,
-      disclosure: currentDisclosure,
-      viewport: nextViewport,
-    });
-
-    elementRef.current.style.transform = disclosureTransform(nextPosition);
-  }, []);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      syncViewport,
-    }),
-    [syncViewport],
-  );
-
-  useLayoutEffect(() => {
-    canvasRef.current = canvas;
-    syncViewport(viewportRef.current);
-  }, [canvas, syncViewport]);
-
-  useLayoutEffect(() => {
-    disclosureRef.current = disclosure;
-    syncViewport(viewportRef.current);
-  }, [disclosure, syncViewport]);
-
-  useLayoutEffect(() => {
-    viewportRef.current = viewport;
-    syncViewport(viewport);
-  }, [syncViewport, viewport]);
-
+export function LeafDisclosureOverlay({
+  canvas,
+  disclosure,
+  onSuggestEdit,
+  viewport,
+}: LeafDisclosureOverlayProps) {
   if (!disclosure) {
     return null;
   }
@@ -213,14 +156,7 @@ export const LeafDisclosureOverlay = forwardRef<
 
   if (disclosure.mode === "selected") {
     return (
-      <dialog
-        {...sharedProps}
-        aria-label="Selected knowledge card"
-        open
-        ref={(element) => {
-          elementRef.current = element;
-        }}
-      >
+      <dialog {...sharedProps} aria-label="Selected knowledge card" open>
         <LeafDisclosureHeader
           node={disclosure.node}
           onSuggestEdit={onSuggestEdit}
@@ -232,12 +168,7 @@ export const LeafDisclosureOverlay = forwardRef<
   }
 
   return (
-    <div
-      {...sharedProps}
-      ref={(element) => {
-        elementRef.current = element;
-      }}
-    >
+    <div {...sharedProps}>
       <LeafDisclosureHeader
         node={disclosure.node}
         onSuggestEdit={onSuggestEdit}
@@ -246,4 +177,4 @@ export const LeafDisclosureOverlay = forwardRef<
       <LeafDisclosureContent content={disclosure.node.content} />
     </div>
   );
-});
+}

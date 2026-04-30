@@ -1,4 +1,4 @@
-// abstract: Leaf-mode renderer that owns deck.gl scene state, title hydration, and disclosure overlays.
+// abstract: Leaf-mode renderer that owns deck.gl scene state, title hydration, and disclosure state.
 // out_of_scope: Branch React Flow rendering and page-shell chrome.
 
 import {
@@ -27,10 +27,6 @@ import type {
   LayoutViewport,
   TaxonomyLayoutNode,
 } from "../layout/taxonomyLayoutTypes";
-import {
-  LeafDisclosureOverlay,
-  type LeafDisclosureOverlayHandle,
-} from "./LeafDisclosureOverlay";
 import {
   buildDefaultLeafViewport,
   LEAF_HYDRATION_OVERSCAN,
@@ -139,7 +135,6 @@ export function LeafRenderer({
   viewport,
 }: LeafRendererProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
-  const disclosureRef = useRef<LeafDisclosureOverlayHandle | null>(null);
   const lastLeafLayoutSliceRef = useRef<
     TaxonomyLeafLayoutSliceResponse | undefined
   >(undefined);
@@ -204,7 +199,6 @@ export function LeafRenderer({
         const nextValue = isLeafPointTitleModeActive(viewport.zoom);
         return currentValue === nextValue ? currentValue : nextValue;
       });
-      disclosureRef.current?.syncViewport(viewport);
     },
     [],
   );
@@ -545,6 +539,7 @@ export function LeafRenderer({
       <Suspense fallback={null}>
         <LeafDeckScene
           activeFocusNodeId={activeFocusNodeId}
+          disclosure={disclosure}
           hiddenLabelNodeId={hiddenLabelNodeId}
           hoveredPointNodeId={hoveredPointNodeId}
           initialViewport={initialDeckViewport}
@@ -552,18 +547,12 @@ export function LeafRenderer({
           onCanvasClick={handleCanvasClick}
           onPointClick={handlePointClick}
           onPointHover={handlePointHover}
+          onSuggestEdit={onSuggestEdit}
           onViewportFrameChange={handleViewportFrameChange}
           onViewportChange={setDeckViewportSnapshot}
           scene={scene}
         />
       </Suspense>
-      <LeafDisclosureOverlay
-        canvas={canvasViewport}
-        disclosure={disclosure}
-        onSuggestEdit={onSuggestEdit}
-        ref={disclosureRef}
-        viewport={liveViewportRef.current}
-      />
     </div>
   );
 }

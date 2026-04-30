@@ -4,13 +4,9 @@
 import "@testing-library/jest-dom/vitest";
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  LeafDisclosureOverlay,
-  type LeafDisclosureOverlayHandle,
-} from "./LeafDisclosureOverlay";
+import { LeafDisclosureOverlay } from "./LeafDisclosureOverlay";
 import type { LeafDisclosureState } from "./leafSceneTypes";
 
 afterEach(() => {
@@ -202,14 +198,11 @@ describe("LeafDisclosureOverlay", () => {
     document.body.removeEventListener("click", onCanvasClick);
   });
 
-  it("updates position from imperative live viewport sync", () => {
-    const overlayRef = createRef<LeafDisclosureOverlayHandle>();
-
-    render(
+  it("updates position from DeckGL-provided viewport props", () => {
+    const { rerender } = render(
       <LeafDisclosureOverlay
         canvas={{ height: 900, width: 1404 }}
         disclosure={makeDisclosure("selected")}
-        ref={overlayRef}
         viewport={{ target: [700, 450, 0], zoom: 0 }}
       />,
     );
@@ -220,18 +213,20 @@ describe("LeafDisclosureOverlay", () => {
       "translate3d(702px, 458px, 0px) translate(-50%, 0%)",
     );
 
-    overlayRef.current?.syncViewport({
-      target: [740, 480, 0],
-      zoom: 0,
-    });
+    rerender(
+      <LeafDisclosureOverlay
+        canvas={{ height: 900, width: 1404 }}
+        disclosure={makeDisclosure("selected")}
+        viewport={{ target: [740, 480, 0], zoom: 0 }}
+      />,
+    );
 
     expect(disclosure.style.transform).toBe(
       "translate3d(662px, 428px, 0px) translate(-50%, 0%)",
     );
   });
 
-  it("does not remeasure layout during imperative viewport sync", () => {
-    const overlayRef = createRef<LeafDisclosureOverlayHandle>();
+  it("does not remeasure layout when DeckGL provides a new viewport", () => {
     const rect = {
       bottom: 208,
       height: 208,
@@ -247,21 +242,23 @@ describe("LeafDisclosureOverlay", () => {
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockReturnValue(rect);
 
-    render(
+    const { rerender } = render(
       <LeafDisclosureOverlay
         canvas={{ height: 900, width: 1404 }}
         disclosure={makeDisclosure("selected")}
-        ref={overlayRef}
         viewport={{ target: [700, 450, 0], zoom: 0 }}
       />,
     );
 
     getBoundingClientRect.mockClear();
 
-    overlayRef.current?.syncViewport({
-      target: [740, 480, 0],
-      zoom: 0,
-    });
+    rerender(
+      <LeafDisclosureOverlay
+        canvas={{ height: 900, width: 1404 }}
+        disclosure={makeDisclosure("selected")}
+        viewport={{ target: [740, 480, 0], zoom: 0 }}
+      />,
+    );
 
     expect(getBoundingClientRect).not.toHaveBeenCalled();
 
@@ -269,7 +266,6 @@ describe("LeafDisclosureOverlay", () => {
   });
 
   it("keeps the card centered to the projected point near the canvas edge", () => {
-    const overlayRef = createRef<LeafDisclosureOverlayHandle>();
     const disclosure = makeDisclosure("selected");
     const edgeDisclosure = {
       ...disclosure,
@@ -283,15 +279,9 @@ describe("LeafDisclosureOverlay", () => {
       <LeafDisclosureOverlay
         canvas={{ height: 900, width: 1404 }}
         disclosure={edgeDisclosure}
-        ref={overlayRef}
         viewport={{ target: [700, 450, 0], zoom: 0 }}
       />,
     );
-
-    overlayRef.current?.syncViewport({
-      target: [700, 450, 0],
-      zoom: 0,
-    });
 
     const disclosureCard = screen.getByTestId(
       "taxonomy-leaf-disclosure-overlay",

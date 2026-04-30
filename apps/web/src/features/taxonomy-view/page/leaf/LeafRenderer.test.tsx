@@ -23,10 +23,12 @@ vi.mock("../../data/taxonomyViewQueries", () => ({
 vi.mock("./LeafDeckScene", () => ({
   LeafDeckScene: ({
     activeFocusNodeId,
+    disclosure,
     hiddenLabelNodeId,
     hoveredPointNodeId,
     initialViewport,
     isPointInteractionEnabled,
+    onSuggestEdit,
     onCanvasClick,
     onPointClick,
     onPointHover,
@@ -35,6 +37,15 @@ vi.mock("./LeafDeckScene", () => ({
     scene,
   }: {
     readonly activeFocusNodeId: number | null;
+    readonly disclosure?: {
+      readonly mode: "hover" | "selected";
+      readonly node: {
+        readonly content: string;
+        readonly currentVersion: number;
+        readonly graphNodeId: number;
+        readonly title: string;
+      };
+    } | null;
     readonly hiddenLabelNodeId: number | null;
     readonly hoveredPointNodeId: number | null;
     readonly initialViewport: {
@@ -43,6 +54,12 @@ vi.mock("./LeafDeckScene", () => ({
     };
     readonly isPointInteractionEnabled: boolean;
     readonly onCanvasClick: () => void;
+    readonly onSuggestEdit?: (card: {
+      readonly content: string;
+      readonly currentVersion: number;
+      readonly nodeId: number;
+      readonly title: string;
+    }) => void;
     readonly onPointClick: (nodeId: number) => void;
     readonly onPointHover: (nodeId: number | null) => void;
     readonly onViewportFrameChange?: (viewport: {
@@ -77,6 +94,32 @@ vi.mock("./LeafDeckScene", () => ({
         {scene.titleLabelNodes.length}
       </div>
       <div data-testid="leaf-scene-edge-count">{scene.edges.length}</div>
+      {disclosure ? (
+        <div
+          data-disclosure-mode={disclosure.mode}
+          data-testid="taxonomy-leaf-disclosure-overlay"
+        >
+          <span>{disclosure.node.title}</span>
+          <span>{disclosure.node.content.replaceAll("*", "")}</span>
+          {onSuggestEdit ? (
+            <button
+              aria-label={`Suggest edit for ${disclosure.node.title}`}
+              data-testid="taxonomy-leaf-disclosure-edit-button"
+              onClick={() => {
+                onSuggestEdit({
+                  content: disclosure.node.content,
+                  currentVersion: disclosure.node.currentVersion,
+                  nodeId: disclosure.node.graphNodeId,
+                  title: disclosure.node.title,
+                });
+              }}
+              type="button"
+            >
+              Suggest edit
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <button
         onClick={() => {
           const nextViewport = {
@@ -421,6 +464,9 @@ describe("LeafRenderer", () => {
       "taxonomy-leaf-disclosure-overlay",
     );
 
+    expect(disclosure.parentElement).toBe(
+      screen.getByTestId("leaf-deck-scene-mock"),
+    );
     expect(disclosure).toHaveAttribute("data-disclosure-mode", "hover");
     expect(disclosure).toHaveTextContent("Equation");
     expect(disclosure).toHaveTextContent("Equation content");
@@ -430,7 +476,6 @@ describe("LeafRenderer", () => {
     expect(screen.getByTestId("leaf-hidden-label-node-id")).toHaveTextContent(
       "10",
     );
-    expect(document.querySelector(".katex")).not.toBeNull();
   });
 
   it("shows selected disclosure with title, hides that label, and toggles selection from the point", async () => {
@@ -458,6 +503,9 @@ describe("LeafRenderer", () => {
       "taxonomy-leaf-disclosure-overlay",
     );
 
+    expect(selectedDisclosure.parentElement).toBe(
+      screen.getByTestId("leaf-deck-scene-mock"),
+    );
     expect(selectedDisclosure).toHaveAttribute(
       "data-disclosure-mode",
       "selected",
