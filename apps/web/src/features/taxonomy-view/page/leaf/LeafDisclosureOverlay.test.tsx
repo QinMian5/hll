@@ -178,15 +178,89 @@ describe("LeafDisclosureOverlay", () => {
 
     const disclosure = screen.getByTestId("taxonomy-leaf-disclosure-overlay");
 
-    expect(disclosure.style.left).toBe("702px");
-    expect(disclosure.style.top).toBe("466px");
+    expect(disclosure.style.transform).toBe(
+      "translate3d(702px, 466px, 0px) translate(-50%, 0%)",
+    );
 
     overlayRef.current?.syncViewport({
       target: [740, 480, 0],
       zoom: 0,
     });
 
-    expect(disclosure.style.left).toBe("662px");
-    expect(disclosure.style.top).toBe("436px");
+    expect(disclosure.style.transform).toBe(
+      "translate3d(662px, 436px, 0px) translate(-50%, 0%)",
+    );
+  });
+
+  it("does not remeasure layout during imperative viewport sync", () => {
+    const overlayRef = createRef<LeafDisclosureOverlayHandle>();
+    const rect = {
+      bottom: 208,
+      height: 208,
+      left: 0,
+      right: 416,
+      toJSON: () => ({}),
+      top: 0,
+      width: 416,
+      x: 0,
+      y: 0,
+    } satisfies DOMRect;
+    const getBoundingClientRect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue(rect);
+
+    render(
+      <LeafDisclosureOverlay
+        canvas={{ height: 900, width: 1404 }}
+        disclosure={makeDisclosure("selected")}
+        ref={overlayRef}
+        viewport={{ target: [700, 450, 0], zoom: 0 }}
+      />,
+    );
+
+    getBoundingClientRect.mockClear();
+
+    overlayRef.current?.syncViewport({
+      target: [740, 480, 0],
+      zoom: 0,
+    });
+
+    expect(getBoundingClientRect).not.toHaveBeenCalled();
+
+    getBoundingClientRect.mockRestore();
+  });
+
+  it("keeps the card centered to the projected point near the canvas edge", () => {
+    const overlayRef = createRef<LeafDisclosureOverlayHandle>();
+    const disclosure = makeDisclosure("selected");
+    const edgeDisclosure = {
+      ...disclosure,
+      node: {
+        ...disclosure.node,
+        position: { x: 1300, y: 450 },
+      },
+    } satisfies LeafDisclosureState;
+
+    render(
+      <LeafDisclosureOverlay
+        canvas={{ height: 900, width: 1404 }}
+        disclosure={edgeDisclosure}
+        ref={overlayRef}
+        viewport={{ target: [700, 450, 0], zoom: 0 }}
+      />,
+    );
+
+    overlayRef.current?.syncViewport({
+      target: [700, 450, 0],
+      zoom: 0,
+    });
+
+    const disclosureCard = screen.getByTestId(
+      "taxonomy-leaf-disclosure-overlay",
+    );
+
+    expect(disclosureCard.style.transform).toBe(
+      "translate3d(1302px, 466px, 0px) translate(-50%, 0%)",
+    );
   });
 });

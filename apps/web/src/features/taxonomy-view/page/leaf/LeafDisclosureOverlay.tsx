@@ -9,7 +9,6 @@ import {
   useImperativeHandle,
   useLayoutEffect,
   useRef,
-  useState,
 } from "react";
 
 import { KnowledgeRichText, ScrollArea } from "../../../../shared/ui";
@@ -33,10 +32,9 @@ export interface LeafDisclosureOverlayHandle {
 }
 
 const DISCLOSURE_GAP_PX = 16;
-const DISCLOSURE_EDGE_PADDING_PX = 12;
 const DISCLOSURE_CARD_SIZE_CLASS =
   "[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-md)] [--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-md)] [--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-md)] lg:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-lg)] lg:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-lg)] lg:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-lg)] xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-xl)] xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-xl)] xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-xl)] 2xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-2xl)] 2xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-2xl)] 2xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-2xl)]";
-const DISCLOSURE_CARD_CLASS = `absolute z-[22] m-0 pointer-events-auto flex h-[var(--leaf-disclosure-card-height)] w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))] flex-col items-start gap-2 overflow-hidden rounded-knowledge-leaf-disclosure border border-[rgba(133,163,214,0.34)] bg-white px-4 py-4 text-left shadow-[0_8px_18px_rgba(59,82,125,0.1)] ${DISCLOSURE_CARD_SIZE_CLASS}`;
+const DISCLOSURE_CARD_CLASS = `absolute top-0 left-0 z-[22] m-0 pointer-events-auto flex h-[var(--leaf-disclosure-card-height)] w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))] flex-col items-start gap-2 overflow-hidden rounded-knowledge-leaf-disclosure border border-[rgba(133,163,214,0.34)] bg-white px-4 py-4 text-left shadow-[0_8px_18px_rgba(59,82,125,0.1)] ${DISCLOSURE_CARD_SIZE_CLASS}`;
 const DISCLOSURE_CONTENT_SCROLL_CLASS =
   "[--scroll-area-padding-right:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] h-[var(--leaf-disclosure-card-content-height)] w-full flex-none";
 const DISCLOSURE_CONTENT_VIEWPORT_CLASS =
@@ -47,11 +45,7 @@ interface OverlayPosition {
   readonly top: number;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function fallbackPosition(options: {
+function resolvePosition(options: {
   readonly canvas: LayoutViewport;
   readonly disclosure: LeafDisclosureState;
   readonly viewport: LeafOrthographicViewport;
@@ -68,55 +62,8 @@ function fallbackPosition(options: {
   };
 }
 
-function resolvePosition(options: {
-  readonly canvas: LayoutViewport;
-  readonly disclosure: LeafDisclosureState;
-  readonly element: HTMLElement | null;
-  readonly viewport: LeafOrthographicViewport;
-}): OverlayPosition {
-  const fallback = fallbackPosition(options);
-  const overlayRect = options.element?.getBoundingClientRect();
-  const parentRect = options.element?.parentElement?.getBoundingClientRect();
-
-  if (
-    !overlayRect ||
-    !parentRect ||
-    overlayRect.width <= 0 ||
-    overlayRect.height <= 0 ||
-    parentRect.width <= 0 ||
-    parentRect.height <= 0
-  ) {
-    return fallback;
-  }
-
-  const halfWidth = overlayRect.width / 2;
-  const minLeft = DISCLOSURE_EDGE_PADDING_PX + halfWidth;
-  const maxLeft = parentRect.width - DISCLOSURE_EDGE_PADDING_PX - halfWidth;
-  const clampedLeft = clamp(fallback.left, minLeft, maxLeft);
-  const projected = projectLeafWorldPoint(
-    options.canvas,
-    options.viewport,
-    options.disclosure.node.position,
-  );
-  const belowTop = projected.y + DISCLOSURE_GAP_PX;
-  const aboveTop = projected.y - overlayRect.height - DISCLOSURE_GAP_PX;
-  const fitsBelow =
-    belowTop + overlayRect.height <=
-    parentRect.height - DISCLOSURE_EDGE_PADDING_PX;
-  const fitsAbove = aboveTop >= DISCLOSURE_EDGE_PADDING_PX;
-
-  return {
-    left: clampedLeft,
-    top: fitsBelow
-      ? belowTop
-      : fitsAbove
-        ? aboveTop
-        : clamp(
-            belowTop,
-            DISCLOSURE_EDGE_PADDING_PX,
-            parentRect.height - overlayRect.height - DISCLOSURE_EDGE_PADDING_PX,
-          ),
-  };
+function disclosureTransform(position: OverlayPosition) {
+  return `translate3d(${position.left}px, ${position.top}px, 0px) translate(-50%, 0%)`;
 }
 
 function stopCanvasPropagation(event: SyntheticEvent) {
@@ -187,30 +134,22 @@ export const LeafDisclosureOverlay = forwardRef<
   const canvasRef = useRef(canvas);
   const disclosureRef = useRef(disclosure);
   const viewportRef = useRef(viewport);
-  const [position, setPosition] = useState<OverlayPosition | null>(null);
 
   const syncViewport = useCallback((nextViewport: LeafOrthographicViewport) => {
     viewportRef.current = nextViewport;
 
     const currentDisclosure = disclosureRef.current;
-    if (!currentDisclosure) {
-      setPosition(null);
+    if (!currentDisclosure || !elementRef.current) {
       return;
     }
 
     const nextPosition = resolvePosition({
       canvas: canvasRef.current,
       disclosure: currentDisclosure,
-      element: elementRef.current,
       viewport: nextViewport,
     });
 
-    if (elementRef.current) {
-      elementRef.current.style.left = `${nextPosition.left}px`;
-      elementRef.current.style.top = `${nextPosition.top}px`;
-    }
-
-    setPosition(nextPosition);
+    elementRef.current.style.transform = disclosureTransform(nextPosition);
   }, []);
 
   useImperativeHandle(
@@ -240,13 +179,11 @@ export const LeafDisclosureOverlay = forwardRef<
     return null;
   }
 
-  const currentPosition =
-    position ??
-    fallbackPosition({
-      canvas,
-      disclosure,
-      viewport,
-    });
+  const currentPosition = resolvePosition({
+    canvas,
+    disclosure,
+    viewport,
+  });
   const sharedProps = {
     className: DISCLOSURE_CARD_CLASS,
     "data-disclosure-mode": disclosure.mode,
@@ -258,9 +195,7 @@ export const LeafDisclosureOverlay = forwardRef<
     onPointerUp: stopCanvasPropagation,
     onWheel: stopCanvasPropagation,
     style: {
-      left: currentPosition.left,
-      top: currentPosition.top,
-      transform: "translateX(-50%)",
+      transform: disclosureTransform(currentPosition),
     },
   } as const;
 
