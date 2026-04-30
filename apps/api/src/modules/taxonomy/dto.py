@@ -30,6 +30,7 @@ class TaxonomyNodeRecord(BaseModel):
     id: int = Field(gt=0)
     parent_id: int | None = Field(default=None, gt=0)
     name: NonEmptyString
+    route_slug: NonEmptyString
     depth: int = Field(ge=0)
     is_leaf: bool
 
@@ -40,6 +41,7 @@ class TaxonomyTreeNode(BaseModel):
     id: int = Field(gt=0)
     parent_id: int | None = Field(default=None, gt=0)
     name: NonEmptyString
+    route_slug: NonEmptyString
     depth: int = Field(ge=0)
     is_leaf: bool
     children: list[TaxonomyTreeNode] = Field(default_factory=list)

@@ -39,6 +39,13 @@ def build_router(*, get_taxonomy_service: TaxonomyServiceProvider) -> APIRouter:
     ) -> TaxonomyNodeViewResponse:
         return await taxonomy_service.get_node_view(node_id=node_id)
 
+    @router.get("/view/path/{route_path:path}", response_model=TaxonomyNodeViewResponse)
+    async def get_path_view(
+        route_path: str,
+        taxonomy_service: TaxonomyService = Depends(get_taxonomy_service),
+    ) -> TaxonomyNodeViewResponse:
+        return await taxonomy_service.get_node_view_by_route_path(route_path=route_path)
+
     @router.get(
         "/view/leaves/{node_id}/layout",
         response_model=TaxonomyLeafLayoutSliceResponse,

@@ -42,6 +42,14 @@ const navItems: readonly NavItem[] = [
   { icon: BookOpen, label: "Docs", to: "/docs" },
 ];
 
+function isNavigationItemActive(pathname: string, itemTo: AppRoute): boolean {
+  if (itemTo === "/graph") {
+    return pathname === "/graph" || pathname.startsWith("/graph/");
+  }
+
+  return pathname === itemTo;
+}
+
 const githubRepositoryUrl = "https://github.com/QinMian5/knowledge";
 
 const actionButtonClasses =
@@ -149,7 +157,7 @@ function NavigationItems({
     <div className="flex w-full flex-1 flex-col gap-2 overflow-hidden">
       {navItems.map((item) => {
         const Icon = item.icon;
-        const isActive = pathname === item.to;
+        const isActive = isNavigationItemActive(pathname, item.to);
 
         return (
           <Link

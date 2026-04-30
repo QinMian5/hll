@@ -15,6 +15,7 @@ export type TaxonomyViewInternalApi = Pick<
   | "getTaxonomyLeafLayoutSlice"
   | "getTaxonomyLeafNodeTitles"
   | "getTaxonomyNode"
+  | "getTaxonomyNodeByPath"
   | "getTaxonomyRoot"
 >;
 
@@ -62,6 +63,23 @@ function parseNodeIdsBody(body: unknown): number[] {
   return nodeIds;
 }
 
+function parseRoutePath(value: unknown): string {
+  const segments =
+    typeof value === "string" ? [value] : Array.isArray(value) ? value : [];
+
+  if (
+    segments.length === 0 ||
+    segments.some((segment) => typeof segment !== "string" || segment === "")
+  ) {
+    throw new WebRouteInputError(
+      "invalid_request",
+      "Route path must be non-empty.",
+    );
+  }
+
+  return segments.join("/");
+}
+
 function parseFiniteQueryNumber(value: unknown): number {
   if (typeof value !== "string") {
     throw new WebRouteInputError(
@@ -105,6 +123,21 @@ export function createTaxonomyViewRouter(
       try {
         const nodeId = parseNodeId(request.params.nodeId);
         response.json(await options.internalApi.getTaxonomyNode(nodeId));
+      } catch (error) {
+        handleWebRouteError(error, response, next);
+      }
+    },
+  );
+
+  router.get(
+    "/path/*routePath",
+    options.quotaMiddleware,
+    async (request, response, next) => {
+      try {
+        const routePath = parseRoutePath(request.params.routePath);
+        response.json(
+          await options.internalApi.getTaxonomyNodeByPath(routePath),
+        );
       } catch (error) {
         handleWebRouteError(error, response, next);
       }

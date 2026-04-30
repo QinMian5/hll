@@ -59,6 +59,7 @@ class _StubRunner:
                 id=self.assigned_leaf_id,
                 parent_id=1,
                 name="Leaf",
+                route_slug="leaf",
                 depth=2,
                 is_leaf=True,
             ),

@@ -91,7 +91,13 @@ describe("branch layout contracts", () => {
     const result = buildBranchLayout({
       center: { x: 560, y: 512 },
       children: [
-        { depth: 0, descendant_card_count: 300, id: 1, name: "Science" },
+        {
+          depth: 0,
+          descendant_card_count: 300,
+          id: 1,
+          name: "Science",
+          route_path: "science",
+        },
       ],
       viewport: BRANCH_DESKTOP_REFERENCE_VIEWPORT,
     });
@@ -107,8 +113,20 @@ describe("branch layout contracts", () => {
     const result = buildBranchLayout({
       center: { x: 560, y: 512 },
       children: [
-        { depth: 0, descendant_card_count: 300, id: 1, name: "Science" },
-        { depth: 0, descendant_card_count: 30, id: 2, name: "Culture" },
+        {
+          depth: 0,
+          descendant_card_count: 300,
+          id: 1,
+          name: "Science",
+          route_path: "science",
+        },
+        {
+          depth: 0,
+          descendant_card_count: 30,
+          id: 2,
+          name: "Culture",
+          route_path: "culture",
+        },
       ],
       viewport: BRANCH_DESKTOP_REFERENCE_VIEWPORT,
     });
@@ -127,16 +145,40 @@ describe("branch layout contracts", () => {
     const first = buildBranchLayout({
       center: { x: 560, y: 512 },
       children: [
-        { depth: 0, descendant_card_count: 300, id: 1, name: "Science" },
-        { depth: 0, descendant_card_count: 30, id: 2, name: "Culture" },
+        {
+          depth: 0,
+          descendant_card_count: 300,
+          id: 1,
+          name: "Science",
+          route_path: "science",
+        },
+        {
+          depth: 0,
+          descendant_card_count: 30,
+          id: 2,
+          name: "Culture",
+          route_path: "culture",
+        },
       ],
       viewport: BRANCH_DESKTOP_REFERENCE_VIEWPORT,
     });
     const second = buildBranchLayout({
       center: { x: 560, y: 512 },
       children: [
-        { depth: 0, descendant_card_count: 300, id: 1, name: "Science" },
-        { depth: 0, descendant_card_count: 30, id: 2, name: "Culture" },
+        {
+          depth: 0,
+          descendant_card_count: 300,
+          id: 1,
+          name: "Science",
+          route_path: "science",
+        },
+        {
+          depth: 0,
+          descendant_card_count: 30,
+          id: 2,
+          name: "Culture",
+          route_path: "culture",
+        },
       ],
       viewport: BRANCH_DESKTOP_REFERENCE_VIEWPORT,
     });
@@ -154,8 +196,20 @@ describe("branch layout contracts", () => {
     const result = buildBranchLayout({
       center,
       children: [
-        { depth: 0, descendant_card_count: 500, id: 1, name: "Science" },
-        { depth: 0, descendant_card_count: 5, id: 2, name: "Culture" },
+        {
+          depth: 0,
+          descendant_card_count: 500,
+          id: 1,
+          name: "Science",
+          route_path: "science",
+        },
+        {
+          depth: 0,
+          descendant_card_count: 5,
+          id: 2,
+          name: "Culture",
+          route_path: "culture",
+        },
       ],
       viewport: BRANCH_DESKTOP_REFERENCE_VIEWPORT,
     });
@@ -178,6 +232,7 @@ describe("branch layout contracts", () => {
         descendant_card_count: 400 - index,
         id: index + 1,
         name: `Node ${index + 1}`,
+        route_path: `node-${index + 1}`,
       })),
       viewport: BRANCH_DESKTOP_REFERENCE_VIEWPORT,
     });
@@ -199,6 +254,7 @@ describe("branch layout contracts", () => {
         descendant_card_count: 300 - index * 20,
         id: index + 1,
         name: `Node ${index + 1}`,
+        route_path: `node-${index + 1}`,
       })),
       viewport: BRANCH_MOBILE_REFERENCE_VIEWPORT,
     });

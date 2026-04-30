@@ -18,6 +18,7 @@ export interface BranchChildLayoutInput {
   readonly descendant_card_count: number;
   readonly id: number;
   readonly name: string;
+  readonly route_path: string;
 }
 
 export interface LeafSkeletonNodeLayoutInput {
@@ -41,6 +42,7 @@ export type TaxonomyLayoutNodeData = Record<string, unknown> & {
   readonly renderMode?: "bubble" | "point";
   readonly scope: "branch" | "inner" | "outer";
   readonly targetNodeId: number | null;
+  readonly targetRoutePath?: string | null;
   readonly tooltip: string;
 };
 

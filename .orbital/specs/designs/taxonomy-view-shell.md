@@ -1,5 +1,5 @@
 ---
-abstract: Frontend content-shell design for the Graph View route with a stable full-slot taxonomy canvas, Figma-matched desktop and mobile shell projection, and in-canvas overlays.
+abstract: Frontend content-shell design for the route-addressable Graph View canvas with canonical LCC slug paths, Figma-matched desktop and mobile shell projection, and in-canvas overlays.
 out_of_scope: Shared app-shell navigation, taxonomy API payload semantics, renderer-internal layout algorithms, and authentication or repository-link behavior.
 ---
 
@@ -11,23 +11,26 @@ out_of_scope: Shared app-shell navigation, taxonomy API payload semantics, rende
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the active content-shell and layout behavior for the `Graph View` route so taxonomy browsing uses one stable canvas host inside the shared web app shell without changing the taxonomy drill-down contract.
-- **Scope/Boundaries:** Covers the primary canvas container, Figma content-slot hierarchy, breadcrumb presentation, overlay placement, status presentation, and graph-route content responsiveness for `apps/web`. Excludes shared top navigation, backend payload shape, graph data derivation, and auth/repository integration.
+- **Purpose:** Define the active content-shell, route-addressing, and layout behavior for the `Graph View` route so taxonomy browsing uses one stable canvas host inside the shared web app shell and preserves deep taxonomy position across refresh through canonical LCC slug paths.
+- **Scope/Boundaries:** Covers the primary canvas container, Graph View route shape, Figma content-slot hierarchy, breadcrumb presentation, overlay placement, status presentation, and graph-route content responsiveness for `apps/web`. Excludes shared top navigation, backend graph data derivation, and auth/repository integration.
 - **Related Requirements:** R-001, R-003, R-004, R-006, R-007.
 
 ## Constraint Projection
 - **Governing Constraints:** Frontend behavior remains within the unified web client boundary, consumes Graph View data through BFF-owned web data adapters, preserves explicit module boundaries, and keeps behavior-changing graph-route shell decisions synchronized in active specs.
-- **Detail Commitments:** The `Graph View` route renders inside the shared app shell defined by `web-app-shell-navigation.md` and owns one stable full-slot `TaxonomyCanvas` content surface. Breadcrumb, loading, and error UI render as overlays inside the canvas. The host can mount the branch React Flow renderer or the leaf deck.gl renderer without changing content-shell geometry. Graph-route content styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS. Approved Figma frames remain the primary source of truth for graph-route shell composition: desktop follows node `702:3845`, mobile follows node `702:3950`, and leaf mode inherits this shell while keeping leaf-internal rendering governed by `taxonomy-view-layouts.md`.
+- **Detail Commitments:** The `Graph View` route renders inside the shared app shell defined by `web-app-shell-navigation.md` and owns one stable full-slot `TaxonomyCanvas` content surface. `/graph` renders the taxonomy root, and `/graph/<canonical-lcc-slug-path>` renders the branch or leaf resolved by the taxonomy-owned path endpoint. Breadcrumb, loading, and error UI render as overlays inside the canvas. The host can mount the branch React Flow renderer or the leaf deck.gl renderer without changing content-shell geometry. Graph-route content styling is expressed primarily through Tailwind utility classes instead of page-owned handwritten CSS. Approved Figma frames remain the primary source of truth for graph-route shell composition: desktop follows node `702:3845`, mobile follows node `702:3950`, and leaf mode inherits this shell while keeping leaf-internal rendering governed by `taxonomy-view-layouts.md`.
 - **Update Rule:** Requirement-level repository and contract constraints remain stable while graph-route content-shell structure, overlay rules, and visual layout behavior are maintained in this design document.
 
 ## Inputs & Outputs
 - **Inputs:**
   - Taxonomy view query states and payloads already owned by `TaxonomyViewPage`.
+  - The current Graph View route path from TanStack Router: `/graph` or `/graph/<canonical-lcc-slug-path>`.
   - Shared app shell defined in `web-app-shell-navigation.md`.
   - Approved graph-route Figma frames in file `WBYs6P9HMxe21TSYQL637r`: desktop node `702:3845` and mobile node `702:3950`.
   - Accepted branch drill-down behavior and leaf graph browsing behavior.
+  - Taxonomy-owned response fields for `route_slug` and `route_path`.
 - **Outputs:**
   - One graph-route content shell with one persistent full-slot taxonomy canvas.
+  - One route-addressed browsing state where the active taxonomy node is restored from the URL path.
   - One Figma-matched content hierarchy where desktop uses a `320px` sidebar plus `1120px` main content region and mobile uses a `64px` header plus `440px x 892px` content region.
   - In-canvas overlays for breadcrumb, loading state, and error state.
 - **Artifacts:**
@@ -38,6 +41,10 @@ out_of_scope: Shared app-shell navigation, taxonomy API payload semantics, rende
 ## Design Approach
 - **Approach:** The `Graph View` route renders one stable `TaxonomyCanvas` host as the routed content inside the shared app shell body. That host mounts the branch React Flow renderer for root and branch states and mounts the leaf deck.gl renderer for leaf states. Status and navigation affordances are layered inside the canvas so layout height stays stable across root, branch, leaf, loading, and error states. Content-shell styling is carried directly by Tailwind utility classes in the React tree, with handwritten CSS reserved only for library-level overrides or effects that cannot be expressed cleanly through utilities. Container hierarchy, edge spacing, breadcrumb placement, and branch/root atmosphere are projected from approved Figma frames before runtime-specific adjustments are introduced.
 - **Key Elements:**
+  - **Route state ownership:** Graph View active taxonomy position is owned by the browser route. `/graph` represents the real taxonomy root. `/graph/<canonical-lcc-slug-path>` represents a branch or leaf node resolved through the BFF taxonomy path endpoint.
+  - **Canonical path source:** The frontend does not derive canonical LCC paths from display labels. It uses `route_path` values returned by the taxonomy view payload for branch-node navigation and breadcrumb navigation.
+  - **Path query rule:** Root route state calls the root taxonomy view endpoint. Path route state calls the path taxonomy view endpoint with the complete canonical route path from the URL.
+  - **Invalid path rule:** If a path route does not resolve, the canvas shows the existing Graph View error overlay inside the stable canvas and leaves the browser path unchanged.
   - **Route body placement:** The graph canvas sits inside the shared app shell content slot and does not own a second top-level header.
   - **Desktop content slot:** Desktop composition follows the approved `1440px x 1024px` frame: the shared sidebar occupies `320px`, the main content region occupies the remaining `1120px`, and the routed `Content` frame fills the full `1120px x 1024px` region.
   - **Mobile content slot:** Mobile composition follows the approved `440px x 956px` frame: the shared mobile header is `64px` high and the routed `Content` frame fills the remaining `440px x 892px` region.
@@ -51,13 +58,22 @@ out_of_scope: Shared app-shell navigation, taxonomy API payload semantics, rende
   - **Canvas atmosphere:** The page background and `TaxonomyCanvas` use the approved quiet `knowledge-bg-page-start` surface. Any renderer-provided grid or background treatment must remain visually subordinate to that product-shell atmosphere.
   - **No extra information panels:** The page shell excludes standalone title, subtitle, breadcrumb strip, and current-node summary cards outside the canvas.
 - **Interactions:**
-  - Clicking a branch node updates the active taxonomy node and keeps the user inside the same mounted canvas.
-  - Clicking a breadcrumb item jumps to the selected ancestor while preserving shell geometry.
+  - Clicking a branch node navigates to the child node's returned canonical Graph View path and keeps the user inside the same mounted canvas.
+  - Clicking a breadcrumb item navigates to the selected ancestor's returned canonical Graph View path while preserving shell geometry.
   - Root state shows the breadcrumb overlay in its root form.
   - Leaf state keeps the same shell and canvas while rendering the leaf-scoped nodes in the dedicated deck.gl scene.
+  - Browser back and forward navigation restore prior Graph View route paths and reload the matching root, branch, or leaf state through the same query rules.
+  - Browser refresh on a deep Graph View route restores the same active taxonomy node when the canonical route path still resolves.
 ## Validation
 - **Checks:**
   - The `Graph View` route renders one stable full-slot `TaxonomyCanvas` inside the shared app shell.
+  - `/graph` renders root state through the root taxonomy view endpoint.
+  - `/graph/<canonical-lcc-slug-path>` renders branch or leaf state through the path taxonomy view endpoint.
+  - Branch bubble clicks perform router navigation to returned canonical child paths.
+  - Breadcrumb clicks perform router navigation to returned canonical ancestor paths.
+  - Browser back and forward navigation restore earlier Graph View root, branch, and leaf route states.
+  - Refreshing a deep Graph View route restores the active branch or leaf when the taxonomy path still resolves.
+  - Invalid Graph View paths render the in-canvas error state.
   - Desktop Graph View uses the approved `320px` sidebar plus `1120px x 1024px` routed content geometry.
   - Mobile Graph View uses the approved `64px` header plus `440px x 892px` routed content geometry.
   - Branch bubble glow, sizing, layering, and label centering match the approved desktop and mobile Graph View Figma frames.

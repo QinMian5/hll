@@ -183,6 +183,18 @@ describe("AppShell", () => {
     expect(signInButton.closest("form")).toHaveAttribute("method", "post");
   });
 
+  it("keeps Graph View active for readable graph route paths", async () => {
+    const { router } = renderWithRoute("/graph/science/mathematics");
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/graph/science/mathematics"),
+    );
+    expect(screen.getByRole("link", { name: "Graph View" })).toHaveAttribute(
+      "data-nav-state",
+      "active",
+    );
+  });
+
   it("opens and closes the mobile drawer from the shell header", async () => {
     renderWithRoute("/graph");
 

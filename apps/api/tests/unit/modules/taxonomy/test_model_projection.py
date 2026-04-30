@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import Index, Table, UniqueConstraint
+from sqlalchemy import CheckConstraint, Index, Table, UniqueConstraint
 
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
@@ -32,6 +32,28 @@ def test_taxonomy_nodes_projection_contains_parent_depth_and_leaf_flag() -> None
     assert table.c.parent_id.nullable is True
     assert table.c.depth.nullable is False
     assert table.c.is_leaf.nullable is False
+
+
+def test_taxonomy_nodes_projection_contains_route_slug_contract() -> None:
+    table = cast(Table, TaxonomyNode.__table__)
+    unique_constraints = [
+        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
+    ]
+    check_constraints = [
+        constraint for constraint in table.constraints if isinstance(constraint, CheckConstraint)
+    ]
+
+    assert "route_slug" in table.c
+    assert table.c.route_slug.nullable is False
+    assert any(
+        constraint.name == "uq_taxonomy_nodes_parent_route_slug"
+        and [column.name for column in constraint.columns] == ["parent_id", "route_slug"]
+        for constraint in unique_constraints
+    )
+    assert any(
+        constraint.name == "ck_taxonomy_nodes_route_slug_non_empty"
+        for constraint in check_constraints
+    )
 
 
 def test_taxonomy_nodes_projection_contains_single_root_partial_index() -> None:

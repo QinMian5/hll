@@ -18,6 +18,7 @@ from modules.taxonomy.dto import (
     TaxonomyLeafAssignmentCount,
     TaxonomyNodeRecord,
 )
+from modules.taxonomy.route_path import slugify_taxonomy_route_segment
 from modules.taxonomy.schema import (
     TaxonomyNodeBranchViewResponse,
     TaxonomyNodeLeafViewResponse,
@@ -192,11 +193,30 @@ class _StubViewCache:
         self.invalidated_leaf_layout_ids.append(leaf_id)
 
 
+def _taxonomy_node_record(
+    *,
+    id: int,
+    parent_id: int | None,
+    name: str,
+    depth: int,
+    is_leaf: bool,
+    route_slug: str | None = None,
+) -> TaxonomyNodeRecord:
+    return TaxonomyNodeRecord(
+        id=id,
+        parent_id=parent_id,
+        name=name,
+        route_slug=route_slug or slugify_taxonomy_route_segment(name),
+        depth=depth,
+        is_leaf=is_leaf,
+    )
+
+
 def _leaf_assignment() -> TaxonomyAssignmentRecord:
     return TaxonomyAssignmentRecord(
         id=7,
         node_id=41,
-        taxonomy_node=TaxonomyNodeRecord(
+        taxonomy_node=_taxonomy_node_record(
             id=9,
             parent_id=2,
             name="General",
@@ -212,10 +232,10 @@ async def test_list_tree_builds_nested_nodes_from_repo_records() -> None:
     service = TaxonomyService(
         repo=_StubRepo(
             tree_nodes=[
-                TaxonomyNodeRecord(id=1, parent_id=None, name="Science", depth=0, is_leaf=False),
-                TaxonomyNodeRecord(id=2, parent_id=1, name="Mathematics", depth=1, is_leaf=False),
-                TaxonomyNodeRecord(id=3, parent_id=2, name="Algebra", depth=2, is_leaf=True),
-                TaxonomyNodeRecord(id=4, parent_id=1, name="Physics", depth=1, is_leaf=True),
+                _taxonomy_node_record(id=1, parent_id=None, name="Science", depth=0, is_leaf=False),
+                _taxonomy_node_record(id=2, parent_id=1, name="Mathematics", depth=1, is_leaf=False),
+                _taxonomy_node_record(id=3, parent_id=2, name="Algebra", depth=2, is_leaf=True),
+                _taxonomy_node_record(id=4, parent_id=1, name="Physics", depth=1, is_leaf=True),
             ]
         )
     )
@@ -232,8 +252,8 @@ async def test_list_children_returns_repo_ordered_children() -> None:
     service = TaxonomyService(
         repo=_StubRepo(
             children=[
-                TaxonomyNodeRecord(id=5, parent_id=1, name="Chemistry", depth=1, is_leaf=True),
-                TaxonomyNodeRecord(id=6, parent_id=1, name="Physics", depth=1, is_leaf=True),
+                _taxonomy_node_record(id=5, parent_id=1, name="Chemistry", depth=1, is_leaf=True),
+                _taxonomy_node_record(id=6, parent_id=1, name="Physics", depth=1, is_leaf=True),
             ]
         )
     )
@@ -276,7 +296,7 @@ async def test_set_current_assignment_invalidates_refreshed_leaf_layouts() -> No
     previous_assignment = TaxonomyAssignmentRecord(
         id=7,
         node_id=41,
-        taxonomy_node=TaxonomyNodeRecord(
+        taxonomy_node=_taxonomy_node_record(
             id=4,
             parent_id=2,
             name="Old",
@@ -326,10 +346,10 @@ async def test_set_current_assignment_rolls_back_and_reraises() -> None:
 async def test_get_root_view_omits_children_without_descendant_cards() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
-            TaxonomyNodeRecord(id=3, parent_id=1, name="Unclassified", depth=1, is_leaf=True),
-            TaxonomyNodeRecord(id=4, parent_id=2, name="Unclassified", depth=2, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=3, parent_id=1, name="Unclassified", depth=1, is_leaf=True),
+            _taxonomy_node_record(id=4, parent_id=2, name="Unclassified", depth=2, is_leaf=True),
         ],
         assigned_leaf_assignments=[
             TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=4),
@@ -351,13 +371,35 @@ async def test_get_root_view_omits_children_without_descendant_cards() -> None:
 
 
 @pytest.mark.anyio
+async def test_get_root_view_returns_children_with_canonical_route_paths() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=3, parent_id=2, name="Mathematics", depth=2, is_leaf=False),
+            _taxonomy_node_record(id=4, parent_id=3, name="Algebra", depth=3, is_leaf=True),
+        ],
+        assigned_leaf_counts=[
+            TaxonomyLeafAssignmentCount(taxonomy_leaf_id=4, card_count=2),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    view = await service.get_root_view()
+
+    assert [(child.name, child.route_slug, child.route_path) for child in view.children] == [
+        ("Science", "science", "science"),
+    ]
+
+
+@pytest.mark.anyio
 async def test_get_node_view_returns_branch_shape_for_non_leaf() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="A", depth=1, is_leaf=False),
-            TaxonomyNodeRecord(id=3, parent_id=1, name="B", depth=1, is_leaf=True),
-            TaxonomyNodeRecord(id=4, parent_id=2, name="A1", depth=2, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="A", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=3, parent_id=1, name="B", depth=1, is_leaf=True),
+            _taxonomy_node_record(id=4, parent_id=2, name="A1", depth=2, is_leaf=True),
         ],
         assigned_leaf_assignments=[
             TaxonomyLeafAssignment(node_id=21, taxonomy_leaf_id=3),
@@ -375,17 +417,81 @@ async def test_get_node_view_returns_branch_shape_for_non_leaf() -> None:
     assert isinstance(view, TaxonomyNodeBranchViewResponse)
     assert view.node_kind == "branch"
     assert [item.id for item in view.breadcrumb] == [1]
+    assert [item.route_path for item in view.breadcrumb] == [""]
     assert [child.id for child in view.children] == [2, 3]
+    assert [child.route_path for child in view.children] == ["a", "b"]
+
+
+@pytest.mark.anyio
+async def test_get_node_view_by_route_path_resolves_branch_from_root_segments() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=3, parent_id=2, name="Mathematics", depth=2, is_leaf=False),
+            _taxonomy_node_record(id=4, parent_id=3, name="Algebra", depth=3, is_leaf=True),
+        ],
+        assigned_leaf_counts=[
+            TaxonomyLeafAssignmentCount(taxonomy_leaf_id=4, card_count=2),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    view = await service.get_node_view_by_route_path(route_path="science/mathematics")
+
+    assert isinstance(view, TaxonomyNodeBranchViewResponse)
+    assert view.current_node.id == 3
+    assert view.current_node.route_path == "science/mathematics"
+    assert [item.route_path for item in view.breadcrumb] == [
+        "",
+        "science",
+        "science/mathematics",
+    ]
+    assert [(child.id, child.route_path) for child in view.children] == [
+        (4, "science/mathematics/algebra"),
+    ]
+
+
+@pytest.mark.anyio
+async def test_get_node_view_by_route_path_raises_not_found_for_missing_segment() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    with pytest.raises(DomainError) as exc_info:
+        await service.get_node_view_by_route_path(route_path="science/mathematics")
+
+    assert exc_info.value.code == ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("route_path", ["", "/science", "science/", "science//mathematics"])
+async def test_get_node_view_by_route_path_rejects_malformed_paths(route_path: str) -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    with pytest.raises(DomainError) as exc_info:
+        await service.get_node_view_by_route_path(route_path=route_path)
+
+    assert exc_info.value.code == ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND
 
 
 @pytest.mark.anyio
 async def test_get_node_view_omits_empty_branch_children() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="A", depth=1, is_leaf=False),
-            TaxonomyNodeRecord(id=3, parent_id=1, name="B", depth=1, is_leaf=True),
-            TaxonomyNodeRecord(id=4, parent_id=2, name="A1", depth=2, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="A", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=3, parent_id=1, name="B", depth=1, is_leaf=True),
+            _taxonomy_node_record(id=4, parent_id=2, name="A1", depth=2, is_leaf=True),
         ],
         assigned_leaf_assignments=[
             TaxonomyLeafAssignment(node_id=22, taxonomy_leaf_id=4),
@@ -407,9 +513,9 @@ async def test_get_node_view_omits_empty_branch_children() -> None:
 async def test_get_root_view_uses_cached_descendant_counts_when_available() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
-            TaxonomyNodeRecord(id=3, parent_id=1, name="Unclassified", depth=1, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=3, parent_id=1, name="Unclassified", depth=1, is_leaf=True),
         ],
     )
     cache = _StubViewCache(descendant_counts={1: 5, 2: 5, 3: 0})
@@ -429,9 +535,9 @@ async def test_get_root_view_uses_cached_descendant_counts_when_available() -> N
 async def test_get_root_view_rebuilds_and_caches_descendant_counts_on_cache_miss() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
-            TaxonomyNodeRecord(id=4, parent_id=2, name="Unclassified", depth=2, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=4, parent_id=2, name="Unclassified", depth=2, is_leaf=True),
         ],
         assigned_leaf_counts=[
             TaxonomyLeafAssignmentCount(taxonomy_leaf_id=4, card_count=2),
@@ -453,8 +559,8 @@ async def test_get_root_view_rebuilds_and_caches_descendant_counts_on_cache_miss
 async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
         assigned_leaf_node_ids=[11, 12],
         projected_edge_ids=[501, 502],
@@ -510,8 +616,8 @@ async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
 async def test_get_leaf_layout_slice_returns_backend_coordinates_for_requested_bounds() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
         assigned_leaf_node_ids=[11, 12],
         projected_edge_ids=[501, 502],
@@ -547,7 +653,7 @@ async def test_get_leaf_layout_slice_returns_backend_coordinates_for_requested_b
 async def test_get_node_view_raises_not_found_for_unknown_node_id() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
         ]
     )
     service = TaxonomyService(repo=repo)
@@ -562,8 +668,8 @@ async def test_get_node_view_raises_not_found_for_unknown_node_id() -> None:
 async def test_get_leaf_node_details_returns_requested_records_in_request_order() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
         assigned_leaf_node_ids=[11, 12],
         projected_edge_ids=[501, 502],
@@ -624,8 +730,8 @@ async def test_get_leaf_node_details_returns_requested_records_in_request_order(
 async def test_get_leaf_node_titles_returns_requested_titles_without_content() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
         assigned_leaf_node_ids=[11, 12],
         projected_edge_ids=[501, 502],
@@ -682,9 +788,9 @@ async def test_get_leaf_node_titles_returns_requested_titles_without_content() -
 async def test_get_leaf_node_details_rejects_non_leaf_taxonomy_node() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Branch", depth=1, is_leaf=False),
-            TaxonomyNodeRecord(id=3, parent_id=2, name="Leaf", depth=2, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Branch", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=3, parent_id=2, name="Leaf", depth=2, is_leaf=True),
         ],
         assigned_leaf_assignments=[
             TaxonomyLeafAssignment(node_id=11, taxonomy_leaf_id=3),
@@ -703,8 +809,8 @@ async def test_get_leaf_node_details_rejects_non_leaf_taxonomy_node() -> None:
 async def test_get_leaf_node_details_rejects_node_ids_outside_active_leaf_graph() -> None:
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
         assigned_leaf_node_ids=[11],
         projected_edge_ids=[901],

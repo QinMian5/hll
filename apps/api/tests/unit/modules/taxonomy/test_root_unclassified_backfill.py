@@ -46,6 +46,7 @@ class _StubRepo:
             id=1,
             parent_id=None,
             name="Root",
+            route_slug="root",
             depth=0,
             is_leaf=False,
         )
@@ -53,6 +54,7 @@ class _StubRepo:
             id=2,
             parent_id=1,
             name="Unclassified",
+            route_slug="unclassified",
             depth=1,
             is_leaf=True,
         )
@@ -141,8 +143,22 @@ async def test_apply_backfills_missing_assignments_and_rebuilds_projection() -> 
         missing_counts=[7, 0],
         inserted_assignments=7,
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Unclassified", depth=1, is_leaf=True),
+            TaxonomyNodeRecord(
+                id=1,
+                parent_id=None,
+                name="Root",
+                route_slug="root",
+                depth=0,
+                is_leaf=False,
+            ),
+            TaxonomyNodeRecord(
+                id=2,
+                parent_id=1,
+                name="Unclassified",
+                route_slug="unclassified",
+                depth=1,
+                is_leaf=True,
+            ),
         ],
         assigned_node_ids_by_leaf={2: [11, 12]},
     )

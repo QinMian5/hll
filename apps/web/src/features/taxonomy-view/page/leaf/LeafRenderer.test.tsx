@@ -266,6 +266,8 @@ function makeLeafView(): TaxonomyLeafView {
       is_leaf: true,
       name: "Algebra",
       parent_id: 1,
+      route_path: "math/algebra",
+      route_slug: "algebra",
     },
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",

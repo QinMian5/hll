@@ -24,6 +24,7 @@ from modules.taxonomy.model import (
     TaxonomyLeafProjectionEdge,
     TaxonomyNode,
 )
+from modules.taxonomy.route_path import slugify_taxonomy_route_segment
 
 ROOT_NODE_NAME = "Root"
 UNCLASSIFIED_NODE_NAME = "Unclassified"
@@ -35,6 +36,7 @@ def _taxonomy_node_record_from_model(node: TaxonomyNode) -> TaxonomyNodeRecord:
         id=node.id,
         parent_id=node.parent_id,
         name=node.name,
+        route_slug=node.route_slug,
         depth=node.depth,
         is_leaf=node.is_leaf,
     )
@@ -125,6 +127,7 @@ class TaxonomyRepo:
         taxonomy_node = TaxonomyNode(
             parent_id=parent_id,
             name=name,
+            route_slug=slugify_taxonomy_route_segment(name),
             depth=depth,
             is_leaf=is_leaf,
         )

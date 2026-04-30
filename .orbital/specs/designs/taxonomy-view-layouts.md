@@ -115,7 +115,7 @@ out_of_scope: Taxonomy API payload derivation, backend layout computation, page-
   - Clicking the edit affordance in a hover or selected disclosure opens the shared Suggest Edit dialog for that node.
   - Hovering another node while a selected node exists applies only local point hover feedback and leaves the selected focus source and selected disclosure unchanged.
   - Clicking empty canvas space or the selected point glyph clears selection and returns the graph to no-selection state unless another point hover is active.
-  - Breadcrumb jumps discard the current layout result and compute the selected ancestor state using the same deterministic layout rules.
+  - Breadcrumb jumps navigate to the selected ancestor's canonical Graph View route path, discard the current layout result, and compute the selected ancestor state using the same deterministic layout rules.
 
 ## Validation
 - **Checks:**
@@ -144,7 +144,7 @@ out_of_scope: Taxonomy API payload derivation, backend layout computation, page-
   - Selecting a point glyph in point-title mode makes the selected node strongest, connected nodes secondarily highlighted, incident edges highlighted, unrelated nodes and edges weakened, and the selected disclosure visible.
   - Hovering another node while selection exists does not change the selected disclosure or graph-wide focus source.
   - Clicking empty canvas space or clicking the selected point glyph again clears selected focus.
-  - Breadcrumb, branch bubbles, leaf point graph, point-title labels, and disclosure styling remain visually aligned with the approved Figma direction.
+  - Breadcrumb route jumps, branch bubbles, leaf point graph, point-title labels, and disclosure styling remain visually aligned with the approved Figma direction.
   - Page-owned layout styling is carried primarily by Tailwind utility classes rather than large handwritten CSS blocks.
   - Leaf rendering uses backend relation-driven geometry without forcing `inner` and `outer` into separate frontend positional rings.
   - Re-entering the same leaf layout version yields stable node positions rather than large random jumps.

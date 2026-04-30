@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../app.js";
 import { loadWebServerConfig } from "../config.js";
+import { InternalApiError } from "../internal-api/errors.js";
 import type { TaxonomyViewInternalApi } from "./taxonomyView.js";
 import { createTaxonomyViewRouter } from "./taxonomyView.js";
 
@@ -63,6 +64,20 @@ function createClient(overrides: Partial<TaxonomyViewInternalApi> = {}) {
       node_kind: "branch",
       nodes: [],
       title: "Physics",
+    })),
+    getTaxonomyNodeByPath: vi.fn(async () => ({
+      current_node: {
+        depth: 2,
+        id: 42,
+        is_leaf: false,
+        name: "Algebra",
+        parent_id: 7,
+        route_path: "science/mathematics/algebra",
+        route_slug: "algebra",
+      },
+      breadcrumb: [],
+      children: [],
+      node_kind: "branch",
     })),
     getTaxonomyRoot: vi.fn(async () => ({
       root_node_id: 1,
@@ -127,6 +142,46 @@ describe("taxonomy view route", () => {
     expect(response.body).toMatchObject({
       node_id: 42,
       title: "Physics",
+    });
+  });
+
+  it("calls the internal taxonomy path API with a nested route path", async () => {
+    const client = createClient();
+    const app = await createTestApp({ client });
+
+    const response = await request(app).get(
+      "/web-api/taxonomy/view/path/science/mathematics/algebra",
+    );
+
+    expect(response.status).toBe(200);
+    expect(client.getTaxonomyNodeByPath).toHaveBeenCalledWith(
+      "science/mathematics/algebra",
+    );
+    expect(response.body.current_node).toMatchObject({
+      id: 42,
+      route_path: "science/mathematics/algebra",
+    });
+  });
+
+  it("preserves unresolved taxonomy path errors from the internal API", async () => {
+    const client = createClient({
+      getTaxonomyNodeByPath: vi.fn(async () => {
+        throw new InternalApiError(404, "not found");
+      }),
+    });
+    const app = await createTestApp({ client });
+
+    const response = await request(app).get(
+      "/web-api/taxonomy/view/path/science/missing",
+    );
+
+    expect(response.status).toBe(404);
+    expect(client.getTaxonomyRoot).not.toHaveBeenCalled();
+    expect(response.body).toEqual({
+      error: {
+        code: "internal_api_request_failed",
+        message: "Internal API request failed.",
+      },
     });
   });
 

@@ -57,9 +57,30 @@ async def test_rebuild_taxonomy_leaf_projection_edges_clears_then_repopulates_al
 ):
     repo = _StubRepo(
         tree_nodes=[
-            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
-            TaxonomyNodeRecord(id=2, parent_id=1, name="Leaf A", depth=1, is_leaf=True),
-            TaxonomyNodeRecord(id=3, parent_id=1, name="Leaf B", depth=1, is_leaf=True),
+            TaxonomyNodeRecord(
+                id=1,
+                parent_id=None,
+                name="Root",
+                route_slug="root",
+                depth=0,
+                is_leaf=False,
+            ),
+            TaxonomyNodeRecord(
+                id=2,
+                parent_id=1,
+                name="Leaf A",
+                route_slug="leaf-a",
+                depth=1,
+                is_leaf=True,
+            ),
+            TaxonomyNodeRecord(
+                id=3,
+                parent_id=1,
+                name="Leaf B",
+                route_slug="leaf-b",
+                depth=1,
+                is_leaf=True,
+            ),
         ],
         assigned_node_ids_by_leaf={
             2: [11, 12],

@@ -15,6 +15,7 @@ from modules.taxonomy.dto import TaxonomyImportNode
 from modules.taxonomy.errors import TaxonomyImportError
 from modules.taxonomy.ports import TaxonomyImportPort
 from modules.taxonomy.repo import ROOT_NODE_NAME, UNCLASSIFIED_NODE_NAME
+from modules.taxonomy.route_path import slugify_taxonomy_route_segment
 
 TaxonomyYamlMapping = Mapping[str, Any]
 
@@ -28,6 +29,7 @@ class TaxonomyImporter:
             raise TaxonomyImportError("taxonomy store already contains rows")
 
         nodes = parse_taxonomy_yaml(yaml_text)
+        _validate_route_slugs(nodes)
         path_to_id: dict[tuple[str, ...], int] = {}
         imported_count = 0
 
@@ -181,6 +183,29 @@ def _children_spec_is_leaf(spec: object) -> bool:
     if isinstance(spec, Sequence) and not isinstance(spec, str):
         return len(spec) == 0
     raise TaxonomyImportError("taxonomy node children must be a mapping, list, string, or null")
+
+
+def _validate_route_slugs(nodes: list[TaxonomyImportNode]) -> None:
+    slugs_by_parent: dict[tuple[str, ...] | None, dict[str, str]] = {}
+
+    def add_slug(*, parent_path: tuple[str, ...] | None, name: str) -> None:
+        try:
+            route_slug = slugify_taxonomy_route_segment(name)
+        except ValueError as error:
+            raise TaxonomyImportError(str(error)) from error
+
+        siblings = slugs_by_parent.setdefault(parent_path, {})
+        previous = siblings.get(route_slug)
+        if previous is not None:
+            raise TaxonomyImportError(
+                f"taxonomy sibling names produce duplicate route slug {route_slug!r}"
+            )
+        siblings[route_slug] = name
+
+    add_slug(parent_path=None, name=UNCLASSIFIED_NODE_NAME)
+    for node in nodes:
+        add_slug(parent_path=node.parent_path, name=node.name)
+        add_slug(parent_path=node.path, name=UNCLASSIFIED_NODE_NAME)
 
 
 def _normalize_yaml_mapping(spec: Mapping[Any, Any]) -> TaxonomyYamlMapping:

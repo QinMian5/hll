@@ -51,6 +51,9 @@ export interface InternalApiClient {
   readonly getTaxonomyNode: (
     nodeId: number,
   ) => Promise<TaxonomyNodeViewResponse>;
+  readonly getTaxonomyNodeByPath: (
+    routePath: string,
+  ) => Promise<TaxonomyNodeViewResponse>;
   readonly getTaxonomyRoot: () => Promise<TaxonomyRootViewResponse>;
   readonly search: (query: string) => Promise<SearchResponse>;
 }
@@ -76,6 +79,10 @@ function unwrapInternalApiData<TData>(result: InternalApiResult<TData>): TData {
   }
 
   return result.data;
+}
+
+function encodeRoutePath(routePath: string): string {
+  return routePath.split("/").map(encodeURIComponent).join("/");
 }
 
 export function createInternalApiClient(
@@ -145,6 +152,21 @@ export function createInternalApiClient(
       });
 
       return unwrapInternalApiData<unknown>(result) as TaxonomyNodeViewResponse;
+    },
+    getTaxonomyNodeByPath: async (routePath) => {
+      const response = await fetch(
+        `${config.internalApiBaseUrl}/api/v1/taxonomy/view/path/${encodeRoutePath(routePath)}`,
+      );
+      const data = response.headers
+        .get("content-type")
+        ?.includes("application/json")
+        ? ((await response.json()) as unknown)
+        : undefined;
+
+      return unwrapInternalApiData<unknown>({
+        data,
+        response,
+      }) as TaxonomyNodeViewResponse;
     },
     getTaxonomyRoot: async () => {
       const result = await client.GET("/api/v1/taxonomy/view/root");

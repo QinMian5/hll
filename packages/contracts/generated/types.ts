@@ -123,6 +123,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/taxonomy/view/path/{route_path}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Path View */
+    get: operations["get_path_view_api_v1_taxonomy_view_path__route_path__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/taxonomy/view/root": {
     parameters: {
       query?: never;
@@ -384,6 +401,10 @@ export interface components {
       name: string;
       /** Parent Id */
       parent_id?: number | null;
+      /** Route Path */
+      route_path: string;
+      /** Route Slug */
+      route_slug: string;
     };
     /** TaxonomyViewNodeResponse */
     TaxonomyViewNodeResponse: {
@@ -397,6 +418,10 @@ export interface components {
       name: string;
       /** Parent Id */
       parent_id?: number | null;
+      /** Route Path */
+      route_path: string;
+      /** Route Slug */
+      route_slug: string;
     };
     /** ValidationError */
     ValidationError: {
@@ -653,6 +678,37 @@ export interface operations {
       header?: never;
       path: {
         node_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TaxonomyNodeViewResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_path_view_api_v1_taxonomy_view_path__route_path__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        route_path: string;
       };
       cookie?: never;
     };

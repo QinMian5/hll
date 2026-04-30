@@ -27,7 +27,13 @@ class TaxonomyNode(Base):
     __tablename__ = "taxonomy_nodes"
     __table_args__ = (
         CheckConstraint("depth >= 0", name="depth_non_negative"),
+        CheckConstraint("route_slug <> ''", name="route_slug_non_empty"),
         UniqueConstraint("parent_id", "name", name="uq_taxonomy_nodes_parent_name"),
+        UniqueConstraint(
+            "parent_id",
+            "route_slug",
+            name="uq_taxonomy_nodes_parent_route_slug",
+        ),
         Index(
             "uq_taxonomy_nodes_single_root",
             text("(COALESCE(parent_id, 0))"),
@@ -49,6 +55,7 @@ class TaxonomyNode(Base):
         nullable=True,
     )
     name: Mapped[str] = mapped_column(Text, nullable=False)
+    route_slug: Mapped[str] = mapped_column(Text, nullable=False)
     depth: Mapped[int] = mapped_column(Integer, nullable=False)
     is_leaf: Mapped[bool] = mapped_column(Boolean, nullable=False)
 

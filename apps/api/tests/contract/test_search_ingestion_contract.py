@@ -18,6 +18,27 @@ def test_openapi_contains_search_and_ingestion_paths(
     assert "/api/v1/search" in openapi["paths"]
     assert "/api/v1/cards" in openapi["paths"]
     assert "/api/v1/cards/{node_id}/suggested-edits" in openapi["paths"]
+    assert "/api/v1/taxonomy/view/path/{route_path}" in openapi["paths"]
+
+
+@pytest.mark.contract
+def test_taxonomy_view_openapi_includes_route_path_contract(
+    client: TestClient,
+) -> None:
+    openapi = client.app.openapi()
+    operation = openapi["paths"]["/api/v1/taxonomy/view/path/{route_path}"]["get"]
+    response_schema_ref = operation["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ]["$ref"]
+    response_schema = openapi["components"]["schemas"][response_schema_ref.rsplit("/", 1)[-1]]
+    branch_schema_ref = response_schema["oneOf"][0]["$ref"]
+    branch_schema = openapi["components"]["schemas"][branch_schema_ref.rsplit("/", 1)[-1]]
+    current_node_schema_name = branch_schema["properties"]["current_node"]["$ref"]
+    current_node_schema = openapi["components"]["schemas"][
+        current_node_schema_name.rsplit("/", 1)[-1]
+    ]
+
+    assert {"route_slug", "route_path"} <= set(current_node_schema["required"])
 
 
 @pytest.mark.contract

@@ -4,10 +4,19 @@
 import "@testing-library/jest-dom/vitest";
 
 import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  RouterProvider,
+} from "@tanstack/react-router";
+import {
   cleanup,
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
@@ -89,6 +98,7 @@ vi.mock("./leaf/LeafRenderer", () => ({
 }));
 
 vi.mock("../data/taxonomyViewQueries", () => ({
+  useTaxonomyNodeViewByPathQuery: vi.fn(),
   useTaxonomyNodeViewQuery: vi.fn(),
   useTaxonomyRootViewQuery: vi.fn(),
 }));
@@ -123,6 +133,7 @@ interface MockReactFlowProps {
       readonly renderMode?: "bubble" | "point";
       readonly scope?: "branch" | "inner" | "outer";
       readonly targetNodeId?: number | null;
+      readonly targetRoutePath?: string;
       readonly tooltip?: string;
     };
     readonly id: string;
@@ -138,6 +149,7 @@ interface MockReactFlowProps {
     node: {
       readonly data: {
         readonly targetNodeId?: number | null;
+        readonly targetRoutePath?: string;
       };
       readonly id: string;
     },
@@ -166,6 +178,9 @@ interface MockQueryResult<T> {
 const mockUseTaxonomyRootViewQuery = vi.mocked(
   taxonomyViewQueries.useTaxonomyRootViewQuery,
 );
+const mockUseTaxonomyNodeViewByPathQuery = vi.mocked(
+  taxonomyViewQueries.useTaxonomyNodeViewByPathQuery,
+);
 const mockUseTaxonomyNodeViewQuery = vi.mocked(
   taxonomyViewQueries.useTaxonomyNodeViewQuery,
 );
@@ -175,7 +190,7 @@ const mockUseCreateSuggestedEditMutation = vi.mocked(
 const mockUseWebSession = vi.mocked(webSession.useWebSession);
 
 let rootQueryState: MockQueryResult<TaxonomyRootView>;
-let nodeQueryStates: Map<number, MockQueryResult<TaxonomyNodeView>>;
+let pathQueryStates: Map<string, MockQueryResult<TaxonomyNodeView>>;
 let mutateSuggestedEdit: ReturnType<typeof vi.fn>;
 
 function makeQueryResult<T>(
@@ -209,6 +224,8 @@ function makeLeafNodeView(
       is_leaf: true,
       name: "Algebra",
       parent_id: 1,
+      route_path: "math",
+      route_slug: "math",
     },
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",
@@ -232,6 +249,8 @@ function makeBranchNodeView(
       is_leaf: false,
       name: "Mathematics",
       parent_id: null,
+      route_path: "math",
+      route_slug: "math",
     },
     node_kind: "branch",
     ...overrides,
@@ -250,13 +269,15 @@ beforeEach(() => {
           is_leaf: false,
           name: "Math",
           parent_id: null,
+          route_path: "math",
+          route_slug: "math",
         },
       ],
     }),
   });
-  nodeQueryStates = new Map([
+  pathQueryStates = new Map([
     [
-      1,
+      "math",
       makeQueryResult({
         data: makeLeafNodeView({
           breadcrumb: [
@@ -266,6 +287,8 @@ beforeEach(() => {
               is_leaf: false,
               name: "Math",
               parent_id: null,
+              route_path: "math",
+              route_slug: "math",
             },
           ],
         }),
@@ -279,13 +302,18 @@ beforeEach(() => {
         typeof taxonomyViewQueries.useTaxonomyRootViewQuery
       >,
   );
-  mockUseTaxonomyNodeViewQuery.mockImplementation((nodeId) => {
-    const result = nodeQueryStates.get(nodeId);
+  mockUseTaxonomyNodeViewByPathQuery.mockImplementation((routePath) => {
+    const result = pathQueryStates.get(routePath);
     return (result ??
       makeQueryResult({ isPending: true })) as unknown as ReturnType<
-      typeof taxonomyViewQueries.useTaxonomyNodeViewQuery
+      typeof taxonomyViewQueries.useTaxonomyNodeViewByPathQuery
     >;
   });
+  mockUseTaxonomyNodeViewQuery.mockReturnValue(
+    makeQueryResult({ isPending: true }) as unknown as ReturnType<
+      typeof taxonomyViewQueries.useTaxonomyNodeViewQuery
+    >,
+  );
   mockUseCreateSuggestedEditMutation.mockReturnValue({
     isPending: false,
     mutateAsync: mutateSuggestedEdit,
@@ -307,9 +335,44 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+function TestRoot() {
+  return <Outlet />;
+}
+
+function createTaxonomyTestRouter(pathname: string) {
+  const rootRoute = createRootRoute({
+    component: TestRoot,
+  });
+  const graphRoute = createRoute({
+    component: TaxonomyViewPage,
+    getParentRoute: () => rootRoute,
+    path: "graph",
+  });
+  const graphPathRoute = createRoute({
+    component: TaxonomyViewPage,
+    getParentRoute: () => rootRoute,
+    path: "graph/$",
+  });
+  const routeTree = rootRoute.addChildren([graphRoute, graphPathRoute]);
+
+  return createRouter({
+    history: createMemoryHistory({ initialEntries: [pathname] }),
+    routeTree,
+  });
+}
+
+async function renderWithRoute(pathname = "/graph") {
+  const router = createTaxonomyTestRouter(pathname);
+  const result = render(<RouterProvider router={router} />);
+
+  await screen.findByTestId("taxonomy-canvas");
+
+  return { ...result, router };
+}
+
 describe("TaxonomyViewPage", () => {
-  it("renders the approved full-slot Figma canvas shell without the old panel", () => {
-    render(<TaxonomyViewPage />);
+  it("renders the approved full-slot Figma canvas shell without the old panel", async () => {
+    await renderWithRoute();
 
     expect(
       screen.queryByTestId("taxonomy-header-shell"),
@@ -327,7 +390,7 @@ describe("TaxonomyViewPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders loading and error overlays inside the stable canvas shell", () => {
+  it("renders loading and error overlays inside the stable canvas shell", async () => {
     rootQueryState = makeQueryResult({ isPending: true });
     mockUseTaxonomyRootViewQuery.mockImplementation(
       () =>
@@ -336,10 +399,12 @@ describe("TaxonomyViewPage", () => {
         >,
     );
 
-    const { rerender } = render(<TaxonomyViewPage />);
+    await renderWithRoute();
 
     expect(screen.getByTestId("taxonomy-canvas")).toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-loading-overlay")).toBeInTheDocument();
+
+    cleanup();
 
     rootQueryState = makeQueryResult({
       error: new Error("Taxonomy root view request failed with status 502."),
@@ -352,7 +417,7 @@ describe("TaxonomyViewPage", () => {
         >,
     );
 
-    rerender(<TaxonomyViewPage />);
+    await renderWithRoute();
 
     expect(screen.getByTestId("taxonomy-error-overlay")).toHaveTextContent(
       "Taxonomy root view request failed with status 502.",
@@ -360,7 +425,7 @@ describe("TaxonomyViewPage", () => {
   });
 
   it("renders branch mode on React Flow and drills into leaf mode on the dedicated leaf renderer", async () => {
-    render(<TaxonomyViewPage />);
+    const { router } = await renderWithRoute();
 
     expect(screen.getByTestId("taxonomy-branch-reactflow")).toBeInTheDocument();
     expect(
@@ -375,6 +440,9 @@ describe("TaxonomyViewPage", () => {
 
     fireEvent.click(branchNode as HTMLElement);
 
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/graph/math"),
+    );
     expect(
       await screen.findByTestId("taxonomy-leaf-renderer"),
     ).toHaveTextContent("Algebra");
@@ -388,7 +456,7 @@ describe("TaxonomyViewPage", () => {
   });
 
   it("opens the shared suggest edit dialog from the leaf disclosure edit action", async () => {
-    render(<TaxonomyViewPage />);
+    await renderWithRoute();
 
     const branchNode = within(screen.getByTestId("reactflow-mock"))
       .getByText("Math")
@@ -425,6 +493,20 @@ describe("TaxonomyViewPage", () => {
     });
   });
 
+  it("renders a readable deep link without first visiting the root graph", async () => {
+    await renderWithRoute("/graph/math");
+
+    expect(mockUseTaxonomyRootViewQuery).toHaveBeenCalledWith({
+      enabled: false,
+    });
+    expect(mockUseTaxonomyNodeViewByPathQuery).toHaveBeenCalledWith("math", {
+      enabled: true,
+    });
+    expect(
+      await screen.findByTestId("taxonomy-leaf-renderer"),
+    ).toHaveTextContent("Algebra");
+  });
+
   it("does not duplicate the root crumb when backend breadcrumb already starts at Root", async () => {
     rootQueryState = makeQueryResult({
       data: makeRootView({
@@ -436,12 +518,14 @@ describe("TaxonomyViewPage", () => {
             is_leaf: true,
             name: "Unclassified",
             parent_id: 3,
+            route_path: "unclassified",
+            route_slug: "unclassified",
           },
         ],
       }),
     });
-    nodeQueryStates.set(
-      4,
+    pathQueryStates.set(
+      "unclassified",
       makeQueryResult({
         data: makeLeafNodeView({
           breadcrumb: [
@@ -451,6 +535,8 @@ describe("TaxonomyViewPage", () => {
               is_leaf: false,
               name: "Root",
               parent_id: null,
+              route_path: "",
+              route_slug: "root",
             },
             {
               depth: 1,
@@ -458,6 +544,8 @@ describe("TaxonomyViewPage", () => {
               is_leaf: true,
               name: "Unclassified",
               parent_id: 3,
+              route_path: "unclassified",
+              route_slug: "unclassified",
             },
           ],
           current_node: {
@@ -466,12 +554,14 @@ describe("TaxonomyViewPage", () => {
             is_leaf: true,
             name: "Unclassified",
             parent_id: 3,
+            route_path: "unclassified",
+            route_slug: "unclassified",
           },
         }),
       }),
     );
 
-    render(<TaxonomyViewPage />);
+    await renderWithRoute();
 
     const unclassifiedNode = within(screen.getByTestId("reactflow-mock"))
       .getByText("Unclassified")
@@ -494,8 +584,8 @@ describe("TaxonomyViewPage", () => {
   });
 
   it("renders branch breadcrumbs with Figma chevrons and responsive offsets", async () => {
-    nodeQueryStates.set(
-      1,
+    pathQueryStates.set(
+      "math",
       makeQueryResult({
         data: makeBranchNodeView({
           breadcrumb: [
@@ -505,6 +595,8 @@ describe("TaxonomyViewPage", () => {
               is_leaf: false,
               name: "Science",
               parent_id: null,
+              route_path: "science",
+              route_slug: "science",
             },
             {
               depth: 1,
@@ -512,6 +604,8 @@ describe("TaxonomyViewPage", () => {
               is_leaf: false,
               name: "Mathematics",
               parent_id: 2,
+              route_path: "science/mathematics",
+              route_slug: "mathematics",
             },
           ],
           current_node: {
@@ -520,12 +614,14 @@ describe("TaxonomyViewPage", () => {
             is_leaf: false,
             name: "Mathematics",
             parent_id: 2,
+            route_path: "science/mathematics",
+            route_slug: "mathematics",
           },
         }),
       }),
     );
 
-    render(<TaxonomyViewPage />);
+    await renderWithRoute();
 
     const branchNode = within(screen.getByTestId("reactflow-mock"))
       .getByText("Math")
@@ -545,5 +641,22 @@ describe("TaxonomyViewPage", () => {
       "aria-current",
       "page",
     );
+  });
+
+  it("keeps unresolved readable paths in the URL while showing the path error", async () => {
+    pathQueryStates.set(
+      "science/missing",
+      makeQueryResult({
+        error: new Error("Taxonomy route path was not found."),
+        isError: true,
+      }),
+    );
+
+    const { router } = await renderWithRoute("/graph/science/missing");
+
+    expect(screen.getByTestId("taxonomy-error-overlay")).toHaveTextContent(
+      "Taxonomy route path was not found.",
+    );
+    expect(router.state.location.pathname).toBe("/graph/science/missing");
   });
 });

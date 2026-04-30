@@ -3,6 +3,7 @@
 
 import "@xyflow/react/dist/style.css";
 
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { type Node, ReactFlow } from "@xyflow/react";
 import { ChevronRight } from "lucide-react";
 import {
@@ -20,7 +21,7 @@ import { SignInRequiredDialog } from "../../search/components/SignInRequiredDial
 import { SuggestEditDialog } from "../../search/components/SuggestEditDialog";
 import { useCreateSuggestedEditMutation } from "../../search/data/searchQueries";
 import {
-  useTaxonomyNodeViewQuery,
+  useTaxonomyNodeViewByPathQuery,
   useTaxonomyRootViewQuery,
 } from "../data/taxonomyViewQueries";
 
@@ -56,6 +57,20 @@ const LeafRenderer = lazy(() =>
     default: module.LeafRenderer,
   })),
 );
+
+const graphRoutePrefix = "/graph/";
+
+function routePathFromGraphPathname(pathname: string) {
+  if (pathname === "/graph") {
+    return "";
+  }
+
+  if (!pathname.startsWith(graphRoutePrefix)) {
+    return "";
+  }
+
+  return pathname.slice(graphRoutePrefix.length);
+}
 
 function toFlowNode(
   node: ReturnType<typeof buildBranchLayout>["nodes"][number],
@@ -93,7 +108,12 @@ function sameViewport(left: LayoutViewport, right: LayoutViewport) {
 }
 
 export function TaxonomyViewPage() {
-  const [activeNodeId, setActiveNodeId] = useState<number | null>(null);
+  const navigate = useNavigate();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const activeRoutePath = routePathFromGraphPathname(pathname);
+  const rootMode = activeRoutePath === "";
   const session = useWebSession();
   const createSuggestedEditMutation = useCreateSuggestedEditMutation();
   const canvasRef = useRef<HTMLElement | null>(null);
@@ -106,15 +126,14 @@ export function TaxonomyViewPage() {
   const [isSignInDialogOpen, setIsSignInDialogOpen] = useState(false);
 
   const rootQuery = useTaxonomyRootViewQuery({
-    enabled: activeNodeId === null,
+    enabled: rootMode,
   });
-  const nodeQuery = useTaxonomyNodeViewQuery(activeNodeId ?? 0, {
-    enabled: activeNodeId !== null,
+  const pathQuery = useTaxonomyNodeViewByPathQuery(activeRoutePath, {
+    enabled: !rootMode,
   });
 
-  const rootMode = activeNodeId === null;
-  const activeQuery = rootMode ? rootQuery : nodeQuery;
-  const breadcrumbs = rootMode ? [] : (nodeQuery.data?.breadcrumb ?? []);
+  const activeQuery = rootMode ? rootQuery : pathQuery;
+  const breadcrumbs = rootMode ? [] : (pathQuery.data?.breadcrumb ?? []);
   const displayBreadcrumbs =
     breadcrumbs[0]?.parent_id === null && breadcrumbs[0].name === "Root"
       ? breadcrumbs.slice(1)
@@ -164,6 +183,20 @@ export function TaxonomyViewPage() {
     setSuggestionError(undefined);
   }
 
+  function navigateToGraphPath(routePath: string) {
+    startTransition(() => {
+      if (routePath === "") {
+        void navigate({ to: "/graph" });
+        return;
+      }
+
+      void navigate({
+        params: { _splat: routePath },
+        to: "/graph/$",
+      });
+    });
+  }
+
   async function handleSubmitSuggestion(payload: {
     readonly suggestedContent: string;
     readonly suggestedTitle: string;
@@ -206,7 +239,7 @@ export function TaxonomyViewPage() {
     const branchLayout = buildBranchLayout({
       center: layoutCenter,
       children:
-        nodeQuery.data?.node_kind === "branch" ? nodeQuery.data.children : [],
+        pathQuery.data?.node_kind === "branch" ? pathQuery.data.children : [],
       viewport: canvasViewport,
     });
 
@@ -217,7 +250,7 @@ export function TaxonomyViewPage() {
     activeQuery.isPending,
     canvasViewport,
     layoutCenter,
-    nodeQuery.data,
+    pathQuery.data,
     rootMode,
     rootQuery.data?.children,
   ]);
@@ -246,9 +279,7 @@ export function TaxonomyViewPage() {
             className={
               rootMode ? breadcrumbCurrentClasses : breadcrumbMutedClasses
             }
-            onClick={() => {
-              startTransition(() => setActiveNodeId(null));
-            }}
+            onClick={() => navigateToGraphPath("")}
             type="button"
           >
             Root
@@ -270,9 +301,7 @@ export function TaxonomyViewPage() {
                   : breadcrumbMutedClasses
               }
               key={item.id}
-              onClick={() => {
-                startTransition(() => setActiveNodeId(item.id));
-              }}
+              onClick={() => navigateToGraphPath(item.route_path)}
               type="button"
             >
               {item.name}
@@ -309,11 +338,11 @@ export function TaxonomyViewPage() {
           </section>
         ) : null}
         <div className="taxonomy-flow-shell absolute inset-0 overflow-hidden">
-          {nodeQuery.data?.node_kind === "leaf" ? (
+          {pathQuery.data?.node_kind === "leaf" ? (
             <Suspense fallback={null}>
               <LeafRenderer
-                key={`${nodeQuery.data.current_node.id}:${nodeQuery.data.layout_version}:${nodeQuery.data.generated_at}`}
-                leafView={nodeQuery.data}
+                key={`${pathQuery.data.current_node.id}:${pathQuery.data.layout_version}:${pathQuery.data.generated_at}`}
+                leafView={pathQuery.data}
                 onSuggestEdit={handleSuggestEdit}
                 viewport={canvasViewport}
               />
@@ -328,16 +357,16 @@ export function TaxonomyViewPage() {
                 fitViewOptions={{
                   padding: canvasViewport.width < 640 ? 0.12 : 0.08,
                 }}
-                key={activeNodeId ?? "root"}
+                key={activeRoutePath || "root"}
                 minZoom={0.2}
                 nodeTypes={nodeTypes}
                 nodes={branchFlowGraph.nodes}
                 onNodeClick={(_, node) => {
-                  const targetNodeId = node.data.targetNodeId;
-                  if (typeof targetNodeId !== "number") {
+                  const targetRoutePath = node.data.targetRoutePath;
+                  if (typeof targetRoutePath !== "string") {
                     return;
                   }
-                  startTransition(() => setActiveNodeId(targetNodeId));
+                  navigateToGraphPath(targetRoutePath);
                 }}
                 proOptions={{ hideAttribution: true }}
               ></ReactFlow>

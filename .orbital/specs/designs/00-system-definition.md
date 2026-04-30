@@ -23,7 +23,7 @@ The core value is open knowledge dissemination through a machine-consumable know
 ## V1 Scope
 ### In Scope
 - Private internal search read HTTP API.
-- Private internal taxonomy drill-down HTTP APIs (`/api/v1/taxonomy/view/root`, `/api/v1/taxonomy/view/nodes/{node_id}`, `/api/v1/taxonomy/view/leaves/{node_id}/details`).
+- Private internal taxonomy drill-down HTTP APIs for root, id-addressed nodes, canonical LCC path-addressed nodes, and leaf viewport data.
 - Public web access through a BFF with anonymous browsing quotas and Logto-backed sign-in for higher quotas.
 - Public MCP search access through Logto personal-access-token authentication, account-level quota, and token-level attribution.
 - Private internal ingestion accept HTTP API for platform-official card construction.
@@ -34,7 +34,7 @@ The core value is open knowledge dissemination through a machine-consumable know
 - Operator-managed taxonomy structure with visible `Unclassified` leaves.
 - Background taxonomy classification through `job-queue-mcp`.
 - Leaf-level one-hop graph view (inner + pulled outer nodes, scoped edges).
-- Frontend-owned graph layout (backend does not return authoritative node coordinates).
+- Backend-owned taxonomy view read models provide branch and leaf browsing data, including backend-computed leaf coordinates.
 
 ### Out of Scope
 - Semantic-map snapshot rebuild and tile browsing.

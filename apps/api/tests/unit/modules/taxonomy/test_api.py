@@ -44,6 +44,8 @@ class _FakeTaxonomyService:
                     id=1,
                     parent_id=None,
                     name="Science",
+                    route_slug="science",
+                    route_path="science",
                     depth=0,
                     is_leaf=False,
                     descendant_card_count=12,
@@ -63,6 +65,8 @@ class _FakeTaxonomyService:
                     id=1,
                     parent_id=None,
                     name="Science",
+                    route_slug="science",
+                    route_path="science",
                     depth=0,
                     is_leaf=False,
                 ),
@@ -71,6 +75,8 @@ class _FakeTaxonomyService:
                         id=1,
                         parent_id=None,
                         name="Science",
+                        route_slug="science",
+                        route_path="science",
                         depth=0,
                         is_leaf=False,
                     )
@@ -80,6 +86,8 @@ class _FakeTaxonomyService:
                         id=2,
                         parent_id=1,
                         name="Mathematics",
+                        route_slug="mathematics",
+                        route_path="science/mathematics",
                         depth=1,
                         is_leaf=True,
                         descendant_card_count=3,
@@ -92,6 +100,8 @@ class _FakeTaxonomyService:
                 id=node_id,
                 parent_id=1,
                 name="Mathematics",
+                route_slug="mathematics",
+                route_path="science/mathematics",
                 depth=1,
                 is_leaf=True,
             ),
@@ -100,6 +110,8 @@ class _FakeTaxonomyService:
                     id=1,
                     parent_id=None,
                     name="Science",
+                    route_slug="science",
+                    route_path="science",
                     depth=0,
                     is_leaf=False,
                 ),
@@ -107,6 +119,8 @@ class _FakeTaxonomyService:
                     id=node_id,
                     parent_id=1,
                     name="Mathematics",
+                    route_slug="mathematics",
+                    route_path="science/mathematics",
                     depth=1,
                     is_leaf=True,
                 ),
@@ -122,6 +136,14 @@ class _FakeTaxonomyService:
             edge_count=2,
             generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
         )
+
+    async def get_node_view_by_route_path(
+        self,
+        *,
+        route_path: str,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse:
+        assert route_path == "science/mathematics"
+        return await self.get_node_view(node_id=2)
 
     async def get_leaf_layout_slice(
         self,
@@ -219,6 +241,17 @@ class _FakeTaxonomyNotFoundService:
             code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
             message=f"Taxonomy node {node_id} was not found.",
             hint="Use an existing taxonomy node id and retry.",
+        )
+
+    async def get_node_view_by_route_path(
+        self,
+        *,
+        route_path: str,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse:
+        raise DomainError(
+            code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+            message=f"Taxonomy route path {route_path!r} was not found.",
+            hint="Use an existing taxonomy route path and retry.",
         )
 
     async def get_leaf_node_details(
@@ -337,6 +370,8 @@ async def test_root_view_route_returns_top_level_children(
             "id": 1,
             "parent_id": None,
             "name": "Science",
+            "route_slug": "science",
+            "route_path": "science",
             "depth": 0,
             "is_leaf": False,
             "descendant_card_count": 12,
@@ -353,8 +388,38 @@ async def test_node_view_route_returns_branch_payload_for_non_leaf(
     assert response.status_code == 200
     payload = response.json()
     assert payload["node_kind"] == "branch"
-    assert payload["current_node"]["id"] == 1
-    assert payload["children"][0]["id"] == 2
+    assert payload["current_node"] == {
+        "id": 1,
+        "parent_id": None,
+        "name": "Science",
+        "route_slug": "science",
+        "route_path": "science",
+        "depth": 0,
+        "is_leaf": False,
+    }
+    assert payload["children"][0] == {
+        "id": 2,
+        "parent_id": 1,
+        "name": "Mathematics",
+        "route_slug": "mathematics",
+        "route_path": "science/mathematics",
+        "depth": 1,
+        "is_leaf": True,
+        "descendant_card_count": 3,
+    }
+
+
+@pytest.mark.anyio
+async def test_path_view_route_returns_node_payload_for_canonical_route_path(
+    async_client: AsyncClient,
+) -> None:
+    response = await async_client.get("/api/v1/taxonomy/view/path/science/mathematics")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["node_kind"] == "leaf"
+    assert payload["current_node"]["id"] == 2
+    assert payload["current_node"]["route_path"] == "science/mathematics"
 
 
 @pytest.mark.anyio
@@ -367,6 +432,7 @@ async def test_node_view_route_returns_leaf_payload_for_leaf(
     payload = response.json()
     assert payload["node_kind"] == "leaf"
     assert payload["current_node"]["id"] == 2
+    assert payload["current_node"]["route_path"] == "science/mathematics"
     assert payload["layout_version"] == "taxonomy-leaf-layout-v2"
     assert payload["world_bounds"] == {
         "min_x": 0.0,
@@ -542,8 +608,11 @@ async def test_taxonomy_view_routes_return_404_when_taxonomy_unavailable(
 
     root_response = await async_client.get("/api/v1/taxonomy/view/root")
     node_response = await async_client.get("/api/v1/taxonomy/view/nodes/123")
+    path_response = await async_client.get("/api/v1/taxonomy/view/path/science/missing")
 
     assert root_response.status_code == 404
     assert node_response.status_code == 404
+    assert path_response.status_code == 404
     assert root_response.json()["error"]["code"] == "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND"
     assert node_response.json()["error"]["code"] == "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND"
+    assert path_response.json()["error"]["code"] == "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND"

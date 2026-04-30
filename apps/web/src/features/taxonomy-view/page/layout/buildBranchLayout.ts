@@ -306,6 +306,7 @@ export function buildBranchLayout(
           label: node.child.name,
           scope: "branch",
           targetNodeId: node.child.id,
+          targetRoutePath: node.child.route_path,
           tooltip: `${node.child.name} · ${node.child.descendant_card_count} cards`,
         },
         id: node.id,

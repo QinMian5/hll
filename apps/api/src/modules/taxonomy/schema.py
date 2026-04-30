@@ -19,6 +19,8 @@ class TaxonomyViewNodeResponse(TaxonomyViewResponseModel):
     id: int = Field(gt=0)
     parent_id: int | None = Field(default=None, gt=0)
     name: str = Field(min_length=1)
+    route_slug: str = Field(min_length=1)
+    route_path: str
     depth: int = Field(ge=0)
     is_leaf: bool
 

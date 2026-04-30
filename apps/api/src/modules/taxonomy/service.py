@@ -27,6 +27,7 @@ from modules.taxonomy.layout import (
     build_leaf_layout,
     slice_leaf_layout,
 )
+from modules.taxonomy.route_path import join_taxonomy_route_path
 from modules.taxonomy.schema import (
     TaxonomyLeafLayoutNodeResponse,
     TaxonomyLeafLayoutSliceResponse,
@@ -140,11 +141,25 @@ class _LeafGraphProjection:
     scope_by_node_id: dict[int, Literal["inner", "outer"]]
 
 
-def _view_node_from_record(record: TaxonomyNodeRecord) -> TaxonomyViewNodeResponse:
+@dataclass(slots=True)
+class _TaxonomyTreeContext:
+    node_by_id: dict[int, TaxonomyNodeRecord]
+    child_ids_by_parent: dict[int | None, list[int]]
+    root: TaxonomyNodeRecord
+    route_paths_by_id: dict[int, str]
+
+
+def _view_node_from_record(
+    record: TaxonomyNodeRecord,
+    *,
+    route_path: str,
+) -> TaxonomyViewNodeResponse:
     return TaxonomyViewNodeResponse(
         id=record.id,
         parent_id=record.parent_id,
         name=record.name,
+        route_slug=record.route_slug,
+        route_path=route_path,
         depth=record.depth,
         is_leaf=record.is_leaf,
     )
@@ -172,6 +187,7 @@ class TaxonomyService:
                 id=record.id,
                 parent_id=record.parent_id,
                 name=record.name,
+                route_slug=record.route_slug,
                 depth=record.depth,
                 is_leaf=record.is_leaf,
             )
@@ -190,32 +206,47 @@ class TaxonomyService:
         return await self._repo.get_assignment_for_node(node_id=node_id)
 
     async def get_root_view(self) -> TaxonomyRootViewResponse:
-        tree_nodes = await self._repo.list_tree_nodes()
-        node_by_id, child_ids_by_parent = _index_tree(tree_nodes)
-        if not node_by_id:
-            raise DomainError(
-                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
-                message="Taxonomy tree is not available.",
-                hint="Import taxonomy data and retry.",
-            )
-
+        tree_context = await self._load_tree_context()
         descendant_counts = await self._load_descendant_card_counts(
-            node_by_id=node_by_id,
-            child_ids_by_parent=child_ids_by_parent,
+            node_by_id=tree_context.node_by_id,
+            child_ids_by_parent=tree_context.child_ids_by_parent,
         )
-        root = _require_single_root(node_by_id=node_by_id, child_ids_by_parent=child_ids_by_parent)
         root_child_ids = sorted(
-            child_ids_by_parent.get(root.id, []),
-            key=lambda node_id: (node_by_id[node_id].name, node_by_id[node_id].id),
+            tree_context.child_ids_by_parent.get(tree_context.root.id, []),
+            key=lambda node_id: (
+                tree_context.node_by_id[node_id].name,
+                tree_context.node_by_id[node_id].id,
+            ),
         )
         children = _view_children_from_node_ids(
             child_ids=root_child_ids,
-            node_by_id=node_by_id,
+            node_by_id=tree_context.node_by_id,
             descendant_counts=descendant_counts,
+            route_paths_by_id=tree_context.route_paths_by_id,
         )
         return TaxonomyRootViewResponse(breadcrumb=[], children=children)
 
     async def get_node_view(self, *, node_id: int) -> TaxonomyNodeViewResponse:
+        tree_context = await self._load_tree_context()
+        return await self._get_node_view_from_tree_context(
+            node_id=node_id,
+            tree_context=tree_context,
+        )
+
+    async def get_node_view_by_route_path(self, *, route_path: str) -> TaxonomyNodeViewResponse:
+        tree_context = await self._load_tree_context()
+        node_id = _resolve_node_id_by_route_path(
+            route_path=route_path,
+            root=tree_context.root,
+            child_ids_by_parent=tree_context.child_ids_by_parent,
+            node_by_id=tree_context.node_by_id,
+        )
+        return await self._get_node_view_from_tree_context(
+            node_id=node_id,
+            tree_context=tree_context,
+        )
+
+    async def _load_tree_context(self) -> _TaxonomyTreeContext:
         tree_nodes = await self._repo.list_tree_nodes()
         node_by_id, child_ids_by_parent = _index_tree(tree_nodes)
         if not node_by_id:
@@ -225,7 +256,29 @@ class TaxonomyService:
                 hint="Import taxonomy data and retry.",
             )
 
-        current_node = node_by_id.get(node_id)
+        root = _require_single_root(
+            node_by_id=node_by_id,
+            child_ids_by_parent=child_ids_by_parent,
+        )
+        route_paths_by_id = _build_route_paths_by_id(
+            root=root,
+            child_ids_by_parent=child_ids_by_parent,
+            node_by_id=node_by_id,
+        )
+        return _TaxonomyTreeContext(
+            node_by_id=node_by_id,
+            child_ids_by_parent=child_ids_by_parent,
+            root=root,
+            route_paths_by_id=route_paths_by_id,
+        )
+
+    async def _get_node_view_from_tree_context(
+        self,
+        *,
+        node_id: int,
+        tree_context: _TaxonomyTreeContext,
+    ) -> TaxonomyNodeViewResponse:
+        current_node = tree_context.node_by_id.get(node_id)
         if current_node is None:
             raise DomainError(
                 code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
@@ -234,33 +287,40 @@ class TaxonomyService:
             )
 
         breadcrumb = [
-            _view_node_from_record(record)
+            _view_node_from_record(
+                record,
+                route_path=tree_context.route_paths_by_id[record.id],
+            )
             for record in _build_breadcrumb(
                 current_node_id=node_id,
-                node_by_id=node_by_id,
+                node_by_id=tree_context.node_by_id,
             )
         ]
 
         if not current_node.is_leaf:
             descendant_counts = await self._load_descendant_card_counts(
-                node_by_id=node_by_id,
-                child_ids_by_parent=child_ids_by_parent,
+                node_by_id=tree_context.node_by_id,
+                child_ids_by_parent=tree_context.child_ids_by_parent,
             )
             child_ids = sorted(
-                child_ids_by_parent.get(current_node.id, []),
+                tree_context.child_ids_by_parent.get(current_node.id, []),
                 key=lambda child_node_id: (
-                    node_by_id[child_node_id].name,
-                    node_by_id[child_node_id].id,
+                    tree_context.node_by_id[child_node_id].name,
+                    tree_context.node_by_id[child_node_id].id,
                 ),
             )
             children = _view_children_from_node_ids(
                 child_ids=child_ids,
-                node_by_id=node_by_id,
+                node_by_id=tree_context.node_by_id,
                 descendant_counts=descendant_counts,
+                route_paths_by_id=tree_context.route_paths_by_id,
             )
             return TaxonomyNodeBranchViewResponse(
                 node_kind="branch",
-                current_node=_view_node_from_record(current_node),
+                current_node=_view_node_from_record(
+                    current_node,
+                    route_path=tree_context.route_paths_by_id[current_node.id],
+                ),
                 breadcrumb=breadcrumb,
                 children=children,
             )
@@ -271,7 +331,10 @@ class TaxonomyService:
         leaf_layout = await self._load_leaf_layout(current_node=current_node)
         return TaxonomyNodeLeafViewResponse(
             node_kind="leaf",
-            current_node=_view_node_from_record(current_node),
+            current_node=_view_node_from_record(
+                current_node,
+                route_path=tree_context.route_paths_by_id[current_node.id],
+            ),
             breadcrumb=breadcrumb,
             layout_version=TAXONOMY_LEAF_LAYOUT_VERSION,
             world_bounds=_world_bounds_response_from_layout(leaf_layout),
@@ -651,12 +714,15 @@ def _view_children_from_node_ids(
     child_ids: list[int],
     node_by_id: dict[int, TaxonomyNodeRecord],
     descendant_counts: dict[int, int],
+    route_paths_by_id: dict[int, str],
 ) -> list[TaxonomyViewChildResponse]:
     return [
         TaxonomyViewChildResponse(
             id=node_by_id[node_id].id,
             parent_id=node_by_id[node_id].parent_id,
             name=node_by_id[node_id].name,
+            route_slug=node_by_id[node_id].route_slug,
+            route_path=route_paths_by_id[node_id],
             depth=node_by_id[node_id].depth,
             is_leaf=node_by_id[node_id].is_leaf,
             descendant_card_count=descendant_counts[node_id],
@@ -664,6 +730,62 @@ def _view_children_from_node_ids(
         for node_id in child_ids
         if descendant_counts[node_id] > 0
     ]
+
+
+def _build_route_paths_by_id(
+    *,
+    root: TaxonomyNodeRecord,
+    child_ids_by_parent: dict[int | None, list[int]],
+    node_by_id: dict[int, TaxonomyNodeRecord],
+) -> dict[int, str]:
+    route_paths_by_id = {root.id: ""}
+    stack = list(child_ids_by_parent.get(root.id, []))
+    while stack:
+        node_id = stack.pop()
+        node = node_by_id[node_id]
+        parent_id = node.parent_id
+        assert parent_id is not None
+        parent_route_path = route_paths_by_id[parent_id]
+        route_paths_by_id[node.id] = join_taxonomy_route_path([parent_route_path, node.route_slug])
+        stack.extend(child_ids_by_parent.get(node.id, []))
+    return route_paths_by_id
+
+
+def _resolve_node_id_by_route_path(
+    *,
+    route_path: str,
+    root: TaxonomyNodeRecord,
+    child_ids_by_parent: dict[int | None, list[int]],
+    node_by_id: dict[int, TaxonomyNodeRecord],
+) -> int:
+    if (
+        not route_path
+        or route_path.startswith("/")
+        or route_path.endswith("/")
+        or "//" in route_path
+    ):
+        raise DomainError(
+            code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+            message=f"Taxonomy route path {route_path!r} was not found.",
+            hint="Use an existing taxonomy route path and retry.",
+        )
+
+    cursor_id = root.id
+    for segment in route_path.split("/"):
+        matches = [
+            child_id
+            for child_id in child_ids_by_parent.get(cursor_id, [])
+            if node_by_id[child_id].route_slug == segment
+        ]
+        if len(matches) != 1:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message=f"Taxonomy route path {route_path!r} was not found.",
+                hint="Use an existing taxonomy route path and retry.",
+            )
+        cursor_id = matches[0]
+
+    return cursor_id
 
 
 def _world_bounds_response_from_layout(

@@ -17,6 +17,11 @@ function RootRedirect() {
   return <Outlet />;
 }
 
+const taxonomyViewRouteComponent = lazyRouteComponent(
+  () => import("../features/taxonomy-view/page/TaxonomyViewPage"),
+  "TaxonomyViewPage",
+);
+
 const rootRoute = createRootRoute({
   component: AppShell,
 });
@@ -37,12 +42,15 @@ const overviewRoute = createRoute({
 });
 
 const graphRoute = createRoute({
-  component: lazyRouteComponent(
-    () => import("../features/taxonomy-view/page/TaxonomyViewPage"),
-    "TaxonomyViewPage",
-  ),
+  component: taxonomyViewRouteComponent,
   getParentRoute: () => rootRoute,
   path: "graph",
+});
+
+const graphPathRoute = createRoute({
+  component: taxonomyViewRouteComponent,
+  getParentRoute: () => rootRoute,
+  path: "graph/$",
 });
 
 const searchRoute = createRoute({
@@ -88,6 +96,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   overviewRoute,
   graphRoute,
+  graphPathRoute,
   searchRoute,
   docsRoute,
   dashboardRoute,

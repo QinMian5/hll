@@ -8,6 +8,7 @@ import {
   taxonomyLeafLayoutSliceQueryOptions,
   taxonomyLeafNodeDetailsQueryOptions,
   taxonomyLeafNodeTitlesQueryOptions,
+  taxonomyNodeViewByPathQueryOptions,
   taxonomyNodeViewQueryOptions,
   taxonomyRootViewQueryOptions,
 } from "./taxonomyViewQueries";
@@ -24,6 +25,7 @@ async function runQuery<TResult>(
     | typeof taxonomyLeafNodeDetailsQueryOptions
     | typeof taxonomyLeafLayoutSliceQueryOptions
     | typeof taxonomyLeafNodeTitlesQueryOptions
+    | typeof taxonomyNodeViewByPathQueryOptions
     | typeof taxonomyNodeViewQueryOptions
     | typeof taxonomyRootViewQueryOptions
   >,
@@ -100,6 +102,42 @@ describe("taxonomyNodeViewQueryOptions", () => {
     expect(result).toMatchObject({
       node_id: 42,
       title: "Physics",
+    });
+  });
+
+  it("calls the same-origin BFF taxonomy path endpoint", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        current_node: {
+          depth: 1,
+          id: 42,
+          is_leaf: false,
+          name: "Mathematics",
+          parent_id: 1,
+          route_path: "science/mathematics",
+          route_slug: "mathematics",
+        },
+        node_kind: "branch",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runQuery(
+      taxonomyNodeViewByPathQueryOptions("science/mathematics"),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/web-api/taxonomy/view/path/science/mathematics",
+      expect.objectContaining({
+        credentials: "include",
+        method: "GET",
+      }),
+    );
+    expect(result).toMatchObject({
+      current_node: {
+        route_path: "science/mathematics",
+      },
+      node_kind: "branch",
     });
   });
 

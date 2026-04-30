@@ -156,6 +156,7 @@ const taxonomyViewQueryKeys = {
   leafTitles: (leafId: number, nodeIds: readonly number[]) =>
     ["taxonomy-view", "leaf-titles", leafId, ...nodeIds] as const,
   node: (nodeId: number) => ["taxonomy-view", "node", nodeId] as const,
+  path: (routePath: string) => ["taxonomy-view", "path", routePath] as const,
   root: ["taxonomy-view", "root"] as const,
 };
 
@@ -168,6 +169,20 @@ async function fetchTaxonomyNodeView(
 ): Promise<TaxonomyNodeView> {
   const result = await fetchWebApiJson<unknown>(
     `/web-api/taxonomy/view/nodes/${nodeId}`,
+  );
+
+  return normalizeTaxonomyNodeViewPayload(result);
+}
+
+function encodeRoutePath(routePath: string): string {
+  return routePath.split("/").map(encodeURIComponent).join("/");
+}
+
+async function fetchTaxonomyNodeViewByPath(
+  routePath: string,
+): Promise<TaxonomyNodeView> {
+  const result = await fetchWebApiJson<unknown>(
+    `/web-api/taxonomy/view/path/${encodeRoutePath(routePath)}`,
   );
 
   return normalizeTaxonomyNodeViewPayload(result);
@@ -237,6 +252,13 @@ export function taxonomyNodeViewQueryOptions(nodeId: number) {
   });
 }
 
+export function taxonomyNodeViewByPathQueryOptions(routePath: string) {
+  return queryOptions({
+    queryFn: () => fetchTaxonomyNodeViewByPath(routePath),
+    queryKey: taxonomyViewQueryKeys.path(routePath),
+  });
+}
+
 export function taxonomyLeafNodeDetailsQueryOptions(
   leafId: number,
   nodeIds: readonly number[],
@@ -294,6 +316,16 @@ export function useTaxonomyNodeViewQuery(
 ) {
   return useQuery({
     ...taxonomyNodeViewQueryOptions(nodeId),
+    enabled: options.enabled ?? true,
+  });
+}
+
+export function useTaxonomyNodeViewByPathQuery(
+  routePath: string,
+  options: { readonly enabled?: boolean },
+) {
+  return useQuery({
+    ...taxonomyNodeViewByPathQueryOptions(routePath),
     enabled: options.enabled ?? true,
   });
 }

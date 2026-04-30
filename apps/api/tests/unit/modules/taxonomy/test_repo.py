@@ -80,13 +80,45 @@ def _repo_with_stub(session: _StubSession) -> TaxonomyRepo:
 
 
 @pytest.mark.anyio
+async def test_create_taxonomy_node_persists_canonical_route_slug() -> None:
+    session = _StubSession()
+    repo = _repo_with_stub(session)
+
+    await repo.create_taxonomy_node(
+        parent_id=1,
+        name="Science (General)",
+        depth=2,
+        is_leaf=False,
+    )
+
+    created_node = session.added[0]
+    assert isinstance(created_node, TaxonomyNode)
+    assert created_node.route_slug == "science-general"
+    assert session.flushed is True
+
+
+@pytest.mark.anyio
 async def test_list_tree_nodes_returns_record_models() -> None:
     session = _StubSession(
         scalars_results=[
             _StubScalarResult(
                 [
-                    TaxonomyNode(id=1, parent_id=None, name="Science", depth=0, is_leaf=False),
-                    TaxonomyNode(id=2, parent_id=1, name="Physics", depth=1, is_leaf=True),
+                    TaxonomyNode(
+                        id=1,
+                        parent_id=None,
+                        name="Science",
+                        route_slug="science",
+                        depth=0,
+                        is_leaf=False,
+                    ),
+                    TaxonomyNode(
+                        id=2,
+                        parent_id=1,
+                        name="Physics",
+                        route_slug="physics",
+                        depth=1,
+                        is_leaf=True,
+                    ),
                 ]
             )
         ]
@@ -96,8 +128,22 @@ async def test_list_tree_nodes_returns_record_models() -> None:
     records = await repo.list_tree_nodes()
 
     assert [record.model_dump() for record in records] == [
-        {"id": 1, "parent_id": None, "name": "Science", "depth": 0, "is_leaf": False},
-        {"id": 2, "parent_id": 1, "name": "Physics", "depth": 1, "is_leaf": True},
+        {
+            "id": 1,
+            "parent_id": None,
+            "name": "Science",
+            "route_slug": "science",
+            "depth": 0,
+            "is_leaf": False,
+        },
+        {
+            "id": 2,
+            "parent_id": 1,
+            "name": "Physics",
+            "route_slug": "physics",
+            "depth": 1,
+            "is_leaf": True,
+        },
     ]
 
 
@@ -118,6 +164,7 @@ async def test_get_assignment_for_node_returns_leaf_assignment_details() -> None
                         id=4,
                         parent_id=2,
                         name="Algebra",
+                        route_slug="algebra",
                         depth=2,
                         is_leaf=True,
                     ),
@@ -153,6 +200,7 @@ async def test_set_current_assignment_moves_existing_assignment() -> None:
                         id=8,
                         parent_id=3,
                         name="Unclassified",
+                        route_slug="unclassified",
                         depth=2,
                         is_leaf=True,
                     ),
@@ -191,6 +239,7 @@ async def test_set_current_assignment_creates_when_assignment_missing() -> None:
                         id=8,
                         parent_id=3,
                         name="General",
+                        route_slug="general",
                         depth=2,
                         is_leaf=True,
                     ),

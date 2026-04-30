@@ -22,6 +22,7 @@ def _build_assignment(*, node_id: int, leaf_id: int) -> TaxonomyAssignmentRecord
             id=leaf_id,
             parent_id=1,
             name="Algebra",
+            route_slug="algebra",
             depth=2,
             is_leaf=True,
         ),
@@ -36,8 +37,22 @@ class _StubTaxonomyPort:
     async def list_children(self, *, parent_id: int | None) -> list[TaxonomyNodeRecord]:
         assert parent_id == 1
         return [
-            TaxonomyNodeRecord(id=11, parent_id=1, name="Chemistry", depth=1, is_leaf=True),
-            TaxonomyNodeRecord(id=12, parent_id=1, name="Physics", depth=1, is_leaf=True),
+            TaxonomyNodeRecord(
+                id=11,
+                parent_id=1,
+                name="Chemistry",
+                route_slug="chemistry",
+                depth=1,
+                is_leaf=True,
+            ),
+            TaxonomyNodeRecord(
+                id=12,
+                parent_id=1,
+                name="Physics",
+                route_slug="physics",
+                depth=1,
+                is_leaf=True,
+            ),
         ]
 
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None:
