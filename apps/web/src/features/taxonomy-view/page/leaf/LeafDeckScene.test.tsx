@@ -7,7 +7,12 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LeafDeckScene } from "./LeafDeckScene";
-import type { LeafSceneModel, LeafSceneTitleLabelNode } from "./leafSceneTypes";
+import type {
+  LeafSceneEdge,
+  LeafSceneModel,
+  LeafScenePointNode,
+  LeafSceneTitleLabelNode,
+} from "./leafSceneTypes";
 
 const layerTestState = vi.hoisted(() => ({
   createdLayers: [] as Array<{
@@ -80,13 +85,23 @@ afterEach(() => {
 });
 
 function makeScene(): LeafSceneModel {
+  const edge: LeafSceneEdge = {
+    id: "10:11",
+    source: { x: 10, y: 20 },
+    strength: 0.8,
+    target: { x: 30, y: 40 },
+  };
+
   return {
     bounds: { bottom: 96, left: -96, right: 96, top: -96 },
-    edgeIdsByNodeId: new Map(),
-    edges: [],
-    focusNodeIdsByNodeId: new Map(),
-    highlightEdgesByNodeId: new Map(),
-    neighborNodeIdsByNodeId: new Map(),
+    edgeIdsByNodeId: new Map([
+      [10, new Set(["10:11"])],
+      [11, new Set(["10:11"])],
+    ]),
+    edges: [edge],
+    focusNodeIdsByNodeId: new Map([[10, new Set([10, 11])]]),
+    highlightEdgesByNodeId: new Map([[10, [edge]]]),
+    neighborNodeIdsByNodeId: new Map([[10, new Set([11])]]),
     pointNodes: [
       {
         graphNodeId: 10,
@@ -122,12 +137,15 @@ function makeScene(): LeafSceneModel {
   };
 }
 
-function renderScene(hiddenLabelNodeId: number | null) {
+function renderScene(options: {
+  readonly activeFocusNodeId?: number | null;
+  readonly hiddenLabelNodeId: number | null;
+}) {
   render(
     <LeafDeckScene
-      activeFocusNodeId={null}
+      activeFocusNodeId={options.activeFocusNodeId ?? null}
       disclosure={null}
-      hiddenLabelNodeId={hiddenLabelNodeId}
+      hiddenLabelNodeId={options.hiddenLabelNodeId}
       hoveredPointNodeId={null}
       initialViewport={{ target: [0, 0, 0], zoom: 0 }}
       isPointInteractionEnabled={true}
@@ -140,9 +158,13 @@ function renderScene(hiddenLabelNodeId: number | null) {
   );
 }
 
+function findLayer(id: string) {
+  return layerTestState.createdLayers.find((layer) => layer.props.id === id);
+}
+
 describe("LeafDeckScene", () => {
   it("renders visible title labels through a non-pickable deck.gl TextLayer", () => {
-    renderScene(11);
+    renderScene({ hiddenLabelNodeId: 11 });
 
     expect(screen.getByTestId("deck-gl-mock")).toHaveAttribute(
       "data-layer-count",
@@ -156,18 +178,19 @@ describe("LeafDeckScene", () => {
     expect(titleLayer).toBeDefined();
     expect(titleLayer?.props.id).toBe("taxonomy-leaf-title-labels");
     expect(titleLayer?.props.pickable).toBe(false);
-    expect(titleLayer?.props.getPixelOffset).toEqual([0, 8]);
+    expect(titleLayer?.props.getPixelOffset).toEqual([0, 16]);
     expect(titleLayer?.props.getTextAnchor).toBe("middle");
     expect(titleLayer?.props.getAlignmentBaseline).toBe("top");
     expect(titleLayer?.props.fontSettings).toEqual({
-      buffer: 8,
+      buffer: 16,
       cutoff: 0.25,
-      fontSize: 128,
-      radius: 12,
+      fontSize: 256,
+      radius: 24,
       sdf: true,
-      smoothing: 0.06,
+      smoothing: 0.1,
     });
-    expect(titleLayer?.props.getSize).toBe(12);
+    expect(titleLayer?.props.getSize).toBe(24);
+    expect(titleLayer?.props.maxWidth).toBe(16);
     expect(titleLayer?.props.getColor).toEqual([38, 52, 77, 232]);
 
     const labels = titleLayer?.props.data as readonly LeafSceneTitleLabelNode[];
@@ -185,6 +208,34 @@ describe("LeafDeckScene", () => {
         ) => readonly [number, number]
       )(labels[0]),
     ).toEqual([10, 20]);
+  });
+
+  it("uses the 2x readable graph pixel sizing for leaf layers", () => {
+    renderScene({ activeFocusNodeId: 10, hiddenLabelNodeId: null });
+
+    const edgeLayer = findLayer("taxonomy-leaf-edges");
+    const highlightEdgeLayer = findLayer("taxonomy-leaf-highlight-edges");
+    const focusHaloLayer = findLayer("taxonomy-leaf-focus-halos");
+    const pointLayer = findLayer("taxonomy-leaf-points");
+
+    expect(edgeLayer?.props.getWidth).toBeTypeOf("function");
+    expect((edgeLayer?.props.getWidth as () => number)()).toBe(2);
+    expect(highlightEdgeLayer?.props.getWidth).toBeTypeOf("function");
+    expect((highlightEdgeLayer?.props.getWidth as () => number)()).toBe(3);
+    expect(pointLayer?.props.getLineWidth).toBe(2);
+
+    const haloNodes = focusHaloLayer?.props.data as
+      | readonly LeafScenePointNode[]
+      | undefined;
+    const activeHaloNode = haloNodes?.find((node) => node.graphNodeId === 10);
+    const neighborHaloNode = haloNodes?.find((node) => node.graphNodeId === 11);
+    const getRadius = focusHaloLayer?.props.getRadius as
+      | ((node: LeafScenePointNode) => number)
+      | undefined;
+
+    expect(getRadius).toBeTypeOf("function");
+    expect(getRadius?.(activeHaloNode as LeafScenePointNode)).toBe(32);
+    expect(getRadius?.(neighborHaloNode as LeafScenePointNode)).toBe(24);
   });
 
   it("renders disclosure cards through the DeckGL child render callback", () => {

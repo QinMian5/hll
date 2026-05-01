@@ -72,7 +72,7 @@ vi.mock("./LeafDeckScene", () => ({
     }) => void;
     readonly scene: {
       readonly edges: ReadonlyArray<unknown>;
-      readonly pointNodes: ReadonlyArray<unknown>;
+      readonly pointNodes: ReadonlyArray<{ readonly radius?: number }>;
       readonly titleLabelNodes: ReadonlyArray<unknown>;
     };
   }) => (
@@ -91,6 +91,9 @@ vi.mock("./LeafDeckScene", () => ({
         {String(isPointInteractionEnabled)}
       </div>
       <div data-testid="leaf-scene-point-count">{scene.pointNodes.length}</div>
+      <div data-testid="leaf-scene-first-point-radius">
+        {scene.pointNodes[0]?.radius ?? "none"}
+      </div>
       <div data-testid="leaf-scene-title-label-count">
         {scene.titleLabelNodes.length}
       </div>
@@ -288,10 +291,10 @@ function makeLeafLayoutSliceResponse(): TaxonomyLeafLayoutSliceResponse {
       { id: 11, scope: "outer", x: 40, y: 30 },
     ],
     requested_bounds: {
-      max_x: 1024,
-      max_y: 1024,
-      min_x: -1024,
-      min_y: -1024,
+      max_x: 2048,
+      max_y: 2048,
+      min_x: -2048,
+      min_y: -2048,
     },
   };
 }
@@ -395,10 +398,10 @@ describe("LeafRenderer", () => {
     expect(mockUseTaxonomyLeafLayoutSliceQuery).toHaveBeenCalledWith(
       2,
       {
-        max_x: 1024,
-        max_y: 1024,
-        min_x: -1024,
-        min_y: -1024,
+        max_x: 2048,
+        max_y: 2048,
+        min_x: -2048,
+        min_y: -2048,
       },
       {
         generatedAt: "2026-04-29T00:00:00Z",
@@ -406,6 +409,9 @@ describe("LeafRenderer", () => {
       },
       expect.objectContaining({ enabled: true }),
     );
+    expect(
+      screen.getByTestId("leaf-scene-first-point-radius"),
+    ).toHaveTextContent("8");
     expect(mockUseTaxonomyLeafNodeTitlesQuery).toHaveBeenCalledWith(
       2,
       [],

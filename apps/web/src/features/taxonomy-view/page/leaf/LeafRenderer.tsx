@@ -60,7 +60,7 @@ const LeafDeckScene = lazy(() =>
   })),
 );
 
-const LEAF_POINT_DIAMETER = 8;
+const LEAF_POINT_DIAMETER = 16;
 
 interface RenderableLeafLayout {
   readonly edges: TaxonomyLeafLayoutSliceResponse["edges"];

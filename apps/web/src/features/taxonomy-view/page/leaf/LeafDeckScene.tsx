@@ -50,12 +50,12 @@ interface DeckLeafViewState {
 }
 
 const TITLE_LABEL_FONT_SETTINGS = {
-  buffer: 8,
+  buffer: 16,
   cutoff: 0.25,
-  fontSize: 128,
-  radius: 12,
+  fontSize: 256,
+  radius: 24,
   sdf: true,
-  smoothing: 0.06,
+  smoothing: 0.1,
 } as const;
 
 const leafView = new OrthographicView({
@@ -141,7 +141,7 @@ export function LeafDeckScene({
           : [120, 163, 243, Math.round(255 * LEAF_EDGE_BASE_OPACITY)],
         getSourcePosition: (edge) => [edge.source.x, edge.source.y],
         getTargetPosition: (edge) => [edge.target.x, edge.target.y],
-        getWidth: () => 1,
+        getWidth: () => 2,
         id: "taxonomy-leaf-edges",
         pickable: false,
         widthUnits: "pixels",
@@ -151,7 +151,7 @@ export function LeafDeckScene({
         getColor: [120, 163, 243, Math.round(255 * LEAF_EDGE_ACTIVE_OPACITY)],
         getSourcePosition: (edge) => [edge.source.x, edge.source.y],
         getTargetPosition: (edge) => [edge.target.x, edge.target.y],
-        getWidth: () => 1.5,
+        getWidth: () => 3,
         id: "taxonomy-leaf-highlight-edges",
         pickable: false,
         widthUnits: "pixels",
@@ -166,7 +166,7 @@ export function LeafDeckScene({
           node.graphNodeId === activeFocusNodeId ? 48 : 34,
         ],
         getPosition: (node) => [node.position.x, node.position.y],
-        getRadius: (node) => (node.graphNodeId === activeFocusNodeId ? 16 : 12),
+        getRadius: (node) => (node.graphNodeId === activeFocusNodeId ? 32 : 24),
         id: "taxonomy-leaf-focus-halos",
         pickable: false,
         radiusUnits: "pixels",
@@ -199,7 +199,7 @@ export function LeafDeckScene({
           ];
         },
         getLineColor: [247, 250, 255, 255],
-        getLineWidth: 1,
+        getLineWidth: 2,
         getPosition: (node) => [node.position.x, node.position.y],
         getRadius: (node) => node.radius,
         id: "taxonomy-leaf-points",
@@ -230,9 +230,9 @@ export function LeafDeckScene({
         fontWeight: "500",
         getAlignmentBaseline: "top",
         getColor: [38, 52, 77, 232],
-        getPixelOffset: [0, 8],
+        getPixelOffset: [0, 16],
         getPosition: (label) => [label.position.x, label.position.y],
-        getSize: 12,
+        getSize: 24,
         getText: (label) => label.title,
         getTextAnchor: "middle",
         id: "taxonomy-leaf-title-labels",
