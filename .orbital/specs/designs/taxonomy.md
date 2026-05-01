@@ -1,5 +1,5 @@
 ---
-abstract: Taxonomy module design for authoritative operator-managed tree truth, backend-owned view read models, movable node-to-leaf assignments, canonical LCC route paths, and drill-down view APIs.
+abstract: Taxonomy module design for authoritative operator-managed tree truth, backend-owned Redis view read models, movable node-to-leaf assignments, canonical LCC route paths, and drill-down view APIs.
 out_of_scope: AI classification job orchestration, worker-side execution mechanics, frontend visual styling, and semantic-space snapshot architecture.
 ---
 
@@ -11,7 +11,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the `taxonomy` module as the active browsing backbone: authoritative operator-managed taxonomy tree storage, current node-to-leaf assignment truth, backend-owned taxonomy view read models, canonical LCC route paths, and taxonomy-query-driven view APIs.
+- **Purpose:** Define the `taxonomy` module as the active browsing backbone: authoritative operator-managed taxonomy tree storage, current node-to-leaf assignment truth, backend-owned Redis taxonomy view read models, canonical LCC route paths, and taxonomy-query-driven view APIs.
 - **Scope/Boundaries:** Covers taxonomy ownership, persistence shape, operator tree mutation boundaries, integrity constraints, assignment movement semantics, canonical route-path semantics, and branch/leaf view contracts consumed by the taxonomy browsing frontend.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
@@ -32,8 +32,8 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - **Assignment movement rule:** Assignment writes may create an initial leaf assignment or move an existing assignment to another valid taxonomy leaf.
   - **Default ingestion assignment rule:** New knowledge nodes are assigned to `Root -> Unclassified` after node creation succeeds.
   - **Classification movement rule:** When a card is classified into a direct child category of a scope node, its assignment moves to that child category's `Unclassified` leaf.
-  - **Structure-node rule:** Regular category nodes are structure nodes. In this first version, cards are assigned to system `Unclassified` leaves; selecting a child category moves the card to that child's `Unclassified` leaf.
-  - **Operator mutation rule:** First-version taxonomy structure mutation is script-driven. HTTP APIs do not expose taxonomy mutation commands.
+  - **Structure-node rule:** Regular category nodes are structure nodes. Cards are assigned to system `Unclassified` leaves; selecting a child category moves the card to that child's `Unclassified` leaf.
+  - **Operator mutation rule:** Taxonomy structure mutation is script-driven. HTTP APIs do not expose taxonomy mutation commands.
   - **Child creation rule:** Creating a regular child category automatically creates its own `Unclassified` child leaf.
   - **Browsing mode:** Drill-down click navigation (`root -> ... -> leaf`) is the active browsing mode.
   - **Canonical route root rule:** The system `Root` node is represented by the browser route `/graph` and is excluded from descendant route paths.
@@ -47,14 +47,14 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - **Edge scope rule:** Leaf view returns only `inner-inner` and `inner-outer` edges. `outer-outer` edges are excluded.
   - **Node scope marker:** Leaf graph node payload includes explicit `scope` field with values `inner` or `outer`.
   - **Leaf layout ownership rule:** Leaf card graph layout is computed by the backend as stable global world coordinates through a deterministic static force simulation. Frontend clients use these world coordinates for viewport transforms and do not solve the leaf graph layout.
-  - **Leaf layout force rule:** Leaf layout generation uses deterministic center-out spiral seeding, relation-strength link distance/strength, many-body repulsion, collision radius, and weak centering semantics aligned with the accepted legacy `d3-force` leaf graph behavior. The simulation runs to a fixed tick count and does not use runtime randomness.
+  - **Leaf layout force rule:** Leaf layout generation uses deterministic center-out spiral seeding, relation-strength link distance/strength, many-body repulsion, collision radius, and weak centering semantics aligned with the current `d3-force` leaf graph behavior. The simulation runs to a fixed tick count and does not use runtime randomness.
   - **Leaf layout readable-scale rule:** Leaf layout generation uses the current `2x` readable graph scale for distance-bearing world geometry. Spiral seed radius, spiral radius step, relation link distances, relation-strength distance adjustment, and collision radius are scaled as world distances. The inverse-square many-body charge strength is scaled by the square of the readable graph scale so force displacement remains self-similar. Dimensionless link strength, collision strength, alpha decay, velocity retention, centering strength, and fixed tick count remain stable simulation controls.
   - **Leaf data-plane rule:** Leaf browsing is split into a leaf metadata surface, a viewport-scoped layout slice surface, a node-title surface, and a node-detail surface. The layout slice surface carries backend-computed world coordinates plus local topology for the requested world bounds. The node-title surface carries `title` only for requested node ids. The node-detail surface carries `title`, `content`, and `current_version` only for requested node ids.
   - **Leaf hydration rule:** Entering a leaf returns leaf metadata and does not include the full one-hop graph, node `title`, or node `content`.
   - **Leaf title request rule:** Node titles are fetched by explicit node-id batches scoped to the active leaf and are used for viewport-scoped point-title labels.
   - **Leaf detail request rule:** Node details are fetched by explicit node-id batches scoped to the active leaf; the initial leaf view payload excludes node `title`, `content`, and `current_version`.
   - **Leaf read-model rule:** Leaf browsing uses the authoritative current-assignment table for inner-node membership and one dedicated leaf projection table for one-hop edge membership. The projection stores only `(leaf_id, edge_id)` pairs and does not duplicate mutable edge fields such as `strength`.
-  - **Read-performance rule:** Taxonomy view read paths must avoid full-graph or full-assignment work when the request scope is smaller. Root and branch payloads use cached descendant counts derived from current assignments. Leaf-specific reads must use leaf-scoped assignment lookups, leaf-scoped projection-edge reads, cached backend layout coordinates, viewport-bounded layout slice reads, and node-id-scoped detail reads.
+  - **Read-performance rule:** Taxonomy view read paths must avoid full-graph or full-assignment work when the request scope is smaller. Root, branch node, leaf metadata node, and path-addressed view payloads use API-owned Redis response caches and cached descendant counts or layout metadata derived from current read models. Leaf layout slice, title, and detail reads must use leaf-scoped assignment lookups, leaf-scoped projection-edge reads, cached backend layout coordinates, viewport-bounded layout slice reads, and node-id-scoped detail reads.
 
 ## Persistence Projection
 
@@ -115,12 +115,14 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
   - mutable edge fields such as `strength` are read from `edges` at query time through `edge_id` and are not copied into the projection.
 
 ### Taxonomy View Redis Read Model
-- Redis stores recomputable taxonomy view read models only. PostgreSQL remains the authoritative source for taxonomy nodes, current assignments, projection-edge membership, knowledge nodes, and edge fields. Mutation paths that change leaf assignment or projection-edge membership invalidate the affected leaf layout read model.
+- Redis stores recomputable taxonomy view read models only. PostgreSQL remains the authoritative source for taxonomy nodes, current assignments, projection-edge membership, knowledge nodes, and edge fields. Cached taxonomy view values may be temporarily stale within their configured TTL windows.
 - Branch count read models store descendant card counts by taxonomy node id and support root and branch child filtering without scanning all assignments on every view request.
+- Root, branch node, leaf metadata node, and canonical path view read models store validated taxonomy response payloads for short-TTL high-concurrency Graph View reads.
 - Leaf layout read models store backend-computed global world coordinates for the one-hop leaf graph, layout bounds, layout algorithm version, generated timestamp, and node scope metadata.
 - Redis cache keys include a schema or layout algorithm version so incompatible read-model shapes are not reused across implementation changes.
+- Root, branch node, leaf metadata node, and canonical path view cache keys follow the API read-model cache namespace and TTL policy defined in `api-read-model-cache.md`.
 - Leaf layout cache keys include the active readable-scale layout algorithm version.
-- Cache entries may be temporarily stale. Expired or missing entries are rebuilt from PostgreSQL truth.
+- Cache entries expire by TTL and use versioned keys for incompatible shape or algorithm changes. Expired or missing entries are rebuilt from PostgreSQL truth.
 - Rebuild paths use a Redis lock or equivalent single-flight guard so concurrent requests do not run duplicate expensive recomputations for the same read model.
 - Redis loss, flush, or expiry must not create drift because every cached value is derived from PostgreSQL truth.
 
@@ -316,7 +318,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - The repository layer exposes a leaf-scoped assignment read that returns only the node ids assigned to one taxonomy leaf.
 - Leaf graph edge expansion reads `edge_id` membership from `taxonomy_leaf_projection_edges` for the active `leaf_id`, then joins to `edges` to obtain current endpoints and `strength`.
 - Leaf graph node scope is reconstructed from two sources only: inner membership from `node_taxonomy_assignments` and projected edge endpoints from `taxonomy_leaf_projection_edges`.
-- Leaf layout generation computes stable global world coordinates from the leaf-scoped one-hop graph through the deterministic force simulation and stores the derived coordinates in Redis; leaf assignment and projection-edge writes invalidate affected cached layout coordinates before later reads reuse them.
+- Leaf layout generation computes stable global world coordinates from the leaf-scoped one-hop graph through the deterministic force simulation and stores the derived coordinates in Redis with a TTL-bound eventual-consistency window.
 - Leaf layout viewport reads return only nodes inside requested world bounds plus edges whose endpoints are both in the returned node set.
 - Leaf title hydration validates requested node ids against cached leaf layout membership or leaf-scoped projection membership without loading content or current-version data for every node in that graph.
 - Leaf title hydration reads `title` only for the requested node ids after membership validation succeeds.

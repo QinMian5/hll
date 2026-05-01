@@ -1,5 +1,5 @@
 ---
-abstract: Module-level orchestration design for knowledge core ownership, card versions, suggested-edit submission, ingestion async write pipeline, hybrid search read flow, and taxonomy drill-down reads.
+abstract: Module-level orchestration design for knowledge core ownership, card versions, suggested-edit submission, ingestion async write pipeline, cache-backed hybrid search read flow, and taxonomy drill-down reads.
 out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, ingestion status APIs, and distributed multi-region queue reliability.
 ---
 
@@ -10,8 +10,8 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Remove superseded decisions instead of keeping deprecation narratives.
 
 ## Context
-- **Purpose:** Define accepted V1 orchestration for `knowledge_graph`, `taxonomy`, `taxonomy_classification`, `ingestion`, `search`, and card suggestion submission under async ingestion with Redis/Dramatiq.
-- **Scope/Boundaries:** Covers module ownership, endpoint contracts, async processing flow, card version/suggestion submission rules, taxonomy bootstrap/classification boundaries, taxonomy drill-down read rules, and runtime observability obligations.
+- **Purpose:** Define accepted V1 orchestration for `knowledge_graph`, `taxonomy`, `taxonomy_classification`, `ingestion`, `search`, and card suggestion submission under async ingestion with Redis/Dramatiq and API-owned read-model caches.
+- **Scope/Boundaries:** Covers module ownership, endpoint contracts, async processing flow, card version/suggestion submission rules, taxonomy bootstrap/classification boundaries, taxonomy drill-down read rules, cache-backed Search orchestration, and runtime observability obligations.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
 
 ## Module Ownership
@@ -31,8 +31,11 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Owns taxonomy drill-down read orchestration:
   - `GET /api/v1/taxonomy/view/root`
   - `GET /api/v1/taxonomy/view/nodes/{node_id}`
+  - `GET /api/v1/taxonomy/view/path/{route_path:path}`
+  - `GET /api/v1/taxonomy/view/leaves/{node_id}/layout`
+  - `POST /api/v1/taxonomy/view/leaves/{node_id}/titles`
   - `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
-- Consumes `knowledge_graph` read ports for leaf-level one-hop graph payload shaping.
+- Consumes `knowledge_graph` read ports for leaf-level layout, title, and detail payload shaping.
 
 ### taxonomy_classification
 - Owns operator-triggered `taxonomy_classification` queue job submission for cards in selected scope `Unclassified` leaves.
@@ -50,8 +53,9 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 
 ### search
 - Owns read-side search endpoint and orchestration.
-- Builds the query embedding and requests balanced hybrid retrieval through `knowledge_graph` read service.
+- Resolves cache-backed Search responses and query embeddings before requesting balanced hybrid retrieval through `knowledge_graph` read service.
 - Preserves the private search response contract while delegating vector, lexical, and rank-fusion primitives to `knowledge_graph`.
+- Follows the API read-model cache policy defined in `api-read-model-cache.md`.
 
 ## API Contract
 
@@ -78,6 +82,11 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Response:
   - `matched_cards` with `node_id`, `current_version`, `title`, `content`
   - `connected_titles`
+- Cache behavior:
+  - API-owned Redis read-model caches may serve validated Search responses for normalized repeated queries.
+  - API-owned Redis embedding caches may serve normalized query embeddings before hybrid retrieval.
+  - Cache entries are recomputable and may be temporarily stale within the configured TTL window.
+  - Cache details are governed by `api-read-model-cache.md`.
 - Ranking:
   - query embedding retrieves semantic vector candidates from `Node.embedding`
   - PostgreSQL full-text search retrieves lexical candidates from weighted `Node.title` and `Node.content`
@@ -117,8 +126,8 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Response:
   - no `current_node` field
   - `breadcrumb=[]`
-  - `children[]` direct children of the real `Root` node
-  - child item shape: `{id, parent_id, name, depth, is_leaf, descendant_card_count}`
+  - `children[]` direct children of the real `Root` node whose descendant subtree contains at least one assigned card
+  - child item shape: `{id, parent_id, name, route_slug, route_path, depth, is_leaf, descendant_card_count}`
   - children ordering: `name ASC`, tie-break `id ASC`
 - Failure:
   - `404` when the real `Root` node is unavailable.
@@ -128,23 +137,53 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Response:
   - common envelope:
     - `node_kind`
-    - `current_node` `{id, parent_id, name, depth, is_leaf}`
-    - `breadcrumb[]` ordered root-to-current with item shape `{id, parent_id, name, depth, is_leaf}`
-  - branch payload (`children`) when node is non-leaf
-  - leaf payload (`nodes`, `edges`) when node is leaf
-- Leaf payload rules:
-  - nodes include all leaf inner cards and all one-hop pulled outer cards
-  - node fields are `id`, `scope`
-  - edges are numeric tuples shaped as `[source_node_id, target_node_id, strength]`
-  - canonical endpoint ordering is required for every edge: `source_node_id < target_node_id`
-  - edges include only `inner-inner` and `inner-outer`
-  - `outer-outer` edges are excluded
-  - nodes are ordered `id ASC`
-  - edges are deduplicated by undirected pair and ordered `(source_node_id ASC, target_node_id ASC)`
-  - response is full payload, no pagination
+    - `current_node` `{id, parent_id, name, route_slug, route_path, depth, is_leaf}`
+    - `breadcrumb[]` ordered root-to-current with item shape `{id, parent_id, name, route_slug, route_path, depth, is_leaf}`
+  - branch payload includes `children[]` direct children filtered to descendants with assigned cards
+  - leaf metadata payload includes `layout_version`, `world_bounds`, `node_count`, `edge_count`, and `generated_at`
+  - leaf metadata payload excludes full graph nodes, graph edges, node titles, node content, and `current_version`
 - Failure:
   - `404` when taxonomy node id is unknown.
   - `404` when taxonomy root is unavailable.
+
+### Taxonomy Path View Endpoint
+- Route: `GET /api/v1/taxonomy/view/path/{route_path:path}`
+- Request:
+  - `route_path` is a slash-joined canonical LCC slug path excluding the system `Root` segment.
+- Response:
+  - same response union as `GET /api/v1/taxonomy/view/nodes/{node_id}` for the resolved taxonomy node
+  - response nodes include `route_slug` and `route_path`
+- Failure:
+  - `404` when any path segment does not resolve below its current parent.
+  - `404` when taxonomy root is unavailable.
+
+### Taxonomy Leaf Layout Viewport Endpoint
+- Route: `GET /api/v1/taxonomy/view/leaves/{node_id}/layout`
+- Request:
+  - `min_x`, `min_y`, `max_x`, and `max_y` world-bound query parameters
+- Response:
+  - `leaf_id`
+  - `layout_version`
+  - `requested_bounds`
+  - `nodes[]` ordered by `id ASC`; each item has `id`, `scope`, `x`, and `y`
+  - `edges[]` ordered by `(source_node_id ASC, target_node_id ASC)`; each item is `[source_node_id, target_node_id, strength]`
+- Failure:
+  - `404` when taxonomy leaf id is unknown.
+  - `404` when taxonomy root is unavailable.
+  - `400` when `node_id` is not a leaf taxonomy node.
+
+### Taxonomy Leaf Titles Endpoint
+- Route: `POST /api/v1/taxonomy/view/leaves/{node_id}/titles`
+- Request:
+  - `node_ids[]` non-empty array of unique positive integers scoped to the active leaf one-hop graph
+- Response:
+  - `nodes[]` ordered to match requested `node_ids`
+  - node title item shape: `{id, title}`
+- Failure:
+  - `404` when taxonomy leaf id is unknown
+  - `404` when taxonomy root is unavailable
+  - `400` when `node_id` is not a leaf taxonomy node
+  - `400` when request `node_ids` is empty, contains duplicates, or references a node outside the active leaf one-hop graph
 
 ### Taxonomy Leaf Detail Endpoint
 - Route: `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
@@ -152,7 +191,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
   - `node_ids[]` non-empty array of unique positive integers scoped to the active leaf one-hop graph
 - Response:
   - `nodes[]` ordered to match requested `node_ids`
-  - node detail item shape: `{id, title, content}`
+  - node detail item shape: `{id, current_version, title, content}`
 - Failure:
   - `404` when taxonomy leaf id is unknown
   - `404` when taxonomy root is unavailable
@@ -229,7 +268,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Invalid request payloads are client-visible as `4xx`.
 - Enqueue/worker/embedding/materialization failures for ingestion remain internal-only for endpoint behavior.
 - Internal failures must be logged with correlation/debug-friendly fields.
-- Taxonomy view endpoints do not return graph layout coordinates; frontend layout is client-owned.
+- Taxonomy view endpoints expose backend-owned leaf layout coordinates only through the viewport-bounded leaf layout endpoint.
 - Taxonomy classification workers do not write knowledge APIs or databases.
 - Taxonomy classification result processing moves assignments only after local validation against current taxonomy truth.
 
@@ -264,7 +303,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
   - suggested-edit checks verifying valid base-version submissions create pending suggestions
   - suggested-edit checks verifying unknown base versions, empty proposed values, and no-op suggestions are rejected
   - suggested-edit checks verifying stale but existing base versions are accepted
-  - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, and `POST /api/v1/taxonomy/view/leaves/{id}/details` contract checks
+  - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, `GET /api/v1/taxonomy/view/path/{route_path:path}`, `GET /api/v1/taxonomy/view/leaves/{id}/layout`, `POST /api/v1/taxonomy/view/leaves/{id}/titles`, and `POST /api/v1/taxonomy/view/leaves/{id}/details` contract checks
   - taxonomy classification queue-contract checks
   - taxonomy classification webhook/reconcile checks
   - taxonomy classification assignment-move checks
