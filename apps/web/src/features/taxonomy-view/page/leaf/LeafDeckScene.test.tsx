@@ -3,16 +3,28 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LeafDeckScene } from "./LeafDeckScene";
+import {
+  LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+  LEAF_VIEWPORT_SNAPSHOT_INTERVAL_MS,
+} from "./leafRendererConfig";
 import type {
+  LeafOrthographicViewport,
   LeafSceneEdge,
   LeafSceneModel,
   LeafScenePointNode,
   LeafSceneTitleLabelNode,
 } from "./leafSceneTypes";
+import { leafZoomPercentToDeckZoom } from "./leafZoomControl";
 
 const layerTestState = vi.hoisted(() => ({
   createdLayers: [] as Array<{
@@ -64,7 +76,12 @@ vi.mock("@deck.gl/react", () => ({
       readonly zoom: number;
     };
   }) => (
-    <div data-layer-count={layers.length} data-testid="deck-gl-mock">
+    <div
+      data-layer-count={layers.length}
+      data-target={viewState.target.join(",")}
+      data-testid="deck-gl-mock"
+      data-zoom={viewState.zoom}
+    >
       {typeof children === "function"
         ? children({
             height: 480,
@@ -139,23 +156,34 @@ function makeScene(): LeafSceneModel {
 
 function renderScene(options: {
   readonly activeFocusNodeId?: number | null;
+  readonly initialViewport?: LeafOrthographicViewport;
   readonly hiddenLabelNodeId: number | null;
+  readonly onViewportChange?: (viewport: LeafOrthographicViewport) => void;
+  readonly onViewportFrameChange?: (viewport: LeafOrthographicViewport) => void;
 }) {
+  const onViewportChange = options.onViewportChange ?? vi.fn();
+  const onViewportFrameChange = options.onViewportFrameChange ?? vi.fn();
+
   render(
     <LeafDeckScene
       activeFocusNodeId={options.activeFocusNodeId ?? null}
       disclosure={null}
       hiddenLabelNodeId={options.hiddenLabelNodeId}
       hoveredPointNodeId={null}
-      initialViewport={{ target: [0, 0, 0], zoom: 0 }}
+      initialViewport={
+        options.initialViewport ?? { target: [0, 0, 0], zoom: 0 }
+      }
       isPointInteractionEnabled={true}
       onCanvasClick={vi.fn()}
       onPointClick={vi.fn()}
       onPointHover={vi.fn()}
-      onViewportChange={vi.fn()}
+      onViewportChange={onViewportChange}
+      onViewportFrameChange={onViewportFrameChange}
       scene={makeScene()}
     />,
   );
+
+  return { onViewportChange, onViewportFrameChange };
 }
 
 function findLayer(id: string) {
@@ -163,6 +191,91 @@ function findLayer(id: string) {
 }
 
 describe("LeafDeckScene", () => {
+  it("renders the leaf zoom control as a screen-fixed scene overlay", () => {
+    renderScene({ hiddenLabelNodeId: null });
+
+    expect(screen.getByTestId("leaf-zoom-control")).toBeInTheDocument();
+    expect(
+      screen.getByRole("slider", { name: "Leaf zoom" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("leaf-zoom-control").parentElement).toBe(
+      screen.getByTestId("taxonomy-leaf-renderer"),
+    );
+  });
+
+  it("publishes slider zoom changes through live frame and snapshot viewport paths", () => {
+    vi.useFakeTimers();
+    const onViewportChange = vi.fn();
+    const onViewportFrameChange = vi.fn();
+    const target = [12, 24, 0] as const;
+    const expectedViewport = {
+      target,
+      zoom: leafZoomPercentToDeckZoom(200),
+    };
+
+    renderScene({
+      hiddenLabelNodeId: null,
+      initialViewport: {
+        target,
+        zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+      },
+      onViewportChange,
+      onViewportFrameChange,
+    });
+    onViewportChange.mockClear();
+
+    fireEvent.change(screen.getByRole("slider", { name: "Leaf zoom" }), {
+      target: { value: "1" },
+    });
+
+    expect(onViewportFrameChange).toHaveBeenLastCalledWith(expectedViewport);
+    expect(screen.getByTestId("deck-gl-mock")).toHaveAttribute(
+      "data-zoom",
+      String(expectedViewport.zoom),
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(LEAF_VIEWPORT_SNAPSHOT_INTERVAL_MS);
+    });
+
+    expect(onViewportChange).toHaveBeenLastCalledWith(expectedViewport);
+    vi.useRealTimers();
+  });
+
+  it("steps plus and minus without changing the current deck target", () => {
+    const onViewportFrameChange = vi.fn();
+    const target = [18, 36, 0] as const;
+
+    renderScene({
+      hiddenLabelNodeId: null,
+      initialViewport: {
+        target,
+        zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+      },
+      onViewportFrameChange,
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
+    expect(onViewportFrameChange).toHaveBeenLastCalledWith({
+      target,
+      zoom: leafZoomPercentToDeckZoom(200),
+    });
+    expect(screen.getByTestId("deck-gl-mock")).toHaveAttribute(
+      "data-target",
+      "18,36,0",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom out" }));
+    expect(onViewportFrameChange).toHaveBeenLastCalledWith({
+      target,
+      zoom: leafZoomPercentToDeckZoom(100),
+    });
+    expect(screen.getByTestId("deck-gl-mock")).toHaveAttribute(
+      "data-target",
+      "18,36,0",
+    );
+  });
+
   it("renders visible title labels through a non-pickable deck.gl TextLayer", () => {
     renderScene({ hiddenLabelNodeId: 11 });
 

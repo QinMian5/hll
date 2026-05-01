@@ -4,10 +4,11 @@
 import { OrthographicView } from "@deck.gl/core";
 import { LineLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import { DeckGL } from "@deck.gl/react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import type { SearchResultCardEditPayload } from "../../../search/components/SearchResultCard";
 import { LeafDisclosureOverlay } from "./LeafDisclosureOverlay";
+import { LeafZoomControl } from "./LeafZoomControl.tsx";
 import {
   LEAF_EDGE_ACTIVE_OPACITY,
   LEAF_EDGE_BASE_OPACITY,
@@ -26,6 +27,10 @@ import type {
   LeafScenePointNode,
   LeafSceneTitleLabelNode,
 } from "./leafSceneTypes";
+import {
+  deckZoomToLeafZoomPercent,
+  leafZoomPercentToDeckZoom,
+} from "./leafZoomControl";
 import { useLeafViewportStore } from "./useLeafViewportStore";
 
 interface LeafDeckSceneProps {
@@ -102,6 +107,19 @@ export function LeafDeckScene({
     initialViewport,
     onViewportSnapshotChange: onViewportChange,
   });
+  const zoomPercent = deckZoomToLeafZoomPercent(viewState.zoom);
+  const publishZoomPercent = useCallback(
+    (percent: number) => {
+      const nextViewport = {
+        target: viewState.target,
+        zoom: leafZoomPercentToDeckZoom(percent),
+      };
+
+      onViewportFrameChange?.(nextViewport);
+      publishViewport(nextViewport);
+    },
+    [onViewportFrameChange, publishViewport, viewState.target],
+  );
   const highlightedEdges = useMemo(
     () =>
       activeFocusNodeId
@@ -293,6 +311,11 @@ export function LeafDeckScene({
           />
         )}
       </DeckGL>
+      <LeafZoomControl
+        onZoomPercentChange={publishZoomPercent}
+        onZoomPercentCommit={publishZoomPercent}
+        zoomPercent={zoomPercent}
+      />
     </div>
   );
 }
