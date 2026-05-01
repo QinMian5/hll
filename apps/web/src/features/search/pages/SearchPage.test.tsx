@@ -209,10 +209,7 @@ describe("SearchPage", () => {
       "gap-4",
       "px-4",
       "py-4",
-      "lg:gap-5",
-      "lg:px-8",
-      "lg:pt-6",
-      "lg:pb-8",
+      "lg:p-6",
     );
     expect(screen.getByTestId("search-results-state")).toHaveClass("h-12");
     expect(screen.getByTestId("search-input").parentElement).toHaveClass(
@@ -223,9 +220,9 @@ describe("SearchPage", () => {
     expect(screen.getByTestId("search-results-section")).toHaveClass(
       "grid",
       "grid-cols-1",
-      "gap-3",
+      "gap-2",
       "lg:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
-      "lg:gap-7",
+      "lg:gap-4",
     );
     expect(screen.getByTestId("search-results-section")).not.toHaveClass(
       "md:flex-row",
@@ -234,23 +231,28 @@ describe("SearchPage", () => {
     );
     expect(screen.getByTestId("search-results-grid")).toHaveClass(
       "group/search-results-grid",
-      "auto-rows-[176px]",
+      "auto-rows-[200px]",
       "grid-cols-1",
-      "gap-y-3",
+      "gap-2",
       "sm:grid-cols-2",
-      "sm:gap-x-3",
       "lg:grid-cols-2",
       "min-[1680px]:grid-cols-3",
-      "lg:auto-rows-[176px]",
+      "lg:auto-rows-[200px]",
       "lg:gap-4",
     );
+    expect(screen.getByTestId("search-results-scroll-area")).toHaveClass(
+      "pt-4",
+      "pr-4",
+      "pl-2",
+    );
+    expect(screen.getByTestId("search-results-grid")).toHaveClass("pb-1");
     expect(screen.getByTestId("search-results-grid")).not.toHaveClass(
       "md:w-[984px]",
       "md:grid-cols-[repeat(3,316px)]",
       "xl:grid-cols-3",
     );
     expect(screen.getByTestId("search-suggestions-panel")).toHaveClass(
-      "h-[176px]",
+      "h-[200px]",
       "lg:h-full",
       "min-h-0",
       "min-w-0",
@@ -268,6 +270,58 @@ describe("SearchPage", () => {
         screen.getByTestId("search-suggestions-scroll-area").children,
       ).some((child) => child.getAttribute("aria-hidden") === "true"),
     ).toBe(false);
+  });
+
+  it("wraps long result card titles and lets the header grow", async () => {
+    const longTitle =
+      "Singular value decomposition for exceptionally long matrix factorization titles";
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [
+        {
+          content: "A result body.",
+          current_version: 1,
+          node_id: 10,
+          title: longTitle,
+        },
+      ],
+    };
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+
+    renderSearchRoute("/search?q=matrix");
+
+    expect(await screen.findByText(longTitle)).toBeInTheDocument();
+
+    const titleHeader = screen.getByTestId("search-result-card-header");
+    const titleArea = screen.getByTestId("search-result-card-title-area");
+    const titleTrack = screen.getByTestId("search-result-card-title-track");
+
+    expect(titleHeader).toHaveClass("min-h-10");
+    expect(titleHeader).toHaveClass("md:min-h-6");
+    expect(titleHeader).not.toHaveClass("h-10");
+    expect(titleHeader).not.toHaveClass("md:h-6");
+    expect(titleArea).toHaveClass("whitespace-normal");
+    expect(titleArea).toHaveClass("break-words");
+    expect(titleArea).not.toHaveClass("overflow-x-auto");
+    expect(titleArea).not.toHaveClass("overflow-y-hidden");
+    expect(titleTrack).toHaveClass("whitespace-normal");
+    expect(titleTrack).toHaveClass("break-words");
+    expect(titleTrack).not.toHaveClass("whitespace-nowrap");
+
+    fireEvent.click(
+      screen.getByRole("link", { name: `Search for ${longTitle}` }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByDisplayValue(longTitle)).toBeInTheDocument(),
+    );
   });
 
   it("opens sign-in-required dialog when anonymous user clicks edit", async () => {
@@ -342,7 +396,7 @@ describe("SearchPage", () => {
     renderSearchRoute("/search?q=matrix");
 
     fireEvent.click(
-      await screen.findByRole("button", {
+      await screen.findByRole("link", {
         name: "Search for Singular value decomposition",
       }),
     );

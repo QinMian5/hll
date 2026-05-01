@@ -36,7 +36,7 @@ export function SearchResultCard({
 
   return (
     <div
-      className="group/card relative flex h-[176px] w-full shrink-0 flex-col items-start gap-3 overflow-visible rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] px-4 pt-4 pb-4 shadow-none transition-[opacity,transform,border-color] duration-150 will-change-transform group-hover/search-results-grid:opacity-80 hover:z-10 hover:-translate-y-1 hover:scale-[1.008] hover:border-[#006bff]/40 hover:opacity-100 focus-within:z-10 focus-within:-translate-y-1 focus-within:scale-[1.008] focus-within:border-[#006bff]/40 focus-within:opacity-100"
+      className="group/card relative flex h-[200px] w-full shrink-0 flex-col items-start gap-2 overflow-visible rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] px-2 py-2 shadow-none transition-[opacity,transform,border-color] duration-150 will-change-transform group-hover/search-results-grid:opacity-80 hover:z-10 hover:-translate-y-1 hover:scale-[1.008] hover:border-[#006bff]/40 hover:opacity-100 focus-within:z-10 focus-within:-translate-y-1 focus-within:scale-[1.008] focus-within:border-[#006bff]/40 focus-within:opacity-100"
       data-testid="search-result-card"
     >
       <span
@@ -46,19 +46,27 @@ export function SearchResultCard({
       >
         <ArrowUpRight aria-hidden="true" className="size-3" strokeWidth={1.5} />
       </span>
-      <div className="flex h-10 w-full shrink-0 items-start justify-start gap-2 overflow-hidden md:h-6 [&_[data-testid=knowledge-rich-text-title]]:text-[15px] [&_[data-testid=knowledge-rich-text-title]]:leading-5 [&_[data-testid=knowledge-rich-text-title]]:font-semibold md:[&_[data-testid=knowledge-rich-text-title]]:text-[16px] md:[&_[data-testid=knowledge-rich-text-title]]:leading-[22px]">
-        <div className="relative min-w-0 flex-1">
-          <KnowledgeRichText text={title} variant="title" />
-          <button
-            aria-label={`Search for ${title}`}
-            className="absolute inset-0 z-10 cursor-pointer rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
-            onClick={(event) => {
-              event.stopPropagation();
-              handleSearchActivation();
-            }}
-            type="button"
-          />
-        </div>
+      <div
+        className="flex min-h-10 w-full shrink-0 items-start justify-start gap-2 md:min-h-6 [&_[data-testid=knowledge-rich-text-title]]:text-[15px] [&_[data-testid=knowledge-rich-text-title]]:leading-5 [&_[data-testid=knowledge-rich-text-title]]:font-semibold md:[&_[data-testid=knowledge-rich-text-title]]:text-[16px] md:[&_[data-testid=knowledge-rich-text-title]]:leading-[22px]"
+        data-testid="search-result-card-header"
+      >
+        <a
+          aria-label={`Search for ${title}`}
+          className="min-w-0 flex-1 whitespace-normal break-words rounded-md text-left no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+          data-testid="search-result-card-title-area"
+          href={searchHref}
+          onClick={(event) => {
+            event.preventDefault();
+            handleSearchActivation();
+          }}
+        >
+          <span
+            className="block min-w-0 whitespace-normal break-words [&_[data-testid=knowledge-rich-text-title]]:whitespace-normal"
+            data-testid="search-result-card-title-track"
+          >
+            <KnowledgeRichText text={title} variant="title" />
+          </span>
+        </a>
         <button
           aria-label={`Suggest edit for ${title}`}
           className="relative z-30 flex size-6 shrink-0 items-center justify-center rounded-md text-[#606e87] transition-colors hover:bg-[#eff6ff] hover:text-[#131c2d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"

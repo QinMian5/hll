@@ -140,7 +140,7 @@ export function SearchPage() {
         </div>
       ) : (
         <div
-          className="flex h-full min-h-0 w-full flex-col items-center gap-4 overflow-hidden px-4 py-4 lg:gap-5 lg:px-8 lg:pt-6 lg:pb-8"
+          className="flex h-full min-h-0 w-full flex-col items-center gap-4 overflow-hidden px-4 py-4 lg:p-6"
           data-testid="search-results-frame"
         >
           <div
@@ -156,20 +156,20 @@ export function SearchPage() {
             />
           </div>
           <div
-            className="relative grid min-h-0 w-full flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)] lg:gap-7"
+            className="relative grid min-h-0 w-full flex-1 grid-cols-1 gap-2 lg:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)] lg:gap-4"
             data-testid="search-results-section"
           >
-            <section className="flex min-h-0 min-w-0 flex-col gap-3 lg:h-full lg:gap-4">
+            <section className="flex min-h-0 min-w-0 flex-col gap-2 lg:h-full lg:gap-4">
               <h1 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
                 Search results
               </h1>
               <div
-                className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pt-2 pr-3 pb-1 [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
+                className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pt-4 pr-4 pb-1 pl-2 [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-results-scroll-area"
               >
                 {errorCopy ? (
                   <section
-                    className="flex min-h-[176px] w-full flex-col justify-center rounded-lg border border-[#e0e4eb] bg-white px-5 py-4"
+                    className="flex min-h-[200px] w-full flex-col justify-center rounded-lg border border-[#e0e4eb] bg-white px-5 py-4"
                     data-testid="search-error-state"
                     role="alert"
                   >
@@ -182,7 +182,7 @@ export function SearchPage() {
                   </section>
                 ) : (
                   <div
-                    className="group/search-results-grid grid w-full auto-rows-[176px] grid-cols-1 gap-y-3 pb-1 sm:grid-cols-2 sm:gap-x-3 lg:auto-rows-[176px] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
+                    className="group/search-results-grid grid w-full auto-rows-[200px] grid-cols-1 gap-2 pb-1 sm:grid-cols-2 lg:auto-rows-[200px] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
                     data-testid="search-results-grid"
                   >
                     <Suspense fallback={null}>
@@ -203,7 +203,7 @@ export function SearchPage() {
               </div>
             </section>
             <section
-              className="flex h-[176px] min-h-0 min-w-0 flex-col gap-3 lg:h-full lg:gap-4"
+              className="flex h-[200px] min-h-0 min-w-0 flex-col gap-2 lg:h-full lg:gap-4"
               data-testid="search-suggestions-panel"
             >
               <h2 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
