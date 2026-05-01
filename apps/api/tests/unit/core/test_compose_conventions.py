@@ -225,6 +225,7 @@ def test_logto_admin_container_port_is_fixed_and_dev_publishes_host_port() -> No
     base_logto = _service_data(BASE_COMPOSE, "logto")
     base_seed = _service_data(BASE_COMPOSE, "logto-seed")
     dev_logto = _service_data(DEV_COMPOSE, "logto")
+    dev_seed = _service_data(DEV_COMPOSE, "logto-seed")
 
     for service in (base_logto, base_seed):
         environment = service["environment"]
@@ -235,6 +236,11 @@ def test_logto_admin_container_port_is_fixed_and_dev_publishes_host_port() -> No
         "3011:3001",
         "3012:3002",
     ]
+    assert dev_logto["extra_hosts"] == [
+        "knowledge-dev-logto.localhost:host-gateway",
+        "knowledge-dev-logto-admin.localhost:host-gateway",
+    ]
+    assert dev_seed["extra_hosts"] == dev_logto["extra_hosts"]
 
 
 def test_base_compose_defines_taxonomy_classification_runtime_with_job_queue_secret() -> None:

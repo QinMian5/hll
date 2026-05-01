@@ -17,7 +17,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 
 ## Deployment Topology (MVP)
 - Production external exposure is restricted to the shared host-level reverse proxy on `80/443`, routed through the project-local `nginx` app gateway to explicitly public web, public MCP, Logto, and webhook surfaces.
-- Development exposes `web` on `5174`, `api` on `8001`, `db` on host `5432`, Logto auth on host `3011`, and Logto admin on host `3012` for local debugging and operator setup.
+- Development exposes `web` on `5174`, `api` on `8001`, `db` on host `5432`, Logto auth on host `3011` via `knowledge-dev-logto.localhost`, and Logto admin on host `3012` via `knowledge-dev-logto-admin.localhost` for local debugging and operator setup.
 - Repository-owned container listener ports are fixed deployment topology, not operator configuration. Compose overlays own host port publishing with literal mappings, while environment files own only runtime configuration that must vary by environment or operator secret.
 - `api`, `db`, and `redis` remain internal-only in production.
 - Knowledge corpus uses its own dedicated PostgreSQL service and does not share the online graph database service.
@@ -57,6 +57,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Production `nginx` uses Docker embedded DNS with variable-based upstreams for internal service targets so app-gateway routing re-resolves service names when upstream containers are recreated.
 - Service-to-service routing uses fixed container listener ports: `api:8000`, `web:5173`, `mcp:8080`, Logto auth `logto:3001`, Logto admin `logto:3002`, and webhook receivers on `8080`.
 - Development adds `db` to `edge` for host port publishing while keeping service-to-service database access on `backend`.
+- Development Logto canonical auth and admin endpoints use `.localhost` hostnames that are reachable from both the host browser and Logto containers. Dev compose maps those hostnames into Logto containers through the host gateway so Logto admin-tenant token validation does not resolve canonical endpoints to container-local `localhost`.
 - Cross-service access must follow network boundaries rather than host port access.
 - Development host access to PostgreSQL is for local tooling only; container-to-container database access still uses Docker service DNS (`postgres`) on `backend`.
 - Web BFF access to the private API uses Docker service DNS (`api`) on `backend`, not public hostnames.

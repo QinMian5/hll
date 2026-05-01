@@ -14,7 +14,15 @@ services:
   logto-postgres:
     image: postgres:18.3-bookworm
 
+  logto-seed:
+    extra_hosts:
+      - "knowledge-dev-logto.localhost:host-gateway"
+      - "knowledge-dev-logto-admin.localhost:host-gateway"
+
   logto:
+    extra_hosts:
+      - "knowledge-dev-logto.localhost:host-gateway"
+      - "knowledge-dev-logto-admin.localhost:host-gateway"
     ports:
       - "3011:3001"
       - "3012:3002"

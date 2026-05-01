@@ -9,6 +9,7 @@ from pathlib import Path
 
 ENV_EXAMPLE = Path(__file__).resolve().parents[5] / "infra" / "env" / ".env.example"
 LOCAL_ENV_FILES = (".env.dev", ".env.prod", ".env.test")
+DEV_ENV = ENV_EXAMPLE.parent / ".env.dev"
 
 
 def _line_kind(line: str) -> str:
@@ -80,3 +81,37 @@ def test_local_env_files_match_example_key_set_and_order() -> None:
             f"expected: {expected_keys}\n"
             f"actual:   {actual_keys}"
         )
+
+
+def _parse_env_values(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if _line_kind(line) != "key_value":
+            continue
+
+        key = _parse_env_key(path=path, line_number=line_number, line=line)
+        _, value = line.split("=", 1)
+        values[key] = value.strip()
+
+    return values
+
+
+def test_dev_logto_canonical_endpoints_are_container_reachable_hostnames() -> None:
+    if not DEV_ENV.exists():
+        return
+
+    values = _parse_env_values(DEV_ENV)
+
+    assert values["KNOWLEDGE_LOGTO_ENDPOINT"] == "http://knowledge-dev-logto.localhost:3011"
+    assert (
+        values["KNOWLEDGE_LOGTO_ADMIN_ENDPOINT"]
+        == "http://knowledge-dev-logto-admin.localhost:3012"
+    )
+    assert values["KNOWLEDGE_WEB_LOGTO_ENDPOINT"] == values["KNOWLEDGE_LOGTO_ENDPOINT"]
+    expected_issuer = f"{values['KNOWLEDGE_LOGTO_ENDPOINT']}/oidc"
+    for key in (
+        "KNOWLEDGE_MCP_LOGTO_ISSUER",
+        "SOURCE_PIPELINE_WEBHOOK_AUTH_ISSUER",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_ISSUER",
+    ):
+        assert values[key] == expected_issuer
