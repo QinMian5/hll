@@ -598,7 +598,7 @@ async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
     assert isinstance(view, TaxonomyNodeLeafViewResponse)
     assert view.node_kind == "leaf"
     assert [item.id for item in view.breadcrumb] == [1, 2]
-    assert view.layout_version == "taxonomy-leaf-layout-v2"
+    assert view.layout_version == "taxonomy-leaf-layout-v3"
     assert view.world_bounds.min_x < 0.0
     assert view.world_bounds.min_y < 0.0
     assert view.world_bounds.max_x > 0.0

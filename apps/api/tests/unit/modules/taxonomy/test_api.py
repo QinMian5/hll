@@ -125,7 +125,7 @@ class _FakeTaxonomyService:
                     is_leaf=True,
                 ),
             ],
-            layout_version="taxonomy-leaf-layout-v2",
+            layout_version="taxonomy-leaf-layout-v3",
             world_bounds=TaxonomyLeafWorldBoundsResponse(
                 min_x=0.0,
                 min_y=0.0,
@@ -158,7 +158,7 @@ class _FakeTaxonomyService:
         assert (min_x, min_y, max_x, max_y) == (-10.0, -20.0, 30.0, 40.0)
         return TaxonomyLeafLayoutSliceResponse(
             leaf_id=2,
-            layout_version="taxonomy-leaf-layout-v2",
+            layout_version="taxonomy-leaf-layout-v3",
             requested_bounds=TaxonomyLeafWorldBoundsResponse(
                 min_x=-10.0,
                 min_y=-20.0,
@@ -433,7 +433,7 @@ async def test_node_view_route_returns_leaf_payload_for_leaf(
     assert payload["node_kind"] == "leaf"
     assert payload["current_node"]["id"] == 2
     assert payload["current_node"]["route_path"] == "science/mathematics"
-    assert payload["layout_version"] == "taxonomy-leaf-layout-v2"
+    assert payload["layout_version"] == "taxonomy-leaf-layout-v3"
     assert payload["world_bounds"] == {
         "min_x": 0.0,
         "min_y": 0.0,
@@ -462,7 +462,7 @@ async def test_leaf_layout_route_returns_requested_layout_slice(
     assert response.status_code == 200
     assert response.json() == {
         "leaf_id": 2,
-        "layout_version": "taxonomy-leaf-layout-v2",
+        "layout_version": "taxonomy-leaf-layout-v3",
         "requested_bounds": {
             "min_x": -10.0,
             "min_y": -20.0,

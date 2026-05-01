@@ -48,6 +48,7 @@ def test_build_leaf_layout_returns_stable_global_coordinates() -> None:
     second = build_leaf_layout(nodes=nodes, edges=edges, generated_at=generated_at)
 
     assert first == second
+    assert first.layout_version == "taxonomy-leaf-layout-v3"
     assert [node.id for node in first.nodes] == [11, 12, 77]
     assert [(node.id, node.scope) for node in first.nodes] == [
         (11, "inner"),
@@ -88,6 +89,22 @@ def test_build_leaf_layout_uses_edge_strength_in_force_geometry() -> None:
         10,
         11,
     )
+
+
+def test_build_leaf_layout_uses_scaled_seed_radius_for_single_node() -> None:
+    layout = build_leaf_layout(
+        nodes=[TaxonomyLeafLayoutNode(id=11, scope="inner", x=0.0, y=0.0)],
+        edges=[],
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+    )
+
+    assert [(node.x, node.y) for node in layout.nodes] == [(200.0, 0.0)]
+    assert layout.world_bounds.model_dump() == {
+        "min_x": 200.0,
+        "min_y": 0.0,
+        "max_x": 200.0,
+        "max_y": 0.0,
+    }
 
 
 def test_slice_leaf_layout_returns_only_nodes_and_edges_inside_bounds() -> None:
