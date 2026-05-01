@@ -118,6 +118,14 @@ function isTaxonomyRoutePathNotFound(error: Error | null): boolean {
   );
 }
 
+function isQuotaExceeded(error: Error | null): boolean {
+  return (
+    error instanceof WebApiRequestError &&
+    error.status === 429 &&
+    error.code === "quota_exceeded"
+  );
+}
+
 export function TaxonomyViewPage() {
   const navigate = useNavigate();
   const pathname = useRouterState({
@@ -267,6 +275,8 @@ export function TaxonomyViewPage() {
   ]);
   const routePathNotFound =
     activeQuery.isError && isTaxonomyRoutePathNotFound(activeQuery.error);
+  const quotaExceeded =
+    activeQuery.isError && isQuotaExceeded(activeQuery.error);
 
   return (
     <main
@@ -345,12 +355,16 @@ export function TaxonomyViewPage() {
             <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
               {routePathNotFound
                 ? "Graph path not found"
-                : "Taxonomy view unavailable"}
+                : quotaExceeded
+                  ? "Too many graph requests"
+                  : "Taxonomy view unavailable"}
             </h2>
             <p className="mt-2.5 mb-0 text-[#475569]">
               {routePathNotFound
                 ? "This taxonomy path does not exist."
-                : activeQuery.error.message}
+                : quotaExceeded
+                  ? "Try again shortly."
+                  : activeQuery.error.message}
             </p>
             {routePathNotFound ? (
               <button

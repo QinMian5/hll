@@ -39,6 +39,7 @@ const QuotaRouteOverridesSchema = z.record(
     .object({
       anonymous: QuotaProfileOverrideSchema.optional(),
       authenticated: QuotaProfileOverrideSchema.optional(),
+      ip: QuotaProfileOverrideSchema.optional(),
     })
     .strict(),
 );
@@ -150,6 +151,9 @@ export interface QuotaRouteOverride {
     Record<keyof QuotaProfileConfig, Partial<QuotaWindowConfig>>
   >;
   readonly authenticated?: Partial<
+    Record<keyof QuotaProfileConfig, Partial<QuotaWindowConfig>>
+  >;
+  readonly ip?: Partial<
     Record<keyof QuotaProfileConfig, Partial<QuotaWindowConfig>>
   >;
 }

@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../../app/providers";
 import { createAppRouter } from "../../../app/router";
+import { WebApiRequestError } from "../../../shared/web-api/errors";
 import type { SearchResponse } from "../data/searchQueries";
 
 vi.mock("../data/searchQueries", () => ({
@@ -151,6 +152,30 @@ describe("SearchPage", () => {
     expect(
       screen.queryByRole("button", { name: "Spectral theorem" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows a quota-specific error when search is rate limited", async () => {
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: undefined,
+        error: new WebApiRequestError({
+          code: "quota_exceeded",
+          message: "Rate limit exceeded.",
+          status: 429,
+        }),
+        isError: true,
+        isPending: false,
+      }),
+    );
+
+    renderSearchRoute("/search?q=matrix");
+
+    expect(await screen.findByTestId("search-error-state")).toHaveTextContent(
+      "Too many searches",
+    );
+    expect(screen.getByTestId("search-error-state")).toHaveTextContent(
+      "Try again shortly.",
+    );
   });
 
   it("projects the latest Figma responsive results layout", async () => {

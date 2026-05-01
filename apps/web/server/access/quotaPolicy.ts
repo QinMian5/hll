@@ -38,6 +38,18 @@ function resolvePrincipalProfile(
   };
 }
 
+function resolveIpProfile(
+  config: WebServerConfig,
+  input: BuildQuotaConsumptionsInput,
+): QuotaProfileConfig {
+  const override = config.quotaRouteOverrides[input.routeGroup]?.ip;
+
+  return {
+    burst: applyWindowOverride(config.ipQuota.burst, override?.burst),
+    total: applyWindowOverride(config.ipQuota.total, override?.total),
+  };
+}
+
 function buildKey(parts: readonly string[]): string {
   return parts.join(":");
 }
@@ -75,6 +87,7 @@ export function buildQuotaConsumptions(
   input: BuildQuotaConsumptionsInput,
 ): QuotaConsumption[] {
   const principalProfile = resolvePrincipalProfile(config, input);
+  const ipProfile = resolveIpProfile(config, input);
 
   return [
     ...buildWindowConsumptions({
@@ -89,7 +102,7 @@ export function buildQuotaConsumptions(
       cost: input.cost,
       keyPrefix: config.quotaRedisPrefix,
       principalKey: input.principal.ipKey,
-      profile: config.ipQuota,
+      profile: ipProfile,
       routeGroup: input.routeGroup,
       scope: "ip",
     }),

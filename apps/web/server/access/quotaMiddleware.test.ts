@@ -61,12 +61,14 @@ class RecordingQuotaStore implements QuotaStore {
 
 async function createLimitedApp(options: {
   readonly getSession: () => Promise<WebSessionResponse>;
+  readonly quotaRouteOverridesJson?: string;
   readonly routeGroup?: string;
   readonly store: QuotaStore;
 }) {
   const config = loadWebServerConfig({
     ...TEST_ENV,
     KNOWLEDGE_WEB_QUOTA_ROUTE_OVERRIDES_JSON:
+      options.quotaRouteOverridesJson ??
       '{"search":{"anonymous":{"burst":{"limit":2}}}}',
   });
   const webApiRouter = Router();
@@ -184,5 +186,91 @@ describe("createQuotaMiddleware", () => {
       routeGroup: "search",
       windowName: "burst",
     });
+  });
+
+  it("applies taxonomy-view route overrides to anonymous, authenticated, and IP windows", async () => {
+    const quotaRouteOverridesJson =
+      '{"taxonomy-view":{"anonymous":{"burst":{"limit":60},"total":{"limit":600}},"authenticated":{"burst":{"limit":240},"total":{"limit":5000}},"ip":{"burst":{"limit":600},"total":{"limit":15000}}}}';
+
+    const anonymousStore = new RecordingQuotaStore();
+    const anonymousApp = await createLimitedApp({
+      getSession: async () => ({ status: "anonymous" }),
+      quotaRouteOverridesJson,
+      routeGroup: "taxonomy-view",
+      store: anonymousStore,
+    });
+
+    const anonymousResponse =
+      await request(anonymousApp).get("/web-api/limited");
+
+    expect(anonymousResponse.status).toBe(200);
+    expect(anonymousStore.consumptions).toMatchObject([
+      {
+        limit: 60,
+        routeGroup: "taxonomy-view",
+        scope: "principal",
+        windowName: "burst",
+      },
+      {
+        limit: 600,
+        routeGroup: "taxonomy-view",
+        scope: "principal",
+        windowName: "total",
+      },
+      {
+        limit: 600,
+        routeGroup: "taxonomy-view",
+        scope: "ip",
+        windowName: "burst",
+      },
+      {
+        limit: 15000,
+        routeGroup: "taxonomy-view",
+        scope: "ip",
+        windowName: "total",
+      },
+    ]);
+
+    const authenticatedStore = new RecordingQuotaStore();
+    const authenticatedApp = await createLimitedApp({
+      getSession: async () => ({
+        status: "authenticated",
+        user: { id: "user-1" },
+      }),
+      quotaRouteOverridesJson,
+      routeGroup: "taxonomy-view",
+      store: authenticatedStore,
+    });
+
+    const authenticatedResponse =
+      await request(authenticatedApp).get("/web-api/limited");
+
+    expect(authenticatedResponse.status).toBe(200);
+    expect(authenticatedStore.consumptions).toMatchObject([
+      {
+        limit: 240,
+        routeGroup: "taxonomy-view",
+        scope: "principal",
+        windowName: "burst",
+      },
+      {
+        limit: 5000,
+        routeGroup: "taxonomy-view",
+        scope: "principal",
+        windowName: "total",
+      },
+      {
+        limit: 600,
+        routeGroup: "taxonomy-view",
+        scope: "ip",
+        windowName: "burst",
+      },
+      {
+        limit: 15000,
+        routeGroup: "taxonomy-view",
+        scope: "ip",
+        windowName: "total",
+      },
+    ]);
   });
 });

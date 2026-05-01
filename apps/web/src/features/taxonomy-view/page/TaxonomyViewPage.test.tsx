@@ -425,6 +425,32 @@ describe("TaxonomyViewPage", () => {
     );
   });
 
+  it("shows a quota-specific graph message when taxonomy view requests are rate limited", async () => {
+    rootQueryState = makeQueryResult({
+      error: new WebApiRequestError({
+        code: "quota_exceeded",
+        message: "Rate limit exceeded.",
+        status: 429,
+      }),
+      isError: true,
+    });
+    mockUseTaxonomyRootViewQuery.mockImplementation(
+      () =>
+        rootQueryState as unknown as ReturnType<
+          typeof taxonomyViewQueries.useTaxonomyRootViewQuery
+        >,
+    );
+
+    await renderWithRoute();
+
+    expect(screen.getByTestId("taxonomy-error-overlay")).toHaveTextContent(
+      "Too many graph requests",
+    );
+    expect(screen.getByTestId("taxonomy-error-overlay")).toHaveTextContent(
+      "Try again shortly.",
+    );
+  });
+
   it("renders branch mode on React Flow and drills into leaf mode on the dedicated leaf renderer", async () => {
     const { router } = await renderWithRoute();
 
