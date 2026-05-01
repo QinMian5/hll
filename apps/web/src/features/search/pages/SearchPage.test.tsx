@@ -10,6 +10,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -281,6 +282,15 @@ describe("SearchPage", () => {
         "Sign in to suggest changes and help improve this knowledge card.",
       ),
     ).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", {
+      name: "Sign in to suggest edits",
+    });
+
+    expect(
+      within(dialog).getByRole("button", { name: "Sign in" }).closest("form"),
+    ).toHaveFormValues({
+      return_to: "/search?q=matrix",
+    });
   });
 
   it("navigates to a result card title when the card search affordance is activated", async () => {

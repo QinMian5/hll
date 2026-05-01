@@ -48,6 +48,7 @@ function SignInPrompt() {
         Sign in to manage your account.
       </p>
       <form action="/web-api/auth/sign-in" method="post">
+        <input name="return_to" type="hidden" value="/settings" />
         <button className={signInButtonClasses} type="submit">
           Sign in
         </button>

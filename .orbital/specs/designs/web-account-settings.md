@@ -46,7 +46,7 @@ out_of_scope: Logto tenant provisioning, password and email flows, Knowledge-own
 - **Approach:** The Settings page is an authenticated account page inside the existing shared app shell. It reads browser-safe account profile data through the BFF, renders the Figma-aligned `Name` form, and saves the trimmed name on blur or Enter. The BFF keeps Logto as the source of account profile truth by calling the Logto Account API with server-side session credentials.
 - **Key Elements:**
   - **Route ownership:** `/settings` remains an account-menu route and is not added to the primary sidebar navigation.
-  - **Authenticated boundary:** Authenticated users see the Settings content. Anonymous direct visits show a compact sign-in-required state with the existing BFF-backed sign-in action and no editable form.
+  - **Authenticated boundary:** Authenticated users see the Settings content. Anonymous direct visits show a compact sign-in-required state with the existing BFF-backed sign-in action, `/settings` as the sign-in `return_to` value, and no editable form.
   - **Figma projection:** Desktop uses the `1120px` main region with `32px` content padding, a `720px` Settings column, a title-only `720px x 32px` page header, and a quiet `720px x 72px` settings-list panel placed `24px` below the title. The normal default state does not render an `Account` header, section header, subtitle, helper, metadata, separator, or saved-status copy. The desktop `Name` row uses `24px` horizontal panel padding, `18px` vertical padding, a `240px` label area, `72px` label-to-field gap, and a `360px x 36px` input. Mobile uses the `440px` frame with `16px` horizontal content padding, `20px` top content padding, a full-width `408px` Settings column, `16px` title-to-panel gap, and a `408px x 96px` panel where the `Name` label and `376px x 36px` input stack with an `8px` gap.
   - **Figma tokenization:** The Settings desktop frame binds the `Knowledge / Layout` collection to `Desktop` mode and the Settings mobile frame binds it to `Mobile` mode. Settings layout dimensions and spacing use `layout/settings/*` variables for content width, page padding, page gap, panel padding, field gap, label width, and input width. The sectioned panel binds fill, stroke, and radius to `color/surface/card`, `color/border/subtle`, and `radius/surface`. Text fills bind to `color/text/default`. The content, column, panel, and row frames use auto-layout with `FILL` or `HUG` sizing wherever their parent relationship allows.
   - **Field scope:** The page exposes only `Name`. The value is initialized from Logto profile `name`; if no `name` exists, the input starts empty while account identity fallback remains available from email or user id.
@@ -67,12 +67,13 @@ out_of_scope: Logto tenant provisioning, password and email flows, Knowledge-own
   - Pressing Escape before commit restores the last saved value.
   - A successful commit updates the Settings field and shared shell account display from the returned profile data.
   - A failed commit leaves focusable controls usable, preserves the attempted value, marks the field invalid, and displays a content-area error notification.
+  - Anonymous direct-visit sign-in posts through the BFF endpoint and returns to `/settings` after successful authentication.
 
 ## Validation
 - **Checks:**
   - `/settings` renders inside the shared shell and matches the approved desktop and mobile Settings Figma structures for the normal authenticated state.
   - `/settings` does not add `Settings` to primary navigation.
-  - Anonymous direct visits render a sign-in-required state without an editable profile form.
+  - Anonymous direct visits render a sign-in-required state without an editable profile form and include `/settings` as the sign-in return path.
   - The Name input initializes from authenticated Logto profile data loaded through `GET /web-api/auth/profile`.
   - Blur and Enter each trigger exactly one save when the normalized value changed.
   - Unchanged normalized values do not call the update endpoint.

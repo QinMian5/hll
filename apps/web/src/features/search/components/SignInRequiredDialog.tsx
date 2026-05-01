@@ -1,6 +1,7 @@
 // abstract: Anonymous Search card edit sign-in prompt dialog.
 // out_of_scope: Logto callback handling and authenticated suggestion form behavior.
 
+import { useRouterState } from "@tanstack/react-router";
 import { X } from "lucide-react";
 
 interface SignInRequiredDialogProps {
@@ -8,6 +9,10 @@ interface SignInRequiredDialogProps {
 }
 
 export function SignInRequiredDialog({ onClose }: SignInRequiredDialogProps) {
+  const returnTo = useRouterState({
+    select: (state) => state.location.href,
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.22)] px-4">
       <button
@@ -39,6 +44,7 @@ export function SignInRequiredDialog({ onClose }: SignInRequiredDialogProps) {
           Sign in to suggest changes and help improve this knowledge card.
         </p>
         <form action="/web-api/auth/sign-in" method="post">
+          <input name="return_to" type="hidden" value={returnTo} />
           <button
             className="h-10 w-full rounded-lg bg-[#006bff] px-4 text-[14px] leading-5 font-medium text-white hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
             type="submit"

@@ -121,9 +121,10 @@ function profileFromSession(
   return { email, initial, name };
 }
 
-function SignInAction() {
+function SignInAction({ returnTo }: { readonly returnTo: string }) {
   return (
     <form action="/web-api/auth/sign-in" method="post">
+      <input name="return_to" type="hidden" value={returnTo} />
       <button className={actionButtonClasses} type="submit">
         Sign in
       </button>
@@ -270,10 +271,12 @@ function UserAccountAction({
 function SidebarContent({
   onClose,
   pathname,
+  returnTo,
   session,
 }: {
   readonly onClose?: () => void;
   readonly pathname: string;
+  readonly returnTo: string;
   readonly session: WebSessionResponse;
 }) {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -336,7 +339,7 @@ function SidebarContent({
             profile={profile}
           />
         ) : (
-          <SignInAction />
+          <SignInAction returnTo={returnTo} />
         )}
       </div>
     </div>
@@ -348,6 +351,9 @@ export function AppShell() {
   const session = useWebSessionQuery().data ?? { status: "anonymous" };
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
+  });
+  const returnTo = useRouterState({
+    select: (state) => state.location.href,
   });
 
   function closeDrawer() {
@@ -363,7 +369,11 @@ export function AppShell() {
         className="hidden h-screen shrink-0 border-r border-[#e0e4eb] md:flex md:w-60 lg:w-64 xl:w-72 2xl:w-80"
         data-testid="app-shell-sidebar"
       >
-        <SidebarContent pathname={pathname} session={session} />
+        <SidebarContent
+          pathname={pathname}
+          returnTo={returnTo}
+          session={session}
+        />
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header
@@ -401,6 +411,7 @@ export function AppShell() {
             <SidebarContent
               onClose={closeDrawer}
               pathname={pathname}
+              returnTo={returnTo}
               session={session}
             />
           </aside>

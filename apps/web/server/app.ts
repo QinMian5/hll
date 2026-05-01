@@ -38,6 +38,7 @@ export async function createApp(options: CreateAppOptions): Promise<Express> {
   app.disable("x-powered-by");
   app.set("trust proxy", options.config.trustProxy);
   app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ extended: false, limit: "16kb" }));
   app.use(cookieParser());
 
   if (options.sessionMiddleware !== undefined) {

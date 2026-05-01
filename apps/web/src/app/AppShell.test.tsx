@@ -181,6 +181,9 @@ describe("AppShell", () => {
       "/web-api/auth/sign-in",
     );
     expect(signInButton.closest("form")).toHaveAttribute("method", "post");
+    expect(signInButton.closest("form")).toHaveFormValues({
+      return_to: "/graph",
+    });
   });
 
   it("keeps Graph View active for readable graph route paths", async () => {
@@ -193,6 +196,11 @@ describe("AppShell", () => {
       "data-nav-state",
       "active",
     );
+    expect(
+      screen.getByRole("button", { name: "Sign in" }).closest("form"),
+    ).toHaveFormValues({
+      return_to: "/graph/science/mathematics",
+    });
   });
 
   it("opens and closes the mobile drawer from the shell header", async () => {

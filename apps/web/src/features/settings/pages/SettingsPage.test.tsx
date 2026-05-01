@@ -133,6 +133,11 @@ describe("SettingsPage", () => {
     expect(
       screen.getByRole("button", { name: "Sign in" }).closest("form"),
     ).toHaveAttribute("action", "/web-api/auth/sign-in");
+    expect(
+      screen.getByRole("button", { name: "Sign in" }).closest("form"),
+    ).toHaveFormValues({
+      return_to: "/settings",
+    });
   });
 
   it("autosaves a changed name on blur and refreshes shared session display data", async () => {

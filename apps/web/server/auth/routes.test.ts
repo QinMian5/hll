@@ -3,6 +3,7 @@
 // @vitest-environment node
 
 import { Router } from "express";
+import session from "express-session";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
@@ -85,6 +86,12 @@ async function createTestApp(client: WebLogtoClient) {
       indexHtml: '<html><body><div id="root"></div></body></html>',
       kind: "production",
     },
+    sessionMiddleware: session({
+      cookie: buildSessionCookieOptions(config),
+      resave: false,
+      saveUninitialized: false,
+      secret: config.sessionSecret,
+    }),
     webApiRouter,
   });
 }
@@ -134,13 +141,70 @@ describe("auth routes", () => {
     const client = createFakeClient();
     const app = await createTestApp(client);
 
-    const response = await request(app).post("/web-api/auth/sign-in");
+    const response = await request(app)
+      .post("/web-api/auth/sign-in")
+      .type("form")
+      .send({ return_to: "/graph/science/mathematics?focus=1" });
 
     expect(response.status).toBe(303);
     expect(response.headers.location).toBe("https://logto.example/sign-in");
     expect(client.signIn).toHaveBeenCalledWith({
       redirectUri: "http://localhost:5173/web-api/auth/callback",
     });
+  });
+
+  it("returns to the validated pre-login route after callback", async () => {
+    const client = createFakeClient();
+    const app = await createTestApp(client);
+    const agent = request.agent(app);
+
+    const signInResponse = await agent
+      .post("/web-api/auth/sign-in")
+      .type("form")
+      .send({ return_to: "/graph/science/mathematics?focus=1" });
+    const callbackResponse = await agent.get(
+      "/web-api/auth/callback?code=abc&state=xyz",
+    );
+
+    expect(signInResponse.status).toBe(303);
+    expect(callbackResponse.status).toBe(303);
+    expect(callbackResponse.headers.location).toBe(
+      "/graph/science/mathematics?focus=1",
+    );
+  });
+
+  it("falls back to root for external pre-login return URLs", async () => {
+    const client = createFakeClient();
+    const app = await createTestApp(client);
+    const agent = request.agent(app);
+
+    await agent
+      .post("/web-api/auth/sign-in")
+      .type("form")
+      .send({ return_to: "https://evil.example/steal" });
+    const callbackResponse = await agent.get(
+      "/web-api/auth/callback?code=abc&state=xyz",
+    );
+
+    expect(callbackResponse.status).toBe(303);
+    expect(callbackResponse.headers.location).toBe("/");
+  });
+
+  it("falls back to root for BFF API return paths", async () => {
+    const client = createFakeClient();
+    const app = await createTestApp(client);
+    const agent = request.agent(app);
+
+    await agent
+      .post("/web-api/auth/sign-in")
+      .type("form")
+      .send({ return_to: "/web-api/auth/callback?code=abc" });
+    const callbackResponse = await agent.get(
+      "/web-api/auth/callback?code=abc&state=xyz",
+    );
+
+    expect(callbackResponse.status).toBe(303);
+    expect(callbackResponse.headers.location).toBe("/");
   });
 
   it("handles Logto callback using the full public callback URI", async () => {
