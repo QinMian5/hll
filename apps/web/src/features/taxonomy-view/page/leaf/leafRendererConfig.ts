@@ -2,6 +2,8 @@
 // out_of_scope: Query orchestration and scene-layer instantiation.
 
 export const LEAF_POINT_TITLE_ACTIVATION_ZOOM = 0.85;
+export const LEAF_INITIAL_POINT_TITLE_ZOOM =
+  LEAF_POINT_TITLE_ACTIVATION_ZOOM + 0.01;
 export const LEAF_HYDRATION_OVERSCAN = 320;
 export const LEAF_LAYOUT_TILE_SIZE = 2048;
 export const LEAF_VIEWPORT_SNAPSHOT_INTERVAL_MS = 48;

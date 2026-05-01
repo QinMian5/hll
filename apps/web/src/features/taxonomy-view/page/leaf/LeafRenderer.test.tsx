@@ -375,7 +375,7 @@ function installSuccessfulQueryMocks() {
 }
 
 describe("LeafRenderer", () => {
-  it("renders non-interactive points before the title zoom without title or detail hydration", async () => {
+  it("starts in point-title mode without detail hydration", async () => {
     installSuccessfulQueryMocks();
 
     render(
@@ -388,13 +388,15 @@ describe("LeafRenderer", () => {
     expect(
       await screen.findByTestId("leaf-scene-point-count"),
     ).toHaveTextContent("2");
-    expect(
-      screen.getByTestId("leaf-scene-title-label-count"),
-    ).toHaveTextContent("0");
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("leaf-scene-title-label-count"),
+      ).toHaveTextContent("2");
+    });
     expect(screen.getByTestId("leaf-scene-edge-count")).toHaveTextContent("1");
     expect(
       screen.getByTestId("leaf-point-interaction-enabled"),
-    ).toHaveTextContent("false");
+    ).toHaveTextContent("true");
     expect(mockUseTaxonomyLeafLayoutSliceQuery).toHaveBeenCalledWith(
       2,
       {
@@ -412,26 +414,21 @@ describe("LeafRenderer", () => {
     expect(
       screen.getByTestId("leaf-scene-first-point-radius"),
     ).toHaveTextContent("8");
-    expect(mockUseTaxonomyLeafNodeTitlesQuery).toHaveBeenCalledWith(
-      2,
-      [],
-      expect.objectContaining({ enabled: false }),
-    );
+    await waitFor(() => {
+      expect(mockUseTaxonomyLeafNodeTitlesQuery).toHaveBeenCalledWith(
+        2,
+        expect.arrayContaining([10, 11]),
+        expect.objectContaining({ enabled: true }),
+      );
+    });
     expect(mockUseTaxonomyLeafNodeDetailsQuery).toHaveBeenCalledWith(
       2,
       [],
       expect.objectContaining({ enabled: false }),
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "Hover 10" }));
-    fireEvent.click(screen.getByRole("button", { name: "Click 10" }));
-
-    expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
-      "none",
-    );
   });
 
-  it("fits the initial viewport to large leaf world bounds before requesting layout", async () => {
+  it("starts the initial viewport just above the title threshold for large leaf bounds", async () => {
     installSuccessfulQueryMocks();
 
     render(
@@ -449,9 +446,12 @@ describe("LeafRenderer", () => {
       />,
     );
 
-    expect(
-      await screen.findByTestId("leaf-initial-viewport-zoom"),
-    ).toHaveTextContent("-");
+    const initialZoom = Number(
+      (await screen.findByTestId("leaf-initial-viewport-zoom")).textContent,
+    );
+
+    expect(initialZoom).toBeGreaterThan(LEAF_POINT_TITLE_ACTIVATION_ZOOM);
+    expect(initialZoom).toBeCloseTo(LEAF_POINT_TITLE_ACTIVATION_ZOOM + 0.01);
     expect(mockUseTaxonomyLeafLayoutSliceQuery).toHaveBeenCalledWith(
       2,
       {
@@ -700,15 +700,7 @@ describe("LeafRenderer", () => {
 
     expect(
       await screen.findByTestId("leaf-point-interaction-enabled"),
-    ).toHaveTextContent("false");
-
-    fireEvent.click(screen.getByRole("button", { name: "Live zoom in" }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByTestId("leaf-point-interaction-enabled"),
-      ).toHaveTextContent("true");
-    });
+    ).toHaveTextContent("true");
 
     fireEvent.click(screen.getByRole("button", { name: "Click 10" }));
 
@@ -724,5 +716,13 @@ describe("LeafRenderer", () => {
     expect(
       screen.queryByTestId("taxonomy-leaf-disclosure-overlay"),
     ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Live zoom in" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("leaf-point-interaction-enabled"),
+      ).toHaveTextContent("true");
+    });
   });
 });

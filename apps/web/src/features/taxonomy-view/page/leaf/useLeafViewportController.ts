@@ -2,7 +2,10 @@
 // out_of_scope: React state wiring and deck.gl scene rendering.
 
 import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
-import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
+import {
+  LEAF_INITIAL_POINT_TITLE_ZOOM,
+  LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+} from "./leafRendererConfig";
 import type {
   BuildLeafViewportStateInput,
   LeafOrthographicViewport,
@@ -25,29 +28,10 @@ export function buildInitialLeafViewport(input: {
 }): LeafOrthographicViewport {
   const centerX = (input.worldBounds.left + input.worldBounds.right) / 2;
   const centerY = (input.worldBounds.top + input.worldBounds.bottom) / 2;
-  const worldWidth = input.worldBounds.right - input.worldBounds.left;
-  const worldHeight = input.worldBounds.bottom - input.worldBounds.top;
-
-  if (
-    input.canvas.width <= 0 ||
-    input.canvas.height <= 0 ||
-    worldWidth <= 0 ||
-    worldHeight <= 0
-  ) {
-    return { target: [centerX, centerY, 0], zoom: 0 };
-  }
-
-  const availableWidth = Math.max(1, input.canvas.width - input.padding * 2);
-  const availableHeight = Math.max(1, input.canvas.height - input.padding * 2);
-  const fitScale = Math.min(
-    availableWidth / worldWidth,
-    availableHeight / worldHeight,
-  );
-  const fitZoom = Number.isFinite(fitScale) ? Math.log2(fitScale) : 0;
 
   return {
     target: [centerX, centerY, 0],
-    zoom: Math.min(0, fitZoom),
+    zoom: LEAF_INITIAL_POINT_TITLE_ZOOM,
   };
 }
 

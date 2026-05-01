@@ -66,7 +66,7 @@ describe("leaf viewport controller helpers", () => {
     expect(state.overscanBounds.right).toBeGreaterThan(state.bounds.right);
   });
 
-  it("fits the initial leaf viewport to backend world bounds without zooming in", () => {
+  it("starts the initial leaf viewport just above the point-title threshold", () => {
     const compactViewport = buildInitialLeafViewport({
       canvas: { height: 800, width: 1200 },
       padding: 160,
@@ -78,26 +78,17 @@ describe("leaf viewport controller helpers", () => {
       worldBounds: { bottom: 500, left: -1400, right: 1400, top: -500 },
     });
 
-    expect(compactViewport).toEqual({ target: [0, 0, 0], zoom: 0 });
+    expect(compactViewport.target).toEqual([0, 0, 0]);
+    expect(compactViewport.zoom).toBeGreaterThan(
+      LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+    );
+    expect(compactViewport.zoom).toBeCloseTo(
+      LEAF_POINT_TITLE_ACTIVATION_ZOOM + 0.01,
+    );
     expect(wideViewport.target).toEqual([0, 0, 0]);
-    expect(wideViewport.zoom).toBeLessThan(0);
-    expect(
-      buildLeafViewportState({
-        canvas: { height: 800, width: 1200 },
-        overscan: 0,
-        viewport: wideViewport,
-      }).bounds,
-    ).toMatchObject({
-      left: expect.any(Number),
-      right: expect.any(Number),
-    });
-    const fittedBounds = buildLeafViewportState({
-      canvas: { height: 800, width: 1200 },
-      overscan: 0,
-      viewport: wideViewport,
-    }).bounds;
-    expect(fittedBounds.left).toBeLessThanOrEqual(-1400);
-    expect(fittedBounds.right).toBeGreaterThanOrEqual(1400);
+    expect(wideViewport.zoom).toBeCloseTo(
+      LEAF_POINT_TITLE_ACTIVATION_ZOOM + 0.01,
+    );
   });
 
   it("selects only nodes intersecting the overscan bounds", () => {
