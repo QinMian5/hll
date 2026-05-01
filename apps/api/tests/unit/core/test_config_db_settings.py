@@ -292,6 +292,7 @@ def test_taxonomy_classification_runtime_settings_are_role_scoped(
 
     assert settings.taxonomy_classification_queue_name == "taxonomy_classification"
     assert settings.taxonomy_classification_job_queue_client_secret == "runtime-secret"
+    assert settings.taxonomy_classification_projection_refresh_batch_size == 1
 
 
 def test_taxonomy_classification_webhook_receiver_settings_are_role_scoped(

@@ -89,6 +89,9 @@ async def run_forever(runtime: TaxonomyClassificationRuntime) -> None:
                     reconcile_batch_size=(
                         runtime.settings.taxonomy_classification_reconcile_batch_size
                     ),
+                    projection_refresh_batch_size=(
+                        runtime.settings.taxonomy_classification_projection_refresh_batch_size
+                    ),
                 )
                 await service.tick()
 

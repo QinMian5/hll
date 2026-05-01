@@ -97,6 +97,10 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - submission id or terminal state
   - processed timestamp
   - last error
+- A projection refresh request record stores:
+  - taxonomy leaf id
+  - optional last refresh error
+  - timestamps
 - Local state does not duplicate accepted result payloads, full queue lifecycle history, leases, or submission history from `job-queue-mcp`.
 
 ## Result Consumption
@@ -108,10 +112,13 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - low-frequency polling/reconcile checks outstanding job links to compensate for missed notifications or exhausted remote delivery retries.
 - The webhook receiver does not move assignments or read result payloads. It returns after authenticated atomic idempotent event persistence.
 - The webhook receiver rejects authenticated notifications whose `queue_name` does not match the configured taxonomy-classification queue before writing any local event.
-- The background runtime owns event processing, batch result reads, validation, assignment movement, terminal checkpoint updates, and processed/error markers.
+- The background runtime owns event processing, batch result reads, validation, assignment movement, dirty projection request creation, terminal checkpoint updates, processed/error markers, and bounded projection refresh work.
 - Pending accepted-result webhook events are read in batches. Ready batch items are applied through existing per-job validation and assignment movement. Not-ready or not-found batch items for accepted-result webhook events are recorded as event processing errors because the webhook contract indicated an accepted result should be available.
 - Low-frequency reconcile reads outstanding linked jobs in batches. Ready batch items are applied through existing per-job validation and assignment movement. Not-ready items whose remote state is a terminal non-accepted state mark the local job terminal; other not-ready items remain outstanding. Not-found items record a local job error while leaving the job outstanding for operator visibility.
-- Local assignment movement remains per job and serial within a runtime tick so assignment locks, taxonomy validation, and projection refreshes keep existing conservative semantics while remote result I/O is batched.
+- Local assignment movement remains per job and serial within a runtime tick so assignment locks and taxonomy validation keep existing conservative semantics while remote result I/O is batched.
+- Assignment movement records affected source and target leaf ids as projection refresh requests. Request insertion is idempotent by leaf id and happens in the same transaction as the accepted-result job/event processing state.
+- Projection refresh is a derived read-model operation. The runtime processes pending result events before projection refresh work. When no result events are ready for a tick, the runtime claims a bounded set of dirty leaf refresh requests, rebuilds each claimed leaf projection, and deletes each request only after the leaf refresh succeeds.
+- Each projection refresh request is processed independently so one expensive or failing leaf refresh does not roll back accepted-result job processing for unrelated events.
 - Webhook receiver authentication remains module-owned and validates incoming delivery tokens against the `knowledge` Logto authority. The job-queue producer/result-reader SDK is not the authority for incoming webhook delivery-token validation.
 
 ## Assignment Move Flow
@@ -123,11 +130,12 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 6. The local webhook receiver records events idempotently and wakes the classification runtime.
 7. The classification runtime reads accepted results and outstanding result status through batch result-read requests.
 8. The runtime validates the accepted result against current taxonomy and assignment truth.
-9. Valid child targets move the card to the target child's `Unclassified` leaf through taxonomy-owned assignment movement.
+9. Valid child targets move the card to the target child's `Unclassified` leaf through taxonomy-owned assignment movement and queue projection refresh requests for affected leaves.
 10. Valid `unclassified` targets keep the card in the current source `Unclassified` leaf and mark the job processed.
 11. Invalid accepted results record a job processing error, mark the accepted result locally processed, remove the event wakeup, and leave the current assignment unchanged.
 12. Terminal non-accepted states record terminal checkpoints and leave the current assignment unchanged.
 13. Low-frequency reconcile repeats result and terminal checks for outstanding job links.
+14. When result work is drained for a tick, the runtime refreshes queued leaf projections and deletes only successfully refreshed requests.
 
 ## Runtime Configuration
 - Classification runtime configuration is independent from `apps/cli` reviewer configuration.
@@ -145,7 +153,8 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - receiver-only webhook public path;
   - runtime poll interval;
   - runtime reconcile interval;
-  - pending event batch size.
+  - pending event batch size;
+  - projection refresh batch size.
 - Settings boundary rule:
   - the taxonomy-classification runtime settings require job-queue producer/result-reader settings and do not require webhook auth settings.
   - the taxonomy-classification webhook receiver settings require queue name plus webhook auth/path settings and do not receive job-queue producer/result-reader client credentials.
@@ -158,6 +167,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - Duplicate webhook deliveries are accepted idempotently through repository-owned atomic event insertion and do not create duplicate local wakeups.
 - Duplicate operator submission runs do not submit another active job for the same card and scope when a linked outstanding job already exists. Processed and terminal job rows do not block later operator submissions.
 - Runtime errors preserve enough local state for a later runtime tick to retry unprocessed events or reconcile outstanding jobs.
+- Projection refresh failures preserve the dirty leaf request with `last_error` for a later retry and do not undo already-processed classification events.
 
 ## Validation
 - **Checks:**
@@ -182,5 +192,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Runtime tests verify terminal non-accepted queue states stop repeated processing for that job.
   - Runtime batch result-read tests verify accepted-result webhook events and low-frequency reconcile use the batch result-read SDK, preserve per-job validation semantics, and handle ready, not-ready, not-found, and terminal-state items correctly.
   - Reconcile tests verify outstanding job links are checked at low frequency through the batch result-read surface.
+  - Projection refresh request tests verify assignment moves enqueue source and target leaves once per leaf, accepted-result job processing commits independently from projection refresh work, and refresh success removes only the refreshed leaf request.
+  - Projection refresh failure tests verify failed leaf refreshes retain retry state without re-opening processed result events.
 - **Evidence:**
   - Passing unit and integration tests for operator scripts, queue contracts, webhook intake, result processing, assignment movement, and reconcile behavior.

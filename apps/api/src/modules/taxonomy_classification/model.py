@@ -129,8 +129,37 @@ class TaxonomyClassificationWebhookWakeup(Base):
     )
 
 
+class TaxonomyClassificationProjectionRefreshRequest(Base):
+    __tablename__ = "taxonomy_classification_projection_refresh_requests"
+    __table_args__ = (
+        Index(
+            "ix_tax_cls_proj_refresh_updated_at",
+            "updated_at",
+            "leaf_id",
+        ),
+    )
+
+    leaf_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("taxonomy_nodes.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 __all__ = [
     "TaxonomyClassificationJob",
+    "TaxonomyClassificationProjectionRefreshRequest",
     "TaxonomyClassificationWebhookEvent",
     "TaxonomyClassificationWebhookWakeup",
 ]

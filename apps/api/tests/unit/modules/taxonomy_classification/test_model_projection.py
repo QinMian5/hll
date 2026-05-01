@@ -11,6 +11,7 @@ from sqlalchemy import Index, Table, UniqueConstraint
 
 from modules.taxonomy_classification.model import (
     TaxonomyClassificationJob,
+    TaxonomyClassificationProjectionRefreshRequest,
     TaxonomyClassificationWebhookEvent,
     TaxonomyClassificationWebhookWakeup,
 )
@@ -20,6 +21,7 @@ from shared.db.base import Base
 def test_projection_registers_taxonomy_classification_tables() -> None:
     assert {
         "taxonomy_classification_jobs",
+        "taxonomy_classification_projection_refresh_requests",
         "taxonomy_classification_webhook_events",
         "taxonomy_classification_webhook_wakeups",
     } <= set(Base.metadata.tables)
@@ -81,3 +83,13 @@ def test_webhook_wakeups_projection_uses_event_id_unique_constraint() -> None:
     ]
 
     assert {"event_id"} in unique_column_sets
+
+
+def test_projection_refresh_requests_use_leaf_primary_key_and_updated_at_index() -> None:
+    table = cast(Table, TaxonomyClassificationProjectionRefreshRequest.__table__)
+    primary_key_columns = {column.name for column in table.primary_key.columns}
+    index_column_sets = [{column.name for column in index.columns} for index in table.indexes]
+
+    assert primary_key_columns == {"leaf_id"}
+    assert {"updated_at", "leaf_id"} in index_column_sets
+    assert table.c.last_error.nullable is True

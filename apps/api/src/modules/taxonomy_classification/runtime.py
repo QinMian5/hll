@@ -12,6 +12,7 @@ from typing import Protocol
 from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
 from job_queue_mcp_client.types import ResultReadItem
 from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.repo import KnowledgeRepo
@@ -20,6 +21,7 @@ from modules.taxonomy.repo import UNCLASSIFIED_NODE_NAME, TaxonomyRepo
 from modules.taxonomy_classification.contracts import TaxonomyClassificationAcceptedResult
 from modules.taxonomy_classification.model import (
     TaxonomyClassificationJob,
+    TaxonomyClassificationProjectionRefreshRequest,
     TaxonomyClassificationWebhookEvent,
 )
 from modules.taxonomy_classification.webhook import TaxonomyClassificationWebhookRepository
@@ -41,12 +43,15 @@ class TaxonomyClassificationRuntimeService:
         poll_batch_size: int = 100,
         reconcile_interval_seconds: float = 3600,
         reconcile_batch_size: int = 100,
+        projection_refresh_batch_size: int = 1,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if poll_batch_size < 1:
             raise ValueError("poll_batch_size must be at least 1")
         if reconcile_batch_size < 1:
             raise ValueError("reconcile_batch_size must be at least 1")
+        if projection_refresh_batch_size < 1:
+            raise ValueError("projection_refresh_batch_size must be at least 1")
         if reconcile_interval_seconds <= 0:
             raise ValueError("reconcile_interval_seconds must be greater than 0")
         self._session = session
@@ -54,6 +59,7 @@ class TaxonomyClassificationRuntimeService:
         self._poll_batch_size = poll_batch_size
         self._reconcile_interval = timedelta(seconds=reconcile_interval_seconds)
         self._reconcile_batch_size = reconcile_batch_size
+        self._projection_refresh_batch_size = projection_refresh_batch_size
         self._clock = clock or (lambda: datetime.now(UTC))
         self._last_reconcile_at: datetime | None = None
 
@@ -64,6 +70,9 @@ class TaxonomyClassificationRuntimeService:
             await self._session.commit()
             return
         if await self.run_low_frequency_reconcile(now=now):
+            await self._session.commit()
+            return
+        if await self.drain_projection_refresh_requests(now=now) > 0:
             await self._session.commit()
 
     async def process_pending_webhook_events(self, *, now: datetime) -> int:
@@ -220,6 +229,7 @@ class TaxonomyClassificationRuntimeService:
                 node_id=job.node_id,
                 source_leaf_id=job.source_unclassified_node_id,
                 target_leaf_id=target_leaf_id,
+                now=now,
             )
         except ValueError as exc:
             self._mark_job_processed_error(job=job, error=str(exc), now=now)
@@ -268,6 +278,7 @@ class TaxonomyClassificationRuntimeService:
         node_id: int,
         source_leaf_id: int,
         target_leaf_id: int,
+        now: datetime,
     ) -> None:
         assignment = await self._session.scalar(
             select(NodeTaxonomyAssignment)
@@ -287,8 +298,67 @@ class TaxonomyClassificationRuntimeService:
             node_id=node_id,
             taxonomy_node_id=target_leaf_id,
         )
-        for leaf_id in sorted({source_leaf_id_before_move, target_leaf_id}):
-            await self._refresh_leaf_projection(leaf_id=leaf_id)
+        await self._record_projection_refresh_requests(
+            leaf_ids=(source_leaf_id_before_move, target_leaf_id),
+            now=now,
+        )
+
+    async def _record_projection_refresh_requests(
+        self,
+        *,
+        leaf_ids: Sequence[int],
+        now: datetime,
+    ) -> None:
+        unique_leaf_ids = sorted(set(leaf_ids))
+        if not unique_leaf_ids:
+            return
+        statement = pg_insert(TaxonomyClassificationProjectionRefreshRequest).values(
+            [
+                {
+                    "leaf_id": leaf_id,
+                    "last_error": None,
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                for leaf_id in unique_leaf_ids
+            ]
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=[TaxonomyClassificationProjectionRefreshRequest.leaf_id],
+            set_={
+                "last_error": None,
+                "updated_at": statement.excluded.updated_at,
+            },
+        )
+        await self._session.execute(statement)
+
+    async def drain_projection_refresh_requests(self, *, now: datetime) -> int:
+        requests = list(
+            (
+                await self._session.scalars(
+                    select(TaxonomyClassificationProjectionRefreshRequest)
+                    .order_by(
+                        TaxonomyClassificationProjectionRefreshRequest.updated_at.asc(),
+                        TaxonomyClassificationProjectionRefreshRequest.leaf_id.asc(),
+                    )
+                    .limit(self._projection_refresh_batch_size)
+                    .with_for_update(skip_locked=True)
+                )
+            ).all()
+        )
+        refreshed_count = 0
+        for request in requests:
+            try:
+                await self._refresh_leaf_projection(leaf_id=request.leaf_id)
+            except Exception as exc:
+                request.last_error = str(exc)
+                request.updated_at = now
+                continue
+            await self._session.delete(request)
+            refreshed_count += 1
+
+        await self._session.flush()
+        return refreshed_count
 
     async def _refresh_leaf_projection(self, *, leaf_id: int) -> None:
         taxonomy_repo = TaxonomyRepo(session=self._session)

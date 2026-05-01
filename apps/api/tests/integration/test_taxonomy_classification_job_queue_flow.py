@@ -25,6 +25,7 @@ from modules.taxonomy.repo import TaxonomyRepo
 from modules.taxonomy_classification.dto import TaxonomyClassificationSubmissionSelection
 from modules.taxonomy_classification.model import (
     TaxonomyClassificationJob,
+    TaxonomyClassificationProjectionRefreshRequest,
     TaxonomyClassificationWebhookEvent,
     TaxonomyClassificationWebhookWakeup,
 )
@@ -245,6 +246,18 @@ async def _count_wakeups(db_session: AsyncSession, *, event_id: str) -> int:
         .where(TaxonomyClassificationWebhookWakeup.event_id == event_id)
     )
     return int(count or 0)
+
+
+async def _projection_refresh_leaf_ids(db_session: AsyncSession) -> list[int]:
+    return list(
+        (
+            await db_session.scalars(
+                select(TaxonomyClassificationProjectionRefreshRequest.leaf_id).order_by(
+                    TaxonomyClassificationProjectionRefreshRequest.leaf_id.asc()
+                )
+            )
+        ).all()
+    )
 
 
 def _webhook_payload(*, event_id: str, job_id: int) -> TaxonomyClassificationWebhookPayload:
@@ -637,6 +650,231 @@ async def test_webhook_processing_reads_accepted_results_in_one_batch(
     assert first_assignment.taxonomy_node.id == science_unclassified.id
     assert second_assignment is not None
     assert second_assignment.taxonomy_node.id == science_unclassified.id
+
+
+async def test_valid_child_result_records_projection_refresh_without_sync_rebuild(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, root_unclassified, _science, science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    node = await _create_node(db_session)
+    taxonomy_repo = TaxonomyRepo(session=db_session)
+    await taxonomy_repo.set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    db_session.add(
+        TaxonomyClassificationJob(
+            scope_node_id=root.id,
+            source_unclassified_node_id=root_unclassified.id,
+            node_id=node.id,
+            job_id=7031,
+        )
+    )
+    await db_session.commit()
+    await _record_event(db_session, event_id="evt-deferred-projection-refresh", job_id=7031)
+    client = FakeJobQueueClient(
+        {7031: _accepted_result(job_id=7031, result_payload={"target_name": "science"})}
+    )
+    service = TaxonomyClassificationRuntimeService(db_session, job_queue_client=client)
+
+    async def fail_sync_refresh(*, leaf_id: int) -> None:
+        raise AssertionError(f"projection refresh should be deferred for leaf {leaf_id}")
+
+    monkeypatch.setattr(service, "_refresh_leaf_projection", fail_sync_refresh)
+
+    processed_count = await service.process_pending_webhook_events(
+        now=datetime(2026, 4, 26, 15, 2, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assignment = await taxonomy_repo.get_assignment_for_node(node_id=node.id)
+    assert processed_count == 1
+    assert assignment is not None
+    assert assignment.taxonomy_node.id == science_unclassified.id
+    assert await _projection_refresh_leaf_ids(db_session) == [
+        root_unclassified.id,
+        science_unclassified.id,
+    ]
+
+
+async def test_batch_result_processing_deduplicates_projection_refresh_requests(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, root_unclassified, _science, science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    first_node = await _create_node(db_session)
+    second_node = await _create_node(db_session)
+    taxonomy_repo = TaxonomyRepo(session=db_session)
+    await taxonomy_repo.set_current_assignment(
+        node_id=first_node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    await taxonomy_repo.set_current_assignment(
+        node_id=second_node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    db_session.add_all(
+        [
+            TaxonomyClassificationJob(
+                scope_node_id=root.id,
+                source_unclassified_node_id=root_unclassified.id,
+                node_id=first_node.id,
+                job_id=7032,
+            ),
+            TaxonomyClassificationJob(
+                scope_node_id=root.id,
+                source_unclassified_node_id=root_unclassified.id,
+                node_id=second_node.id,
+                job_id=7033,
+            ),
+        ]
+    )
+    await db_session.commit()
+    await _record_event(db_session, event_id="evt-dedup-projection-refresh-first", job_id=7032)
+    await _record_event(db_session, event_id="evt-dedup-projection-refresh-second", job_id=7033)
+    client = FakeJobQueueClient(
+        {
+            7032: _accepted_result(job_id=7032, result_payload={"target_name": "science"}),
+            7033: _accepted_result(job_id=7033, result_payload={"target_name": "science"}),
+        }
+    )
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        poll_batch_size=10,
+    )
+
+    async def fail_sync_refresh(*, leaf_id: int) -> None:
+        raise AssertionError(f"projection refresh should be deferred for leaf {leaf_id}")
+
+    monkeypatch.setattr(service, "_refresh_leaf_projection", fail_sync_refresh)
+
+    processed_count = await service.process_pending_webhook_events(
+        now=datetime(2026, 4, 26, 15, 2, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assert processed_count == 2
+    assert await _projection_refresh_leaf_ids(db_session) == [
+        root_unclassified.id,
+        science_unclassified.id,
+    ]
+
+
+async def test_tick_processes_results_before_dirty_projection_refresh(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, root_unclassified, _science, science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    db_session.add_all(
+        [
+            TaxonomyClassificationJob(
+                scope_node_id=root.id,
+                source_unclassified_node_id=root_unclassified.id,
+                node_id=node.id,
+                job_id=7034,
+            ),
+            TaxonomyClassificationProjectionRefreshRequest(leaf_id=root_unclassified.id),
+        ]
+    )
+    await db_session.commit()
+    await _record_event(db_session, event_id="evt-result-before-projection-refresh", job_id=7034)
+    client = FakeJobQueueClient(
+        {7034: _accepted_result(job_id=7034, result_payload={"target_name": "science"})}
+    )
+    service = TaxonomyClassificationRuntimeService(db_session, job_queue_client=client)
+
+    async def fail_projection_drain(*, leaf_id: int) -> None:
+        raise AssertionError(f"dirty projection refresh must wait for leaf {leaf_id}")
+
+    monkeypatch.setattr(service, "_refresh_leaf_projection", fail_projection_drain)
+
+    await service.tick()
+
+    assert await _projection_refresh_leaf_ids(db_session) == [
+        root_unclassified.id,
+        science_unclassified.id,
+    ]
+
+
+async def test_projection_refresh_success_deletes_only_refreshed_request(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _root, root_unclassified, _science, science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    db_session.add_all(
+        [
+            TaxonomyClassificationProjectionRefreshRequest(leaf_id=root_unclassified.id),
+            TaxonomyClassificationProjectionRefreshRequest(leaf_id=science_unclassified.id),
+        ]
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient({})
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        projection_refresh_batch_size=1,
+    )
+    refreshed_leaf_ids: list[int] = []
+
+    async def record_refresh(*, leaf_id: int) -> None:
+        refreshed_leaf_ids.append(leaf_id)
+
+    monkeypatch.setattr(service, "_refresh_leaf_projection", record_refresh)
+
+    refreshed_count = await service.drain_projection_refresh_requests(
+        now=datetime(2026, 4, 26, 15, 2, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assert refreshed_count == 1
+    assert refreshed_leaf_ids == [root_unclassified.id]
+    assert await _projection_refresh_leaf_ids(db_session) == [science_unclassified.id]
+
+
+async def test_projection_refresh_failure_keeps_request_with_error(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _root, root_unclassified, _science, _science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    db_session.add(TaxonomyClassificationProjectionRefreshRequest(leaf_id=root_unclassified.id))
+    await db_session.commit()
+    client = FakeJobQueueClient({})
+    service = TaxonomyClassificationRuntimeService(db_session, job_queue_client=client)
+
+    async def fail_refresh(*, leaf_id: int) -> None:
+        raise RuntimeError(f"refresh failed for leaf {leaf_id}")
+
+    monkeypatch.setattr(service, "_refresh_leaf_projection", fail_refresh)
+
+    refreshed_count = await service.drain_projection_refresh_requests(
+        now=datetime(2026, 4, 26, 15, 2, tzinfo=UTC)
+    )
+    await db_session.commit()
+    request = await db_session.get(
+        TaxonomyClassificationProjectionRefreshRequest,
+        root_unclassified.id,
+    )
+
+    assert refreshed_count == 0
+    assert request is not None
+    assert request.last_error == f"refresh failed for leaf {root_unclassified.id}"
 
 
 async def test_reconcile_reads_pending_remote_jobs_in_one_batch(

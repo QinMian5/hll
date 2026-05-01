@@ -250,6 +250,7 @@ def test_base_compose_defines_taxonomy_classification_runtime_with_job_queue_sec
     assert "KNOWLEDGE_API_ROLE" not in runtime
     assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME" in runtime
     assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET" in runtime
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_PROJECTION_REFRESH_BATCH_SIZE" in runtime
     assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID" not in runtime
 
 

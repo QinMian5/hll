@@ -104,6 +104,7 @@ class TaxonomyClassificationRuntimeSettings(BaseSettings):
     taxonomy_classification_poll_batch_size: int = Field(default=100, ge=1)
     taxonomy_classification_reconcile_interval_seconds: float = Field(default=3600, gt=0)
     taxonomy_classification_reconcile_batch_size: int = Field(default=100, ge=1)
+    taxonomy_classification_projection_refresh_batch_size: int = Field(default=1, ge=1)
 
 
 class TaxonomyClassificationWebhookReceiverSettings(BaseSettings):
