@@ -16,13 +16,19 @@ from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
     TaxonomyLeafAssignment,
     TaxonomyLeafAssignmentCount,
+    TaxonomyLeafLayout,
+    TaxonomyLeafLayoutEdge,
+    TaxonomyLeafLayoutNode,
+    TaxonomyLeafWorldBounds,
     TaxonomyNodeRecord,
 )
 from modules.taxonomy.route_path import slugify_taxonomy_route_segment
 from modules.taxonomy.schema import (
+    TaxonomyLeafWorldBoundsResponse,
     TaxonomyNodeBranchViewResponse,
     TaxonomyNodeLeafViewResponse,
     TaxonomyRootViewResponse,
+    TaxonomyViewNodeResponse,
 )
 from modules.taxonomy.service import TaxonomyService
 
@@ -47,8 +53,10 @@ class _StubRepo:
     add_projected_edge_batches: list[tuple[int, list[int]]] = field(default_factory=list)
     cleared_projected_leaf_ids: list[int] = field(default_factory=list)
     leaf_lookup_by_node_id: dict[int, int] = field(default_factory=dict)
+    list_tree_nodes_called: bool = False
 
     async def list_tree_nodes(self) -> list[TaxonomyNodeRecord]:
+        self.list_tree_nodes_called = True
         return list(self.tree_nodes)
 
     async def get_node_by_id(self, *, node_id: int) -> TaxonomyNodeRecord | None:
@@ -170,8 +178,35 @@ class _StubProjectionPort:
 @dataclass(slots=True)
 class _StubViewCache:
     descendant_counts: dict[int, int] | None = None
+    root_view: TaxonomyRootViewResponse | None = None
+    node_views: dict[
+        int,
+        TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+    ] = field(default_factory=dict)
+    path_views: dict[str, TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse] = field(
+        default_factory=dict
+    )
     stored_descendant_counts: dict[int, int] | None = None
     lock_acquired: bool = False
+    fail_response_get: bool = False
+    fail_response_set: bool = False
+    fail_descendant_get: bool = False
+    fail_descendant_set: bool = False
+    fail_descendant_lock: bool = False
+    fail_leaf_layout_get: bool = False
+    fail_leaf_layout_set: bool = False
+    fail_leaf_layout_lock: bool = False
+    leaf_layout: TaxonomyLeafLayout | None = None
+    get_root_view_called: bool = False
+    set_root_view_calls: list[TaxonomyRootViewResponse] = field(default_factory=list)
+    get_node_view_calls: list[int] = field(default_factory=list)
+    set_node_view_calls: list[
+        tuple[int, TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse]
+    ] = field(default_factory=list)
+    get_path_view_calls: list[str] = field(default_factory=list)
+    set_path_view_calls: list[
+        tuple[str, TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse]
+    ] = field(default_factory=list)
     get_descendant_counts_called: bool = False
     set_descendant_counts_called: bool = False
     acquire_descendant_counts_lock_called: bool = False
@@ -179,18 +214,87 @@ class _StubViewCache:
 
     async def get_descendant_counts(self) -> dict[int, int] | None:
         self.get_descendant_counts_called = True
+        if self.fail_descendant_get:
+            raise ValueError("descendant count cache payload failed")
         return self.descendant_counts
+
+    async def get_root_view(self) -> TaxonomyRootViewResponse | None:
+        self.get_root_view_called = True
+        if self.fail_response_get:
+            raise ValueError("root view cache payload failed")
+        return self.root_view
+
+    async def set_root_view(self, view: TaxonomyRootViewResponse) -> None:
+        self.set_root_view_calls.append(view)
+        if self.fail_response_set:
+            raise RuntimeError("root view cache write failed")
+
+    async def get_node_view(
+        self,
+        *,
+        node_id: int,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None:
+        self.get_node_view_calls.append(node_id)
+        if self.fail_response_get:
+            raise ValueError("node view cache payload failed")
+        return self.node_views.get(node_id)
+
+    async def set_node_view(
+        self,
+        *,
+        node_id: int,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+    ) -> None:
+        self.set_node_view_calls.append((node_id, view))
+        if self.fail_response_set:
+            raise RuntimeError("node view cache write failed")
+
+    async def get_path_view(
+        self,
+        *,
+        route_path: str,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None:
+        self.get_path_view_calls.append(route_path)
+        if self.fail_response_get:
+            raise ValueError("path view cache payload failed")
+        return self.path_views.get(route_path)
+
+    async def set_path_view(
+        self,
+        *,
+        route_path: str,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+    ) -> None:
+        self.set_path_view_calls.append((route_path, view))
+        if self.fail_response_set:
+            raise RuntimeError("path view cache write failed")
 
     async def set_descendant_counts(self, counts: dict[int, int]) -> None:
         self.set_descendant_counts_called = True
+        if self.fail_descendant_set:
+            raise RuntimeError("descendant count cache write failed")
         self.stored_descendant_counts = dict(counts)
 
     async def acquire_descendant_counts_lock(self) -> bool:
         self.acquire_descendant_counts_lock_called = True
+        if self.fail_descendant_lock:
+            raise RuntimeError("descendant count cache lock failed")
         return self.lock_acquired
 
-    async def invalidate_leaf_layout(self, *, leaf_id: int) -> None:
-        self.invalidated_leaf_layout_ids.append(leaf_id)
+    async def get_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout | None:
+        if self.fail_leaf_layout_get:
+            raise ValueError("leaf layout cache payload failed")
+        return self.leaf_layout
+
+    async def set_leaf_layout(self, *, leaf_id: int, layout: TaxonomyLeafLayout) -> None:
+        if self.fail_leaf_layout_set:
+            raise RuntimeError("leaf layout cache write failed")
+        self.leaf_layout = layout
+
+    async def acquire_leaf_layout_lock(self, *, leaf_id: int) -> bool:
+        if self.fail_leaf_layout_lock:
+            raise RuntimeError("leaf layout cache lock failed")
+        return self.lock_acquired
 
 
 def _taxonomy_node_record(
@@ -209,6 +313,83 @@ def _taxonomy_node_record(
         route_slug=route_slug or slugify_taxonomy_route_segment(name),
         depth=depth,
         is_leaf=is_leaf,
+    )
+
+
+def _view_node(
+    *,
+    id: int,
+    parent_id: int | None,
+    name: str,
+    is_leaf: bool,
+) -> TaxonomyViewNodeResponse:
+    return TaxonomyViewNodeResponse(
+        id=id,
+        parent_id=parent_id,
+        name=name,
+        route_slug=slugify_taxonomy_route_segment(name),
+        route_path="" if parent_id is None else slugify_taxonomy_route_segment(name),
+        depth=0 if parent_id is None else 1,
+        is_leaf=is_leaf,
+    )
+
+
+def _cached_root_view() -> TaxonomyRootViewResponse:
+    return TaxonomyRootViewResponse(
+        breadcrumb=[],
+        children=[],
+    )
+
+
+def _cached_branch_view() -> TaxonomyNodeBranchViewResponse:
+    return TaxonomyNodeBranchViewResponse(
+        node_kind="branch",
+        current_node=_view_node(id=2, parent_id=1, name="Science", is_leaf=False),
+        breadcrumb=[
+            _view_node(id=1, parent_id=None, name="Root", is_leaf=False),
+            _view_node(id=2, parent_id=1, name="Science", is_leaf=False),
+        ],
+        children=[],
+    )
+
+
+def _cached_leaf_metadata_view() -> TaxonomyNodeLeafViewResponse:
+    return TaxonomyNodeLeafViewResponse(
+        node_kind="leaf",
+        current_node=_view_node(id=3, parent_id=1, name="Leaf", is_leaf=True),
+        breadcrumb=[
+            _view_node(id=1, parent_id=None, name="Root", is_leaf=False),
+            _view_node(id=3, parent_id=1, name="Leaf", is_leaf=True),
+        ],
+        layout_version="taxonomy-leaf-layout-v3",
+        world_bounds=TaxonomyLeafWorldBoundsResponse(
+            min_x=-1.0,
+            min_y=-1.0,
+            max_x=1.0,
+            max_y=1.0,
+        ),
+        node_count=1,
+        edge_count=0,
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+    )
+
+
+def _cached_leaf_layout() -> TaxonomyLeafLayout:
+    return TaxonomyLeafLayout(
+        layout_version="taxonomy-leaf-layout-v3",
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+        world_bounds=TaxonomyLeafWorldBounds(
+            min_x=-10.0,
+            min_y=-10.0,
+            max_x=10.0,
+            max_y=10.0,
+        ),
+        nodes=[
+            TaxonomyLeafLayoutNode(id=11, scope="inner", x=1.0, y=2.0),
+        ],
+        edges=[
+            TaxonomyLeafLayoutEdge(source_node_id=11, target_node_id=12, strength=0.5),
+        ],
     )
 
 
@@ -233,7 +414,13 @@ async def test_list_tree_builds_nested_nodes_from_repo_records() -> None:
         repo=_StubRepo(
             tree_nodes=[
                 _taxonomy_node_record(id=1, parent_id=None, name="Science", depth=0, is_leaf=False),
-                _taxonomy_node_record(id=2, parent_id=1, name="Mathematics", depth=1, is_leaf=False),
+                _taxonomy_node_record(
+                    id=2,
+                    parent_id=1,
+                    name="Mathematics",
+                    depth=1,
+                    is_leaf=False,
+                ),
                 _taxonomy_node_record(id=3, parent_id=2, name="Algebra", depth=2, is_leaf=True),
                 _taxonomy_node_record(id=4, parent_id=1, name="Physics", depth=1, is_leaf=True),
             ]
@@ -274,6 +461,147 @@ async def test_get_assignment_for_node_returns_leaf_assignment() -> None:
 
 
 @pytest.mark.anyio
+async def test_get_root_view_returns_cached_response_without_loading_tree() -> None:
+    repo = _StubRepo()
+    cache = _StubViewCache(root_view=_cached_root_view())
+    service = TaxonomyService(repo=repo, view_cache=cache)
+
+    view = await service.get_root_view()
+
+    assert view == _cached_root_view()
+    assert cache.get_root_view_called is True
+    assert repo.list_tree_nodes_called is False
+    assert repo.list_leaf_assignment_counts_called is False
+
+
+@pytest.mark.anyio
+async def test_get_node_view_returns_cached_branch_without_loading_tree() -> None:
+    repo = _StubRepo()
+    cache = _StubViewCache(node_views={2: _cached_branch_view()})
+    service = TaxonomyService(repo=repo, view_cache=cache)
+
+    view = await service.get_node_view(node_id=2)
+
+    assert view == _cached_branch_view()
+    assert cache.get_node_view_calls == [2]
+    assert repo.list_tree_nodes_called is False
+    assert repo.list_leaf_assignment_counts_called is False
+
+
+@pytest.mark.anyio
+async def test_get_node_view_returns_cached_leaf_metadata_without_loading_layout() -> None:
+    repo = _StubRepo()
+    cache = _StubViewCache(node_views={3: _cached_leaf_metadata_view()})
+    projection_port = _StubProjectionPort(nodes=[], edges=[])
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=projection_port,
+        view_cache=cache,
+    )
+
+    view = await service.get_node_view(node_id=3)
+
+    assert view == _cached_leaf_metadata_view()
+    assert cache.get_node_view_calls == [3]
+    assert repo.list_tree_nodes_called is False
+    assert repo.list_assigned_node_ids_for_leaf_called_with == []
+    assert projection_port.edge_id_request_batches == []
+
+
+@pytest.mark.anyio
+async def test_get_path_view_returns_cached_response_without_resolving_tree() -> None:
+    repo = _StubRepo()
+    cache = _StubViewCache(path_views={"science": _cached_branch_view()})
+    service = TaxonomyService(repo=repo, view_cache=cache)
+
+    view = await service.get_node_view_by_route_path(route_path="science")
+
+    assert view == _cached_branch_view()
+    assert cache.get_path_view_calls == ["science"]
+    assert repo.list_tree_nodes_called is False
+
+
+@pytest.mark.anyio
+async def test_taxonomy_response_cache_failure_is_logged_and_treated_as_miss(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+        ],
+    )
+    cache = _StubViewCache(fail_response_get=True)
+    service = TaxonomyService(repo=repo, view_cache=cache)
+
+    view = await service.get_root_view()
+
+    assert view == TaxonomyRootViewResponse(breadcrumb=[], children=[])
+    assert repo.list_tree_nodes_called is True
+    assert "Taxonomy cache failure" in caplog.text
+
+
+@pytest.mark.anyio
+async def test_taxonomy_view_cache_miss_writes_root_node_and_path_responses() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=3, parent_id=2, name="Leaf", depth=2, is_leaf=True),
+        ],
+        assigned_leaf_counts=[
+            TaxonomyLeafAssignmentCount(taxonomy_leaf_id=3, card_count=1),
+        ],
+    )
+    cache = _StubViewCache()
+    service = TaxonomyService(repo=repo, view_cache=cache)
+
+    root_view = await service.get_root_view()
+    node_view = await service.get_node_view(node_id=2)
+    path_view = await service.get_node_view_by_route_path(route_path="science")
+
+    assert cache.set_root_view_calls == [root_view]
+    assert cache.set_node_view_calls == [(2, node_view)]
+    assert cache.set_path_view_calls == [("science", path_view)]
+
+
+@pytest.mark.anyio
+async def test_leaf_title_and_detail_reads_do_not_use_taxonomy_response_cache() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_node_ids=[11],
+        projected_edge_ids=[],
+    )
+    cache = _StubViewCache()
+    projection_port = _StubProjectionPort(
+        nodes=[
+            ProjectionCardNode(
+                node_id=11,
+                current_version=3,
+                title="Inner 11",
+                content="Inner 11 content",
+            )
+        ],
+        edges=[],
+    )
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=projection_port,
+        view_cache=cache,
+    )
+
+    await service.get_leaf_node_titles(node_id=2, node_ids=[11])  # type: ignore[attr-defined]
+    await service.get_leaf_node_details(node_id=2, node_ids=[11])  # type: ignore[attr-defined]
+
+    assert cache.get_node_view_calls == []
+    assert cache.set_node_view_calls == []
+    assert cache.get_path_view_calls == []
+    assert cache.set_path_view_calls == []
+
+
+@pytest.mark.anyio
 async def test_set_current_assignment_commits_written_assignment() -> None:
     repo = _StubRepo(set_result=_leaf_assignment(), assigned_leaf_node_ids=[41])
     projection_port = _StubProjectionPort(nodes=[], edges=[], adjacent_edge_ids=[71, 72])
@@ -292,7 +620,7 @@ async def test_set_current_assignment_commits_written_assignment() -> None:
 
 
 @pytest.mark.anyio
-async def test_set_current_assignment_invalidates_refreshed_leaf_layouts() -> None:
+async def test_set_current_assignment_refreshes_projection_without_cache_invalidation() -> None:
     previous_assignment = TaxonomyAssignmentRecord(
         id=7,
         node_id=41,
@@ -324,7 +652,7 @@ async def test_set_current_assignment_invalidates_refreshed_leaf_layouts() -> No
     )
 
     assert repo.cleared_projected_leaf_ids == [4, 9]
-    assert cache.invalidated_leaf_layout_ids == [4, 9]
+    assert cache.invalidated_leaf_layout_ids == []
 
 
 @pytest.mark.anyio
@@ -556,6 +884,36 @@ async def test_get_root_view_rebuilds_and_caches_descendant_counts_on_cache_miss
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    "failure_flag",
+    ["fail_descendant_get", "fail_descendant_lock", "fail_descendant_set"],
+)
+async def test_descendant_count_cache_failures_are_logged_and_treated_as_misses(
+    failure_flag: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Science", depth=1, is_leaf=False),
+            _taxonomy_node_record(id=3, parent_id=2, name="Unclassified", depth=2, is_leaf=True),
+        ],
+        assigned_leaf_counts=[
+            TaxonomyLeafAssignmentCount(taxonomy_leaf_id=3, card_count=2),
+        ],
+    )
+    cache = _StubViewCache()
+    setattr(cache, failure_flag, True)
+    service = TaxonomyService(repo=repo, view_cache=cache)
+
+    view = await service.get_root_view()
+
+    assert [child.id for child in view.children] == [2]
+    assert repo.list_leaf_assignment_counts_called is True
+    assert "Taxonomy cache failure" in caplog.text
+
+
+@pytest.mark.anyio
 async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
     repo = _StubRepo(
         tree_nodes=[
@@ -610,6 +968,40 @@ async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
     assert repo.list_final_assignments_called is False
     assert projection_port.edge_id_request_batches == [[501, 502]]
     assert projection_port.card_request_batches == []
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "failure_flag",
+    ["fail_leaf_layout_get", "fail_leaf_layout_lock", "fail_leaf_layout_set"],
+)
+async def test_leaf_layout_cache_failures_are_logged_and_treated_as_misses(
+    failure_flag: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_node_ids=[11],
+        projected_edge_ids=[],
+    )
+    cache = _StubViewCache()
+    setattr(cache, failure_flag, True)
+    projection_port = _StubProjectionPort(nodes=[], edges=[])
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=projection_port,
+        view_cache=cache,
+    )
+
+    view = await service.get_node_view(node_id=2)
+
+    assert isinstance(view, TaxonomyNodeLeafViewResponse)
+    assert view.node_count == 1
+    assert repo.list_assigned_node_ids_for_leaf_called_with == [2]
+    assert "Taxonomy cache failure" in caplog.text
 
 
 @pytest.mark.anyio

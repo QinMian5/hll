@@ -43,14 +43,6 @@ class _StubProjectionPort:
         return list(self.edge_ids_by_node_tuple.get(tuple(node_ids), []))
 
 
-@dataclass(slots=True)
-class _StubViewCache:
-    invalidated_leaf_ids: list[int] = field(default_factory=list)
-
-    async def invalidate_leaf_layout(self, *, leaf_id: int) -> None:
-        self.invalidated_leaf_ids.append(leaf_id)
-
-
 @pytest.mark.anyio
 async def test_rebuild_taxonomy_leaf_projection_edges_clears_then_repopulates_all_leaf_rows() -> (
     None
@@ -93,13 +85,9 @@ async def test_rebuild_taxonomy_leaf_projection_edges_clears_then_repopulates_al
             (): [],
         }
     )
-
-    cache = _StubViewCache()
-
     await rebuild_taxonomy_leaf_projection_edges(
         repo=repo,
         projection_port=projection_port,
-        view_cache=cache,
     )
 
     assert repo.cleared is True
@@ -108,4 +96,3 @@ async def test_rebuild_taxonomy_leaf_projection_edges_clears_then_repopulates_al
         (2, [501, 502]),
         (3, []),
     ]
-    assert cache.invalidated_leaf_ids == [2, 3]

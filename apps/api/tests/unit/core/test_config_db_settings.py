@@ -37,6 +37,10 @@ ALL_SETTINGS_KEYS = (
         "KNOWLEDGE_API_LOG_LEVEL",
         "KNOWLEDGE_API_LOG_FILE_MAX_BYTES",
         "KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT",
+        "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS",
+        "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_LEAF_LAYOUT_CACHE_TTL_SECONDS",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_COMMAND",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE_ROOT",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_TIMEOUT_SECONDS",
@@ -168,6 +172,37 @@ def test_load_settings_applies_logging_defaults_when_optional_keys_absent(
     assert settings.log_level == "INFO"
     assert settings.log_file_max_bytes == 10_485_760
     assert settings.log_file_backup_count == 5
+
+
+def test_load_settings_applies_cache_ttl_defaults_when_optional_keys_absent(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(isolated_env, RUNTIME_REQUIRED_ENV)
+    settings = config_module.Settings()
+    assert settings.search_response_cache_ttl_seconds == 60
+    assert settings.search_embedding_cache_ttl_seconds == 86400
+    assert settings.taxonomy_view_cache_ttl_seconds == 60
+    assert settings.taxonomy_leaf_layout_cache_ttl_seconds == 600
+
+
+def test_load_settings_reads_cache_ttls_from_environment(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        RUNTIME_REQUIRED_ENV
+        | {
+            "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS": "45",
+            "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS": "7200",
+            "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS": "30",
+            "KNOWLEDGE_API_TAXONOMY_LEAF_LAYOUT_CACHE_TTL_SECONDS": "300",
+        },
+    )
+    settings = config_module.Settings()
+    assert settings.search_response_cache_ttl_seconds == 45
+    assert settings.search_embedding_cache_ttl_seconds == 7200
+    assert settings.taxonomy_view_cache_ttl_seconds == 30
+    assert settings.taxonomy_leaf_layout_cache_ttl_seconds == 300
 
 
 def test_shared_settings_exclude_taxonomy_classification_job_queue_and_webhook_fields(

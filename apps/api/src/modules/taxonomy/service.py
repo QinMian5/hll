@@ -5,6 +5,7 @@ Out of scope: HTTP endpoint wiring and LLM classification orchestration.
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -43,6 +44,8 @@ from modules.taxonomy.schema import (
     TaxonomyViewChildResponse,
     TaxonomyViewNodeResponse,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TaxonomyRepoProtocol(Protocol):
@@ -120,6 +123,36 @@ class TaxonomyKnowledgeProjectionPort(Protocol):
 
 
 class TaxonomyViewCachePort(Protocol):
+    async def get_root_view(self) -> TaxonomyRootViewResponse | None: ...
+
+    async def set_root_view(self, view: TaxonomyRootViewResponse) -> None: ...
+
+    async def get_node_view(
+        self,
+        *,
+        node_id: int,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None: ...
+
+    async def set_node_view(
+        self,
+        *,
+        node_id: int,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+    ) -> None: ...
+
+    async def get_path_view(
+        self,
+        *,
+        route_path: str,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None: ...
+
+    async def set_path_view(
+        self,
+        *,
+        route_path: str,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+    ) -> None: ...
+
     async def get_descendant_counts(self) -> dict[int, int] | None: ...
 
     async def set_descendant_counts(self, counts: dict[int, int]) -> None: ...
@@ -129,8 +162,6 @@ class TaxonomyViewCachePort(Protocol):
     async def get_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout | None: ...
 
     async def set_leaf_layout(self, *, leaf_id: int, layout: TaxonomyLeafLayout) -> None: ...
-
-    async def invalidate_leaf_layout(self, *, leaf_id: int) -> None: ...
 
     async def acquire_leaf_layout_lock(self, *, leaf_id: int) -> bool: ...
 
@@ -206,6 +237,10 @@ class TaxonomyService:
         return await self._repo.get_assignment_for_node(node_id=node_id)
 
     async def get_root_view(self) -> TaxonomyRootViewResponse:
+        cached_view = await self._get_cached_root_view()
+        if cached_view is not None:
+            return cached_view
+
         tree_context = await self._load_tree_context()
         descendant_counts = await self._load_descendant_card_counts(
             node_by_id=tree_context.node_by_id,
@@ -224,16 +259,28 @@ class TaxonomyService:
             descendant_counts=descendant_counts,
             route_paths_by_id=tree_context.route_paths_by_id,
         )
-        return TaxonomyRootViewResponse(breadcrumb=[], children=children)
+        view = TaxonomyRootViewResponse(breadcrumb=[], children=children)
+        await self._set_cached_root_view(view)
+        return view
 
     async def get_node_view(self, *, node_id: int) -> TaxonomyNodeViewResponse:
+        cached_view = await self._get_cached_node_view(node_id=node_id)
+        if cached_view is not None:
+            return cached_view
+
         tree_context = await self._load_tree_context()
-        return await self._get_node_view_from_tree_context(
+        view = await self._get_node_view_from_tree_context(
             node_id=node_id,
             tree_context=tree_context,
         )
+        await self._set_cached_node_view(node_id=node_id, view=view)
+        return view
 
     async def get_node_view_by_route_path(self, *, route_path: str) -> TaxonomyNodeViewResponse:
+        cached_view = await self._get_cached_path_view(route_path=route_path)
+        if cached_view is not None:
+            return cached_view
+
         tree_context = await self._load_tree_context()
         node_id = _resolve_node_id_by_route_path(
             route_path=route_path,
@@ -241,10 +288,81 @@ class TaxonomyService:
             child_ids_by_parent=tree_context.child_ids_by_parent,
             node_by_id=tree_context.node_by_id,
         )
-        return await self._get_node_view_from_tree_context(
+        view = await self._get_node_view_from_tree_context(
             node_id=node_id,
             tree_context=tree_context,
         )
+        await self._set_cached_path_view(route_path=route_path, view=view)
+        return view
+
+    async def _get_cached_root_view(self) -> TaxonomyRootViewResponse | None:
+        if self._view_cache is None:
+            return None
+        try:
+            return await self._view_cache.get_root_view()
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-root-view", operation="get", exc=exc)
+            return None
+
+    async def _set_cached_root_view(self, view: TaxonomyRootViewResponse) -> None:
+        if self._view_cache is None:
+            return
+        try:
+            await self._view_cache.set_root_view(view)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-root-view", operation="set", exc=exc)
+
+    async def _get_cached_node_view(
+        self,
+        *,
+        node_id: int,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None:
+        if self._view_cache is None:
+            return None
+        try:
+            return await self._view_cache.get_node_view(node_id=node_id)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-node-view", operation="get", exc=exc)
+            return None
+
+    async def _set_cached_node_view(
+        self,
+        *,
+        node_id: int,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+    ) -> None:
+        if self._view_cache is None:
+            return
+        try:
+            await self._view_cache.set_node_view(node_id=node_id, view=view)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-node-view", operation="set", exc=exc)
+
+    async def _get_cached_path_view(
+        self,
+        *,
+        route_path: str,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None:
+        if self._view_cache is None:
+            return None
+        try:
+            return await self._view_cache.get_path_view(route_path=route_path)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-path-view", operation="get", exc=exc)
+            return None
+
+    async def _set_cached_path_view(
+        self,
+        *,
+        route_path: str,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+    ) -> None:
+        if self._view_cache is None:
+            return
+        try:
+            await self._view_cache.set_path_view(route_path=route_path, view=view)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-path-view", operation="set", exc=exc)
 
     async def _load_tree_context(self) -> _TaxonomyTreeContext:
         tree_nodes = await self._repo.list_tree_nodes()
@@ -592,10 +710,10 @@ class TaxonomyService:
         child_ids_by_parent: dict[int | None, list[int]],
     ) -> dict[int, int]:
         if self._view_cache is not None:
-            cached_counts = await self._view_cache.get_descendant_counts()
+            cached_counts = await self._get_cached_descendant_counts()
             if cached_counts is not None:
                 return {node_id: cached_counts.get(node_id, 0) for node_id in node_by_id}
-            await self._view_cache.acquire_descendant_counts_lock()
+            await self._acquire_descendant_counts_lock()
 
         assignment_counts = await self._repo.list_leaf_assignment_counts()
         descendant_counts = dict.fromkeys(node_by_id, 0)
@@ -612,9 +730,34 @@ class TaxonomyService:
             descendant_counts[node.parent_id] += descendant_counts[node.id]
 
         if self._view_cache is not None:
-            await self._view_cache.set_descendant_counts(descendant_counts)
+            await self._set_cached_descendant_counts(descendant_counts)
 
         return descendant_counts
+
+    async def _get_cached_descendant_counts(self) -> dict[int, int] | None:
+        if self._view_cache is None:
+            return None
+        try:
+            return await self._view_cache.get_descendant_counts()
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-descendant-counts", operation="get", exc=exc)
+            return None
+
+    async def _set_cached_descendant_counts(self, counts: dict[int, int]) -> None:
+        if self._view_cache is None:
+            return
+        try:
+            await self._view_cache.set_descendant_counts(counts)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-descendant-counts", operation="set", exc=exc)
+
+    async def _acquire_descendant_counts_lock(self) -> None:
+        if self._view_cache is None:
+            return
+        try:
+            await self._view_cache.acquire_descendant_counts_lock()
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-descendant-counts", operation="lock", exc=exc)
 
     async def _build_leaf_graph_projection(
         self,
@@ -636,13 +779,15 @@ class TaxonomyService:
             all_node_ids.add(edge.node_a_id)
             all_node_ids.add(edge.node_b_id)
         inner_node_id_set = set(inner_node_ids)
+        scope_by_node_id: dict[int, Literal["inner", "outer"]] = {}
+        for related_node_id in sorted(all_node_ids):
+            scope_by_node_id[related_node_id] = (
+                "inner" if related_node_id in inner_node_id_set else "outer"
+            )
 
         return _LeafGraphProjection(
             edges=edges,
-            scope_by_node_id={
-                related_node_id: "inner" if related_node_id in inner_node_id_set else "outer"
-                for related_node_id in sorted(all_node_ids)
-            },
+            scope_by_node_id=scope_by_node_id,
         )
 
     async def _load_leaf_layout(
@@ -651,21 +796,21 @@ class TaxonomyService:
         current_node: TaxonomyNodeRecord,
     ) -> TaxonomyLeafLayout:
         if self._view_cache is not None:
-            cached_layout = await self._view_cache.get_leaf_layout(leaf_id=current_node.id)
+            cached_layout = await self._get_cached_leaf_layout(leaf_id=current_node.id)
             if cached_layout is not None:
                 return cached_layout
-            await self._view_cache.acquire_leaf_layout_lock(leaf_id=current_node.id)
+            await self._acquire_leaf_layout_lock(leaf_id=current_node.id)
 
         leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
         layout = build_leaf_layout(
             nodes=[
                 TaxonomyLeafLayoutNode(
                     id=node_id,
-                    scope=scope,
+                    scope=leaf_graph.scope_by_node_id[node_id],
                     x=0.0,
                     y=0.0,
                 )
-                for node_id, scope in sorted(leaf_graph.scope_by_node_id.items())
+                for node_id in sorted(leaf_graph.scope_by_node_id)
             ],
             edges=[
                 TaxonomyLeafLayoutEdge(
@@ -678,8 +823,33 @@ class TaxonomyService:
             generated_at=datetime.now(UTC),
         )
         if self._view_cache is not None:
-            await self._view_cache.set_leaf_layout(leaf_id=current_node.id, layout=layout)
+            await self._set_cached_leaf_layout(leaf_id=current_node.id, layout=layout)
         return layout
+
+    async def _get_cached_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout | None:
+        if self._view_cache is None:
+            return None
+        try:
+            return await self._view_cache.get_leaf_layout(leaf_id=leaf_id)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-leaf-layout", operation="get", exc=exc)
+            return None
+
+    async def _set_cached_leaf_layout(self, *, leaf_id: int, layout: TaxonomyLeafLayout) -> None:
+        if self._view_cache is None:
+            return
+        try:
+            await self._view_cache.set_leaf_layout(leaf_id=leaf_id, layout=layout)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-leaf-layout", operation="set", exc=exc)
+
+    async def _acquire_leaf_layout_lock(self, *, leaf_id: int) -> None:
+        if self._view_cache is None:
+            return
+        try:
+            await self._view_cache.acquire_leaf_layout_lock(leaf_id=leaf_id)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-leaf-layout", operation="lock", exc=exc)
 
     async def _refresh_leaf_projection(self, *, leaf_id: int) -> None:
         if self._knowledge_projection_port is None:
@@ -695,8 +865,6 @@ class TaxonomyService:
             leaf_id=leaf_id,
             edge_ids=adjacent_edge_ids,
         )
-        if self._view_cache is not None:
-            await self._view_cache.invalidate_leaf_layout(leaf_id=leaf_id)
 
 
 def _index_tree(
@@ -786,6 +954,17 @@ def _resolve_node_id_by_route_path(
         cursor_id = matches[0]
 
     return cursor_id
+
+
+def _log_cache_failure(*, cache_name: str, operation: str, exc: Exception) -> None:
+    logger.warning(
+        "Taxonomy cache failure.",
+        extra={
+            "cache_name": cache_name,
+            "cache_operation": operation,
+            "reason": str(exc),
+        },
+    )
 
 
 def _world_bounds_response_from_layout(

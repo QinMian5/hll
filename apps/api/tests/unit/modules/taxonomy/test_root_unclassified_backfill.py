@@ -101,14 +101,6 @@ class _StubProjectionPort:
         return list(self.adjacent_edge_ids)
 
 
-@dataclass(slots=True)
-class _StubViewCache:
-    invalidated_leaf_ids: list[int] = field(default_factory=list)
-
-    async def invalidate_leaf_layout(self, *, leaf_id: int) -> None:
-        self.invalidated_leaf_ids.append(leaf_id)
-
-
 @pytest.mark.anyio
 async def test_dry_run_reports_missing_assignments_without_writes() -> None:
     repo = _StubRepo(
@@ -163,11 +155,9 @@ async def test_apply_backfills_missing_assignments_and_rebuilds_projection() -> 
         assigned_node_ids_by_leaf={2: [11, 12]},
     )
     projection_port = _StubProjectionPort(adjacent_edge_ids=[101, 102])
-    cache = _StubViewCache()
     service = TaxonomyRootUnclassifiedBackfillService(
         repo=repo,
         knowledge_projection_port=projection_port,
-        view_cache=cache,
     )
 
     result = await service.run(apply=True)
@@ -186,7 +176,6 @@ async def test_apply_backfills_missing_assignments_and_rebuilds_projection() -> 
     assert repo.cleared_projection is True
     assert projection_port.requests == [[11, 12]]
     assert repo.projection_batches == [(2, [101, 102])]
-    assert cache.invalidated_leaf_ids == [2]
     assert repo.committed is True
     assert repo.rolled_back is False
 

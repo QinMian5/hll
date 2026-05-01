@@ -6,10 +6,8 @@ Out of scope: HTTP transport behavior and module-level business orchestration ru
 from __future__ import annotations
 
 import asyncio
-from typing import cast
 
 import dramatiq
-from redis.asyncio import Redis
 
 from core.logging import get_logger
 from entrypoints.runtime import get_runtime_dependencies
@@ -19,7 +17,6 @@ from modules.ingestion.queue import (
     IngestionTask,
     IngestionTaskPayload,
 )
-from modules.taxonomy.view_cache import TaxonomyRedisProtocol, TaxonomyViewRedisCache
 
 logger = get_logger(__name__)
 
@@ -53,12 +50,6 @@ def enqueue_ingestion_task(
                 edge_semantic_top_k=runtime.settings.edge_semantic_top_k,
                 edge_semantic_min_strength=runtime.settings.edge_semantic_min_strength,
                 edge_semantic_candidate_limit=runtime.settings.edge_semantic_candidate_limit,
-                taxonomy_view_cache=TaxonomyViewRedisCache(
-                    redis=cast(
-                        TaxonomyRedisProtocol,
-                        Redis.from_url(runtime.settings.redis_url),
-                    )
-                ),
             )
             return await process_ingestion_job(
                 title=task.title,

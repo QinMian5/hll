@@ -15,9 +15,18 @@ from modules.taxonomy.dto import (
     TaxonomyLeafLayoutNode,
     TaxonomyLeafWorldBounds,
 )
+from modules.taxonomy.schema import (
+    TaxonomyLeafWorldBoundsResponse,
+    TaxonomyNodeBranchViewResponse,
+    TaxonomyNodeLeafViewResponse,
+    TaxonomyRootViewResponse,
+    TaxonomyViewChildResponse,
+    TaxonomyViewNodeResponse,
+)
 from modules.taxonomy.view_cache import (
     TAXONOMY_VIEW_COUNT_CACHE_TTL_SECONDS,
     TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS,
+    TAXONOMY_VIEW_RESPONSE_CACHE_TTL_SECONDS,
     TaxonomyViewRedisCache,
 )
 
@@ -50,6 +59,131 @@ class _FakeRedis:
             return False
         self.values[key] = value
         return True
+
+
+def _view_node(
+    *,
+    id: int,
+    parent_id: int | None,
+    name: str,
+    is_leaf: bool,
+) -> TaxonomyViewNodeResponse:
+    route_path = "" if parent_id is None else name.lower()
+    return TaxonomyViewNodeResponse(
+        id=id,
+        parent_id=parent_id,
+        name=name,
+        route_slug=name.lower(),
+        route_path=route_path,
+        depth=0 if parent_id is None else 1,
+        is_leaf=is_leaf,
+    )
+
+
+def _root_view() -> TaxonomyRootViewResponse:
+    return TaxonomyRootViewResponse(
+        breadcrumb=[],
+        children=[
+            TaxonomyViewChildResponse(
+                id=2,
+                parent_id=1,
+                name="Science",
+                route_slug="science",
+                route_path="science",
+                depth=1,
+                is_leaf=False,
+                descendant_card_count=3,
+            )
+        ],
+    )
+
+
+def _branch_view() -> TaxonomyNodeBranchViewResponse:
+    return TaxonomyNodeBranchViewResponse(
+        node_kind="branch",
+        current_node=_view_node(id=2, parent_id=1, name="Science", is_leaf=False),
+        breadcrumb=[
+            _view_node(id=1, parent_id=None, name="Root", is_leaf=False),
+            _view_node(id=2, parent_id=1, name="Science", is_leaf=False),
+        ],
+        children=[],
+    )
+
+
+def _leaf_metadata_view() -> TaxonomyNodeLeafViewResponse:
+    return TaxonomyNodeLeafViewResponse(
+        node_kind="leaf",
+        current_node=_view_node(id=3, parent_id=1, name="Leaf", is_leaf=True),
+        breadcrumb=[
+            _view_node(id=1, parent_id=None, name="Root", is_leaf=False),
+            _view_node(id=3, parent_id=1, name="Leaf", is_leaf=True),
+        ],
+        layout_version="taxonomy-leaf-layout-v3",
+        world_bounds=TaxonomyLeafWorldBoundsResponse(
+            min_x=-1.0,
+            min_y=-2.0,
+            max_x=3.0,
+            max_y=4.0,
+        ),
+        node_count=3,
+        edge_count=2,
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+    )
+
+
+@pytest.mark.anyio
+async def test_root_view_response_cache_stores_and_reads_validated_payload() -> None:
+    redis = _FakeRedis()
+    cache = TaxonomyViewRedisCache(redis=redis, view_response_ttl_seconds=45)
+    root_view = _root_view()
+
+    await cache.set_root_view(root_view)
+    cached = await cache.get_root_view()
+
+    assert cached == root_view
+    assert redis.set_calls[0][0] == "knowledge:api:taxonomy-view:v1:root"
+    assert redis.set_calls[0][2] == 45
+
+
+@pytest.mark.anyio
+async def test_node_view_response_cache_supports_branch_and_leaf_payloads() -> None:
+    redis = _FakeRedis()
+    cache = TaxonomyViewRedisCache(redis=redis)
+    branch_view = _branch_view()
+    leaf_view = _leaf_metadata_view()
+
+    await cache.set_node_view(node_id=2, view=branch_view)
+    await cache.set_node_view(node_id=3, view=leaf_view)
+
+    assert await cache.get_node_view(node_id=2) == branch_view
+    assert await cache.get_node_view(node_id=3) == leaf_view
+    assert redis.set_calls[0][0] == "knowledge:api:taxonomy-view:v1:node:2"
+    assert redis.set_calls[1][0] == "knowledge:api:taxonomy-view:v1:node:3"
+    assert redis.set_calls[0][2] == TAXONOMY_VIEW_RESPONSE_CACHE_TTL_SECONDS
+
+
+@pytest.mark.anyio
+async def test_path_view_response_cache_uses_hashed_route_path_key() -> None:
+    redis = _FakeRedis()
+    cache = TaxonomyViewRedisCache(redis=redis)
+    branch_view = _branch_view()
+
+    await cache.set_path_view(route_path="science/mathematics", view=branch_view)
+    cached = await cache.get_path_view(route_path="science/mathematics")
+
+    assert cached == branch_view
+    assert redis.set_calls[0][0].startswith("knowledge:api:taxonomy-view:v1:path:")
+    assert "science/mathematics" not in redis.set_calls[0][0]
+
+
+@pytest.mark.anyio
+async def test_taxonomy_response_cache_rejects_malformed_payload() -> None:
+    redis = _FakeRedis()
+    redis.values["knowledge:api:taxonomy-view:v1:root"] = "{}"
+    cache = TaxonomyViewRedisCache(redis=redis)
+
+    with pytest.raises(ValueError, match="root view cache payload"):
+        await cache.get_root_view()
 
 
 @pytest.mark.anyio
@@ -154,12 +288,7 @@ async def test_leaf_layout_lock_uses_per_leaf_single_flight_key() -> None:
 
 
 @pytest.mark.anyio
-async def test_leaf_layout_cache_can_invalidate_versioned_leaf_payload() -> None:
-    redis = _FakeRedis()
-    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9"] = "{}"
-    cache = TaxonomyViewRedisCache(redis=redis)
+async def test_leaf_layout_cache_does_not_expose_write_path_invalidation_api() -> None:
+    cache = TaxonomyViewRedisCache(redis=_FakeRedis())
 
-    await cache.invalidate_leaf_layout(leaf_id=9)
-
-    assert redis.delete_calls == ["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9"]
-    assert "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9" not in redis.values
+    assert not hasattr(cache, "invalidate_leaf_layout")

@@ -34,10 +34,12 @@ from modules.knowledge_graph.ports import (
     KnowledgeGraphReadPort,
 )
 from modules.knowledge_graph.service import KnowledgeGraphService
+from modules.search.cache import SearchRedisEmbeddingCache, SearchRedisResponseCache
 from modules.search.service import SearchService
 from modules.taxonomy.repo import TaxonomyRepo
 from modules.taxonomy.service import TaxonomyService
 from modules.taxonomy.view_cache import TaxonomyRedisProtocol, TaxonomyViewRedisCache
+from shared.cache import RedisJsonProtocol
 from shared.integrations import EmbeddingClient
 
 
@@ -91,6 +93,15 @@ def get_search_service(
         embedding_client=embedding_client,
         max_matched=settings.search_max_matched,
         max_connected=settings.search_max_connected,
+        response_cache=SearchRedisResponseCache(
+            redis=cast(RedisJsonProtocol, Redis.from_url(settings.redis_url)),
+            ttl_seconds=settings.search_response_cache_ttl_seconds,
+        ),
+        embedding_cache=SearchRedisEmbeddingCache(
+            redis=cast(RedisJsonProtocol, Redis.from_url(settings.redis_url)),
+            ttl_seconds=settings.search_embedding_cache_ttl_seconds,
+        ),
+        embedding_model=settings.embedding_model,
     )
 
 
@@ -105,7 +116,10 @@ def get_taxonomy_service(
         repo=TaxonomyRepo(session=session),
         knowledge_projection_port=knowledge_projection_port,
         view_cache=TaxonomyViewRedisCache(
-            redis=cast(TaxonomyRedisProtocol, Redis.from_url(settings.redis_url))
+            redis=cast(TaxonomyRedisProtocol, Redis.from_url(settings.redis_url)),
+            descendant_count_ttl_seconds=settings.taxonomy_view_cache_ttl_seconds,
+            view_response_ttl_seconds=settings.taxonomy_view_cache_ttl_seconds,
+            leaf_layout_ttl_seconds=settings.taxonomy_leaf_layout_cache_ttl_seconds,
         ),
     )
 

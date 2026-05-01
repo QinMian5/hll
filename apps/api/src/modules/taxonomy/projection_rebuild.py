@@ -29,15 +29,10 @@ class TaxonomyLeafProjectionRebuildKnowledgePort(Protocol):
     async def list_adjacent_edge_ids_for_node_ids(self, *, node_ids: list[int]) -> list[int]: ...
 
 
-class TaxonomyLeafProjectionRebuildViewCachePort(Protocol):
-    async def invalidate_leaf_layout(self, *, leaf_id: int) -> None: ...
-
-
 async def rebuild_taxonomy_leaf_projection_edges(
     *,
     repo: TaxonomyLeafProjectionRebuildRepoPort,
     projection_port: TaxonomyLeafProjectionRebuildKnowledgePort,
-    view_cache: TaxonomyLeafProjectionRebuildViewCachePort | None = None,
 ) -> None:
     tree_nodes = await repo.list_tree_nodes()
     leaf_ids = sorted(node.id for node in tree_nodes if node.is_leaf)
@@ -52,5 +47,3 @@ async def rebuild_taxonomy_leaf_projection_edges(
             leaf_id=leaf_id,
             edge_ids=adjacent_edge_ids,
         )
-        if view_cache is not None:
-            await view_cache.invalidate_leaf_layout(leaf_id=leaf_id)

@@ -36,6 +36,17 @@ def test_tracked_env_example_has_valid_line_structure_and_unique_keys() -> None:
     _parse_env_keys(ENV_EXAMPLE)
 
 
+def test_tracked_env_example_contains_api_cache_ttl_keys() -> None:
+    keys = _parse_env_keys(ENV_EXAMPLE)
+    for key in (
+        "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS",
+        "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_LEAF_LAYOUT_CACHE_TTL_SECONDS",
+    ):
+        assert key in keys
+
+
 def _parse_env_keys(path: Path) -> list[str]:
     lines = path.read_text(encoding="utf-8").splitlines()
     assert lines, f"{path} must not be empty."
