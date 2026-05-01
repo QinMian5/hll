@@ -1,11 +1,17 @@
 // abstract: Explicit browser-facing BFF routes for taxonomy-view data.
 // out_of_scope: Browser graph rendering and backend taxonomy service behavior.
 
-import { type RequestHandler, Router } from "express";
+import {
+  type NextFunction,
+  type RequestHandler,
+  type Response,
+  Router,
+} from "express";
 
 import type { InternalApiClient } from "../internal-api/client.js";
 import {
   handleWebRouteError,
+  InternalApiError,
   WebRouteInputError,
 } from "../internal-api/errors.js";
 
@@ -80,6 +86,24 @@ function parseRoutePath(value: unknown): string {
   return segments.join("/");
 }
 
+function handleTaxonomyPathRouteError(
+  error: unknown,
+  response: Response,
+  next: NextFunction,
+): void {
+  if (error instanceof InternalApiError && error.status === 404) {
+    response.status(404).json({
+      error: {
+        code: "taxonomy_route_path_not_found",
+        message: "Taxonomy route path was not found.",
+      },
+    });
+    return;
+  }
+
+  handleWebRouteError(error, response, next);
+}
+
 function parseFiniteQueryNumber(value: unknown): number {
   if (typeof value !== "string") {
     throw new WebRouteInputError(
@@ -139,7 +163,7 @@ export function createTaxonomyViewRouter(
           await options.internalApi.getTaxonomyNodeByPath(routePath),
         );
       } catch (error) {
-        handleWebRouteError(error, response, next);
+        handleTaxonomyPathRouteError(error, response, next);
       }
     },
   );

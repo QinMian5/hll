@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { WebApiRequestError } from "../../../shared/web-api/errors";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
 import type { SearchResultCardEditPayload } from "../../search/components/SearchResultCard";
 import { SignInRequiredDialog } from "../../search/components/SignInRequiredDialog";
@@ -45,6 +46,8 @@ const breadcrumbMutedClasses =
   "text-[13px] leading-[18px] font-normal text-[rgba(92,107,138,0.74)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0";
 const breadcrumbCurrentClasses =
   "text-[13px] leading-[18px] font-medium text-[rgba(33,43,64,0.96)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0";
+const errorActionClasses =
+  "mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-[#006bff] px-4 text-[13px] leading-[18px] font-medium text-white transition-colors hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
 
 type BubbleFlowNode = Node<TaxonomyLayoutNodeData, "bubble">;
 
@@ -105,6 +108,14 @@ function measuredViewportFromElement(element: HTMLElement | null) {
 
 function sameViewport(left: LayoutViewport, right: LayoutViewport) {
   return left.height === right.height && left.width === right.width;
+}
+
+function isTaxonomyRoutePathNotFound(error: Error | null): boolean {
+  return (
+    error instanceof WebApiRequestError &&
+    error.status === 404 &&
+    error.code === "taxonomy_route_path_not_found"
+  );
 }
 
 export function TaxonomyViewPage() {
@@ -254,6 +265,8 @@ export function TaxonomyViewPage() {
     rootMode,
     rootQuery.data?.children,
   ]);
+  const routePathNotFound =
+    activeQuery.isError && isTaxonomyRoutePathNotFound(activeQuery.error);
 
   return (
     <main
@@ -330,11 +343,24 @@ export function TaxonomyViewPage() {
             role="alert"
           >
             <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
-              Taxonomy view unavailable
+              {routePathNotFound
+                ? "Graph path not found"
+                : "Taxonomy view unavailable"}
             </h2>
             <p className="mt-2.5 mb-0 text-[#475569]">
-              {activeQuery.error.message}
+              {routePathNotFound
+                ? "This taxonomy path does not exist."
+                : activeQuery.error.message}
             </p>
+            {routePathNotFound ? (
+              <button
+                className={errorActionClasses}
+                onClick={() => navigateToGraphPath("")}
+                type="button"
+              >
+                Back to Root
+              </button>
+            ) : null}
           </section>
         ) : null}
         <div className="taxonomy-flow-shell absolute inset-0 overflow-hidden">

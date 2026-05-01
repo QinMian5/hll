@@ -111,6 +111,7 @@ vi.mock("../../../shared/web-api/useWebSession", () => ({
   useWebSession: vi.fn(),
 }));
 
+import { WebApiRequestError } from "../../../shared/web-api/errors";
 import * as webSession from "../../../shared/web-api/useWebSession";
 import * as searchQueries from "../../search/data/searchQueries";
 import type {
@@ -647,7 +648,11 @@ describe("TaxonomyViewPage", () => {
     pathQueryStates.set(
       "science/missing",
       makeQueryResult({
-        error: new Error("Taxonomy route path was not found."),
+        error: new WebApiRequestError({
+          code: "taxonomy_route_path_not_found",
+          message: "Taxonomy route path was not found.",
+          status: 404,
+        }),
         isError: true,
       }),
     );
@@ -655,8 +660,15 @@ describe("TaxonomyViewPage", () => {
     const { router } = await renderWithRoute("/graph/science/missing");
 
     expect(screen.getByTestId("taxonomy-error-overlay")).toHaveTextContent(
-      "Taxonomy route path was not found.",
+      "Graph path not found",
+    );
+    expect(screen.getByTestId("taxonomy-error-overlay")).toHaveTextContent(
+      "This taxonomy path does not exist.",
     );
     expect(router.state.location.pathname).toBe("/graph/science/missing");
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Root" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/graph"));
   });
 });

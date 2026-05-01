@@ -179,8 +179,8 @@ describe("taxonomy view route", () => {
     expect(client.getTaxonomyRoot).not.toHaveBeenCalled();
     expect(response.body).toEqual({
       error: {
-        code: "internal_api_request_failed",
-        message: "Internal API request failed.",
+        code: "taxonomy_route_path_not_found",
+        message: "Taxonomy route path was not found.",
       },
     });
   });
