@@ -78,6 +78,26 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --text-knowledge-title--line-height: 22px;
   --text-knowledge-dialog-title: 18px;
   --text-knowledge-dialog-title--line-height: 24px;
+  --text-knowledge-dashboard-page-title: 16px;
+  --text-knowledge-dashboard-page-title--line-height: 24px;
+  --text-knowledge-dashboard-page-title-desktop: 18px;
+  --text-knowledge-dashboard-page-title-desktop--line-height: 48px;
+  --text-knowledge-dashboard-card-title: 15px;
+  --text-knowledge-dashboard-card-title--line-height: 20px;
+  --text-knowledge-dashboard-card-title-desktop: 16px;
+  --text-knowledge-dashboard-card-title-desktop--line-height: 22px;
+  --text-knowledge-dashboard-card-body: 13px;
+  --text-knowledge-dashboard-card-body--line-height: 19px;
+  --text-knowledge-dashboard-quota-label: 12px;
+  --text-knowledge-dashboard-quota-label--line-height: 18px;
+  --text-knowledge-dashboard-quota-value: 18px;
+  --text-knowledge-dashboard-quota-value--line-height: 24px;
+  --text-knowledge-dashboard-quota-value-desktop: 20px;
+  --text-knowledge-dashboard-quota-value-desktop--line-height: 28px;
+  --text-knowledge-dashboard-microcopy: 11px;
+  --text-knowledge-dashboard-microcopy--line-height: 16px;
+  --text-knowledge-dashboard-microcopy-desktop: 12px;
+  --text-knowledge-dashboard-microcopy-desktop--line-height: 16px;
 
   --text-account-menu-item: 14px;
   --text-account-menu-item--line-height: 20px;
@@ -117,6 +137,46 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-leaf-disclosure-width-xl: 384px;
   --spacing-knowledge-section-gap: 16px;
   --spacing-knowledge-surface-padding: 24px;
+  --spacing-search-related-result-gap: 8px;
+  --spacing-search-related-result-icon-size: 24px;
+  --spacing-search-related-result-padding-x: 12px;
+  --spacing-search-related-result-padding-y: 8px;
+  --spacing-knowledge-dashboard-page-header: 48px;
+  --spacing-knowledge-dashboard-page-gap: 16px;
+  --spacing-knowledge-dashboard-page-gap-desktop: 20px;
+  --spacing-knowledge-dashboard-page-padding-x: 16px;
+  --spacing-knowledge-dashboard-page-padding-x-desktop: 32px;
+  --spacing-knowledge-dashboard-page-padding-top: 16px;
+  --spacing-knowledge-dashboard-page-padding-top-desktop: 24px;
+  --spacing-knowledge-dashboard-page-padding-bottom: 16px;
+  --spacing-knowledge-dashboard-page-padding-bottom-desktop: 32px;
+  --spacing-knowledge-dashboard-empty-state-height: 160px;
+  --spacing-knowledge-dashboard-dialog-close-size: 32px;
+  --spacing-knowledge-dashboard-dialog-field-gap: 8px;
+  --spacing-knowledge-dashboard-dialog-footer-gap: 8px;
+  --spacing-knowledge-dashboard-dialog-gap: 20px;
+  --spacing-knowledge-dashboard-dialog-header-height: 32px;
+  --spacing-knowledge-dashboard-dialog-overlay-padding-x: 16px;
+  --spacing-knowledge-dashboard-dialog-overlay-padding-y: 32px;
+  --spacing-knowledge-dashboard-dialog-token-preview-padding-x: 16px;
+  --spacing-knowledge-dashboard-dialog-token-preview-padding-y: 12px;
+  --spacing-knowledge-dashboard-quota-metric-height: 76px;
+  --spacing-knowledge-dashboard-quota-metric-height-desktop: 84px;
+  --spacing-knowledge-dashboard-quota-metric-gap: 4px;
+  --spacing-knowledge-dashboard-section-gap: 16px;
+  --spacing-knowledge-dashboard-scrollbar-width: 8px;
+  --spacing-knowledge-dashboard-surface-padding: 16px;
+  --spacing-knowledge-dashboard-table-action-width: 24px;
+  --spacing-knowledge-dashboard-table-header-height: 45px;
+  --spacing-knowledge-dashboard-table-header-height-desktop: 41px;
+  --spacing-knowledge-dashboard-table-header-row-height: 40px;
+  --spacing-knowledge-dashboard-table-height: 387px;
+  --spacing-knowledge-dashboard-table-height-desktop: 268px;
+  --spacing-knowledge-dashboard-table-row-gap: 8px;
+  --spacing-knowledge-dashboard-table-row-height: 96px;
+  --spacing-knowledge-dashboard-table-row-height-desktop: 56px;
+  --spacing-knowledge-dashboard-table-row-padding-y: 8px;
+  --spacing-knowledge-dashboard-toolbar-height: 40px;
 
   --spacing-account-menu-height: 140px;
   --spacing-account-menu-icon-size: 16px;
@@ -131,6 +191,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --radius-knowledge-surface: 8px;
 
   --shadow-knowledge-input: 0 1px 2px rgb(16 24 40 / 4%);
+  --scale-search-related-result-hover: 1.004;
   --radius-account-menu: 8px;
   --radius-account-menu-item: 6px;
 
@@ -146,6 +207,13 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   font-weight: 400;
   --scroll-area-thumb-color: var(--color-docs-scrollbar-thumb);
   --scroll-area-track-color: var(--color-docs-scrollbar-track);
+  --knowledge-dashboard-table-grid-mobile: repeat(2, minmax(0, 1fr));
+  --knowledge-dashboard-table-grid-desktop: minmax(0, 3fr) minmax(0, 5fr)
+    minmax(0, 1.5fr) minmax(0, 2fr)
+    var(--spacing-knowledge-dashboard-table-action-width);
+  --knowledge-dashboard-table-row-template-mobile: 20px 24px 20px;
+  --knowledge-dashboard-table-row-template-desktop: repeat(1, minmax(0, 1fr));
+  --knowledge-dashboard-quota-grid: minmax(0, 1fr) 1px minmax(0, 1fr);
   text-rendering: optimizeLegibility;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;

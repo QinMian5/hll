@@ -63,13 +63,13 @@ function QuotaMetric({
   const resetText = resetCopy(window.resetAt);
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden">
+    <div className="flex min-w-0 flex-1 flex-col gap-knowledge-dashboard-quota-metric-gap overflow-hidden">
       <div className="flex min-w-0 items-center">
-        <span className="min-w-0 flex-1 text-[12px] leading-[18px] font-medium text-knowledge-text-muted lg:text-knowledge-caption">
+        <span className="min-w-0 flex-1 text-knowledge-dashboard-quota-label font-medium text-knowledge-text-muted lg:text-knowledge-caption">
           {label}
         </span>
       </div>
-      <span className="min-w-0 text-[18px] leading-6 font-semibold text-knowledge-text-default lg:text-[20px] lg:leading-7">
+      <span className="min-w-0 text-knowledge-dashboard-quota-value font-semibold text-knowledge-text-default lg:text-knowledge-dashboard-quota-value-desktop">
         {quotaValue(window)}
       </span>
       <div className="h-1.5 w-full overflow-hidden rounded-knowledge-control bg-knowledge-surface-accent-soft">
@@ -81,7 +81,7 @@ function QuotaMetric({
         />
       </div>
       {resetText !== null ? (
-        <span className="min-w-0 truncate text-[11px] leading-4 text-knowledge-text-muted lg:text-[12px]">
+        <span className="min-w-0 truncate text-knowledge-dashboard-microcopy text-knowledge-text-muted lg:text-knowledge-dashboard-microcopy-desktop">
           {resetText}
         </span>
       ) : null}
@@ -95,7 +95,7 @@ function QuotaPlaceholder({
   readonly children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-[76px] items-center justify-center text-knowledge-caption text-knowledge-text-muted lg:h-[84px] lg:text-knowledge-body">
+    <div className="flex h-knowledge-dashboard-quota-metric-height items-center justify-center text-knowledge-caption text-knowledge-text-muted lg:h-knowledge-dashboard-quota-metric-height-desktop lg:text-knowledge-body">
       {children}
     </div>
   );
@@ -112,11 +112,11 @@ export function QuotaSummary({
 
   return (
     <section
-      className="flex min-h-[164px] shrink-0 flex-col gap-knowledge-section-gap overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-4 lg:min-h-[184px] lg:p-knowledge-surface-padding"
+      className="flex shrink-0 flex-col gap-knowledge-dashboard-section-gap overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-knowledge-dashboard-surface-padding"
       data-testid="dashboard-quota-summary"
     >
-      <div className="flex h-10 shrink-0 items-center overflow-hidden">
-        <h2 className="m-0 min-w-0 flex-1 text-[15px] leading-5 font-semibold text-knowledge-text-default lg:text-knowledge-title">
+      <div className="flex h-knowledge-dashboard-toolbar-height shrink-0 items-center overflow-hidden">
+        <h2 className="m-0 min-w-0 flex-1 text-knowledge-dashboard-card-title font-semibold text-knowledge-text-default lg:text-knowledge-dashboard-card-title-desktop">
           Quota
         </h2>
       </div>
@@ -128,7 +128,7 @@ export function QuotaSummary({
         </QuotaPlaceholder>
       ) : null}
       {!isLoading && !showUnavailable && quota !== null ? (
-        <div className="grid h-[76px] min-w-0 grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] items-center gap-4 overflow-hidden lg:h-[84px]">
+        <div className="grid h-knowledge-dashboard-quota-metric-height min-w-0 grid-cols-[var(--knowledge-dashboard-quota-grid)] items-center gap-knowledge-dashboard-section-gap overflow-hidden lg:h-knowledge-dashboard-quota-metric-height-desktop">
           <QuotaMetric label="Daily" window={quota.daily} />
           <div className="h-full w-px bg-knowledge-border-subtle" />
           <QuotaMetric label="Weekly" window={quota.weekly} />

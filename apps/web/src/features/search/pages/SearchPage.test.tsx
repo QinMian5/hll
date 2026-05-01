@@ -273,14 +273,18 @@ describe("SearchPage", () => {
     expect(screen.getByTestId("search-suggestions-scroll-area")).toHaveClass(
       "group/search-suggestions-list",
       "gap-2",
+      "pt-1",
+      "pr-1",
+      "pl-px",
     );
     expect(
       screen.getByRole("button", { name: "Adjacency matrix" }),
     ).toHaveClass(
-      "min-h-[42px]",
       "items-center",
-      "px-3",
-      "py-2",
+      "px-search-related-result-padding-x",
+      "py-search-related-result-padding-y",
+      "hover:-translate-y-0.5",
+      "hover:scale-[var(--scale-search-related-result-hover)]",
       "group-hover/search-suggestions-list:opacity-80",
       "hover:border-[#006bff]/40",
     );
@@ -371,15 +375,20 @@ describe("SearchPage", () => {
       "related-result-item-icon",
     );
 
-    expect(relatedItem).toHaveClass("min-h-[42px]", "items-center");
+    expect(relatedItem).toHaveClass("items-center");
     expect(relatedItem).not.toHaveClass(
       "h-[38px]",
       "md:h-[42px]",
       "overflow-hidden",
     );
+    expect(relatedItem.className).not.toMatch(/\bmin-h-/);
     expect(relatedTitle).toHaveClass("whitespace-normal", "break-words");
     expect(relatedTitle).not.toHaveClass("truncate", "whitespace-nowrap");
-    expect(iconSlot).toHaveClass("size-6", "items-center", "justify-center");
+    expect(iconSlot).toHaveClass(
+      "size-search-related-result-icon-size",
+      "items-center",
+      "justify-center",
+    );
   });
 
   it("opens sign-in-required dialog when anonymous user clicks edit", async () => {

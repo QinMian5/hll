@@ -210,7 +210,7 @@ export function SearchPage() {
                 Related results
               </h2>
               <div
-                className="group/search-suggestions-list flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
+                className="group/search-suggestions-list flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden pt-1 pr-1 pb-1 pl-px [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-suggestions-scroll-area"
               >
                 {connectedTitles.map((suggestion) => (

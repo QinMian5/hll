@@ -109,7 +109,7 @@ describe("LeafDisclosureOverlay", () => {
     expect(scrollViewport).not.toHaveClass("h-full");
   });
 
-  it("allows long disclosure titles to scroll horizontally", () => {
+  it("wraps long disclosure titles and lets the header grow", () => {
     const disclosure = makeDisclosure("selected");
 
     render(
@@ -120,23 +120,28 @@ describe("LeafDisclosureOverlay", () => {
           node: {
             ...disclosure.node,
             title:
-              "A very long disclosure title that should remain on one line and overflow horizontally inside the header",
+              "A very long disclosure title that should wrap across lines inside the header",
           },
         }}
         viewport={{ target: [700, 450, 0], zoom: 0 }}
       />,
     );
 
-    const titleScrollArea = screen.getByTestId(
-      "taxonomy-leaf-disclosure-title-scroll-area",
-    );
+    const titleHeader = screen.getByTestId("taxonomy-leaf-disclosure-header");
+    const titleArea = screen.getByTestId("taxonomy-leaf-disclosure-title-area");
     const titleTrack = screen.getByTestId(
       "taxonomy-leaf-disclosure-title-track",
     );
 
-    expect(titleScrollArea).toHaveClass("overflow-x-auto");
-    expect(titleScrollArea).toHaveClass("overflow-y-hidden");
-    expect(titleTrack).toHaveClass("whitespace-nowrap");
+    expect(titleHeader).toHaveClass("min-h-6");
+    expect(titleHeader).not.toHaveClass("h-6");
+    expect(titleArea).toHaveClass("whitespace-normal");
+    expect(titleArea).toHaveClass("break-words");
+    expect(titleArea).not.toHaveClass("overflow-x-auto");
+    expect(titleArea).not.toHaveClass("overflow-y-hidden");
+    expect(titleTrack).toHaveClass("whitespace-normal");
+    expect(titleTrack).toHaveClass("break-words");
+    expect(titleTrack).not.toHaveClass("whitespace-nowrap");
   });
 
   it("renders hover disclosure with title, content, and edit affordance", () => {

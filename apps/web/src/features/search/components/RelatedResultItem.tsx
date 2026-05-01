@@ -11,7 +11,7 @@ interface RelatedResultItemProps {
 export function RelatedResultItem({ onSelect, title }: RelatedResultItemProps) {
   return (
     <button
-      className="group/related-result flex min-h-[42px] w-full shrink-0 items-center gap-2 rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.7)] px-3 py-2 text-left text-[14px] leading-5 font-medium text-[#131c2d] transition-[opacity,border-color,background-color] duration-150 group-hover/search-suggestions-list:opacity-80 group-focus-within/search-suggestions-list:opacity-80 hover:border-[#006bff]/40 hover:bg-[rgba(255,255,255,0.88)] hover:opacity-100 focus-visible:border-[#006bff]/40 focus-visible:bg-[rgba(255,255,255,0.88)] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+      className="group/related-result relative flex w-full shrink-0 items-center gap-search-related-result-gap rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.7)] px-search-related-result-padding-x py-search-related-result-padding-y text-left text-[14px] leading-5 font-medium text-[#131c2d] transition-[opacity,transform,border-color,background-color] duration-150 will-change-transform group-hover/search-suggestions-list:opacity-80 group-focus-within/search-suggestions-list:opacity-80 hover:z-10 hover:-translate-y-0.5 hover:scale-[var(--scale-search-related-result-hover)] hover:border-[#006bff]/40 hover:bg-[rgba(255,255,255,0.88)] hover:opacity-100 focus-visible:z-10 focus-visible:-translate-y-0.5 focus-visible:scale-[var(--scale-search-related-result-hover)] focus-visible:border-[#006bff]/40 focus-visible:bg-[rgba(255,255,255,0.88)] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
       data-testid="related-result-item"
       onClick={() => {
         onSelect(title);
@@ -26,7 +26,7 @@ export function RelatedResultItem({ onSelect, title }: RelatedResultItemProps) {
       </span>
       <span
         aria-hidden="true"
-        className="relative flex size-6 shrink-0 items-center justify-center"
+        className="relative flex size-search-related-result-icon-size shrink-0 items-center justify-center"
         data-testid="related-result-item-icon"
       >
         <ChevronRight

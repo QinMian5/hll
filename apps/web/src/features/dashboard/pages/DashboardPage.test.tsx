@@ -155,38 +155,46 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     expect(screen.getByTestId("dashboard-route-page")).toHaveClass(
-      "gap-4",
-      "px-4",
-      "py-4",
-      "lg:gap-5",
-      "lg:px-8",
-      "lg:pt-6",
-      "lg:pb-8",
+      "gap-knowledge-dashboard-page-gap",
+      "px-knowledge-dashboard-page-padding-x",
+      "pt-knowledge-dashboard-page-padding-top",
+      "pb-knowledge-dashboard-page-padding-bottom",
+      "lg:gap-knowledge-dashboard-page-gap-desktop",
+      "lg:px-knowledge-dashboard-page-padding-x-desktop",
+      "lg:pt-knowledge-dashboard-page-padding-top-desktop",
+      "lg:pb-knowledge-dashboard-page-padding-bottom-desktop",
     );
     expect(screen.getByTestId("dashboard-page-header")).toHaveClass(
-      "h-[52px]",
-      "lg:h-16",
+      "h-knowledge-dashboard-page-header",
     );
     expect(screen.getByTestId("dashboard-quota-summary")).toHaveClass(
       "rounded-knowledge-surface",
       "border-knowledge-border-card",
       "bg-knowledge-surface-card",
-      "p-4",
-      "lg:p-knowledge-surface-padding",
+      "p-knowledge-dashboard-surface-padding",
     );
     expect(screen.getByTestId("dashboard-token-directory")).toHaveClass(
       "rounded-knowledge-surface",
       "border-knowledge-border-card",
       "bg-knowledge-surface-card",
-      "p-4",
-      "lg:p-knowledge-surface-padding",
+      "p-knowledge-dashboard-surface-padding",
     );
     expect(screen.getByTestId("dashboard-token-table")).toHaveClass(
-      "hidden",
-      "lg:block",
+      "h-knowledge-dashboard-table-height",
+      "lg:h-knowledge-dashboard-table-height-desktop",
     );
-    expect(screen.getByTestId("dashboard-mobile-token-list")).toHaveClass(
-      "lg:hidden",
+    expect(
+      screen.getByTestId("dashboard-token-table-fixed-header"),
+    ).toHaveClass(
+      "h-knowledge-dashboard-table-header-height",
+      "lg:h-knowledge-dashboard-table-header-height-desktop",
+    );
+    expect(
+      screen.getByTestId("dashboard-token-table-scrollbar-gutter"),
+    ).toHaveClass("w-knowledge-dashboard-scrollbar-width");
+    expect(screen.getByTestId("dashboard-token-table-scroll-area")).toHaveClass(
+      "flex-1",
+      "min-h-0",
     );
   });
 
@@ -256,13 +264,11 @@ describe("DashboardPage", () => {
   it("renders token rows with copy, rename, and delete lifecycle controls", async () => {
     render(<DashboardPage />);
 
-    expect(screen.getAllByText("Research MCP")).toHaveLength(2);
-    expect(screen.getAllByText("kn_pat_...alpha")).toHaveLength(2);
-    expect(screen.getAllByText("12.4k")).toHaveLength(2);
+    expect(screen.getByText("Research MCP")).toBeInTheDocument();
+    expect(screen.getByText("kn_pat_...alpha")).toBeInTheDocument();
+    expect(screen.getByText("12.4k")).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getAllByRole("button", { name: "Copy Research MCP" })[0],
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Copy Research MCP" }));
 
     await waitFor(() =>
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
@@ -270,10 +276,10 @@ describe("DashboardPage", () => {
       ),
     );
     expect(
-      screen.getAllByRole("button", { name: "Rename Research MCP" })[0],
+      screen.getByRole("button", { name: "Rename Research MCP" }),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByRole("button", { name: "Delete Research MCP" })[0],
+      screen.getByRole("button", { name: "Delete Research MCP" }),
     ).toBeInTheDocument();
   });
 
@@ -285,7 +291,7 @@ describe("DashboardPage", () => {
 
       await act(async () => {
         fireEvent.click(
-          screen.getAllByRole("button", { name: "Copy Research MCP" })[0],
+          screen.getByRole("button", { name: "Copy Research MCP" }),
         );
         await Promise.resolve();
       });
@@ -294,7 +300,7 @@ describe("DashboardPage", () => {
         "kn_pat_clear_alpha",
       );
       expect(
-        screen.getAllByRole("button", { name: "Copied Research MCP" })[0],
+        screen.getByRole("button", { name: "Copied Research MCP" }),
       ).toBeInTheDocument();
 
       act(() => {
@@ -302,7 +308,7 @@ describe("DashboardPage", () => {
       });
 
       expect(
-        screen.getAllByRole("button", { name: "Copied Research MCP" })[0],
+        screen.getByRole("button", { name: "Copied Research MCP" }),
       ).toBeInTheDocument();
 
       act(() => {
@@ -310,7 +316,7 @@ describe("DashboardPage", () => {
       });
 
       expect(
-        screen.getAllByRole("button", { name: "Copy Research MCP" })[0],
+        screen.getByRole("button", { name: "Copy Research MCP" }),
       ).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
@@ -378,7 +384,7 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Rename Research MCP" })[0],
+      screen.getByRole("button", { name: "Rename Research MCP" }),
     );
     fireEvent.change(screen.getByLabelText("Name"), {
       target: { value: "Research API" },
@@ -432,7 +438,7 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     fireEvent.click(
-      screen.getAllByRole("button", { name: "Delete Research MCP" })[0],
+      screen.getByRole("button", { name: "Delete Research MCP" }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Delete Token" }));
 

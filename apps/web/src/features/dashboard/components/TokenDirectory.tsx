@@ -1,7 +1,8 @@
-// abstract: Figma-aligned token directory table and mobile list for Dashboard.
+// abstract: Figma-aligned token directory table with a fixed header and scrollable row viewport.
 // out_of_scope: Token mutation dialog state and BFF request orchestration.
 
 import { Button } from "../../../shared/ui/button";
+import { ScrollArea } from "../../../shared/ui/scroll-area";
 import { cn } from "../../../shared/utils";
 import type { DashboardTokenRow } from "../types";
 import {
@@ -21,6 +22,17 @@ interface TokenDirectoryProps {
   readonly tokens: readonly DashboardTokenRow[];
   readonly usageAvailable: boolean;
 }
+
+const tokenTableGridClasses =
+  "grid-cols-[var(--knowledge-dashboard-table-grid-mobile)] grid-rows-[var(--knowledge-dashboard-table-row-template-mobile)] lg:grid-cols-[var(--knowledge-dashboard-table-grid-desktop)] lg:grid-rows-[var(--knowledge-dashboard-table-row-template-desktop)]";
+const tokenTableRowClasses = cn(
+  "grid h-knowledge-dashboard-table-row-height w-full shrink-0 overflow-hidden py-knowledge-dashboard-table-row-padding-y",
+  "gap-x-knowledge-dashboard-table-row-gap gap-y-knowledge-dashboard-table-row-gap",
+  "lg:h-knowledge-dashboard-table-row-height-desktop lg:gap-x-0 lg:gap-y-0 lg:py-0",
+  tokenTableGridClasses,
+);
+const tokenTableScrollAreaTheme =
+  "[--scroll-area-padding-right:var(--spacing-knowledge-dashboard-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-knowledge-dashboard-scrollbar-width)]";
 
 export function formatUsageCount(value: number | null): string {
   if (value === null) {
@@ -55,7 +67,7 @@ function DirectoryState({
 }) {
   return (
     <div
-      className="flex min-h-[160px] items-center justify-center rounded-knowledge-surface border border-dashed border-knowledge-border-card text-knowledge-body text-knowledge-text-muted"
+      className="flex min-h-knowledge-dashboard-empty-state-height items-center justify-center rounded-knowledge-surface border border-dashed border-knowledge-border-card text-knowledge-body text-knowledge-text-muted"
       role={role}
     >
       {children}
@@ -65,103 +77,172 @@ function DirectoryState({
 
 function LoadingRows() {
   return (
-    <div className="flex flex-col">
+    <>
       {[0, 1, 2].map((index) => (
         <div
-          className="grid h-14 grid-cols-[minmax(0,3fr)_minmax(0,5fr)_minmax(5rem,1.5fr)_minmax(7rem,2fr)_1.5rem] items-center gap-4 border-t border-knowledge-divider-subtle"
+          className="flex w-full shrink-0 flex-col items-start overflow-hidden"
           key={index}
         >
-          {[0, 1, 2, 3].map((cellIndex) => (
-            <span
-              className="h-3 rounded-full bg-knowledge-surface-hover"
-              key={cellIndex}
-            />
-          ))}
+          <div className={cn(tokenTableRowClasses, "animate-pulse")}>
+            <span className="col-start-1 row-start-1 h-3 rounded-full bg-knowledge-surface-hover lg:col-start-1 lg:row-start-1" />
+            <span className="col-span-2 col-start-1 row-start-2 h-3 rounded-full bg-knowledge-surface-hover lg:col-span-1 lg:col-start-2 lg:row-start-1" />
+            <span className="col-start-1 row-start-3 h-3 rounded-full bg-knowledge-surface-hover lg:col-start-3 lg:row-start-1" />
+            <span className="col-start-2 row-start-3 h-3 rounded-full bg-knowledge-surface-hover lg:col-start-4 lg:row-start-1" />
+          </div>
+          {index < 2 ? (
+            <div className="h-px w-full shrink-0 bg-knowledge-divider-subtle" />
+          ) : null}
         </div>
       ))}
-    </div>
+    </>
   );
 }
 
-function DesktopTokenRow({
+function TokenRowGroup({
   copiedTokenName,
+  isLast,
   onCopy,
   onDelete,
   onRename,
   token,
 }: {
   readonly copiedTokenName: string | null;
+  readonly isLast: boolean;
   readonly onCopy: (token: DashboardTokenRow) => void;
   readonly onDelete: (token: DashboardTokenRow) => void;
   readonly onRename: (token: DashboardTokenRow) => void;
   readonly token: DashboardTokenRow;
 }) {
   return (
-    <div className="grid h-14 grid-cols-[minmax(0,3fr)_minmax(0,5fr)_minmax(5rem,1.5fr)_minmax(7rem,2fr)_1.5rem] items-center gap-4 border-t border-knowledge-divider-subtle text-knowledge-body text-knowledge-text-default">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="truncate font-medium">{token.name}</span>
-        <RenameTokenButton onRename={onRename} token={token} />
-      </div>
-      <div className="flex min-w-0 items-center gap-2 text-knowledge-text-muted">
-        <span className="truncate font-normal">{token.maskedToken}</span>
-        <CopyTokenButton
-          isCopied={copiedTokenName === token.name}
-          onCopy={onCopy}
-          token={token}
-        />
-      </div>
-      <span className="min-w-0 truncate text-knowledge-text-muted">
-        {formatUsageCount(token.usageCount)}
-      </span>
-      <span className="min-w-0 truncate text-knowledge-text-muted">
-        {formatLastUsedAt(token.lastUsedAt)}
-      </span>
-      <DeleteTokenButton onDelete={onDelete} token={token} />
-    </div>
-  );
-}
-
-function MobileTokenRow({
-  copiedTokenName,
-  onCopy,
-  onDelete,
-  onRename,
-  token,
-}: {
-  readonly copiedTokenName: string | null;
-  readonly onCopy: (token: DashboardTokenRow) => void;
-  readonly onDelete: (token: DashboardTokenRow) => void;
-  readonly onRename: (token: DashboardTokenRow) => void;
-  readonly token: DashboardTokenRow;
-}) {
-  return (
-    <div className="grid h-24 grid-rows-[1.25rem_1.25rem_1.125rem] gap-2 border-t border-knowledge-divider-subtle py-3">
-      <div className="flex min-w-0 items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-[15px] leading-5 font-semibold text-knowledge-text-default">
+    <div
+      className="flex w-full shrink-0 flex-col items-start overflow-hidden"
+      data-testid="dashboard-token-row-group"
+    >
+      <div className={cn(tokenTableRowClasses, "text-knowledge-text-default")}>
+        <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-knowledge-dashboard-table-row-gap overflow-hidden lg:col-start-1 lg:row-start-1">
+          <span className="truncate text-knowledge-dashboard-card-title font-semibold text-knowledge-text-default lg:text-knowledge-body lg:font-normal">
             {token.name}
           </span>
           <RenameTokenButton onRename={onRename} token={token} />
         </div>
-        <DeleteTokenButton onDelete={onDelete} token={token} />
+        <div className="col-span-2 col-start-1 row-start-2 flex min-w-0 items-center gap-knowledge-dashboard-table-row-gap overflow-hidden lg:col-span-1 lg:col-start-2 lg:row-start-1">
+          <span className="min-w-0 truncate text-knowledge-dashboard-card-body font-normal text-knowledge-text-muted lg:text-knowledge-body">
+            {token.maskedToken}
+          </span>
+          <CopyTokenButton
+            isCopied={copiedTokenName === token.name}
+            onCopy={onCopy}
+            token={token}
+          />
+        </div>
+        <div className="col-start-1 row-start-3 flex min-w-0 items-center overflow-hidden lg:col-start-3 lg:row-start-1">
+          <span className="min-w-0 flex-1 truncate text-knowledge-caption font-medium text-knowledge-text-default lg:text-knowledge-body lg:font-normal">
+            {formatUsageCount(token.usageCount)}
+          </span>
+        </div>
+        <div className="col-start-2 row-start-3 flex min-w-0 items-center justify-end overflow-hidden lg:col-start-4 lg:row-start-1 lg:justify-start">
+          <span className="min-w-0 flex-1 truncate text-right text-knowledge-caption font-medium text-knowledge-text-muted lg:text-left lg:text-knowledge-body lg:font-normal">
+            {formatLastUsedAt(token.lastUsedAt)}
+          </span>
+        </div>
+        <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end overflow-hidden lg:col-start-5 lg:row-start-1">
+          <DeleteTokenButton onDelete={onDelete} token={token} />
+        </div>
       </div>
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="min-w-0 truncate text-[13px] leading-[19px] text-knowledge-text-muted">
-          {token.maskedToken}
-        </span>
-        <CopyTokenButton
-          isCopied={copiedTokenName === token.name}
-          onCopy={onCopy}
-          token={token}
+      {!isLast ? (
+        <div
+          className="h-px w-full shrink-0 bg-knowledge-divider-subtle"
+          data-testid="dashboard-token-row-divider"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function TokenTable({ children }: { readonly children: React.ReactNode }) {
+  return (
+    <div
+      className="flex h-knowledge-dashboard-table-height w-full shrink-0 flex-col items-start overflow-hidden lg:h-knowledge-dashboard-table-height-desktop"
+      data-testid="dashboard-token-table"
+    >
+      <div
+        className="flex h-knowledge-dashboard-table-header-height w-full shrink-0 items-start overflow-hidden lg:h-knowledge-dashboard-table-header-height-desktop"
+        data-testid="dashboard-token-table-fixed-header"
+      >
+        <div
+          aria-hidden="true"
+          className="h-full min-w-0 flex-1 overflow-hidden lg:hidden"
+        />
+        <div className="hidden h-full min-w-0 flex-1 flex-col items-start overflow-hidden lg:flex">
+          <div
+            className={cn(
+              "grid h-knowledge-dashboard-table-header-row-height w-full shrink-0 overflow-hidden text-knowledge-button font-medium text-knowledge-text-muted",
+              "grid-cols-[var(--knowledge-dashboard-table-grid-desktop)] grid-rows-[var(--knowledge-dashboard-table-row-template-desktop)]",
+            )}
+          >
+            <span className="col-start-1 row-start-1 flex min-w-0 items-center overflow-hidden">
+              Name
+            </span>
+            <span className="col-start-2 row-start-1 flex min-w-0 items-center overflow-hidden">
+              Token
+            </span>
+            <span className="col-start-3 row-start-1 flex min-w-0 items-center overflow-hidden">
+              Usage
+            </span>
+            <span className="col-start-4 row-start-1 flex min-w-0 items-center overflow-hidden">
+              Last used
+            </span>
+            <span className="col-start-5 row-start-1" />
+          </div>
+          <div className="h-px w-full shrink-0 bg-knowledge-divider-subtle" />
+        </div>
+        <div
+          aria-hidden="true"
+          className="h-full w-knowledge-dashboard-scrollbar-width shrink-0"
+          data-testid="dashboard-token-table-scrollbar-gutter"
         />
       </div>
-      <div className="grid grid-cols-2 gap-3 text-knowledge-caption font-medium text-knowledge-text-muted">
-        <span className="truncate">{formatUsageCount(token.usageCount)}</span>
-        <span className="truncate text-right">
-          {formatLastUsedAt(token.lastUsedAt)}
-        </span>
-      </div>
+      <ScrollArea
+        className={cn(
+          "flex min-h-0 w-full flex-1 items-start",
+          tokenTableScrollAreaTheme,
+        )}
+        data-testid="dashboard-token-table-scroll-area"
+        viewportClassName="flex h-full min-h-0 w-full flex-col items-start overflow-x-hidden overflow-y-auto"
+      >
+        {children}
+      </ScrollArea>
     </div>
+  );
+}
+
+function TokenRows({
+  copiedTokenName,
+  onCopy,
+  onDelete,
+  onRename,
+  tokens,
+}: {
+  readonly copiedTokenName: string | null;
+  readonly onCopy: (token: DashboardTokenRow) => void;
+  readonly onDelete: (token: DashboardTokenRow) => void;
+  readonly onRename: (token: DashboardTokenRow) => void;
+  readonly tokens: readonly DashboardTokenRow[];
+}) {
+  return (
+    <>
+      {tokens.map((token, index) => (
+        <TokenRowGroup
+          copiedTokenName={copiedTokenName}
+          isLast={index === tokens.length - 1}
+          key={token.name}
+          onCopy={onCopy}
+          onDelete={onDelete}
+          onRename={onRename}
+          token={token}
+        />
+      ))}
+    </>
   );
 }
 
@@ -180,11 +261,11 @@ export function TokenDirectory({
 
   return (
     <section
-      className="flex min-h-0 flex-1 flex-col gap-knowledge-section-gap overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-4 lg:p-knowledge-surface-padding"
+      className="flex min-h-0 flex-1 flex-col gap-knowledge-dashboard-section-gap overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-knowledge-dashboard-surface-padding"
       data-testid="dashboard-token-directory"
     >
-      <div className="flex h-10 shrink-0 items-center justify-between gap-4">
-        <h2 className="m-0 text-[15px] leading-5 font-semibold text-knowledge-text-default lg:text-knowledge-title">
+      <div className="flex h-knowledge-dashboard-toolbar-height shrink-0 items-center justify-between gap-knowledge-dashboard-section-gap overflow-hidden">
+        <h2 className="m-0 min-w-0 flex-1 text-knowledge-dashboard-card-title font-semibold text-knowledge-text-default lg:text-knowledge-dashboard-card-title-desktop">
           Tokens
         </h2>
         <Button className="shrink-0" onClick={onCreate}>
@@ -202,60 +283,26 @@ export function TokenDirectory({
         <DirectoryState role="alert">{errorMessage}</DirectoryState>
       ) : null}
 
-      {isLoading ? <LoadingRows /> : null}
+      {isLoading ? (
+        <TokenTable>
+          <LoadingRows />
+        </TokenTable>
+      ) : null}
 
       {!errorMessage && !isLoading && !hasTokens ? (
         <DirectoryState>No tokens</DirectoryState>
       ) : null}
 
       {!errorMessage && !isLoading && hasTokens ? (
-        <>
-          <div
-            className="hidden min-h-0 flex-1 overflow-hidden lg:block"
-            data-testid="dashboard-token-table"
-          >
-            <div
-              className={cn(
-                "grid h-10 grid-cols-[minmax(0,3fr)_minmax(0,5fr)_minmax(5rem,1.5fr)_minmax(7rem,2fr)_1.5rem] items-center gap-4",
-                "border-b border-knowledge-border-card text-knowledge-caption font-medium text-knowledge-text-muted",
-              )}
-            >
-              <span>Name</span>
-              <span>Token</span>
-              <span>Usage</span>
-              <span>Last used</span>
-              <span />
-            </div>
-            <div className="min-h-0 overflow-y-auto">
-              {tokens.map((token) => (
-                <DesktopTokenRow
-                  copiedTokenName={copiedTokenName}
-                  key={token.name}
-                  onCopy={onCopy}
-                  onDelete={onDelete}
-                  onRename={onRename}
-                  token={token}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div
-            className="min-h-0 overflow-y-auto lg:hidden"
-            data-testid="dashboard-mobile-token-list"
-          >
-            {tokens.map((token) => (
-              <MobileTokenRow
-                copiedTokenName={copiedTokenName}
-                key={token.name}
-                onCopy={onCopy}
-                onDelete={onDelete}
-                onRename={onRename}
-                token={token}
-              />
-            ))}
-          </div>
-        </>
+        <TokenTable>
+          <TokenRows
+            copiedTokenName={copiedTokenName}
+            onCopy={onCopy}
+            onDelete={onDelete}
+            onRename={onRename}
+            tokens={tokens}
+          />
+        </TokenTable>
       ) : null}
     </section>
   );

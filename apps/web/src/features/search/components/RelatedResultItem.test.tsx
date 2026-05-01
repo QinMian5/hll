@@ -26,20 +26,20 @@ describe("RelatedResultItem", () => {
     const icon = screen.getByTestId("related-result-item-icon");
 
     expect(item).toHaveClass(
-      "min-h-[42px]",
       "items-center",
-      "gap-2",
-      "px-3",
-      "py-2",
+      "gap-search-related-result-gap",
+      "px-search-related-result-padding-x",
+      "py-search-related-result-padding-y",
       "text-[14px]",
       "leading-5",
       "font-medium",
     );
     expect(item).not.toHaveClass("h-[38px]", "md:h-[42px]", "overflow-hidden");
+    expect(item.className).not.toMatch(/\bmin-h-/);
     expect(title).toHaveClass("whitespace-normal", "break-words");
     expect(title).not.toHaveClass("truncate", "whitespace-nowrap");
     expect(icon).toHaveClass(
-      "size-6",
+      "size-search-related-result-icon-size",
       "items-center",
       "justify-center",
       "shrink-0",
@@ -53,10 +53,17 @@ describe("RelatedResultItem", () => {
     const hoverIcon = screen.getByTestId("related-result-item-hover-icon");
 
     expect(item).toHaveClass(
+      "transition-[opacity,transform,border-color,background-color]",
       "group-hover/search-suggestions-list:opacity-80",
       "group-focus-within/search-suggestions-list:opacity-80",
+      "hover:z-10",
+      "hover:-translate-y-0.5",
+      "hover:scale-[var(--scale-search-related-result-hover)]",
       "hover:border-[#006bff]/40",
       "hover:bg-[rgba(255,255,255,0.88)]",
+      "focus-visible:z-10",
+      "focus-visible:-translate-y-0.5",
+      "focus-visible:scale-[var(--scale-search-related-result-hover)]",
       "focus-visible:border-[#006bff]/40",
       "focus-visible:bg-[rgba(255,255,255,0.88)]",
     );

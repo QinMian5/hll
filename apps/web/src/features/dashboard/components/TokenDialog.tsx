@@ -26,7 +26,7 @@ function DialogFrame({
   readonly labelledBy: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-knowledge-overlay-scrim px-4 py-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-knowledge-overlay-scrim px-knowledge-dashboard-dialog-overlay-padding-x py-knowledge-dashboard-dialog-overlay-padding-y">
       <section
         aria-labelledby={labelledBy}
         aria-modal="true"
@@ -69,8 +69,11 @@ export function TokenDialog({
 
   return (
     <DialogFrame labelledBy={titleId}>
-      <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-        <div className="flex h-8 items-center justify-between gap-4">
+      <form
+        className="flex flex-col gap-knowledge-dashboard-dialog-gap"
+        onSubmit={handleSubmit}
+      >
+        <div className="flex h-knowledge-dashboard-dialog-header-height items-center justify-between gap-knowledge-dashboard-section-gap">
           <h2
             className="m-0 text-knowledge-dialog-title font-semibold text-knowledge-text-default"
             id={titleId}
@@ -79,7 +82,7 @@ export function TokenDialog({
           </h2>
           <button
             aria-label="Close dialog"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-knowledge-control text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default"
+            className="inline-flex h-knowledge-dashboard-dialog-close-size w-knowledge-dashboard-dialog-close-size items-center justify-center rounded-knowledge-control text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default"
             onClick={onClose}
             type="button"
           >
@@ -87,7 +90,7 @@ export function TokenDialog({
           </button>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-knowledge-dashboard-dialog-field-gap">
           <label
             className="text-knowledge-button font-medium text-knowledge-text-default"
             htmlFor={inputId}
@@ -113,7 +116,7 @@ export function TokenDialog({
           ) : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-knowledge-dashboard-dialog-footer-gap">
           <Button
             className="w-full"
             disabled={isSubmitting}
@@ -160,8 +163,11 @@ export function DeleteTokenDialog({
 
   return (
     <DialogFrame labelledBy={titleId}>
-      <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-        <div className="flex h-8 items-center justify-between gap-4">
+      <form
+        className="flex flex-col gap-knowledge-dashboard-dialog-gap"
+        onSubmit={handleSubmit}
+      >
+        <div className="flex h-knowledge-dashboard-dialog-header-height items-center justify-between gap-knowledge-dashboard-section-gap">
           <h2
             className="m-0 text-knowledge-dialog-title font-semibold text-knowledge-text-default"
             id={titleId}
@@ -170,7 +176,7 @@ export function DeleteTokenDialog({
           </h2>
           <button
             aria-label="Close dialog"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-knowledge-control text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default"
+            className="inline-flex h-knowledge-dashboard-dialog-close-size w-knowledge-dashboard-dialog-close-size items-center justify-center rounded-knowledge-control text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default"
             onClick={onClose}
             type="button"
           >
@@ -178,7 +184,7 @@ export function DeleteTokenDialog({
           </button>
         </div>
 
-        <div className="rounded-knowledge-control border border-knowledge-border-card bg-knowledge-muted-surface px-4 py-3 text-knowledge-button font-medium text-knowledge-text-default">
+        <div className="rounded-knowledge-control border border-knowledge-border-card bg-knowledge-muted-surface px-knowledge-dashboard-dialog-token-preview-padding-x py-knowledge-dashboard-dialog-token-preview-padding-y text-knowledge-button font-medium text-knowledge-text-default">
           {tokenName}
         </div>
         {errorMessage ? (
@@ -190,7 +196,7 @@ export function DeleteTokenDialog({
           </p>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-knowledge-dashboard-dialog-footer-gap">
           <Button
             className="w-full"
             disabled={isSubmitting}

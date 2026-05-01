@@ -153,14 +153,14 @@ export function DashboardPage() {
 
   return (
     <main
-      className="flex h-full min-h-0 flex-col gap-4 overflow-hidden px-4 py-4 lg:gap-5 lg:px-8 lg:pt-6 lg:pb-8"
+      className="flex h-full min-h-0 flex-col gap-knowledge-dashboard-page-gap overflow-hidden px-knowledge-dashboard-page-padding-x pt-knowledge-dashboard-page-padding-top pb-knowledge-dashboard-page-padding-bottom lg:gap-knowledge-dashboard-page-gap-desktop lg:px-knowledge-dashboard-page-padding-x-desktop lg:pt-knowledge-dashboard-page-padding-top-desktop lg:pb-knowledge-dashboard-page-padding-bottom-desktop"
       data-testid="dashboard-route-page"
     >
       <header
-        className="flex h-[52px] shrink-0 items-center lg:h-16"
+        className="flex h-knowledge-dashboard-page-header shrink-0 items-center overflow-hidden"
         data-testid="dashboard-page-header"
       >
-        <h1 className="m-0 text-[16px] leading-6 font-semibold text-knowledge-text-default lg:text-[18px] lg:leading-[48px]">
+        <h1 className="m-0 min-w-0 flex-1 text-knowledge-dashboard-page-title font-semibold text-knowledge-text-default lg:text-knowledge-dashboard-page-title-desktop">
           Dashboard
         </h1>
       </header>
