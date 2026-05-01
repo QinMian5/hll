@@ -137,11 +137,16 @@ describe("SearchResultCard", () => {
       />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Search for Singular value decomposition",
-      }),
+    const titleSearchLink = screen.getByRole("link", {
+      name: "Search for Singular value decomposition",
+    });
+
+    expect(titleSearchLink).toHaveAttribute(
+      "href",
+      "/search?q=Singular%20value%20decomposition",
     );
+
+    fireEvent.click(titleSearchLink);
 
     expect(onSearchTitle).toHaveBeenCalledWith("Singular value decomposition");
     expect(onSearchTitle).toHaveBeenCalledTimes(1);
