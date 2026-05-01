@@ -46,7 +46,7 @@ async function runQuery<TResult>(
 
 const leafLayoutIdentity = {
   generatedAt: "2026-04-29T00:00:00Z",
-  layoutVersion: "taxonomy-leaf-layout-v2",
+  layoutVersion: "taxonomy-leaf-layout-v3",
 };
 
 afterEach(() => {
@@ -179,7 +179,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         edges: [[10, 11, 0.8]],
-        layout_version: "taxonomy-leaf-layout-v2",
+        layout_version: "taxonomy-leaf-layout-v3",
         leaf_id: 59,
         nodes: [
           { id: 10, scope: "inner", x: 1.5, y: 2.5 },
@@ -212,7 +212,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     );
     expect(result).toEqual({
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-leaf-layout-v2",
+      layout_version: "taxonomy-leaf-layout-v3",
       leaf_id: 59,
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },
@@ -235,7 +235,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     );
     const previous: TaxonomyLeafLayoutSliceResponse = {
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-leaf-layout-v2",
+      layout_version: "taxonomy-leaf-layout-v3",
       leaf_id: 59,
       nodes: [{ id: 10, scope: "inner", x: 1.5, y: 2.5 }],
       requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
@@ -246,7 +246,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
       "taxonomy-view",
       "leaf-layout",
       59,
-      "taxonomy-leaf-layout-v2",
+      "taxonomy-leaf-layout-v3",
       "2026-04-29T00:00:00Z",
       -100,
       -200,
@@ -285,7 +285,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
       },
       {
         generatedAt: "2026-04-29T00:05:00Z",
-        layoutVersion: "taxonomy-leaf-layout-v2",
+        layoutVersion: "taxonomy-leaf-layout-v3",
       },
     );
 
@@ -324,7 +324,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
           [10, 11, 0.8],
           [11, 12, 0.6],
         ],
-        layout_version: "taxonomy-leaf-layout-v2",
+        layout_version: "taxonomy-leaf-layout-v3",
         leaf_id: 59,
         nodes: [
           { id: 10, scope: "inner", x: 1.5, y: 2.5 },
@@ -359,7 +359,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         edges: [[10, 11]],
-        layout_version: "taxonomy-leaf-layout-v2",
+        layout_version: "taxonomy-leaf-layout-v3",
         leaf_id: 59,
         nodes: [{ id: 10, scope: "inner", x: 1.5, y: 2.5 }],
         requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },

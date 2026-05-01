@@ -230,7 +230,7 @@ function makeLeafNodeView(
     },
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",
-    layout_version: "taxonomy-leaf-layout-v2",
+    layout_version: "taxonomy-leaf-layout-v3",
     node_kind: "leaf",
     node_count: 2,
     world_bounds: { max_x: 744, max_y: 484, min_x: 696, min_y: 446 },

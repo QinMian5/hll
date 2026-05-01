@@ -271,7 +271,7 @@ function makeLeafView(): TaxonomyLeafView {
     },
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",
-    layout_version: "taxonomy-leaf-layout-v2",
+    layout_version: "taxonomy-leaf-layout-v3",
     node_kind: "leaf",
     node_count: 2,
     world_bounds: { max_x: 44, max_y: 34, min_x: -44, min_y: -34 },
@@ -281,7 +281,7 @@ function makeLeafView(): TaxonomyLeafView {
 function makeLeafLayoutSliceResponse(): TaxonomyLeafLayoutSliceResponse {
   return {
     edges: [[10, 11, 0.8]],
-    layout_version: "taxonomy-leaf-layout-v2",
+    layout_version: "taxonomy-leaf-layout-v3",
     leaf_id: 2,
     nodes: [
       { id: 10, scope: "inner", x: 0, y: 0 },
@@ -402,7 +402,7 @@ describe("LeafRenderer", () => {
       },
       {
         generatedAt: "2026-04-29T00:00:00Z",
-        layoutVersion: "taxonomy-leaf-layout-v2",
+        layoutVersion: "taxonomy-leaf-layout-v3",
       },
       expect.objectContaining({ enabled: true }),
     );
@@ -456,7 +456,7 @@ describe("LeafRenderer", () => {
       },
       {
         generatedAt: "2026-04-29T00:00:00Z",
-        layoutVersion: "taxonomy-leaf-layout-v2",
+        layoutVersion: "taxonomy-leaf-layout-v3",
       },
       expect.objectContaining({ enabled: true }),
     );
