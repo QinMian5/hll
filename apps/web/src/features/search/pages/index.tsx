@@ -2,10 +2,10 @@
 // out_of_scope: Backend search integration and ranking semantics.
 
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ChevronRight } from "lucide-react";
 import { type FormEvent, lazy, Suspense, useState } from "react";
 import { WebApiRequestError } from "../../../shared/web-api/errors";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
+import { RelatedResultItem } from "../components/RelatedResultItem";
 import { SearchField } from "../components/SearchField";
 import type { SearchResultCardEditPayload } from "../components/SearchResultCard";
 import { SignInRequiredDialog } from "../components/SignInRequiredDialog";
@@ -210,26 +210,15 @@ export function SearchPage() {
                 Related results
               </h2>
               <div
-                className="flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
+                className="group/search-suggestions-list flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-suggestions-scroll-area"
               >
                 {connectedTitles.map((suggestion) => (
-                  <button
-                    className="flex h-[38px] w-full shrink-0 items-center justify-between overflow-hidden rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.7)] py-2 pr-3 pl-3 text-left text-[13px] leading-[18px] font-medium text-[#131c2d] md:h-[42px] md:text-[14px] md:leading-5"
+                  <RelatedResultItem
                     key={suggestion}
-                    onClick={() => {
-                      navigateToSearchQuery(suggestion);
-                    }}
-                    type="button"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-left">
-                      {suggestion}
-                    </span>
-                    <ChevronRight
-                      aria-hidden="true"
-                      className="size-[15px] shrink-0 text-[#606e87] md:size-4"
-                    />
-                  </button>
+                    onSelect={navigateToSearchQuery}
+                    title={suggestion}
+                  />
                 ))}
               </div>
             </section>

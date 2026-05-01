@@ -1,0 +1,46 @@
+// abstract: Figma-aligned related-result item button for the Search route.
+// out_of_scope: Search page query state and backend related-title generation.
+
+import { ArrowRight, ChevronRight } from "lucide-react";
+
+interface RelatedResultItemProps {
+  readonly onSelect: (title: string) => void;
+  readonly title: string;
+}
+
+export function RelatedResultItem({ onSelect, title }: RelatedResultItemProps) {
+  return (
+    <button
+      className="group/related-result flex min-h-[42px] w-full shrink-0 items-center gap-2 rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.7)] px-3 py-2 text-left text-[14px] leading-5 font-medium text-[#131c2d] transition-[opacity,border-color,background-color] duration-150 group-hover/search-suggestions-list:opacity-80 group-focus-within/search-suggestions-list:opacity-80 hover:border-[#006bff]/40 hover:bg-[rgba(255,255,255,0.88)] hover:opacity-100 focus-visible:border-[#006bff]/40 focus-visible:bg-[rgba(255,255,255,0.88)] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+      data-testid="related-result-item"
+      onClick={() => {
+        onSelect(title);
+      }}
+      type="button"
+    >
+      <span
+        className="min-w-0 flex-1 whitespace-normal break-words text-left"
+        data-testid="related-result-item-title"
+      >
+        {title}
+      </span>
+      <span
+        aria-hidden="true"
+        className="relative flex size-6 shrink-0 items-center justify-center"
+        data-testid="related-result-item-icon"
+      >
+        <ChevronRight
+          aria-hidden="true"
+          className="size-4 text-[#606e87] transition-opacity duration-150 group-hover/related-result:opacity-0 group-focus-visible/related-result:opacity-0"
+          strokeWidth={2}
+        />
+        <span
+          className="absolute inset-0 flex items-center justify-center rounded-full border border-white/90 bg-[#006bff] text-white opacity-0 shadow-[0_6px_14px_rgba(0,107,255,0.2)] transition-opacity duration-150 group-hover/related-result:opacity-100 group-focus-visible/related-result:opacity-100"
+          data-testid="related-result-item-hover-icon"
+        >
+          <ArrowRight aria-hidden="true" className="size-3" strokeWidth={1.5} />
+        </span>
+      </span>
+    </button>
+  );
+}

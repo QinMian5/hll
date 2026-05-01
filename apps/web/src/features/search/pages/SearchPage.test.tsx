@@ -270,6 +270,25 @@ describe("SearchPage", () => {
         screen.getByTestId("search-suggestions-scroll-area").children,
       ).some((child) => child.getAttribute("aria-hidden") === "true"),
     ).toBe(false);
+    expect(screen.getByTestId("search-suggestions-scroll-area")).toHaveClass(
+      "group/search-suggestions-list",
+      "gap-2",
+    );
+    expect(
+      screen.getByRole("button", { name: "Adjacency matrix" }),
+    ).toHaveClass(
+      "min-h-[42px]",
+      "items-center",
+      "px-3",
+      "py-2",
+      "group-hover/search-suggestions-list:opacity-80",
+      "hover:border-[#006bff]/40",
+    );
+    expect(
+      within(
+        screen.getByRole("button", { name: "Adjacency matrix" }),
+      ).getByTestId("related-result-item-title"),
+    ).toHaveClass("whitespace-normal", "break-words");
   });
 
   it("wraps long result card titles and lets the header grow", async () => {
@@ -322,6 +341,45 @@ describe("SearchPage", () => {
     await waitFor(() =>
       expect(screen.getByDisplayValue(longTitle)).toBeInTheDocument(),
     );
+  });
+
+  it("wraps long related result titles and keeps the icon slot centered", async () => {
+    const longRelatedTitle =
+      "Principal component analysis with especially long related result labels";
+    const payload: SearchResponse = {
+      connected_titles: [longRelatedTitle],
+      matched_cards: [],
+    };
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+
+    renderSearchRoute("/search?q=matrix");
+
+    const relatedItem = await screen.findByRole("button", {
+      name: longRelatedTitle,
+    });
+    const relatedTitle = within(relatedItem).getByTestId(
+      "related-result-item-title",
+    );
+    const iconSlot = within(relatedItem).getByTestId(
+      "related-result-item-icon",
+    );
+
+    expect(relatedItem).toHaveClass("min-h-[42px]", "items-center");
+    expect(relatedItem).not.toHaveClass(
+      "h-[38px]",
+      "md:h-[42px]",
+      "overflow-hidden",
+    );
+    expect(relatedTitle).toHaveClass("whitespace-normal", "break-words");
+    expect(relatedTitle).not.toHaveClass("truncate", "whitespace-nowrap");
+    expect(iconSlot).toHaveClass("size-6", "items-center", "justify-center");
   });
 
   it("opens sign-in-required dialog when anonymous user clicks edit", async () => {
