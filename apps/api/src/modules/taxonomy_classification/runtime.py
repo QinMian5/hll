@@ -5,12 +5,12 @@ Out of scope: HTTP webhook authentication and operator command-line UX.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
-from job_queue_mcp_client.errors import ResultNotReadyError
 from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
+from job_queue_mcp_client.types import ResultReadItem
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,10 +25,11 @@ from modules.taxonomy_classification.model import (
 from modules.taxonomy_classification.webhook import TaxonomyClassificationWebhookRepository
 
 TERMINAL_NON_ACCEPTED_STATES = frozenset({"CANCELLED", "DEAD_LETTER", "FAILED", "EXPIRED"})
+MAX_RESULT_READ_BATCH_SIZE = 1000
 
 
 class TaxonomyClassificationJobQueueClientPort(Protocol):
-    async def get_result(self, job_id: int) -> AcceptedTaxonomyClassificationJobResult: ...
+    async def get_results(self, job_ids: Sequence[int]) -> Sequence[ResultReadItem]: ...
 
 
 class TaxonomyClassificationRuntimeService:
@@ -68,10 +69,32 @@ class TaxonomyClassificationRuntimeService:
     async def process_pending_webhook_events(self, *, now: datetime) -> int:
         repository = TaxonomyClassificationWebhookRepository(self._session)
         events = await repository.list_pending_events(limit=self._poll_batch_size)
+        accepted_events = [event for event in events if event.event_type == "result.accepted"]
+        failed_event_ids: set[str] = set()
+        accepted_results_by_job_id: dict[int, ResultReadItem] = {}
+        if accepted_events:
+            try:
+                accepted_results_by_job_id = await self._result_items_by_job_id(
+                    [event.job_id for event in accepted_events]
+                )
+            except Exception as exc:
+                for event in accepted_events:
+                    await repository.mark_failed(
+                        event_id=event.event_id,
+                        last_error=str(exc),
+                        failed_at=now,
+                    )
+                    failed_event_ids.add(event.event_id)
 
         for event in events:
+            if event.event_id in failed_event_ids:
+                continue
             try:
-                await self._process_webhook_event(event, now=now)
+                await self._process_webhook_event(
+                    event,
+                    now=now,
+                    accepted_results_by_job_id=accepted_results_by_job_id,
+                )
                 await repository.mark_processed(event_id=event.event_id, processed_at=now)
             except Exception as exc:
                 await repository.mark_failed(
@@ -104,16 +127,30 @@ class TaxonomyClassificationRuntimeService:
             ).scalars()
         )
 
+        result_items_by_job_id = await self._result_items_by_job_id(
+            [job.job_id for job in jobs if job.job_id is not None]
+        )
+
         for job in jobs:
             if job.job_id is None:
                 continue
-            try:
-                result = await self._job_queue_client.get_result(job.job_id)
-            except ResultNotReadyError as exc:
-                if exc.state in TERMINAL_NON_ACCEPTED_STATES:
-                    self._mark_job_terminal(job=job, terminal_state=exc.state, now=now)
+            item = result_items_by_job_id[job.job_id]
+            if item.status == "ready":
+                await self._process_accepted_result(
+                    job=job,
+                    result=_accepted_result_from_item(item),
+                    now=now,
+                )
                 continue
-            await self._process_accepted_result(job=job, result=result, now=now)
+            if item.status == "not_ready":
+                if item.state in TERMINAL_NON_ACCEPTED_STATES:
+                    self._mark_job_terminal(job=job, terminal_state=item.state, now=now)
+                continue
+            if item.status == "not_found":
+                job.last_error = f"Remote taxonomy-classification job {job.job_id} was not found."
+                job.updated_at = now
+                continue
+            raise ValueError(f"Unsupported result read status: {item.status}")
 
         await self._session.flush()
         return bool(jobs)
@@ -123,10 +160,16 @@ class TaxonomyClassificationRuntimeService:
         event: TaxonomyClassificationWebhookEvent,
         *,
         now: datetime,
+        accepted_results_by_job_id: Mapping[int, ResultReadItem],
     ) -> None:
         job = await self._job_for_update(job_id=event.job_id)
         if event.event_type == "result.accepted":
-            result = await self._accepted_result(job_id=event.job_id)
+            result = _accepted_result_from_item(
+                self._require_ready_result_item(
+                    job_id=event.job_id,
+                    result_items_by_job_id=accepted_results_by_job_id,
+                )
+            )
             await self._process_accepted_result(job=job, result=result, now=now)
             return
         if event.event_type == "job.terminal_non_accepted":
@@ -138,13 +181,28 @@ class TaxonomyClassificationRuntimeService:
             return
         raise ValueError(f"Unsupported webhook event type: {event.event_type}")
 
-    async def _accepted_result(self, *, job_id: int) -> AcceptedTaxonomyClassificationJobResult:
-        try:
-            return await self._job_queue_client.get_result(job_id)
-        except ResultNotReadyError as exc:
-            raise ValueError(
-                f"Webhook indicated accepted result but job {job_id} is not ready."
-            ) from exc
+    async def _result_items_by_job_id(
+        self,
+        job_ids: Sequence[int],
+    ) -> dict[int, ResultReadItem]:
+        unique_job_ids = list(dict.fromkeys(job_ids))
+        result_items_by_job_id: dict[int, ResultReadItem] = {}
+        for batch in _chunks(unique_job_ids, MAX_RESULT_READ_BATCH_SIZE):
+            result_items = await self._job_queue_client.get_results(batch)
+            _validate_result_items(result_items=result_items, requested_job_ids=batch)
+            result_items_by_job_id.update({item.job_id: item for item in result_items})
+        return result_items_by_job_id
+
+    @staticmethod
+    def _require_ready_result_item(
+        *,
+        job_id: int,
+        result_items_by_job_id: Mapping[int, ResultReadItem],
+    ) -> ResultReadItem:
+        item = result_items_by_job_id[job_id]
+        if item.status != "ready":
+            raise ValueError(f"Webhook indicated accepted result but job {job_id} is not ready.")
+        return item
 
     async def _process_accepted_result(
         self,
@@ -282,6 +340,37 @@ class TaxonomyClassificationRuntimeService:
         if terminal_state in (None, ""):
             raise RuntimeError("Expected taxonomy-classification terminal state to be present.")
         return terminal_state
+
+
+def _accepted_result_from_item(item: ResultReadItem) -> AcceptedTaxonomyClassificationJobResult:
+    if item.status != "ready":
+        raise ValueError(f"Job {item.job_id} result is not ready.")
+    if item.submission_id is None or item.received_at is None or item.result_payload is None:
+        raise ValueError(f"Job {item.job_id} ready result is missing required fields.")
+    return AcceptedTaxonomyClassificationJobResult(
+        job_id=item.job_id,
+        submission_id=item.submission_id,
+        received_at=item.received_at,
+        result_payload=item.result_payload,
+    )
+
+
+def _chunks[T](items: Sequence[T], size: int) -> list[Sequence[T]]:
+    return [items[index : index + size] for index in range(0, len(items), size)]
+
+
+def _validate_result_items(
+    *,
+    result_items: Sequence[ResultReadItem],
+    requested_job_ids: Sequence[int],
+) -> None:
+    if len(result_items) != len(requested_job_ids):
+        raise ValueError("Batch result read response length did not match request length.")
+    for expected_index, item in enumerate(result_items):
+        if item.index != expected_index:
+            raise ValueError("Batch result read response indexes did not match request indexes.")
+        if item.job_id != requested_job_ids[expected_index]:
+            raise ValueError("Batch result read response job ids did not match request job ids.")
 
 
 __all__ = ["TaxonomyClassificationRuntimeService"]

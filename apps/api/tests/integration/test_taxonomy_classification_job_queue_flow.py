@@ -6,14 +6,15 @@ Out of scope: Live job-queue-mcp transport and webhook authentication.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
+from job_queue_mcp_client.types import CreatedJob, CreateJobItem, ResultReadItem
 from sqlalchemy import delete, event, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
@@ -45,16 +46,34 @@ pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.anyio]
 class FakeJobQueueClient:
     results_by_job_id: dict[int, AcceptedTaxonomyClassificationJobResult]
     requested_result_job_ids: list[int] = field(default_factory=list)
+    requested_result_batches: list[list[int]] = field(default_factory=list)
 
     async def get_result(self, job_id: int) -> AcceptedTaxonomyClassificationJobResult:
         self.requested_result_job_ids.append(job_id)
         return self.results_by_job_id[job_id]
 
+    async def get_results(self, job_ids: Sequence[int]) -> list[ResultReadItem]:
+        self.requested_result_batches.append(list(job_ids))
+        return [
+            ResultReadItem(
+                index=index,
+                job_id=job_id,
+                status="ready",
+                submission_id=result.submission_id,
+                received_at=result.received_at,
+                result_payload=result.result_payload,
+            )
+            for index, job_id in enumerate(job_ids)
+            for result in [self.results_by_job_id[job_id]]
+        ]
+
 
 @dataclass(slots=True)
 class FakeCreateJobClient:
     created_jobs: list[dict[str, Any]] = field(default_factory=list)
+    created_job_batches: list[list[CreateJobItem]] = field(default_factory=list)
     create_job_ids: list[int] = field(default_factory=list)
+    create_jobs_results: list[CreatedJob] = field(default_factory=list)
     on_create: Callable[[Mapping[str, Any]], Awaitable[None]] | None = None
 
     async def create_job(
@@ -80,6 +99,29 @@ class FakeCreateJobClient:
             await self.on_create(created_job)
         return self.create_job_ids.pop(0)
 
+    async def create_jobs(self, jobs: Sequence[CreateJobItem]) -> list[CreatedJob]:
+        self.created_job_batches.append(list(jobs))
+        results: list[CreatedJob] = []
+        for index, job in enumerate(jobs):
+            created_job = {
+                "queue_name": job.queue_name,
+                "priority": job.priority,
+                "instruction": job.instruction,
+                "output_schema": job.output_schema,
+                "payload": job.payload or {},
+                "metadata": job.metadata or {},
+                "idempotency_key": job.idempotency_key,
+            }
+            self.created_jobs.append(created_job)
+            if self.on_create is not None:
+                await self.on_create(created_job)
+            if self.create_jobs_results:
+                continue
+            results.append(CreatedJob(index=index, job_id=self.create_job_ids.pop(0), created=True))
+        if self.create_jobs_results:
+            return self.create_jobs_results
+        return results
+
 
 async def _create_node(db_session: AsyncSession) -> Node:
     node = Node(
@@ -95,23 +137,37 @@ async def _create_node(db_session: AsyncSession) -> Node:
 async def _create_taxonomy_tree(
     db_session: AsyncSession,
 ) -> tuple[TaxonomyNode, TaxonomyNode, TaxonomyNode, TaxonomyNode]:
-    root = TaxonomyNode(parent_id=None, name="Root", depth=0, is_leaf=False)
+    root = TaxonomyNode(
+        parent_id=None,
+        name="Root",
+        route_slug="root",
+        depth=0,
+        is_leaf=False,
+    )
     db_session.add(root)
     await db_session.flush()
 
     root_unclassified = TaxonomyNode(
         parent_id=root.id,
         name="Unclassified",
+        route_slug="unclassified",
         depth=1,
         is_leaf=True,
     )
-    science = TaxonomyNode(parent_id=root.id, name="Science", depth=1, is_leaf=False)
+    science = TaxonomyNode(
+        parent_id=root.id,
+        name="Science",
+        route_slug="science",
+        depth=1,
+        is_leaf=False,
+    )
     db_session.add_all([root_unclassified, science])
     await db_session.flush()
 
     science_unclassified = TaxonomyNode(
         parent_id=science.id,
         name="Unclassified",
+        route_slug="unclassified",
         depth=2,
         is_leaf=True,
     )
@@ -125,10 +181,12 @@ async def _create_regular_child(
     *,
     parent: TaxonomyNode,
     name: str,
+    route_slug: str | None = None,
 ) -> tuple[TaxonomyNode, TaxonomyNode]:
     child = TaxonomyNode(
         parent_id=parent.id,
         name=name,
+        route_slug=route_slug or name.casefold().replace(" ", "-"),
         depth=parent.depth + 1,
         is_leaf=False,
     )
@@ -137,6 +195,7 @@ async def _create_regular_child(
     unclassified = TaxonomyNode(
         parent_id=child.id,
         name="Unclassified",
+        route_slug="unclassified",
         depth=child.depth + 1,
         is_leaf=True,
     )
@@ -365,13 +424,20 @@ async def test_scope_resolution_scope_path_missing_segment_fails_with_context(
 async def test_taxonomy_nodes_reject_case_insensitive_sibling_name_duplicates(
     db_session: AsyncSession,
 ) -> None:
-    root = TaxonomyNode(parent_id=None, name="Root", depth=0, is_leaf=False)
+    root = TaxonomyNode(
+        parent_id=None,
+        name="Root",
+        route_slug="root",
+        depth=0,
+        is_leaf=False,
+    )
     db_session.add(root)
     await db_session.flush()
     db_session.add(
         TaxonomyNode(
             parent_id=root.id,
             name="Unclassified",
+            route_slug="unclassified",
             depth=1,
             is_leaf=True,
         )
@@ -380,7 +446,12 @@ async def test_taxonomy_nodes_reject_case_insensitive_sibling_name_duplicates(
     await _create_regular_child(db_session, parent=root, name="Science")
 
     with pytest.raises(IntegrityError, match="uq_taxonomy_nodes_parent_lower_name"):
-        await _create_regular_child(db_session, parent=root, name="science")
+        await _create_regular_child(
+            db_session,
+            parent=root,
+            name="science",
+            route_slug="science-duplicate",
+        )
 
     await db_session.rollback()
 
@@ -434,16 +505,17 @@ async def test_valid_child_result_moves_assignment_to_child_unclassified_leaf(
     await db_session.commit()
     await _record_event(db_session, event_id="evt-valid-child", job_id=7001)
 
+    client = FakeJobQueueClient(
+        {
+            7001: _accepted_result(
+                job_id=7001,
+                result_payload={"target_name": "science"},
+            )
+        }
+    )
     service = TaxonomyClassificationRuntimeService(
         db_session,
-        job_queue_client=FakeJobQueueClient(
-            {
-                7001: _accepted_result(
-                    job_id=7001,
-                    result_payload={"target_name": "science"},
-                )
-            }
-        ),
+        job_queue_client=client,
     )
 
     processed_count = await service.process_pending_webhook_events(
@@ -453,6 +525,8 @@ async def test_valid_child_result_moves_assignment_to_child_unclassified_leaf(
 
     assignment = await taxonomy_repo.get_assignment_for_node(node_id=node.id)
     assert processed_count == 1
+    assert client.requested_result_batches == [[7001]]
+    assert client.requested_result_job_ids == []
     assert assignment is not None
     assert assignment.taxonomy_node.id == science_unclassified.id
 
@@ -480,11 +554,12 @@ async def test_unclassified_result_name_keeps_source_unclassified_assignment(
     await db_session.commit()
     await _record_event(db_session, event_id="evt-keep-unclassified-name", job_id=7004)
 
+    client = FakeJobQueueClient(
+        {7004: _accepted_result(job_id=7004, result_payload={"target_name": "unclassified"})}
+    )
     service = TaxonomyClassificationRuntimeService(
         db_session,
-        job_queue_client=FakeJobQueueClient(
-            {7004: _accepted_result(job_id=7004, result_payload={"target_name": "unclassified"})}
-        ),
+        job_queue_client=client,
     )
 
     processed_count = await service.process_pending_webhook_events(
@@ -494,8 +569,122 @@ async def test_unclassified_result_name_keeps_source_unclassified_assignment(
 
     assignment = await taxonomy_repo.get_assignment_for_node(node_id=node.id)
     assert processed_count == 1
+    assert client.requested_result_batches == [[7004]]
+    assert client.requested_result_job_ids == []
     assert assignment is not None
     assert assignment.taxonomy_node.id == root_unclassified.id
+
+
+async def test_webhook_processing_reads_accepted_results_in_one_batch(
+    db_session: AsyncSession,
+) -> None:
+    root, root_unclassified, _science, science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    first_node = await _create_node(db_session)
+    second_node = await _create_node(db_session)
+    taxonomy_repo = TaxonomyRepo(session=db_session)
+    await taxonomy_repo.set_current_assignment(
+        node_id=first_node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    await taxonomy_repo.set_current_assignment(
+        node_id=second_node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    db_session.add_all(
+        [
+            TaxonomyClassificationJob(
+                scope_node_id=root.id,
+                source_unclassified_node_id=root_unclassified.id,
+                node_id=first_node.id,
+                job_id=7011,
+            ),
+            TaxonomyClassificationJob(
+                scope_node_id=root.id,
+                source_unclassified_node_id=root_unclassified.id,
+                node_id=second_node.id,
+                job_id=7012,
+            ),
+        ]
+    )
+    await db_session.commit()
+    await _record_event(db_session, event_id="evt-batch-first", job_id=7011)
+    await _record_event(db_session, event_id="evt-batch-second", job_id=7012)
+    client = FakeJobQueueClient(
+        {
+            7011: _accepted_result(job_id=7011, result_payload={"target_name": "science"}),
+            7012: _accepted_result(job_id=7012, result_payload={"target_name": "science"}),
+        }
+    )
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        poll_batch_size=10,
+    )
+
+    processed_count = await service.process_pending_webhook_events(
+        now=datetime(2026, 4, 26, 15, 2, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    first_assignment = await taxonomy_repo.get_assignment_for_node(node_id=first_node.id)
+    second_assignment = await taxonomy_repo.get_assignment_for_node(node_id=second_node.id)
+    assert processed_count == 2
+    assert client.requested_result_batches == [[7011, 7012]]
+    assert client.requested_result_job_ids == []
+    assert first_assignment is not None
+    assert first_assignment.taxonomy_node.id == science_unclassified.id
+    assert second_assignment is not None
+    assert second_assignment.taxonomy_node.id == science_unclassified.id
+
+
+async def test_reconcile_reads_pending_remote_jobs_in_one_batch(
+    db_session: AsyncSession,
+) -> None:
+    root, root_unclassified, _science, science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    node = await _create_node(db_session)
+    taxonomy_repo = TaxonomyRepo(session=db_session)
+    await taxonomy_repo.set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    db_session.add(
+        TaxonomyClassificationJob(
+            scope_node_id=root.id,
+            source_unclassified_node_id=root_unclassified.id,
+            node_id=node.id,
+            job_id=7021,
+        )
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient(
+        {7021: _accepted_result(job_id=7021, result_payload={"target_name": "science"})}
+    )
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        reconcile_interval_seconds=1,
+        reconcile_batch_size=100,
+    )
+    assert (
+        await service.run_low_frequency_reconcile(now=datetime(2026, 4, 26, 15, 0, tzinfo=UTC))
+        is False
+    )
+
+    reconciled = await service.run_low_frequency_reconcile(
+        now=datetime(2026, 4, 26, 15, 1, 1, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assignment = await taxonomy_repo.get_assignment_for_node(node_id=node.id)
+    assert reconciled is True
+    assert client.requested_result_batches == [[7021]]
+    assert client.requested_result_job_ids == []
+    assert assignment is not None
+    assert assignment.taxonomy_node.id == science_unclassified.id
 
 
 async def test_operator_submission_creates_one_job_per_card_in_scope_unclassified(
@@ -530,15 +719,21 @@ async def test_operator_submission_creates_one_job_per_card_in_scope_unclassifie
     )
 
     assert result.submitted_count == 1
+    assert result.reused_idempotent_count == 0
     assert result.already_linked_count == 0
     assert result.skipped_no_children == 0
     assert [(scope.scope_node_id, scope.submitted_count) for scope in result.scopes] == [
         (root.id, 1)
     ]
+    assert len(client.created_job_batches) == 1
+    assert len(client.created_job_batches[0]) == 1
     assert stored_job is not None
     assert stored_job.scope_node_id == root.id
     assert stored_job.source_unclassified_node_id == root_unclassified.id
     assert stored_job.node_id == node.id
+    assert client.created_jobs[0]["idempotency_key"] == (
+        f"taxonomy-classification-job:{stored_job.id}"
+    )
     assert client.created_jobs[0]["queue_name"] == "taxonomy_classification"
     assert client.created_jobs[0]["metadata"] == {
         "scope_node_id": root.id,
@@ -608,6 +803,7 @@ async def test_operator_submission_persists_local_intent_before_remote_job_creat
     )
 
     assert result.submitted_count == 1
+    assert result.reused_idempotent_count == 0
     assert stored_job is not None
     assert stored_job.node_id == node.id
 
@@ -660,9 +856,88 @@ async def test_operator_submission_reuses_pending_local_intent_without_duplicate
     )
 
     assert result.submitted_count == 1
+    assert result.reused_idempotent_count == 0
     assert stored_jobs_count == 1
     assert stored_job is not None
     assert stored_job.node_id == node.id
+
+
+async def test_operator_submission_batches_pending_jobs_and_counts_idempotent_reuse(
+    db_session: AsyncSession,
+) -> None:
+    root, root_unclassified, _science, _science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    first_node = await _create_node(db_session)
+    second_node = await _create_node(db_session)
+    taxonomy_repo = TaxonomyRepo(session=db_session)
+    await taxonomy_repo.set_current_assignment(
+        node_id=first_node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    await taxonomy_repo.set_current_assignment(
+        node_id=second_node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    first_local_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        source_unclassified_node_id=root_unclassified.id,
+        node_id=first_node.id,
+        job_id=None,
+    )
+    second_local_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        source_unclassified_node_id=root_unclassified.id,
+        node_id=second_node.id,
+        job_id=None,
+    )
+    db_session.add_all([first_local_job, second_local_job])
+    await db_session.commit()
+
+    client = FakeCreateJobClient(
+        create_jobs_results=[
+            CreatedJob(index=0, job_id=8101, created=True),
+            CreatedJob(index=1, job_id=8102, created=False),
+        ]
+    )
+    service = TaxonomyClassificationSubmissionService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+    )
+
+    result = await service.submit_refinement_jobs(
+        selection=TaxonomyClassificationSubmissionSelection(
+            kind="scope_name",
+            scope_name="Root",
+        ),
+        limit=None,
+        batch_size=1000,
+    )
+    await db_session.commit()
+    await db_session.refresh(first_local_job)
+    await db_session.refresh(second_local_job)
+
+    assert len(client.created_job_batches) == 1
+    assert [job.idempotency_key for job in client.created_job_batches[0]] == [
+        f"taxonomy-classification-job:{first_local_job.id}",
+        f"taxonomy-classification-job:{second_local_job.id}",
+    ]
+    payload_titles: list[object] = []
+    for job in client.created_job_batches[0]:
+        payload = cast(dict[str, Any], job.payload)
+        card = cast(dict[str, Any], payload["card"])
+        payload_titles.append(card["title"])
+    assert payload_titles == [
+        first_node.title,
+        second_node.title,
+    ]
+    assert result.submitted_count == 1
+    assert result.reused_idempotent_count == 1
+    assert result.scopes[0].submitted_count == 1
+    assert result.scopes[0].reused_idempotent_count == 1
+    assert first_local_job.job_id == 8101
+    assert second_local_job.job_id == 8102
 
 
 async def test_operator_submission_counts_active_job_as_already_linked(
@@ -702,6 +977,7 @@ async def test_operator_submission_counts_active_job_as_already_linked(
     )
 
     assert result.submitted_count == 0
+    assert result.reused_idempotent_count == 0
     assert result.already_linked_count == 1
     assert result.scopes[0].already_linked_count == 1
     assert client.created_jobs == []
@@ -735,6 +1011,7 @@ async def test_operator_submission_skips_scope_without_regular_children(
 
     assert result.selected_scope_count == 2
     assert result.submitted_count == 0
+    assert result.reused_idempotent_count == 0
     assert result.skipped_no_children == 1
     assert scope_by_id[root.id].skipped_no_children is False
     assert scope_by_id[science.id].skipped_no_children is True
@@ -763,16 +1040,17 @@ async def test_invalid_child_result_is_terminal_local_error_without_assignment_m
     await db_session.commit()
     await _record_event(db_session, event_id="evt-invalid-child", job_id=7002)
 
+    client = FakeJobQueueClient(
+        {
+            7002: _accepted_result(
+                job_id=7002,
+                result_payload={"target_name": "Unknown"},
+            )
+        }
+    )
     service = TaxonomyClassificationRuntimeService(
         db_session,
-        job_queue_client=FakeJobQueueClient(
-            {
-                7002: _accepted_result(
-                    job_id=7002,
-                    result_payload={"target_name": "Unknown"},
-                )
-            }
-        ),
+        job_queue_client=client,
     )
 
     processed_count = await service.process_pending_webhook_events(
@@ -788,6 +1066,8 @@ async def test_invalid_child_result_is_terminal_local_error_without_assignment_m
     assignment = await taxonomy_repo.get_assignment_for_node(node_id=node.id)
 
     assert processed_count == 1
+    assert client.requested_result_batches == [[7002]]
+    assert client.requested_result_job_ids == []
     assert job.processed_at is not None
     assert "unknown child target" in (job.last_error or "")
     assert event is not None
@@ -846,6 +1126,7 @@ async def test_processed_keep_unclassified_job_does_not_block_later_submission(
     )
 
     assert result.submitted_count == 1
+    assert result.reused_idempotent_count == 0
     assert result.already_linked_count == 0
     assert stored_jobs_count == 2
     assert stored_job is not None

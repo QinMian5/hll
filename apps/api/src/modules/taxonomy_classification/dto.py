@@ -44,6 +44,7 @@ class TaxonomyClassificationScopeSummary(BaseModel):
     breadcrumb: tuple[NonEmptyString, ...] = Field(min_length=1)
     regular_child_count: int = Field(ge=0)
     submitted_count: int = Field(ge=0)
+    reused_idempotent_count: int = Field(ge=0)
     already_linked_count: int = Field(ge=0)
     skipped_no_children: bool = False
 
@@ -53,6 +54,7 @@ class TaxonomyClassificationSubmissionResult(BaseModel):
 
     selected_scope_count: int = Field(ge=0)
     submitted_count: int = Field(ge=0)
+    reused_idempotent_count: int = Field(ge=0)
     already_linked_count: int = Field(ge=0)
     skipped_no_children: int = Field(ge=0)
     scopes: list[TaxonomyClassificationScopeSummary] = Field(default_factory=list)

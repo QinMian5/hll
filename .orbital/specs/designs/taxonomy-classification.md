@@ -17,7 +17,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 
 ## Constraint Projection
 - **Governing Constraints:** Module boundaries remain explicit, persistent truth ownership stays in `knowledge_graph` and `taxonomy`, queue execution stays external to the API process, and behavior-changing design decisions stay synchronized in active specs.
-- **Detail Commitments:** Classification execution is operator-triggered via one-shot scripts and advanced by a background runtime. The runtime submits one `taxonomy_classification` queue job per eligible card, consumes notification-only webhook events plus lightweight polling/reconcile, reads accepted results through `GET /results/{job_id}`, validates target children against taxonomy-owned truth, and moves assignments only through taxonomy-owned services.
+- **Detail Commitments:** Classification execution is operator-triggered via one-shot scripts and advanced by a background runtime. The runtime submits one `taxonomy_classification` queue job per eligible card through the job-queue producer batch-create surface, consumes notification-only webhook events plus lightweight polling/reconcile, reads result status through the job-queue batch result-read surface, validates target children against taxonomy-owned truth, and moves assignments only through taxonomy-owned services.
 - **Update Rule:** Requirement-level constraints remain stable while classification orchestration behavior, queue contracts, result-consumption rules, and runtime/operator semantics are maintained here as implementation-facing truth.
 
 ## Design Approach
@@ -26,7 +26,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - **Module ownership:** `apps/api/src/modules/taxonomy_classification` owns classification job submission, job linkage persistence, result event processing, low-frequency reconcile, accepted-result validation, and assignment-move orchestration.
   - **Dependency boundary:** `taxonomy_classification` consumes `knowledge_graph` service ports for card input data and consumes `taxonomy` service ports for scope lookup, child lookup, and assignment movement.
   - **Queue boundary:** Classification jobs are submitted to the `taxonomy_classification` queue in `job-queue-mcp`.
-  - **Producer/result-reader SDK boundary:** `taxonomy_classification` uses the upstream `job_queue_mcp_client.producer.AsyncClient` and `job_queue_mcp_client.auth.ClientCredentialsTokenProvider` public facades directly for job submission, result reads, and machine-to-machine token acquisition. The module owns classification payload construction, output schema export, local linkage persistence, result validation, and assignment movement.
+  - **Producer/result-reader SDK boundary:** `taxonomy_classification` uses the upstream `job_queue_mcp_client.producer.AsyncClient` and `job_queue_mcp_client.auth.ClientCredentialsTokenProvider` public facades directly for batch job submission, batch result reads, and machine-to-machine token acquisition. The module owns classification payload construction, output schema export, local linkage persistence, result validation, and assignment movement.
   - **One-shot submission rule:** Operator scripts enqueue the cards that are currently unclassified at run time. The module does not run a continuous service that automatically submits every future `Unclassified` card.
   - **Single-card job rule:** One knowledge card is processed by exactly one queue job for one scope classification attempt.
   - **Node context contract:** The worker receives only the selected card's `title` and `content`, the current scope breadcrumb path, and available sibling target category names.
@@ -51,10 +51,16 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - `all_unclassified` scope rule: the script scans all regular taxonomy nodes that have a direct `Unclassified` leaf.
   - No-child skip rule: a scope with no regular direct child categories is skipped and counted as `skipped_no_children`.
   - Optional limit: limits the total number of submitted card jobs for the run after scope eligibility is resolved.
+  - Batch size: limits each producer batch-create request to a value from 1 through 1000 and defaults to 1000.
   - Selection set: cards currently assigned to each selected scope node's direct `Unclassified` leaf and lacking an active outstanding classification job for the same scope and source assignment.
   - Ordering: scopes are processed by breadcrumb path and taxonomy node id; selected cards within a scope are processed in `nodes.id ASC`.
-  - Job creation: one queue job per selected card.
-  - Script output: submitted, already-linked, `skipped_no_children`, and selected-scope counts.
+  - Local intent creation: the service creates and commits local active submission rows before producer batch submission so each row has a stable local job id.
+  - Producer submission: one queue job per selected card is created through the producer batch-create SDK. Each batch item uses `taxonomy-classification-job:{local_job_id}` as its queue-scoped idempotency key.
+  - Batch response handling: the service applies producer batch-create results by input index and writes the returned remote `job_id` to the matching local job row.
+  - Idempotent recovery count: a batch result with `created=false` is counted as an idempotent remote job reuse for a previously created producer job.
+  - Progress output: the script displays one aggregate progress indicator for jobs that require producer submission or producer-submission recovery. Already-linked jobs are excluded from progress.
+  - Summary output: the default script output contains only selected-scope count, submitted-job count, idempotent-reuse count, already-linked-job count, skipped-no-child scope count, elapsed time, and effective submitted jobs per second.
+  - Verbose output: per-scope details are available only through an explicit verbose mode.
   - Resubmission rule: a processed keep-unclassified result, processed invalid accepted result, or terminal non-accepted result does not block a later operator submission for the same card and scope.
 
 ## Queue Job Contract
@@ -68,6 +74,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - **Output schema:** one JSON object containing:
   - `{ "target_name": <non-empty child name or Unclassified> }`
 - **Result-use rule:** Publishing a valid move depends on structural validation against current taxonomy state. A `target_name` matches either a direct regular child of the scope or the scope's `Unclassified` leaf case-insensitively.
+- **Producer idempotency rule:** The remote producer idempotency key is derived from the committed local classification job id. Re-running an interrupted operator submission reuses the same producer idempotency key for the same local active submission intent and receives the existing remote job id instead of creating a duplicate remote job.
 
 ## Runtime State
 - The module persists local queue linkage and local notification state needed for restart/resume behavior.
@@ -75,7 +82,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - scope node id
   - source `Unclassified` leaf id
   - card node id
-  - nullable remote `job_id`, assigned only after the local active submission intent is committed
+  - nullable remote `job_id`, assigned only after the local active submission intent is committed and the producer batch-create response is applied
   - terminal non-accepted state when present
   - accepted-result processing state
   - result target snapshot when accepted and valid
@@ -97,11 +104,14 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - queue-level webhook subscriptions deliver notification-only events;
   - local webhook intake authenticates and persists events idempotently;
   - pending local events wake the background runtime;
-  - accepted result payloads are reread from `GET /results/{job_id}`;
+  - accepted result payloads and not-ready status are reread through `POST /results/batch`;
   - low-frequency polling/reconcile checks outstanding job links to compensate for missed notifications or exhausted remote delivery retries.
 - The webhook receiver does not move assignments or read result payloads. It returns after authenticated atomic idempotent event persistence.
 - The webhook receiver rejects authenticated notifications whose `queue_name` does not match the configured taxonomy-classification queue before writing any local event.
-- The background runtime owns event processing, result reads, validation, assignment movement, terminal checkpoint updates, and processed/error markers.
+- The background runtime owns event processing, batch result reads, validation, assignment movement, terminal checkpoint updates, and processed/error markers.
+- Pending accepted-result webhook events are read in batches. Ready batch items are applied through existing per-job validation and assignment movement. Not-ready or not-found batch items for accepted-result webhook events are recorded as event processing errors because the webhook contract indicated an accepted result should be available.
+- Low-frequency reconcile reads outstanding linked jobs in batches. Ready batch items are applied through existing per-job validation and assignment movement. Not-ready items whose remote state is a terminal non-accepted state mark the local job terminal; other not-ready items remain outstanding. Not-found items record a local job error while leaving the job outstanding for operator visibility.
+- Local assignment movement remains per job and serial within a runtime tick so assignment locks, taxonomy validation, and projection refreshes keep existing conservative semantics while remote result I/O is batched.
 - Webhook receiver authentication remains module-owned and validates incoming delivery tokens against the `knowledge` Logto authority. The job-queue producer/result-reader SDK is not the authority for incoming webhook delivery-token validation.
 
 ## Assignment Move Flow
@@ -111,7 +121,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 4. `job-queue-mcp` dispatches each single-card job to external workers.
 5. `job-queue-mcp` sends notification-only webhook events for accepted results and terminal non-accepted states.
 6. The local webhook receiver records events idempotently and wakes the classification runtime.
-7. The classification runtime reads accepted results from `GET /results/{job_id}`.
+7. The classification runtime reads accepted results and outstanding result status through batch result-read requests.
 8. The runtime validates the accepted result against current taxonomy and assignment truth.
 9. Valid child targets move the card to the target child's `Unclassified` leaf through taxonomy-owned assignment movement.
 10. Valid `unclassified` targets keep the card in the current source `Unclassified` leaf and mark the job processed.
@@ -142,6 +152,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 
 ## Failure Handling
 - Job submission failures leave assignments unchanged and are visible in operator output or runtime logs.
+- Producer batch-create failures leave local active submission rows with `job_id IS NULL`; a later operator run can resubmit those rows with the same producer idempotency keys and recover remote job ids without duplicate remote jobs.
 - Accepted results with unknown child names, missing target `Unclassified` leaves, or stale card-source assignments are recorded as locally processed errors and do not move assignments.
 - Terminal non-accepted queue states are recorded to stop repeated local result reads for the affected job.
 - Duplicate webhook deliveries are accepted idempotently through repository-owned atomic event insertion and do not create duplicate local wakeups.
@@ -159,6 +170,9 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Operator submission script skips scopes with no regular direct children and reports `skipped_no_children`.
   - Operator submission script selects cards from each selected scope's `Unclassified` leaf in `nodes.id ASC` order.
   - Submission idempotency tests verify repeated runs do not duplicate active job links for the same card and scope.
+  - Producer batch submission tests verify local job ids drive stable producer idempotency keys, batch-create responses are applied by input index, idempotent remote reuses are counted, and interrupted submissions can be safely resumed.
+  - Operator progress tests verify the default output contains one aggregate progress display and a compact summary without per-scope detail.
+  - Operator verbose-output tests verify per-scope detail is emitted only in verbose mode.
   - Resubmission tests verify processed keep-unclassified results, processed invalid accepted results, and terminal non-accepted results do not block later submissions for cards still assigned to the same scope `Unclassified` leaf.
   - Queue-contract tests verify `taxonomy_classification` payload and output schema shape.
   - Webhook receiver tests verify authentication, duplicate event handling, event persistence, and local wakeup behavior.
@@ -166,6 +180,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Runtime tests verify accepted `unclassified` targets keep the current assignment and mark the job processed.
   - Runtime tests verify unknown target names, stale source assignments, and missing target `Unclassified` leaves record errors without moving assignments.
   - Runtime tests verify terminal non-accepted queue states stop repeated processing for that job.
-  - Reconcile tests verify outstanding job links are checked at low frequency through the result-read surface.
+  - Runtime batch result-read tests verify accepted-result webhook events and low-frequency reconcile use the batch result-read SDK, preserve per-job validation semantics, and handle ready, not-ready, not-found, and terminal-state items correctly.
+  - Reconcile tests verify outstanding job links are checked at low frequency through the batch result-read surface.
 - **Evidence:**
   - Passing unit and integration tests for operator scripts, queue contracts, webhook intake, result processing, assignment movement, and reconcile behavior.
