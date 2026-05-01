@@ -59,6 +59,10 @@ export interface LogtoPersonalAccessTokensClientOptions {
   readonly fetch?: typeof fetch;
 }
 
+interface LogtoErrorPayload {
+  readonly code?: unknown;
+}
+
 function joinLogtoApiUrl(apiBaseUrl: string, path: string): string {
   const baseUrl = apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`;
 
@@ -81,7 +85,31 @@ async function readJson(response: Response): Promise<unknown> {
   return await response.json();
 }
 
-function mapLogtoError(response: Response): never {
+async function readLogtoErrorPayload(
+  response: Response,
+): Promise<LogtoErrorPayload | undefined> {
+  try {
+    return (await response.json()) as LogtoErrorPayload;
+  } catch {
+    return undefined;
+  }
+}
+
+async function mapLogtoError(response: Response): Promise<never> {
+  const payload = await readLogtoErrorPayload(response);
+  const code = typeof payload?.code === "string" ? payload.code : null;
+
+  if (
+    response.status === 422 &&
+    code === "user.personal_access_token_name_exists"
+  ) {
+    throw new LogtoPersonalAccessTokenError(
+      409,
+      "dashboard_token_name_conflict",
+      "Token name already exists.",
+    );
+  }
+
   if (response.status === 400) {
     throw new LogtoPersonalAccessTokenError(
       400,
@@ -170,7 +198,7 @@ export function createLogtoPersonalAccessTokensClient(
       });
 
       if (!response.ok) {
-        mapLogtoError(response);
+        await mapLogtoError(response);
       }
 
       return parseTokenResponse(await readJson(response));
@@ -185,7 +213,7 @@ export function createLogtoPersonalAccessTokensClient(
       );
 
       if (!response.ok) {
-        mapLogtoError(response);
+        await mapLogtoError(response);
       }
     },
     listPersonalAccessTokens: async (userId) => {
@@ -194,7 +222,7 @@ export function createLogtoPersonalAccessTokensClient(
       });
 
       if (!response.ok) {
-        mapLogtoError(response);
+        await mapLogtoError(response);
       }
 
       return parseTokenListResponse(await readJson(response));
@@ -209,7 +237,7 @@ export function createLogtoPersonalAccessTokensClient(
       });
 
       if (!response.ok) {
-        mapLogtoError(response);
+        await mapLogtoError(response);
       }
 
       return parseTokenResponse(await readJson(response));

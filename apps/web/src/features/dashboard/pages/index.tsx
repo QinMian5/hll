@@ -2,6 +2,7 @@
 // out_of_scope: AppShell navigation chrome and server-side token adapters.
 
 import { useEffect, useRef, useState } from "react";
+import { WebApiRequestError } from "../../../shared/web-api/errors";
 import { QuotaSummary } from "../components/QuotaSummary";
 import { DeleteTokenDialog, TokenDialog } from "../components/TokenDialog";
 import { TokenDirectory } from "../components/TokenDirectory";
@@ -22,6 +23,34 @@ type DialogState =
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Request failed.";
+}
+
+function dashboardTokenErrorMessage(
+  error: unknown,
+  tokenName?: string,
+): string {
+  if (!(error instanceof WebApiRequestError)) {
+    return errorMessage(error);
+  }
+
+  switch (error.code) {
+    case "dashboard_auth_required":
+      return "Sign in to manage tokens.";
+    case "dashboard_invalid_token_name":
+      return "Enter a token name.";
+    case "dashboard_token_dependency_unavailable":
+      return "Token service is unavailable. Try again later.";
+    case "dashboard_token_name_conflict": {
+      const trimmedTokenName = tokenName?.trim();
+      return trimmedTokenName
+        ? `A token named "${trimmedTokenName}" already exists. Use a different name.`
+        : "A token with this name already exists. Use a different name.";
+    }
+    case "dashboard_token_not_found":
+      return "This token no longer exists. Refresh and try again.";
+    default:
+      return error.message;
+  }
 }
 
 export function DashboardPage() {
@@ -66,7 +95,7 @@ export function DashboardPage() {
       await createTokenMutation.mutateAsync({ name });
       closeDialog();
     } catch (error) {
-      setDialogError(errorMessage(error));
+      setDialogError(dashboardTokenErrorMessage(error, name));
     }
   }
 
@@ -83,7 +112,7 @@ export function DashboardPage() {
       });
       closeDialog();
     } catch (error) {
-      setDialogError(errorMessage(error));
+      setDialogError(dashboardTokenErrorMessage(error, name));
     }
   }
 
@@ -97,7 +126,7 @@ export function DashboardPage() {
       await deleteTokenMutation.mutateAsync({ name: dialogState.token.name });
       closeDialog();
     } catch (error) {
-      setDialogError(errorMessage(error));
+      setDialogError(dashboardTokenErrorMessage(error, dialogState.token.name));
     }
   }
 

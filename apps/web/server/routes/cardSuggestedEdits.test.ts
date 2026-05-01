@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import type { WebSessionResponse } from "../auth/sessionState.js";
 import { loadWebServerConfig } from "../config.js";
+import { InternalApiError } from "../internal-api/errors.js";
 import { createWebServerTestEnv } from "../testSupport/webServerEnv.js";
 import type { CardSuggestedEditsInternalApi } from "./cardSuggestedEdits.js";
 import { createCardSuggestedEditsRouter } from "./cardSuggestedEdits.js";
@@ -143,5 +144,37 @@ describe("card suggested edit route", () => {
       },
       "logto-user-123",
     );
+  });
+
+  it("preserves safe internal API suggestion errors for the browser", async () => {
+    const createSuggestedEdit = vi.fn(async () => {
+      throw new InternalApiError(422, "internal API rejected suggestion", {
+        clientMessage: "Suggested edit must change the card title or content.",
+        code: "DOMAIN_KNOWLEDGE_RULE_VIOLATION",
+      });
+    });
+    const app = await createTestApp({
+      client: { createSuggestedEdit },
+      session: {
+        status: "authenticated",
+        user: { id: "logto-user-123" },
+      },
+    });
+
+    const response = await request(app)
+      .post("/web-api/cards/1/suggested-edits")
+      .send({
+        base_version: 1,
+        suggested_content: "Same content",
+        suggested_title: "Same title",
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({
+      error: {
+        code: "DOMAIN_KNOWLEDGE_RULE_VIOLATION",
+        message: "Suggested edit must change the card title or content.",
+      },
+    });
   });
 });

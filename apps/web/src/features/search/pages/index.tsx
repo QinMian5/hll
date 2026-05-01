@@ -14,6 +14,7 @@ import {
   useCreateSuggestedEditMutation,
   useSearchQuery,
 } from "../data/searchQueries";
+import { suggestedEditErrorMessage } from "../suggestedEditErrors";
 
 const SearchResultCard = lazy(() =>
   import("../components/SearchResultCard").then((module) => ({
@@ -115,8 +116,8 @@ export function SearchPage() {
       });
       setEditingCard(null);
       setSuggestionError(undefined);
-    } catch {
-      setSuggestionError("Could not submit the suggestion. Try again.");
+    } catch (error) {
+      setSuggestionError(suggestedEditErrorMessage(error));
     }
   }
 
@@ -163,7 +164,7 @@ export function SearchPage() {
                 Search results
               </h1>
               <div
-                className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
+                className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pt-2 pr-3 pb-1 [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-results-scroll-area"
               >
                 {errorCopy ? (
@@ -181,7 +182,7 @@ export function SearchPage() {
                   </section>
                 ) : (
                   <div
-                    className="group/search-results-grid grid w-full auto-rows-[176px] grid-cols-1 gap-y-3 sm:grid-cols-2 sm:gap-x-3 lg:auto-rows-[176px] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
+                    className="group/search-results-grid grid w-full auto-rows-[176px] grid-cols-1 gap-y-3 pb-1 sm:grid-cols-2 sm:gap-x-3 lg:auto-rows-[176px] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
                     data-testid="search-results-grid"
                   >
                     <Suspense fallback={null}>

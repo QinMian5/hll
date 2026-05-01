@@ -4,11 +4,22 @@
 import type { NextFunction, Response } from "express";
 
 export class InternalApiError extends Error {
+  readonly clientMessage: string | undefined;
+  readonly code: string | undefined;
   readonly status: number;
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    options: {
+      readonly clientMessage?: string;
+      readonly code?: string;
+    } = {},
+  ) {
     super(message);
     this.name = "InternalApiError";
+    this.clientMessage = options.clientMessage;
+    this.code = options.code;
     this.status = status;
   }
 }
@@ -39,6 +50,21 @@ export function handleWebRouteError(
   }
 
   if (error instanceof InternalApiError) {
+    if (
+      error.status >= 400 &&
+      error.status < 500 &&
+      error.code !== undefined &&
+      error.clientMessage !== undefined
+    ) {
+      response.status(error.status).json({
+        error: {
+          code: error.code,
+          message: error.clientMessage,
+        },
+      });
+      return;
+    }
+
     response.status(error.status).json({
       error: {
         code: "internal_api_request_failed",

@@ -21,6 +21,7 @@ import type { SearchResultCardEditPayload } from "../../search/components/Search
 import { SignInRequiredDialog } from "../../search/components/SignInRequiredDialog";
 import { SuggestEditDialog } from "../../search/components/SuggestEditDialog";
 import { useCreateSuggestedEditMutation } from "../../search/data/searchQueries";
+import { suggestedEditErrorMessage } from "../../search/suggestedEditErrors";
 import {
   useTaxonomyNodeViewByPathQuery,
   useTaxonomyRootViewQuery,
@@ -233,8 +234,8 @@ export function TaxonomyViewPage() {
       });
       setEditingCard(null);
       setSuggestionError(undefined);
-    } catch {
-      setSuggestionError("Could not submit the suggestion. Try again.");
+    } catch (error) {
+      setSuggestionError(suggestedEditErrorMessage(error));
     }
   }
 

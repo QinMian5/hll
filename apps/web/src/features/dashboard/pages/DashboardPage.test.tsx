@@ -13,6 +13,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { WebApiRequestError } from "../../../shared/web-api/errors";
 import type { DashboardQuotaResponse, DashboardTokensResponse } from "../types";
 
 vi.mock("../data/dashboardTokens", () => ({
@@ -335,6 +336,35 @@ describe("DashboardPage", () => {
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith({ name: "Research Lab" }),
     );
+  });
+
+  it("shows a duplicate token name error with actionable dialog copy", async () => {
+    const mutateAsync = vi.fn(async () => {
+      throw new WebApiRequestError({
+        code: "dashboard_token_name_conflict",
+        message: "Dashboard dependency unavailable.",
+        status: 409,
+      });
+    });
+    mockUseCreateDashboardTokenMutation.mockReturnValue(
+      mutationResult<
+        ReturnType<typeof dashboardTokens.useCreateDashboardTokenMutation>
+      >(mutateAsync),
+    );
+
+    render(<DashboardPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Token" }));
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Research MCP" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Create Token" })[1]);
+
+    expect(
+      await screen.findByText(
+        'A token named "Research MCP" already exists. Use a different name.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it("submits the rename token dialog", async () => {

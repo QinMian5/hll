@@ -520,6 +520,41 @@ describe("TaxonomyViewPage", () => {
     });
   });
 
+  it("shows actionable copy for known leaf suggestion errors", async () => {
+    mutateSuggestedEdit.mockRejectedValueOnce(
+      new WebApiRequestError({
+        code: "DOMAIN_KNOWLEDGE_RULE_VIOLATION",
+        message: "Suggested edit must change the card title or content.",
+        status: 422,
+      }),
+    );
+
+    await renderWithRoute();
+
+    const branchNode = within(screen.getByTestId("reactflow-mock"))
+      .getByText("Math")
+      .closest("[data-node-scope='branch']");
+
+    expect(branchNode).not.toBeNull();
+
+    fireEvent.click(branchNode as HTMLElement);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open leaf edit" }),
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "Suggest edit" });
+    fireEvent.change(within(dialog).getByLabelText("Suggested content"), {
+      target: { value: "Updated leaf content" },
+    });
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Submit suggestion" }),
+    );
+
+    expect(
+      await screen.findByText("Change the title or content before submitting."),
+    ).toBeInTheDocument();
+  });
+
   it("renders a readable deep link without first visiting the root graph", async () => {
     await renderWithRoute("/graph/math");
 

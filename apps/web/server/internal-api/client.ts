@@ -60,14 +60,50 @@ export interface InternalApiClient {
 
 interface InternalApiResult<TData> {
   readonly data?: TData;
+  readonly error?: unknown;
   readonly response: Response;
+}
+
+interface InternalApiErrorPayload {
+  readonly error?: {
+    readonly code?: unknown;
+    readonly message?: unknown;
+  };
+}
+
+function parseInternalApiErrorPayload(payload: unknown):
+  | {
+      readonly code: string;
+      readonly message: string;
+    }
+  | undefined {
+  const error =
+    typeof payload === "object" && payload !== null && "error" in payload
+      ? (payload as InternalApiErrorPayload).error
+      : undefined;
+
+  if (typeof error?.code !== "string" || typeof error.message !== "string") {
+    return undefined;
+  }
+
+  return {
+    code: error.code,
+    message: error.message,
+  };
 }
 
 function unwrapInternalApiData<TData>(result: InternalApiResult<TData>): TData {
   if (!result.response.ok) {
+    const payload = parseInternalApiErrorPayload(result.error ?? result.data);
+
     throw new InternalApiError(
       result.response.status,
       `Internal API request failed with status ${result.response.status}.`,
+      result.response.status >= 400 &&
+        result.response.status < 500 &&
+        payload !== undefined
+        ? { clientMessage: payload.message, code: payload.code }
+        : undefined,
     );
   }
 

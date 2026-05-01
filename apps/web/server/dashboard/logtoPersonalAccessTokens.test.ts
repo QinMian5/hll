@@ -153,4 +153,25 @@ describe("Logto personal access token client", () => {
       status: 409,
     } satisfies Partial<LogtoPersonalAccessTokenError>);
   });
+
+  it("maps Logto duplicate-name validation responses to a conflict error", async () => {
+    const fetchLogto = vi.fn(async () => {
+      return Response.json(
+        {
+          code: "user.personal_access_token_name_exists",
+          message: "Personal access token name already exists.",
+        },
+        { status: 422 },
+      );
+    });
+    const client = createClient(fetchLogto);
+
+    await expect(
+      client.createPersonalAccessToken("user-1", "Laptop"),
+    ).rejects.toMatchObject({
+      code: "dashboard_token_name_conflict",
+      name: "LogtoPersonalAccessTokenError",
+      status: 409,
+    } satisfies Partial<LogtoPersonalAccessTokenError>);
+  });
 });

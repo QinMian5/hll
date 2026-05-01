@@ -585,4 +585,59 @@ describe("SearchPage", () => {
     expect(screen.getByDisplayValue("Better title")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Better content.")).toBeInTheDocument();
   });
+
+  it("shows actionable copy for known suggested edit rule violations", async () => {
+    const mutateAsync = vi.fn(async () => {
+      throw new WebApiRequestError({
+        code: "DOMAIN_KNOWLEDGE_RULE_VIOLATION",
+        message: "Suggested edit must change the card title or content.",
+        status: 422,
+      });
+    });
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [
+        {
+          content: "Old content.",
+          current_version: 3,
+          node_id: 10,
+          title: "Old title",
+        },
+      ],
+    };
+    mockUseCreateSuggestedEditMutation.mockReturnValue({
+      error: null,
+      isPending: false,
+      mutateAsync,
+    } as never);
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+    mockUseWebSession.mockReturnValue({
+      status: "authenticated",
+      user: { id: "logto-user-123" },
+    });
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Suggest edit for Old title" }),
+    );
+    fireEvent.change(screen.getByLabelText("Suggested content"), {
+      target: { value: "Better content." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit suggestion" }));
+
+    expect(
+      await screen.findByText("Change the title or content before submitting."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Suggest edit" }),
+    ).toBeInTheDocument();
+  });
 });
