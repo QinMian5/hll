@@ -7,33 +7,10 @@ import request from "supertest";
 import { describe, expect, it } from "vitest";
 
 import { loadWebServerConfig } from "../config.js";
+import { createWebServerTestEnv } from "../testSupport/webServerEnv.js";
 import { ensureAnonymousIdentity } from "./anonymousIdentity.js";
 
-const TEST_ENV = {
-  KNOWLEDGE_WEB_COOKIE_SECURE: "false",
-  KNOWLEDGE_WEB_INTERNAL_API_BASE_URL: "http://api:8000",
-  KNOWLEDGE_WEB_LOGTO_APP_ID: "test-app",
-  KNOWLEDGE_WEB_LOGTO_APP_SECRET: "test-secret",
-  KNOWLEDGE_WEB_LOGTO_ENDPOINT: "http://logto:3001",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_API_BASE_URL: "http://logto:3001/api",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_ID: "management-client",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_SECRET: "management-secret",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_RESOURCE: "https://default.logto.app/api",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_SCOPES:
-    "read:users create:users update:users delete:users",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_TOKEN_URL: "http://logto:3001/oidc/token",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_BASE_URL: "http://mcp:8001",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_ID: "usage-client",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_SECRET: "usage-secret",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_RESOURCE: "https://knowledge-mcp.internal",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_SCOPES: "usage:read",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL: "http://logto:3001/oidc/token",
-  KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET:
-    "test-pat-fingerprint-secret-with-enough-length",
-  KNOWLEDGE_WEB_PUBLIC_BASE_URL: "http://localhost:5173",
-  KNOWLEDGE_WEB_REDIS_URL: "redis://redis:6379/0",
-  KNOWLEDGE_WEB_SESSION_SECRET: "test-session-secret-with-enough-length",
-};
+const TEST_ENV = createWebServerTestEnv();
 
 describe("ensureAnonymousIdentity", () => {
   it("sets an httpOnly anonymous identity cookie when the request has none", async () => {

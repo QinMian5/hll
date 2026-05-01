@@ -5,32 +5,9 @@
 import { describe, expect, it } from "vitest";
 
 import { loadWebServerConfig } from "./config.js";
+import { createWebServerTestEnv } from "./testSupport/webServerEnv.js";
 
-const TEST_ENV = {
-  KNOWLEDGE_WEB_COOKIE_SECURE: "false",
-  KNOWLEDGE_WEB_INTERNAL_API_BASE_URL: "http://api:8000",
-  KNOWLEDGE_WEB_LOGTO_APP_ID: "test-app",
-  KNOWLEDGE_WEB_LOGTO_APP_SECRET: "test-secret",
-  KNOWLEDGE_WEB_LOGTO_ENDPOINT: "http://logto:3001",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_API_BASE_URL: "http://logto:3001/api",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_ID: "management-client",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_SECRET: "management-secret",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_RESOURCE: "https://default.logto.app/api",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_SCOPES:
-    "read:users create:users update:users delete:users",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_TOKEN_URL: "http://logto:3001/oidc/token",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_BASE_URL: "http://mcp:8001",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_ID: "usage-client",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_SECRET: "usage-secret",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_RESOURCE: "https://knowledge-mcp.internal",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_SCOPES: "usage:read",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL: "http://logto:3001/oidc/token",
-  KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET:
-    "test-pat-fingerprint-secret-with-enough-length",
-  KNOWLEDGE_WEB_PUBLIC_BASE_URL: "http://localhost:5173",
-  KNOWLEDGE_WEB_REDIS_URL: "redis://redis:6379/0",
-  KNOWLEDGE_WEB_SESSION_SECRET: "test-session-secret-with-enough-length",
-};
+const TEST_ENV = createWebServerTestEnv();
 
 describe("web server config", () => {
   it("loads dashboard token management dependency settings", () => {
@@ -64,5 +41,33 @@ describe("web server config", () => {
 
     expect(() => loadWebServerConfig(env)).toThrow();
     expect(KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET).toBeDefined();
+  });
+
+  it("loads taxonomy view quota overrides from first-class env variables", () => {
+    const config = loadWebServerConfig(TEST_ENV);
+
+    expect(config.quotaRouteOverrides).toEqual({
+      "taxonomy-view": {
+        anonymous: {
+          burst: { limit: 60, windowSeconds: 60 },
+          total: { limit: 600, windowSeconds: 86400 },
+        },
+        authenticated: {
+          burst: { limit: 240, windowSeconds: 60 },
+          total: { limit: 5000, windowSeconds: 86400 },
+        },
+        ip: {
+          burst: { limit: 600, windowSeconds: 60 },
+          total: { limit: 15000, windowSeconds: 86400 },
+        },
+      },
+    });
+  });
+
+  it("requires explicit web quota env values instead of code defaults", () => {
+    const { KNOWLEDGE_WEB_ANON_BURST_LIMIT, ...env } = TEST_ENV;
+
+    expect(() => loadWebServerConfig(env)).toThrow();
+    expect(KNOWLEDGE_WEB_ANON_BURST_LIMIT).toBeDefined();
   });
 });

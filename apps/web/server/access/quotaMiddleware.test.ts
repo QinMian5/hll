@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import type { WebSessionResponse } from "../auth/sessionState.js";
 import { loadWebServerConfig } from "../config.js";
+import { createWebServerTestEnv } from "../testSupport/webServerEnv.js";
 import { createQuotaMiddleware } from "./quotaMiddleware.js";
 import type {
   QuotaConsumption,
@@ -16,31 +17,7 @@ import type {
   QuotaStore,
 } from "./quotaStore.js";
 
-const TEST_ENV = {
-  KNOWLEDGE_WEB_COOKIE_SECURE: "false",
-  KNOWLEDGE_WEB_INTERNAL_API_BASE_URL: "http://api:8000",
-  KNOWLEDGE_WEB_LOGTO_APP_ID: "test-app",
-  KNOWLEDGE_WEB_LOGTO_APP_SECRET: "test-secret",
-  KNOWLEDGE_WEB_LOGTO_ENDPOINT: "http://logto:3001",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_API_BASE_URL: "http://logto:3001/api",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_ID: "management-client",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_CLIENT_SECRET: "management-secret",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_RESOURCE: "https://default.logto.app/api",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_SCOPES:
-    "read:users create:users update:users delete:users",
-  KNOWLEDGE_WEB_LOGTO_MANAGEMENT_TOKEN_URL: "http://logto:3001/oidc/token",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_BASE_URL: "http://mcp:8001",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_ID: "usage-client",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_SECRET: "usage-secret",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_RESOURCE: "https://knowledge-mcp.internal",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_SCOPES: "usage:read",
-  KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL: "http://logto:3001/oidc/token",
-  KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET:
-    "test-pat-fingerprint-secret-with-enough-length",
-  KNOWLEDGE_WEB_PUBLIC_BASE_URL: "http://localhost:5173",
-  KNOWLEDGE_WEB_REDIS_URL: "redis://redis:6379/0",
-  KNOWLEDGE_WEB_SESSION_SECRET: "test-session-secret-with-enough-length",
-};
+const TEST_ENV = createWebServerTestEnv();
 
 class RecordingQuotaStore implements QuotaStore {
   readonly consumptions: QuotaConsumption[] = [];
@@ -61,16 +38,10 @@ class RecordingQuotaStore implements QuotaStore {
 
 async function createLimitedApp(options: {
   readonly getSession: () => Promise<WebSessionResponse>;
-  readonly quotaRouteOverridesJson?: string;
   readonly routeGroup?: string;
   readonly store: QuotaStore;
 }) {
-  const config = loadWebServerConfig({
-    ...TEST_ENV,
-    KNOWLEDGE_WEB_QUOTA_ROUTE_OVERRIDES_JSON:
-      options.quotaRouteOverridesJson ??
-      '{"search":{"anonymous":{"burst":{"limit":2}}}}',
-  });
+  const config = loadWebServerConfig(TEST_ENV);
   const webApiRouter = Router();
 
   webApiRouter.get(
@@ -170,32 +141,10 @@ describe("createQuotaMiddleware", () => {
     });
   });
 
-  it("applies route-level quota overrides", async () => {
-    const store = new RecordingQuotaStore();
-    const app = await createLimitedApp({
-      getSession: async () => ({ status: "anonymous" }),
-      routeGroup: "search",
-      store,
-    });
-
-    const response = await request(app).get("/web-api/limited");
-
-    expect(response.status).toBe(200);
-    expect(store.consumptions[0]).toMatchObject({
-      limit: 2,
-      routeGroup: "search",
-      windowName: "burst",
-    });
-  });
-
   it("applies taxonomy-view route overrides to anonymous, authenticated, and IP windows", async () => {
-    const quotaRouteOverridesJson =
-      '{"taxonomy-view":{"anonymous":{"burst":{"limit":60},"total":{"limit":600}},"authenticated":{"burst":{"limit":240},"total":{"limit":5000}},"ip":{"burst":{"limit":600},"total":{"limit":15000}}}}';
-
     const anonymousStore = new RecordingQuotaStore();
     const anonymousApp = await createLimitedApp({
       getSession: async () => ({ status: "anonymous" }),
-      quotaRouteOverridesJson,
       routeGroup: "taxonomy-view",
       store: anonymousStore,
     });
@@ -237,7 +186,6 @@ describe("createQuotaMiddleware", () => {
         status: "authenticated",
         user: { id: "user-1" },
       }),
-      quotaRouteOverridesJson,
       routeGroup: "taxonomy-view",
       store: authenticatedStore,
     });

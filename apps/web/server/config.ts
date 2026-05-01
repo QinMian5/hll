@@ -19,30 +19,7 @@ const OptionalUrlStringSchema = OptionalTrimmedStringSchema.refine(
   "Invalid URL",
 );
 
-const QuotaWindowOverrideSchema = z
-  .object({
-    limit: z.number().int().positive().optional(),
-    windowSeconds: z.number().int().positive().optional(),
-  })
-  .strict();
-
-const QuotaProfileOverrideSchema = z
-  .object({
-    burst: QuotaWindowOverrideSchema.optional(),
-    total: QuotaWindowOverrideSchema.optional(),
-  })
-  .strict();
-
-const QuotaRouteOverridesSchema = z.record(
-  z.string(),
-  z
-    .object({
-      anonymous: QuotaProfileOverrideSchema.optional(),
-      authenticated: QuotaProfileOverrideSchema.optional(),
-      ip: QuotaProfileOverrideSchema.optional(),
-    })
-    .strict(),
-);
+const PositiveIntegerEnvSchema = z.coerce.number().int().positive();
 
 const WebServerEnvSchema = z.object({
   KNOWLEDGE_WEB_COOKIE_DOMAIN: OptionalTrimmedStringSchema,
@@ -66,71 +43,38 @@ const WebServerEnvSchema = z.object({
   KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL: z.string().trim().url(),
   KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET: z.string().min(32),
   KNOWLEDGE_WEB_PUBLIC_BASE_URL: z.string().trim().url(),
-  KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX: z
-    .string()
-    .trim()
-    .min(1)
-    .default("knowledge:web:quota:"),
-  KNOWLEDGE_WEB_QUOTA_ROUTE_OVERRIDES_JSON: z.string().default("{}"),
+  KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX: z.string().trim().min(1),
   KNOWLEDGE_WEB_REDIS_URL: z.string().trim().url(),
   KNOWLEDGE_WEB_SESSION_SECRET: z.string().min(32),
   KNOWLEDGE_WEB_TRUST_PROXY: BooleanStringSchema,
-  KNOWLEDGE_WEB_ANON_BURST_LIMIT: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(20),
-  KNOWLEDGE_WEB_ANON_BURST_WINDOW_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(60),
-  KNOWLEDGE_WEB_ANON_TOTAL_LIMIT: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(200),
-  KNOWLEDGE_WEB_ANON_TOTAL_WINDOW_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(86_400),
-  KNOWLEDGE_WEB_AUTH_BURST_LIMIT: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(120),
-  KNOWLEDGE_WEB_AUTH_BURST_WINDOW_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(60),
-  KNOWLEDGE_WEB_AUTH_TOTAL_LIMIT: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(2_000),
-  KNOWLEDGE_WEB_AUTH_TOTAL_WINDOW_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(86_400),
-  KNOWLEDGE_WEB_IP_BURST_LIMIT: z.coerce.number().int().positive().default(240),
-  KNOWLEDGE_WEB_IP_BURST_WINDOW_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(60),
-  KNOWLEDGE_WEB_IP_TOTAL_LIMIT: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(5_000),
-  KNOWLEDGE_WEB_IP_TOTAL_WINDOW_SECONDS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(86_400),
+  KNOWLEDGE_WEB_ANON_BURST_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_ANON_BURST_WINDOW_SECONDS: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_ANON_TOTAL_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_ANON_TOTAL_WINDOW_SECONDS: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_AUTH_BURST_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_AUTH_BURST_WINDOW_SECONDS: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_AUTH_TOTAL_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_AUTH_TOTAL_WINDOW_SECONDS: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_IP_BURST_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_IP_BURST_WINDOW_SECONDS: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_IP_TOTAL_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_IP_TOTAL_WINDOW_SECONDS: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_ANON_BURST_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_ANON_BURST_WINDOW_SECONDS:
+    PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_ANON_TOTAL_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_ANON_TOTAL_WINDOW_SECONDS:
+    PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_AUTH_BURST_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_AUTH_BURST_WINDOW_SECONDS:
+    PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_AUTH_TOTAL_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_AUTH_TOTAL_WINDOW_SECONDS:
+    PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_BURST_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_BURST_WINDOW_SECONDS: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_LIMIT: PositiveIntegerEnvSchema,
+  KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_WINDOW_SECONDS: PositiveIntegerEnvSchema,
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -201,9 +145,6 @@ export function loadWebServerConfig(
   env: WebServerEnv = process.env,
 ): WebServerConfig {
   const parsed = WebServerEnvSchema.parse(env);
-  const quotaRouteOverrides = QuotaRouteOverridesSchema.parse(
-    JSON.parse(parsed.KNOWLEDGE_WEB_QUOTA_ROUTE_OVERRIDES_JSON),
-  );
 
   return {
     anonymousQuota: {
@@ -264,7 +205,46 @@ export function loadWebServerConfig(
     port: 5173,
     publicBaseUrl: parsed.KNOWLEDGE_WEB_PUBLIC_BASE_URL,
     quotaRedisPrefix: parsed.KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX,
-    quotaRouteOverrides,
+    quotaRouteOverrides: {
+      "taxonomy-view": {
+        anonymous: {
+          burst: {
+            limit: parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_ANON_BURST_LIMIT,
+            windowSeconds:
+              parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_ANON_BURST_WINDOW_SECONDS,
+          },
+          total: {
+            limit: parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_ANON_TOTAL_LIMIT,
+            windowSeconds:
+              parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_ANON_TOTAL_WINDOW_SECONDS,
+          },
+        },
+        authenticated: {
+          burst: {
+            limit: parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_AUTH_BURST_LIMIT,
+            windowSeconds:
+              parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_AUTH_BURST_WINDOW_SECONDS,
+          },
+          total: {
+            limit: parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_AUTH_TOTAL_LIMIT,
+            windowSeconds:
+              parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_AUTH_TOTAL_WINDOW_SECONDS,
+          },
+        },
+        ip: {
+          burst: {
+            limit: parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_BURST_LIMIT,
+            windowSeconds:
+              parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_BURST_WINDOW_SECONDS,
+          },
+          total: {
+            limit: parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_LIMIT,
+            windowSeconds:
+              parsed.KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_WINDOW_SECONDS,
+          },
+        },
+      },
+    },
     redisUrl: parsed.KNOWLEDGE_WEB_REDIS_URL,
     sessionSecret: parsed.KNOWLEDGE_WEB_SESSION_SECRET,
     trustProxy: parsed.KNOWLEDGE_WEB_TRUST_PROXY,
