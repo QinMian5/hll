@@ -13,6 +13,17 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+function jsonResponseWithHeaders(
+  body: unknown,
+  status: number,
+  headers: HeadersInit,
+): Response {
+  return new Response(JSON.stringify(body), {
+    headers: { "Content-Type": "application/json", ...headers },
+    status,
+  });
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -83,6 +94,33 @@ describe("fetchWebApiJson", () => {
         code: "dashboard_auth_required",
         message: "Authentication is required.",
         status: 401,
+      }),
+    );
+  });
+
+  it("preserves retry-after hints on typed request errors", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponseWithHeaders(
+        {
+          error: {
+            code: "layout_not_ready",
+            message: "Taxonomy leaf layout is being prepared.",
+          },
+        },
+        503,
+        { "Retry-After": "10" },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      fetchWebApiJson("/web-api/taxonomy/view/path/math"),
+    ).rejects.toEqual(
+      new WebApiRequestError({
+        code: "layout_not_ready",
+        message: "Taxonomy leaf layout is being prepared.",
+        retryAfterSeconds: 10,
+        status: 503,
       }),
     );
   });

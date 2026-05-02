@@ -127,6 +127,14 @@ function isQuotaExceeded(error: Error | null): boolean {
   );
 }
 
+function isLayoutNotReady(error: Error | null): error is WebApiRequestError {
+  return (
+    error instanceof WebApiRequestError &&
+    error.status === 503 &&
+    error.code === "layout_not_ready"
+  );
+}
+
 export function TaxonomyViewPage() {
   const navigate = useNavigate();
   const pathname = useRouterState({
@@ -278,6 +286,12 @@ export function TaxonomyViewPage() {
     activeQuery.isError && isTaxonomyRoutePathNotFound(activeQuery.error);
   const quotaExceeded =
     activeQuery.isError && isQuotaExceeded(activeQuery.error);
+  const layoutNotReadyError =
+    activeQuery.isError && isLayoutNotReady(activeQuery.error)
+      ? activeQuery.error
+      : null;
+  const layoutNotReady = layoutNotReadyError !== null;
+  const layoutRetryAfterSeconds = layoutNotReadyError?.retryAfterSeconds;
 
   return (
     <main
@@ -358,14 +372,20 @@ export function TaxonomyViewPage() {
                 ? "Graph path not found"
                 : quotaExceeded
                   ? "Too many graph requests"
-                  : "Taxonomy view unavailable"}
+                  : layoutNotReady
+                    ? "Taxonomy layout unavailable"
+                    : "Taxonomy view unavailable"}
             </h2>
             <p className="mt-2.5 mb-0 text-[#475569]">
               {routePathNotFound
                 ? "This taxonomy path does not exist."
                 : quotaExceeded
                   ? "Try again shortly."
-                  : activeQuery.error.message}
+                  : layoutNotReady
+                    ? layoutRetryAfterSeconds
+                      ? `Try again in about ${layoutRetryAfterSeconds} seconds.`
+                      : "Try again shortly."
+                    : activeQuery.error.message}
             </p>
             {routePathNotFound ? (
               <button
@@ -374,6 +394,17 @@ export function TaxonomyViewPage() {
                 type="button"
               >
                 Back to Root
+              </button>
+            ) : null}
+            {layoutNotReady ? (
+              <button
+                className={errorActionClasses}
+                onClick={() => {
+                  void activeQuery.refetch();
+                }}
+                type="button"
+              >
+                Retry
               </button>
             ) : null}
           </section>

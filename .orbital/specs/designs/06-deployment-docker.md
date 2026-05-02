@@ -26,21 +26,23 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Development may expose the knowledge corpus PostgreSQL service on a separate host port for local tooling; it must not reuse the online database host port.
 - Development may expose source-pipeline and MCP PostgreSQL services on separate host ports for local tooling; they must not reuse the online database or knowledge corpus host ports.
 - `redis` remains internal-only in both environments and is provided by a project-managed service definition.
-- Production runtime process topology includes one private `api` container, one `worker` container, one public `web` BFF container, one public `mcp` container, one source-pipeline `orchestrator` container, one source-pipeline webhook receiver container, one taxonomy-classification runtime container, and one taxonomy-classification webhook receiver container. The production identity topology additionally includes self-hosted `logto-postgres`, `logto-seed`, and `logto` services for the `knowledge` OAuth authority.
-- Development starts `api` and `worker` by default. Development also includes source-pipeline data and migration services as default app-local infrastructure. Source-pipeline and taxonomy-classification queue-connected runtimes are explicit opt-in profiles because local development must not accidentally submit jobs to the shared queue or expose webhook intake unintentionally.
-- Horizontal scaling is not an MVP requirement for `api`, `worker`, source-pipeline runtimes, or taxonomy-classification runtimes; production baseline keeps one running container per role.
+- Production runtime process topology includes one private `api` container, one `worker` container, one public `web` BFF container, one public `mcp` container, one taxonomy view layout runtime container, one source-pipeline `orchestrator` container, one source-pipeline webhook receiver container, one taxonomy-classification runtime container, and one taxonomy-classification webhook receiver container. The production identity topology additionally includes self-hosted `logto-postgres`, `logto-seed`, and `logto` services for the `knowledge` OAuth authority.
+- Development starts `api`, `worker`, and the taxonomy view layout runtime by default. Development also includes source-pipeline data and migration services as default app-local infrastructure. Source-pipeline and taxonomy-classification queue-connected runtimes are explicit opt-in profiles because local development must not accidentally submit jobs to the shared queue or expose webhook intake unintentionally.
+- Horizontal scaling is not an MVP requirement for `api`, `worker`, taxonomy view layout runtime, source-pipeline runtimes, or taxonomy-classification runtimes; production baseline keeps one running container per role.
 - Production search read chain is `shared proxy -> nginx -> web BFF -> api -> egress -> OpenAI Embeddings API + db`.
 - Production MCP search chain is `shared proxy -> nginx -> mcp -> api -> egress -> OpenAI Embeddings API + db`, with `mcp -> logto` for PAT token exchange and access-token validation metadata.
 - Production Dashboard token-management chain is `shared proxy -> nginx -> web BFF -> logto` for personal access token lifecycle operations and `web BFF -> mcp` over the backend network for usage summaries.
 - Production ingestion write chain is `api -> redis -> worker -> egress -> OpenAI Embeddings API + db`.
+- Production card-scope layout compute chain is `api -> redis -> taxonomy_view_layout_runtime -> db + redis`.
 - Development search read chain is `web BFF -> api -> OpenAI Embeddings API + db`.
 - Development MCP search chain is `mcp -> api -> OpenAI Embeddings API + db`, with `mcp -> logto` for PAT token exchange and access-token validation metadata.
 - Development Dashboard token-management chain is `web BFF -> logto` for personal access token lifecycle operations and `web BFF -> mcp` over the backend network for usage summaries.
 - Development ingestion write chain is `api -> redis -> worker -> OpenAI Embeddings API + db`.
+- Development card-scope layout compute chain is `api -> redis -> taxonomy_view_layout_runtime -> db + redis`.
 - Migration is a dedicated one-shot job and not part of API startup.
 
 ## Network Boundaries
-- `backend` network is internal-only and contains the online database, repository-managed data services, one-shot migration jobs, `redis`, self-hosted Logto services, `api`, `web`, `mcp`, `worker`, production or explicitly enabled source-pipeline runtimes, and production or explicitly enabled taxonomy-classification runtimes.
+- `backend` network is internal-only and contains the online database, repository-managed data services, one-shot migration jobs, `redis`, self-hosted Logto services, `api`, `web`, `mcp`, `worker`, taxonomy view layout runtime, production or explicitly enabled source-pipeline runtimes, and production or explicitly enabled taxonomy-classification runtimes.
 - Knowledge corpus PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
 - Accepted first-version service names for the knowledge corpus database path are `knowledge_corpus_db` and `knowledge_corpus_migrate`.
 - Source pipeline PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
@@ -68,6 +70,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Web BFF access to MCP usage-summary uses Docker service DNS (`mcp`) on `backend`, not public MCP hostnames.
 - MCP attaches to both `edge` and `backend`: public MCP traffic enters only through `nginx` on `edge`, while MCP access to `api`, `redis`, `mcp_db`, and `logto` uses service DNS on `backend`.
 - API and worker require outbound HTTPS egress for OpenAI Embeddings API access.
+- The taxonomy view layout runtime does not require public inbound exposure or external HTTPS egress.
 - Source-pipeline and taxonomy-classification result-consuming runtimes require outbound HTTPS egress for `job-queue-mcp` API and token access.
 
 ## Compose Layering Strategy
@@ -81,6 +84,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - The accepted first-version compose baseline includes `knowledge_corpus_db` as a dedicated PostgreSQL service and `knowledge_corpus_migrate` as a dedicated one-shot migration job for `apps/knowledge_corpus`.
 - The accepted first-version compose baseline includes `source_pipeline_db` as a dedicated PostgreSQL service, `source_pipeline_migrate` as a dedicated one-shot migration job, `orchestrator` as the dedicated long-running runtime for `apps/source_pipeline`, and `source_pipeline_webhook_receiver` as the dedicated webhook intake runtime for `apps/source_pipeline`. In development, `source_pipeline_db` and `source_pipeline_migrate` are default services, while `orchestrator` and `source_pipeline_webhook_receiver` are profile-gated runtimes.
 - The accepted taxonomy-classification compose baseline uses the API database and API image with dedicated role commands for `taxonomy_classification_runtime` and `taxonomy_classification_webhook_receiver`.
+- The accepted taxonomy view layout compose baseline uses the API database, Redis, and API image with a dedicated role command for `taxonomy_view_layout_runtime`.
 - The accepted MCP compose baseline includes `mcp_db` as a dedicated PostgreSQL service, `mcp_migrate` as a dedicated one-shot migration job, and `mcp` as a dedicated long-running Python service that depends on `api`, `redis`, `mcp_db`, `logto`, and successful `mcp_migrate` completion.
 
 ## Volume Lifecycle Policy
@@ -95,12 +99,13 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `logto-postgres` uses the fixed official PostgreSQL image because Logto owns its own schema and does not use the repository app/migration role initialization script.
 - `api` uses a custom Dockerfile.
 - `worker` reuses the same API image with role-specific command override.
+- `taxonomy_view_layout_runtime` reuses the same API image with role-specific command override.
 - `mcp` and `mcp_migrate` use the same custom Dockerfile built from `apps/mcp`.
 - `mcp_db` uses the shared custom PostgreSQL Dockerfile with MCP-specific image tags in environment overlays.
-- `taxonomy_classification_runtime` and `taxonomy_classification_webhook_receiver` reuse the same API image with role-specific command overrides.
+- `taxonomy_view_layout_runtime`, `taxonomy_classification_runtime`, and `taxonomy_classification_webhook_receiver` reuse the same API image with role-specific command overrides.
 - `orchestrator` and `source_pipeline_webhook_receiver` use the same custom Dockerfile built from `apps/source_pipeline`.
 - Single-image policy is required for `api` and `worker`; runtime role is selected only by startup command.
-- Single-image policy applies to taxonomy-classification API-side roles; runtime role is selected only by startup command.
+- Single-image policy applies to taxonomy view layout and taxonomy-classification API-side roles; runtime role is selected only by startup command.
 - The API image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - The source-pipeline image installs the locked dependency set required for runtime and migration autogeneration tooling.
 - API and source-pipeline image builds provide the local `job-queue-mcp` Python SDK package as a named build context so locked local-path SDK dependencies resolve inside Docker builds without vendoring SDK source into this repository.
@@ -109,12 +114,13 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `nginx` uses a project-owned image that copies repository route configuration at build time so production deploys immutable gateway configuration instead of live bind-mounted config files.
 
 ## Process Role Command Contract
-- `api` and `worker` must each have a stable, role-specific startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
+- `api`, `worker`, and `taxonomy_view_layout_runtime` must each have a stable, role-specific startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
 - `orchestrator` and `source_pipeline_webhook_receiver` must each have a stable startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
 - `taxonomy_classification_runtime` and `taxonomy_classification_webhook_receiver` must each have a stable startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
 - Compose files must reference role startup commands. Long inline runtime invocation details stay out of environment-specific compose service definitions.
 - API role command owns API logging bootstrap and then starts FastAPI serving.
 - Worker role command owns worker logging bootstrap and then starts Dramatiq worker serving.
+- Taxonomy view layout runtime role command owns API logging bootstrap and then starts the long-running Redis-backed card-scope layout compute loop.
 - Web role command starts the Express BFF server and serves the built Vite assets from the same process.
 - MCP role command owns MCP logging bootstrap and then starts the Streamable HTTP MCP server.
 - Orchestrator role command owns source-pipeline runtime bootstrap and then starts the long-running local event and reconcile loop.
@@ -127,7 +133,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   1. Online and app-owned PostgreSQL services plus `redis` reach healthy state.
   2. Online PostgreSQL role bootstrap converges repository-managed login roles after `db` is healthy and before online migrations run.
   3. `migrate` and `mcp_migrate` one-shot jobs run after their owning PostgreSQL services are healthy and exit successfully before their dependent runtimes start.
-  4. `api` and `worker` start after `migrate`.
+  4. `api`, `worker`, and `taxonomy_view_layout_runtime` start after `migrate`.
   5. `web` and `mcp` start after their private dependencies are healthy; `mcp` additionally waits for `mcp_migrate`.
   6. Production `nginx` starts after `web`, `mcp`, enabled webhook receiver roles, and Logto are available.
 - Knowledge corpus startup/migration order is separate from the online stack:
@@ -149,7 +155,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `api` must not auto-run migrations.
 - `apps/knowledge_corpus` does not own a long-running application container in first version, so its runtime contract ends at migrated database availability plus library usage from external local processes.
 - `apps/source_pipeline` owns one long-running `orchestrator` container, one long-running source-pipeline webhook receiver container, and one separate migration job.
-- `apps/api` owns one long-running taxonomy-classification runtime container and one long-running taxonomy-classification webhook receiver container.
+- `apps/api` owns one long-running taxonomy view layout runtime container, one long-running taxonomy-classification runtime container, and one long-running taxonomy-classification webhook receiver container.
 - `apps/mcp` owns one long-running public MCP server container and one separate migration job.
 - Startup dependency control must use `healthcheck + depends_on`.
 - `sleep`-based wait logic is forbidden.
@@ -198,6 +204,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   - `KNOWLEDGE_API_EMBEDDING_MODEL` set to `text-embedding-3-small`
   - `KNOWLEDGE_API_EMBEDDING_API_KEY` from runtime secret injection
 - Production web runtime configuration provides BFF settings for the internal API base URL, Redis URL, public Logto endpoint, optional internal Logto endpoint for server-side container-network requests, Logto web application credentials, callback base URL, session cookie secret, secure-cookie policy, anonymous identity cookie policy, web quota limits, Logto Account API access, Logto Management API personal-access-token access, MCP usage-summary base URL, MCP usage-summary service-token acquisition, and PAT fingerprint secret.
+- Production web service environment sets `NODE_ENV=production` so the Express BFF serves built Vite assets without development middleware.
 - Web Dashboard token-management configuration uses:
   - `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_API_BASE_URL` for Logto Management API user personal-access-token endpoints
   - `KNOWLEDGE_WEB_LOGTO_MANAGEMENT_TOKEN_URL` for the Logto client-credentials token endpoint used by the BFF Management API client

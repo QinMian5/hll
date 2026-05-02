@@ -107,6 +107,32 @@ class TaxonomyClassificationRuntimeSettings(BaseSettings):
     taxonomy_classification_projection_refresh_batch_size: int = Field(default=1, ge=1)
 
 
+class TaxonomyViewLayoutRuntimeSettings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_prefix="KNOWLEDGE_API_",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    database_url: str
+    redis_url: str
+    taxonomy_view_cache_ttl_seconds: int = Field(default=60, ge=1)
+    taxonomy_leaf_layout_cache_ttl_seconds: int = Field(default=600, ge=1)
+    edge_title_mention_top_k: int = Field(ge=0)
+    edge_semantic_top_k: int = Field(ge=0)
+    edge_semantic_min_strength: float = Field(ge=0.0, le=1.0)
+    edge_semantic_candidate_limit: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_edge_initialization_settings(self) -> Self:
+        if self.edge_semantic_candidate_limit < self.edge_semantic_top_k:
+            raise ValueError(
+                "edge_semantic_candidate_limit must be greater than or equal to "
+                "edge_semantic_top_k."
+            )
+        return self
+
+
 class TaxonomyClassificationWebhookReceiverSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="KNOWLEDGE_API_",
@@ -133,6 +159,12 @@ class TaxonomyClassificationWebhookReceiverSettings(BaseSettings):
 def load_taxonomy_classification_runtime_settings() -> TaxonomyClassificationRuntimeSettings:
     return TaxonomyClassificationRuntimeSettings.model_validate(
         EnvSettingsSource(TaxonomyClassificationRuntimeSettings)()
+    )
+
+
+def load_taxonomy_view_layout_runtime_settings() -> TaxonomyViewLayoutRuntimeSettings:
+    return TaxonomyViewLayoutRuntimeSettings.model_validate(
+        EnvSettingsSource(TaxonomyViewLayoutRuntimeSettings)()
     )
 
 

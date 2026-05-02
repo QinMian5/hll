@@ -8,7 +8,11 @@ from __future__ import annotations
 import pytest
 from fastapi.exceptions import RequestValidationError
 
-from core.error_http import app_error_from_request_validation, status_code_for_app_error
+from core.error_http import (
+    app_error_from_request_validation,
+    headers_for_app_error,
+    status_code_for_app_error,
+)
 from core.errors import (
     AppError,
     ApplicationError,
@@ -45,6 +49,14 @@ from core.errors import (
                 hint="Import taxonomy data and retry.",
             ),
             404,
+        ),
+        (
+            ApplicationError(
+                code=ErrorCode.APPLICATION_TAXONOMY_LAYOUT_NOT_READY,
+                message="Taxonomy layout is still being prepared.",
+                hint="Retry this request shortly.",
+            ),
+            503,
         ),
         (
             InfrastructureError(
@@ -89,3 +101,13 @@ def test_request_validation_is_normalized_to_application_api_input_invalid() -> 
     error = app_error_from_request_validation(validation_error)
 
     assert error.code is ErrorCode.APPLICATION_API_INPUT_INVALID
+
+
+def test_layout_not_ready_response_includes_retry_after_header() -> None:
+    error = ApplicationError(
+        code=ErrorCode.APPLICATION_TAXONOMY_LAYOUT_NOT_READY,
+        message="Taxonomy layout is still being prepared.",
+        hint="Retry this request shortly.",
+    )
+
+    assert headers_for_app_error(error) == {"Retry-After": "10"}

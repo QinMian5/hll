@@ -349,6 +349,38 @@ class _FakeTaxonomyInvalidDetailsService:
         )
 
 
+@dataclass(slots=True)
+class _FakeTaxonomyLayoutNotReadyService:
+    async def get_root_view(self) -> TaxonomyRootViewResponse:
+        raise NotImplementedError
+
+    async def get_node_view(
+        self,
+        *,
+        node_id: int,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse:
+        raise _layout_not_ready_error(leaf_id=node_id)
+
+    async def get_node_view_by_route_path(
+        self,
+        *,
+        route_path: str,
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse:
+        assert route_path == "science/mathematics"
+        raise _layout_not_ready_error(leaf_id=2)
+
+    async def get_leaf_layout_slice(
+        self,
+        *,
+        node_id: int,
+        min_x: float,
+        min_y: float,
+        max_x: float,
+        max_y: float,
+    ) -> TaxonomyLeafLayoutSliceResponse:
+        raise _layout_not_ready_error(leaf_id=node_id)
+
+
 @pytest.fixture
 def dependency_overrides() -> DependencyOverrides:
     return {
@@ -616,3 +648,41 @@ async def test_taxonomy_view_routes_return_404_when_taxonomy_unavailable(
     assert root_response.json()["error"]["code"] == "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND"
     assert node_response.json()["error"]["code"] == "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND"
     assert path_response.json()["error"]["code"] == "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND"
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_routes_return_503_when_layout_is_not_ready(
+    async_client: AsyncClient,
+    app: FastAPI,
+) -> None:
+    app.dependency_overrides[api_providers.get_taxonomy_service] = lambda: (
+        _FakeTaxonomyLayoutNotReadyService()
+    )
+
+    node_response = await async_client.get("/api/v1/taxonomy/view/nodes/2")
+    path_response = await async_client.get("/api/v1/taxonomy/view/path/science/mathematics")
+    layout_response = await async_client.get(
+        "/api/v1/taxonomy/view/leaves/2/layout",
+        params={
+            "min_x": -10.0,
+            "min_y": -20.0,
+            "max_x": 30.0,
+            "max_y": 40.0,
+        },
+    )
+
+    for response in (node_response, path_response, layout_response):
+        assert response.status_code == 503
+        assert response.headers["Retry-After"] == "10"
+        error = response.json()["error"]
+        assert error["code"] == "layout_not_ready"
+        assert error["details"] == {"leaf_id": 2}
+
+
+def _layout_not_ready_error(*, leaf_id: int) -> ApplicationError:
+    return ApplicationError(
+        code=ErrorCode.APPLICATION_TAXONOMY_LAYOUT_NOT_READY,
+        message="Taxonomy leaf layout is being prepared.",
+        hint="Retry this request shortly.",
+        safe_details={"leaf_id": leaf_id},
+    )

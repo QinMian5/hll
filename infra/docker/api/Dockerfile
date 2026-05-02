@@ -19,8 +19,9 @@ COPY infra/docker/api/run-api.sh /workspace/mianqin/Code/knowledge/bin/
 COPY infra/docker/api/run-worker.sh /workspace/mianqin/Code/knowledge/bin/
 COPY infra/docker/api/run-taxonomy-classification-runtime.sh /workspace/mianqin/Code/knowledge/bin/
 COPY infra/docker/api/run-taxonomy-classification-webhook-receiver.sh /workspace/mianqin/Code/knowledge/bin/
+COPY infra/docker/api/run-taxonomy-view-layout-runtime.sh /workspace/mianqin/Code/knowledge/bin/
 
-RUN ln -s /workspace/mianqin/Code/knowledge /app && chmod +x /app/bin/run-api.sh /app/bin/run-worker.sh /app/bin/run-taxonomy-classification-runtime.sh /app/bin/run-taxonomy-classification-webhook-receiver.sh && uv sync --frozen --package api --group dev
+RUN ln -s /workspace/mianqin/Code/knowledge /app && chmod +x /app/bin/run-api.sh /app/bin/run-worker.sh /app/bin/run-taxonomy-classification-runtime.sh /app/bin/run-taxonomy-classification-webhook-receiver.sh /app/bin/run-taxonomy-view-layout-runtime.sh && uv sync --frozen --package api --group dev
 
 ENV PATH="/app/.venv/bin:${PATH}"
 

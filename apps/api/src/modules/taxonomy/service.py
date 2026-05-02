@@ -165,6 +165,8 @@ class TaxonomyViewCachePort(Protocol):
 
     async def acquire_leaf_layout_lock(self, *, leaf_id: int) -> bool: ...
 
+    async def request_leaf_layout_compute(self, *, leaf_id: int) -> bool: ...
+
 
 @dataclass(slots=True)
 class _LeafGraphProjection:
@@ -443,10 +445,7 @@ class TaxonomyService:
                 children=children,
             )
 
-        if self._knowledge_projection_port is None:
-            raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
-
-        leaf_layout = await self._load_leaf_layout(current_node=current_node)
+        leaf_layout = await self._load_ready_leaf_layout(current_node=current_node)
         return TaxonomyNodeLeafViewResponse(
             node_kind="leaf",
             current_node=_view_node_from_record(
@@ -500,7 +499,7 @@ class TaxonomyService:
                 hint="Use min bounds less than or equal to max bounds and retry.",
             )
 
-        leaf_layout = await self._load_leaf_layout(current_node=current_node)
+        leaf_layout = await self._load_ready_leaf_layout(current_node=current_node)
         layout_slice = slice_leaf_layout(
             leaf_layout,
             min_x=min_x,
@@ -790,19 +789,44 @@ class TaxonomyService:
             scope_by_node_id=scope_by_node_id,
         )
 
-    async def _load_leaf_layout(
+    async def build_and_cache_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout:
+        current_node = await self._repo.get_node_by_id(node_id=leaf_id)
+        if current_node is None:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message=f"Taxonomy node {leaf_id} was not found.",
+                hint="Use an existing taxonomy node id and retry.",
+            )
+        if not current_node.is_leaf:
+            raise ApplicationError(
+                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+                message="Leaf layout compute requires a leaf taxonomy node.",
+                hint="Use a leaf taxonomy node id and retry.",
+            )
+
+        layout = await self._build_leaf_layout(current_node=current_node)
+        await self._set_cached_leaf_layout(leaf_id=current_node.id, layout=layout)
+        return layout
+
+    async def _load_ready_leaf_layout(
         self,
         *,
         current_node: TaxonomyNodeRecord,
     ) -> TaxonomyLeafLayout:
-        if self._view_cache is not None:
-            cached_layout = await self._get_cached_leaf_layout(leaf_id=current_node.id)
-            if cached_layout is not None:
-                return cached_layout
-            await self._acquire_leaf_layout_lock(leaf_id=current_node.id)
+        cached_layout = await self._get_cached_leaf_layout(leaf_id=current_node.id)
+        if cached_layout is not None:
+            return cached_layout
 
+        await self._request_leaf_layout_compute(leaf_id=current_node.id)
+        raise _layout_not_ready_error(leaf_id=current_node.id)
+
+    async def _build_leaf_layout(
+        self,
+        *,
+        current_node: TaxonomyNodeRecord,
+    ) -> TaxonomyLeafLayout:
         leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
-        layout = build_leaf_layout(
+        return build_leaf_layout(
             nodes=[
                 TaxonomyLeafLayoutNode(
                     id=node_id,
@@ -822,9 +846,6 @@ class TaxonomyService:
             ],
             generated_at=datetime.now(UTC),
         )
-        if self._view_cache is not None:
-            await self._set_cached_leaf_layout(leaf_id=current_node.id, layout=layout)
-        return layout
 
     async def _get_cached_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout | None:
         if self._view_cache is None:
@@ -850,6 +871,14 @@ class TaxonomyService:
             await self._view_cache.acquire_leaf_layout_lock(leaf_id=leaf_id)
         except Exception as exc:
             _log_cache_failure(cache_name="taxonomy-leaf-layout", operation="lock", exc=exc)
+
+    async def _request_leaf_layout_compute(self, *, leaf_id: int) -> None:
+        if self._view_cache is None:
+            return
+        try:
+            await self._view_cache.request_leaf_layout_compute(leaf_id=leaf_id)
+        except Exception as exc:
+            _log_cache_failure(cache_name="taxonomy-leaf-layout", operation="request", exc=exc)
 
     async def _refresh_leaf_projection(self, *, leaf_id: int) -> None:
         if self._knowledge_projection_port is None:
@@ -964,6 +993,15 @@ def _log_cache_failure(*, cache_name: str, operation: str, exc: Exception) -> No
             "cache_operation": operation,
             "reason": str(exc),
         },
+    )
+
+
+def _layout_not_ready_error(*, leaf_id: int) -> ApplicationError:
+    return ApplicationError(
+        code=ErrorCode.APPLICATION_TAXONOMY_LAYOUT_NOT_READY,
+        message="Taxonomy leaf layout is being prepared.",
+        hint="Retry this request shortly.",
+        safe_details={"leaf_id": leaf_id},
     )
 
 

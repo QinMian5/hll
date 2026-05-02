@@ -196,6 +196,7 @@ class _StubViewCache:
     fail_leaf_layout_get: bool = False
     fail_leaf_layout_set: bool = False
     fail_leaf_layout_lock: bool = False
+    fail_leaf_layout_request: bool = False
     leaf_layout: TaxonomyLeafLayout | None = None
     get_root_view_called: bool = False
     set_root_view_calls: list[TaxonomyRootViewResponse] = field(default_factory=list)
@@ -211,6 +212,7 @@ class _StubViewCache:
     set_descendant_counts_called: bool = False
     acquire_descendant_counts_lock_called: bool = False
     invalidated_leaf_layout_ids: list[int] = field(default_factory=list)
+    requested_leaf_layout_ids: list[int] = field(default_factory=list)
 
     async def get_descendant_counts(self) -> dict[int, int] | None:
         self.get_descendant_counts_called = True
@@ -295,6 +297,12 @@ class _StubViewCache:
         if self.fail_leaf_layout_lock:
             raise RuntimeError("leaf layout cache lock failed")
         return self.lock_acquired
+
+    async def request_leaf_layout_compute(self, *, leaf_id: int) -> bool:
+        if self.fail_leaf_layout_request:
+            raise RuntimeError("leaf layout compute request failed")
+        self.requested_leaf_layout_ids.append(leaf_id)
+        return True
 
 
 def _taxonomy_node_record(
@@ -920,36 +928,9 @@ async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
             _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
             _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
-        assigned_leaf_node_ids=[11, 12],
-        projected_edge_ids=[501, 502],
     )
-    projection_port = _StubProjectionPort(
-        nodes=[
-            ProjectionCardNode(
-                node_id=11,
-                current_version=3,
-                title="Inner 11",
-                content="Inner 11 content",
-            ),
-            ProjectionCardNode(
-                node_id=12,
-                current_version=5,
-                title="Inner 12",
-                content="Inner 12 content",
-            ),
-            ProjectionCardNode(
-                node_id=77,
-                current_version=7,
-                title="Outer 77",
-                content="Outer 77 content",
-            ),
-        ],
-        edges=[
-            ProjectionEdge(node_a_id=11, node_b_id=12, strength=0.91),
-            ProjectionEdge(node_a_id=12, node_b_id=77, strength=0.66),
-        ],
-    )
-    service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
+    cache = _StubViewCache(leaf_layout=_cached_leaf_layout())
+    service = TaxonomyService(repo=repo, view_cache=cache)
 
     view = await service.get_node_view(node_id=2)
 
@@ -961,21 +942,53 @@ async def test_get_node_view_returns_leaf_metadata_without_full_graph() -> None:
     assert view.world_bounds.min_y < 0.0
     assert view.world_bounds.max_x > 0.0
     assert view.world_bounds.max_y > 0.0
-    assert view.node_count == 3
-    assert view.edge_count == 2
-    assert repo.list_assigned_node_ids_for_leaf_called_with == [2]
-    assert repo.list_projected_edge_ids_for_leaf_called_with == [2]
+    assert view.node_count == 1
+    assert view.edge_count == 1
+    assert repo.list_assigned_node_ids_for_leaf_called_with == []
+    assert repo.list_projected_edge_ids_for_leaf_called_with == []
     assert repo.list_final_assignments_called is False
-    assert projection_port.edge_id_request_batches == [[501, 502]]
-    assert projection_port.card_request_batches == []
+    assert cache.requested_leaf_layout_ids == []
+
+
+@pytest.mark.anyio
+async def test_get_node_view_missing_leaf_layout_requests_compute_and_raises_readiness() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_node_ids=[11, 12],
+        projected_edge_ids=[501, 502],
+    )
+    cache = _StubViewCache()
+    projection_port = _StubProjectionPort(
+        nodes=[],
+        edges=[
+            ProjectionEdge(node_a_id=11, node_b_id=12, strength=0.91),
+        ],
+    )
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=projection_port,
+        view_cache=cache,
+    )
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await service.get_node_view(node_id=2)
+
+    assert exc_info.value.code is ErrorCode.APPLICATION_TAXONOMY_LAYOUT_NOT_READY
+    assert exc_info.value.safe_details == {"leaf_id": 2}
+    assert cache.requested_leaf_layout_ids == [2]
+    assert repo.list_assigned_node_ids_for_leaf_called_with == []
+    assert projection_port.edge_id_request_batches == []
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     "failure_flag",
-    ["fail_leaf_layout_get", "fail_leaf_layout_lock", "fail_leaf_layout_set"],
+    ["fail_leaf_layout_get", "fail_leaf_layout_request"],
 )
-async def test_leaf_layout_cache_failures_are_logged_and_treated_as_misses(
+async def test_leaf_layout_cache_failures_are_logged_and_return_readiness(
     failure_flag: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
@@ -996,11 +1009,11 @@ async def test_leaf_layout_cache_failures_are_logged_and_treated_as_misses(
         view_cache=cache,
     )
 
-    view = await service.get_node_view(node_id=2)
+    with pytest.raises(ApplicationError) as exc_info:
+        await service.get_node_view(node_id=2)
 
-    assert isinstance(view, TaxonomyNodeLeafViewResponse)
-    assert view.node_count == 1
-    assert repo.list_assigned_node_ids_for_leaf_called_with == [2]
+    assert exc_info.value.code is ErrorCode.APPLICATION_TAXONOMY_LAYOUT_NOT_READY
+    assert repo.list_assigned_node_ids_for_leaf_called_with == []
     assert "Taxonomy cache failure" in caplog.text
 
 
@@ -1011,17 +1024,28 @@ async def test_get_leaf_layout_slice_returns_backend_coordinates_for_requested_b
             _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
             _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
         ],
-        assigned_leaf_node_ids=[11, 12],
-        projected_edge_ids=[501, 502],
     )
-    projection_port = _StubProjectionPort(
-        nodes=[],
+    cached_layout = TaxonomyLeafLayout(
+        layout_version="taxonomy-leaf-layout-v3",
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+        world_bounds=TaxonomyLeafWorldBounds(
+            min_x=-100.0,
+            min_y=-100.0,
+            max_x=100.0,
+            max_y=100.0,
+        ),
+        nodes=[
+            TaxonomyLeafLayoutNode(id=11, scope="inner", x=-10.0, y=-5.0),
+            TaxonomyLeafLayoutNode(id=12, scope="inner", x=1.0, y=1.0),
+            TaxonomyLeafLayoutNode(id=77, scope="outer", x=10.0, y=5.0),
+        ],
         edges=[
-            ProjectionEdge(node_a_id=11, node_b_id=12, strength=0.91),
-            ProjectionEdge(node_a_id=12, node_b_id=77, strength=0.66),
+            TaxonomyLeafLayoutEdge(source_node_id=11, target_node_id=12, strength=0.91),
+            TaxonomyLeafLayoutEdge(source_node_id=12, target_node_id=77, strength=0.66),
         ],
     )
-    service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
+    cache = _StubViewCache(leaf_layout=cached_layout)
+    service = TaxonomyService(repo=repo, view_cache=cache)
 
     layout_slice = await service.get_leaf_layout_slice(
         node_id=2,
@@ -1039,6 +1063,72 @@ async def test_get_leaf_layout_slice_returns_backend_coordinates_for_requested_b
     ]
     assert all(node.x != 0.0 or node.y != 0.0 for node in layout_slice.nodes)
     assert layout_slice.edges == [(11, 12, 0.91), (12, 77, 0.66)]
+
+
+@pytest.mark.anyio
+async def test_get_leaf_layout_slice_missing_layout_requests_compute_and_raises_readiness() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_node_ids=[11, 12],
+        projected_edge_ids=[501, 502],
+    )
+    cache = _StubViewCache()
+    service = TaxonomyService(repo=repo, view_cache=cache)
+
+    with pytest.raises(ApplicationError) as exc_info:
+        await service.get_leaf_layout_slice(
+            node_id=2,
+            min_x=-1000.0,
+            min_y=-1000.0,
+            max_x=1000.0,
+            max_y=1000.0,
+        )
+
+    assert exc_info.value.code is ErrorCode.APPLICATION_TAXONOMY_LAYOUT_NOT_READY
+    assert cache.requested_leaf_layout_ids == [2]
+    assert repo.list_assigned_node_ids_for_leaf_called_with == []
+
+
+@pytest.mark.anyio
+async def test_build_and_cache_leaf_layout_runs_full_layout_for_background_runtime() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            _taxonomy_node_record(id=1, parent_id=None, name="Root", depth=0, is_leaf=False),
+            _taxonomy_node_record(id=2, parent_id=1, name="Leaf", depth=1, is_leaf=True),
+        ],
+        assigned_leaf_node_ids=[11, 12],
+        projected_edge_ids=[501, 502],
+    )
+    projection_port = _StubProjectionPort(
+        nodes=[],
+        edges=[
+            ProjectionEdge(node_a_id=11, node_b_id=12, strength=0.91),
+            ProjectionEdge(node_a_id=12, node_b_id=77, strength=0.66),
+        ],
+    )
+    cache = _StubViewCache()
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=projection_port,
+        view_cache=cache,
+    )
+
+    layout = await service.build_and_cache_leaf_layout(leaf_id=2)
+
+    assert layout.node_count == 3
+    assert layout.edge_count == 2
+    assert [(node.id, node.scope) for node in layout.nodes] == [
+        (11, "inner"),
+        (12, "inner"),
+        (77, "outer"),
+    ]
+    assert repo.list_assigned_node_ids_for_leaf_called_with == [2]
+    assert repo.list_projected_edge_ids_for_leaf_called_with == [2]
+    assert projection_port.edge_id_request_batches == [[501, 502]]
+    assert cache.leaf_layout == layout
 
 
 @pytest.mark.anyio

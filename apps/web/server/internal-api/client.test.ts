@@ -45,4 +45,39 @@ describe("internal API client", () => {
       status: 422,
     } satisfies Partial<InternalApiError>);
   });
+
+  it("preserves taxonomy layout readiness 503 envelopes and retry hints", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json(
+          {
+            error: {
+              code: "layout_not_ready",
+              details: { leaf_id: 7 },
+              hint: "Retry this request shortly.",
+              message: "Taxonomy leaf layout is being prepared.",
+              request_id: "req_12345678",
+            },
+          },
+          {
+            headers: { "Retry-After": "10" },
+            status: 503,
+          },
+        ),
+      ),
+    );
+
+    const client = createInternalApiClient(CONFIG);
+
+    await expect(client.getTaxonomyNodeByPath("science")).rejects.toMatchObject(
+      {
+        clientMessage: "Taxonomy leaf layout is being prepared.",
+        code: "layout_not_ready",
+        name: "InternalApiError",
+        retryAfterSeconds: 10,
+        status: 503,
+      } satisfies Partial<InternalApiError>,
+    );
+  });
 });

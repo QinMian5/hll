@@ -104,6 +104,13 @@ services:
   worker:
     image: knowledge-api:dev
 
+  taxonomy_view_layout_runtime:
+    image: knowledge-api:dev
+    volumes:
+      - ../../apps/api/src:/app/apps/api/src
+      - ../../apps/api/alembic:/app/apps/api/alembic
+      - ../../apps/api/alembic.ini:/app/apps/api/alembic.ini
+
   taxonomy_classification_runtime:
     image: knowledge-api:dev
     profiles: ["taxonomy_classification_runtime"]
@@ -136,6 +143,8 @@ services:
     build:
       target: dev
     image: knowledge-web:dev
+    environment:
+      NODE_ENV: development
     volumes:
       - ../../apps/web:/workspace/apps/web
       - ../../packages/contracts:/workspace/packages/contracts

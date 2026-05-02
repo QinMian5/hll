@@ -25,6 +25,9 @@ SCRIPT_DIR = REPO_ROOT / "scripts"
 DEV_UP_SCRIPT = SCRIPT_DIR / "dev-up.sh"
 PROD_UP_SCRIPT = SCRIPT_DIR / "prod-up.sh"
 MCP_RUN_SCRIPT = REPO_ROOT / "infra" / "docker" / "mcp" / "run-mcp.sh"
+TAXONOMY_VIEW_LAYOUT_RUN_SCRIPT = (
+    REPO_ROOT / "infra" / "docker" / "api" / "run-taxonomy-view-layout-runtime.sh"
+)
 
 
 def _read(path: Path) -> str:
@@ -264,6 +267,33 @@ def test_base_compose_defines_taxonomy_classification_webhook_without_job_queue_
     assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET" not in receiver
 
 
+def test_base_compose_defines_taxonomy_view_layout_runtime_with_private_dependencies() -> None:
+    runtime = _service_data(BASE_COMPOSE, "taxonomy_view_layout_runtime")
+
+    assert runtime["command"] == ["/app/bin/run-taxonomy-view-layout-runtime.sh"]
+    assert runtime["networks"] == ["backend"]
+    assert runtime["depends_on"] == {
+        "postgres": {"condition": "service_healthy"},
+        "redis": {"condition": "service_healthy"},
+        "migrate": {"condition": "service_completed_successfully"},
+    }
+
+    environment = runtime["environment"]
+    assert isinstance(environment, dict)
+    for key in (
+        "KNOWLEDGE_API_DATABASE_URL",
+        "KNOWLEDGE_API_REDIS_URL",
+        "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_LEAF_LAYOUT_CACHE_TTL_SECONDS",
+        "KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K",
+        "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K",
+        "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH",
+        "KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT",
+    ):
+        assert key in environment
+    assert "KNOWLEDGE_API_EMBEDDING_API_KEY" not in environment
+
+
 def test_base_compose_uses_current_edge_initialization_env_contract() -> None:
     expected_edge_keys = {
         "KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K",
@@ -276,13 +306,22 @@ def test_base_compose_uses_current_edge_initialization_env_contract() -> None:
         "KNOWLEDGE_API_EDGE_SIMILARITY_MIN_STRENGTH",
     }
 
-    for service_name in ("api", "worker"):
+    for service_name in ("api", "worker", "taxonomy_view_layout_runtime"):
         service = _service_data(BASE_COMPOSE, service_name)
         environment = service["environment"]
         assert isinstance(environment, dict)
 
         assert expected_edge_keys <= set(environment)
         assert retired_edge_keys.isdisjoint(environment)
+
+
+def test_base_api_service_passes_taxonomy_view_cache_ttl_env_contract() -> None:
+    api = _service_data(BASE_COMPOSE, "api")
+    environment = api["environment"]
+
+    assert isinstance(environment, dict)
+    assert "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS" in environment
+    assert "KNOWLEDGE_API_TAXONOMY_LEAF_LAYOUT_CACHE_TTL_SECONDS" in environment
 
 
 def test_dev_compose_keeps_taxonomy_classification_services_out_of_default_startup() -> None:
@@ -386,6 +425,22 @@ def test_prod_web_no_longer_exposes_browser_api_origin_config() -> None:
     assert isinstance(environment, dict)
     assert "VITE_API_BASE_URL" not in environment
     assert "API_PROXY_TARGET" not in environment
+
+
+def test_dev_and_prod_web_set_explicit_node_env() -> None:
+    dev_web = _service_data(DEV_COMPOSE, "web")
+    prod_web = _service_data(PROD_COMPOSE, "web")
+
+    assert dev_web["environment"] == {"NODE_ENV": "development"}
+    assert prod_web["environment"] == {"NODE_ENV": "production"}
+
+
+def test_dev_and_prod_compose_define_taxonomy_view_layout_runtime_image() -> None:
+    dev_runtime = _service_data(DEV_COMPOSE, "taxonomy_view_layout_runtime")
+    prod_runtime = _service_data(PROD_COMPOSE, "taxonomy_view_layout_runtime")
+
+    assert dev_runtime["image"] == "knowledge-api:dev"
+    assert prod_runtime["image"] == "knowledge-api:prod"
 
 
 def test_online_postgres_init_does_not_bootstrap_mcp_role_or_schema() -> None:
@@ -558,6 +613,12 @@ def test_mcp_startup_script_uses_fixed_container_listener() -> None:
     assert "KNOWLEDGE_MCP_HOST" not in script
     assert "KNOWLEDGE_MCP_PORT" not in script
     assert "--host 0.0.0.0 --port 8080" in script
+
+
+def test_taxonomy_view_layout_runtime_startup_script_uses_module_entrypoint() -> None:
+    script = _read(TAXONOMY_VIEW_LAYOUT_RUN_SCRIPT)
+
+    assert "python -m entrypoints.taxonomy_view_layout_runtime" in script
 
 
 def test_dev_and_prod_compose_define_mcp_image_and_ingress_dependencies() -> None:

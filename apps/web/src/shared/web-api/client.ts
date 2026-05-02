@@ -42,8 +42,22 @@ async function readError(response: Response): Promise<WebApiRequestError> {
   return new WebApiRequestError({
     code,
     message,
+    retryAfterSeconds: parseRetryAfterSeconds(response),
     status: response.status,
   });
+}
+
+function parseRetryAfterSeconds(response: Response): number | undefined {
+  const rawValue = response.headers.get("Retry-After");
+  if (rawValue === null) {
+    return undefined;
+  }
+
+  const parsed = Number(rawValue);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return parsed;
 }
 
 export async function fetchWebApiJson<TResponse>(

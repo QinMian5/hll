@@ -6,6 +6,7 @@ import type { NextFunction, Response } from "express";
 export class InternalApiError extends Error {
   readonly clientMessage: string | undefined;
   readonly code: string | undefined;
+  readonly retryAfterSeconds: number | undefined;
   readonly status: number;
 
   constructor(
@@ -14,12 +15,14 @@ export class InternalApiError extends Error {
     options: {
       readonly clientMessage?: string;
       readonly code?: string;
+      readonly retryAfterSeconds?: number;
     } = {},
   ) {
     super(message);
     this.name = "InternalApiError";
     this.clientMessage = options.clientMessage;
     this.code = options.code;
+    this.retryAfterSeconds = options.retryAfterSeconds;
     this.status = status;
   }
 }
@@ -50,12 +53,17 @@ export function handleWebRouteError(
   }
 
   if (error instanceof InternalApiError) {
+    const isClientVisible =
+      (error.status >= 400 && error.status < 500) ||
+      error.code === "layout_not_ready";
     if (
-      error.status >= 400 &&
-      error.status < 500 &&
+      isClientVisible &&
       error.code !== undefined &&
       error.clientMessage !== undefined
     ) {
+      if (error.retryAfterSeconds !== undefined) {
+        response.set("Retry-After", String(error.retryAfterSeconds));
+      }
       response.status(error.status).json({
         error: {
           code: error.code,

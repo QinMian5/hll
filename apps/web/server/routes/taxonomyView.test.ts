@@ -140,6 +140,41 @@ describe("taxonomy view route", () => {
     });
   });
 
+  it("preserves taxonomy layout readiness errors from the internal API", async () => {
+    const readinessError = new InternalApiError(503, "layout not ready", {
+      clientMessage: "Taxonomy leaf layout is being prepared.",
+      code: "layout_not_ready",
+      retryAfterSeconds: 10,
+    });
+    const client = createClient({
+      getTaxonomyLeafLayoutSlice: vi.fn(async () => {
+        throw readinessError;
+      }),
+      getTaxonomyNodeByPath: vi.fn(async () => {
+        throw readinessError;
+      }),
+    });
+    const app = await createTestApp({ client });
+
+    const pathResponse = await request(app).get(
+      "/web-api/taxonomy/view/path/science/mathematics",
+    );
+    const layoutResponse = await request(app).get(
+      "/web-api/taxonomy/view/leaves/7/layout?min_x=-100&min_y=-200&max_x=100&max_y=200",
+    );
+
+    for (const response of [pathResponse, layoutResponse]) {
+      expect(response.status).toBe(503);
+      expect(response.headers["retry-after"]).toBe("10");
+      expect(response.body).toEqual({
+        error: {
+          code: "layout_not_ready",
+          message: "Taxonomy leaf layout is being prepared.",
+        },
+      });
+    }
+  });
+
   it("preserves unresolved taxonomy path errors from the internal API", async () => {
     const client = createClient({
       getTaxonomyNodeByPath: vi.fn(async () => {

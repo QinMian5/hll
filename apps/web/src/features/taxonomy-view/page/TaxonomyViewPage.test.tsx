@@ -174,6 +174,7 @@ interface MockQueryResult<T> {
   readonly error: Error | null;
   readonly isError: boolean;
   readonly isPending: boolean;
+  readonly refetch: () => void;
 }
 
 const mockUseTaxonomyRootViewQuery = vi.mocked(
@@ -202,6 +203,7 @@ function makeQueryResult<T>(
     error: null,
     isError: false,
     isPending: false,
+    refetch: vi.fn(),
     ...overrides,
   };
 }
@@ -449,6 +451,33 @@ describe("TaxonomyViewPage", () => {
     expect(screen.getByTestId("taxonomy-error-overlay")).toHaveTextContent(
       "Try again shortly.",
     );
+  });
+
+  it("shows a retryable layout readiness message when leaf layout is not ready", async () => {
+    const refetch = vi.fn();
+    pathQueryStates.set(
+      "unclassified",
+      makeQueryResult({
+        error: new WebApiRequestError({
+          code: "layout_not_ready",
+          message: "Taxonomy leaf layout is being prepared.",
+          retryAfterSeconds: 10,
+          status: 503,
+        }),
+        isError: true,
+        refetch,
+      }),
+    );
+
+    await renderWithRoute("/graph/unclassified");
+
+    const overlay = screen.getByTestId("taxonomy-error-overlay");
+    expect(overlay).toHaveTextContent("Taxonomy layout unavailable");
+    expect(overlay).toHaveTextContent("Try again in about 10 seconds.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(refetch).toHaveBeenCalledTimes(1);
   });
 
   it("renders branch mode on React Flow and drills into leaf mode on the dedicated leaf renderer", async () => {

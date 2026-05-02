@@ -14,7 +14,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.responses import Response
 
-from core.error_http import app_error_from_request_validation, status_code_for_app_error
+from core.error_http import (
+    app_error_from_request_validation,
+    headers_for_app_error,
+    status_code_for_app_error,
+)
 from core.errors import AppError, InternalError
 from entrypoints.api import providers as api_providers
 from modules.ingestion.api import build_router as build_ingestion_router
@@ -76,6 +80,7 @@ def create_app() -> FastAPI:
         )
         return JSONResponse(
             status_code=status_code,
+            headers=headers_for_app_error(exc),
             content=exc.to_response_envelope(request_id=request_id).model_dump(mode="json"),
         )
 

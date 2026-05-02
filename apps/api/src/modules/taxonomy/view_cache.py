@@ -23,6 +23,8 @@ from modules.taxonomy.schema import (
 TAXONOMY_VIEW_COUNT_CACHE_TTL_SECONDS = 60
 TAXONOMY_VIEW_RESPONSE_CACHE_TTL_SECONDS = 60
 TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS = 600
+TAXONOMY_VIEW_LEAF_LAYOUT_PENDING_TTL_SECONDS = 600
+TAXONOMY_VIEW_LEAF_LAYOUT_RUNNING_TTL_SECONDS = 1800
 TAXONOMY_VIEW_LOCK_TTL_SECONDS = 30
 TAXONOMY_VIEW_CACHE_KEY_PREFIX = "taxonomy:view:v1"
 TAXONOMY_API_VIEW_CACHE_KEY_PREFIX = "knowledge:api:taxonomy-view:v1"
@@ -41,6 +43,12 @@ class TaxonomyRedisProtocol(Protocol):
         ex: int | None = None,
         nx: bool | None = None,
     ) -> bool | None: ...
+
+    async def delete(self, key: str) -> int: ...
+
+    async def rpush(self, key: str, value: str) -> int: ...
+
+    async def lpop(self, key: str) -> str | bytes | None: ...
 
 
 class TaxonomyViewRedisCache:
@@ -208,6 +216,44 @@ class TaxonomyViewRedisCache:
         )
         return bool(result)
 
+    async def request_leaf_layout_compute(self, *, leaf_id: int) -> bool:
+        running_marker = await self._redis.get(_leaf_layout_running_key(leaf_id=leaf_id))
+        if running_marker is not None:
+            return False
+
+        pending_created = await self._redis.set(
+            _leaf_layout_pending_key(leaf_id=leaf_id),
+            "1",
+            ex=TAXONOMY_VIEW_LEAF_LAYOUT_PENDING_TTL_SECONDS,
+            nx=True,
+        )
+        if not pending_created:
+            return False
+
+        await self._redis.rpush(_leaf_layout_request_queue_key(), str(leaf_id))
+        return True
+
+    async def claim_leaf_layout_compute(self) -> int | None:
+        raw_leaf_id = await self._redis.lpop(_leaf_layout_request_queue_key())
+        if raw_leaf_id is None:
+            return None
+
+        leaf_id = int(_payload_text(raw_payload=raw_leaf_id))
+        running_created = await self._redis.set(
+            _leaf_layout_running_key(leaf_id=leaf_id),
+            "1",
+            ex=TAXONOMY_VIEW_LEAF_LAYOUT_RUNNING_TTL_SECONDS,
+            nx=True,
+        )
+        await self._redis.delete(_leaf_layout_pending_key(leaf_id=leaf_id))
+        if not running_created:
+            return None
+        return leaf_id
+
+    async def complete_leaf_layout_compute(self, *, leaf_id: int) -> None:
+        await self._redis.delete(_leaf_layout_pending_key(leaf_id=leaf_id))
+        await self._redis.delete(_leaf_layout_running_key(leaf_id=leaf_id))
+
 
 def _descendant_counts_key() -> str:
     return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:descendant-counts"
@@ -215,6 +261,18 @@ def _descendant_counts_key() -> str:
 
 def _leaf_layout_key(*, leaf_id: int) -> str:
     return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:leaf-layout:{TAXONOMY_LEAF_LAYOUT_VERSION}:{leaf_id}"
+
+
+def _leaf_layout_pending_key(*, leaf_id: int) -> str:
+    return f"{_leaf_layout_key(leaf_id=leaf_id)}:pending"
+
+
+def _leaf_layout_running_key(*, leaf_id: int) -> str:
+    return f"{_leaf_layout_key(leaf_id=leaf_id)}:running"
+
+
+def _leaf_layout_request_queue_key() -> str:
+    return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:leaf-layout:requests"
 
 
 def _root_view_key() -> str:

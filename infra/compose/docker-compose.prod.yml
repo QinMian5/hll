@@ -36,6 +36,9 @@ services:
   worker:
     image: knowledge-api:prod
 
+  taxonomy_view_layout_runtime:
+    image: knowledge-api:prod
+
   taxonomy_classification_runtime:
     image: knowledge-api:prod
     networks:
@@ -74,6 +77,8 @@ services:
 
   web:
     image: knowledge-web:prod
+    environment:
+      NODE_ENV: production
 
   nginx:
     image: knowledge-nginx:prod

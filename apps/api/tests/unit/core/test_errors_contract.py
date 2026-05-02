@@ -25,6 +25,7 @@ from core.errors import (
 )
 
 ERROR_CODE_VALUE_PATTERN = re.compile(r"^[A-Z0-9]+(?:_[A-Z0-9]+){2,}$")
+CLIENT_COMPATIBLE_ERROR_CODE_VALUES = {"layout_not_ready"}
 
 
 def test_error_code_is_str_enum() -> None:
@@ -34,6 +35,8 @@ def test_error_code_is_str_enum() -> None:
 
 def test_error_code_values_follow_domain_category_detail_format() -> None:
     for code in ErrorCode:
+        if code.value in CLIENT_COMPATIBLE_ERROR_CODE_VALUES:
+            continue
         assert ERROR_CODE_VALUE_PATTERN.match(code.value)
 
 
@@ -45,8 +48,14 @@ def test_error_code_values_are_unique() -> None:
 def test_error_code_enum_uses_only_allowed_domain_segments() -> None:
     allowed_domains = {"APPLICATION", "DOMAIN", "INFRA", "INTERNAL"}
     for code in ErrorCode:
+        if code.value in CLIENT_COMPATIBLE_ERROR_CODE_VALUES:
+            continue
         domain, _, _ = code.value.split("_", 2)
         assert domain in allowed_domains
+
+
+def test_layout_not_ready_uses_browser_error_code_contract() -> None:
+    assert ErrorCode.APPLICATION_TAXONOMY_LAYOUT_NOT_READY.value == "layout_not_ready"
 
 
 def test_app_error_payload_contains_unified_contract_fields() -> None:

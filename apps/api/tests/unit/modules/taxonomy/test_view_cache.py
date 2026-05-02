@@ -34,8 +34,11 @@ from modules.taxonomy.view_cache import (
 class _FakeRedis:
     def __init__(self) -> None:
         self.values: dict[str, str] = {}
+        self.lists: dict[str, list[str]] = {}
         self.delete_calls: list[str] = []
         self.set_calls: list[tuple[str, str, int | None, bool | None]] = []
+        self.rpush_calls: list[tuple[str, str]] = []
+        self.lpop_calls: list[str] = []
 
     async def get(self, key: str) -> str | None:
         return self.values.get(key)
@@ -59,6 +62,18 @@ class _FakeRedis:
             return False
         self.values[key] = value
         return True
+
+    async def rpush(self, key: str, value: str) -> int:
+        self.rpush_calls.append((key, value))
+        self.lists.setdefault(key, []).append(value)
+        return len(self.lists[key])
+
+    async def lpop(self, key: str) -> str | None:
+        self.lpop_calls.append(key)
+        values = self.lists.get(key, [])
+        if not values:
+            return None
+        return values.pop(0)
 
 
 def _view_node(
@@ -285,6 +300,68 @@ async def test_leaf_layout_lock_uses_per_leaf_single_flight_key() -> None:
     assert redis.set_calls == [
         ("taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:lock", "1", 30, True)
     ]
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_compute_request_enqueues_each_leaf_once() -> None:
+    redis = _FakeRedis()
+    cache = TaxonomyViewRedisCache(redis=redis)
+
+    first_requested = await cache.request_leaf_layout_compute(leaf_id=9)
+    second_requested = await cache.request_leaf_layout_compute(leaf_id=9)
+
+    assert first_requested is True
+    assert second_requested is False
+    assert redis.rpush_calls == [("taxonomy:view:v1:leaf-layout:requests", "9")]
+    assert (
+        "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:pending",
+        "1",
+        600,
+        True,
+    ) in redis.set_calls
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_compute_request_skips_running_leaf() -> None:
+    redis = _FakeRedis()
+    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:running"] = "1"
+    cache = TaxonomyViewRedisCache(redis=redis)
+
+    requested = await cache.request_leaf_layout_compute(leaf_id=9)
+
+    assert requested is False
+    assert redis.rpush_calls == []
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_compute_claim_marks_leaf_running_and_clears_pending() -> None:
+    redis = _FakeRedis()
+    redis.lists["taxonomy:view:v1:leaf-layout:requests"] = ["9"]
+    cache = TaxonomyViewRedisCache(redis=redis)
+
+    leaf_id = await cache.claim_leaf_layout_compute()
+
+    assert leaf_id == 9
+    assert (
+        "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:running",
+        "1",
+        1800,
+        True,
+    ) in redis.set_calls
+    assert "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:pending" in redis.delete_calls
+
+
+@pytest.mark.anyio
+async def test_leaf_layout_compute_completion_clears_singleflight_state() -> None:
+    redis = _FakeRedis()
+    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:pending"] = "1"
+    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:running"] = "1"
+    cache = TaxonomyViewRedisCache(redis=redis)
+
+    await cache.complete_leaf_layout_compute(leaf_id=9)
+
+    assert "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:pending" in redis.delete_calls
+    assert "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:running" in redis.delete_calls
 
 
 @pytest.mark.anyio

@@ -95,14 +95,21 @@ function parseInternalApiErrorPayload(payload: unknown):
 function unwrapInternalApiData<TData>(result: InternalApiResult<TData>): TData {
   if (!result.response.ok) {
     const payload = parseInternalApiErrorPayload(result.error ?? result.data);
+    const shouldExposePayload =
+      payload !== undefined &&
+      ((result.response.status >= 400 && result.response.status < 500) ||
+        (result.response.status === 503 &&
+          payload.code === "layout_not_ready"));
 
     throw new InternalApiError(
       result.response.status,
       `Internal API request failed with status ${result.response.status}.`,
-      result.response.status >= 400 &&
-        result.response.status < 500 &&
-        payload !== undefined
-        ? { clientMessage: payload.message, code: payload.code }
+      shouldExposePayload
+        ? {
+            clientMessage: payload.message,
+            code: payload.code,
+            retryAfterSeconds: parseRetryAfterSeconds(result.response),
+          }
         : undefined,
     );
   }
@@ -115,6 +122,19 @@ function unwrapInternalApiData<TData>(result: InternalApiResult<TData>): TData {
   }
 
   return result.data;
+}
+
+function parseRetryAfterSeconds(response: Response): number | undefined {
+  const rawValue = response.headers.get("Retry-After");
+  if (rawValue === null) {
+    return undefined;
+  }
+
+  const parsed = Number(rawValue);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return undefined;
+  }
+  return parsed;
 }
 
 function encodeRoutePath(routePath: string): string {
