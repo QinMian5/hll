@@ -54,6 +54,24 @@ function circlesOverlap(
   return distance < left.style.width / 2 + right.style.width / 2;
 }
 
+function expectNodeFitsBounds(
+  node: {
+    readonly position: { readonly x: number; readonly y: number };
+    readonly style: { readonly height: number; readonly width: number };
+  },
+  bounds: {
+    readonly maxX: number;
+    readonly maxY: number;
+    readonly minX: number;
+    readonly minY: number;
+  },
+) {
+  expect(node.position.x).toBeGreaterThanOrEqual(bounds.minX);
+  expect(node.position.y).toBeGreaterThanOrEqual(bounds.minY);
+  expect(node.position.x + node.style.width).toBeLessThanOrEqual(bounds.maxX);
+  expect(node.position.y + node.style.height).toBeLessThanOrEqual(bounds.maxY);
+}
+
 function expectNodePosition<
   T extends { readonly position: { readonly x: number; readonly y: number } },
 >(node: T | undefined) {
@@ -246,12 +264,43 @@ describe("branch layout contracts", () => {
     expect(hasOverlap).toBe(false);
   });
 
-  it("keeps branch bubbles contained on the mobile Figma viewport", () => {
+  it("expands branch world bounds instead of shrinking bubble design tiers", () => {
     const result = buildBranchLayout({
       center: { x: 220, y: 446 },
-      children: Array.from({ length: 9 }, (_, index) => ({
+      children: Array.from({ length: 24 }, (_, index) => ({
         depth: 1,
-        descendant_card_count: 300 - index * 20,
+        descendant_card_count: 300,
+        id: index + 1,
+        name: `Node ${index + 1}`,
+        route_path: `node-${index + 1}`,
+      })),
+      viewport: BRANCH_MOBILE_REFERENCE_VIEWPORT,
+    });
+    const expectedDiameter = buildBranchBubbleMetrics(
+      300,
+      BRANCH_MOBILE_REFERENCE_VIEWPORT,
+    ).diameter;
+
+    expect(
+      result.nodes.every((node) => node.style.width === expectedDiameter),
+    ).toBe(true);
+    expect(result.bounds.maxX - result.bounds.minX).toBeGreaterThan(
+      BRANCH_MOBILE_REFERENCE_VIEWPORT.width,
+    );
+    expect(
+      result.nodes.every((node) => {
+        expectNodeFitsBounds(node, result.bounds);
+        return true;
+      }),
+    ).toBe(true);
+  });
+
+  it("computes an initial viewport that fits all branch siblings", () => {
+    const result = buildBranchLayout({
+      center: { x: 220, y: 446 },
+      children: Array.from({ length: 24 }, (_, index) => ({
+        depth: 1,
+        descendant_card_count: 300,
         id: index + 1,
         name: `Node ${index + 1}`,
         route_path: `node-${index + 1}`,
@@ -259,22 +308,23 @@ describe("branch layout contracts", () => {
       viewport: BRANCH_MOBILE_REFERENCE_VIEWPORT,
     });
 
-    expect(result.nodes.every((node) => node.position.x >= 0)).toBe(true);
-    expect(result.nodes.every((node) => node.position.y >= 0)).toBe(true);
-    expect(
-      result.nodes.every(
-        (node) =>
-          node.position.x + node.style.width <=
-          BRANCH_MOBILE_REFERENCE_VIEWPORT.width,
-      ),
-    ).toBe(true);
-    expect(
-      result.nodes.every(
-        (node) =>
-          node.position.y + node.style.height <=
-          BRANCH_MOBILE_REFERENCE_VIEWPORT.height,
-      ),
-    ).toBe(true);
-    expect(result.nodes.every((node) => node.style.width <= 132)).toBe(true);
+    expect(result.initialViewport.zoom).toBeLessThan(1);
+    for (const node of result.nodes) {
+      const left =
+        node.position.x * result.initialViewport.zoom +
+        result.initialViewport.x;
+      const top =
+        node.position.y * result.initialViewport.zoom +
+        result.initialViewport.y;
+      const right = left + node.style.width * result.initialViewport.zoom;
+      const bottom = top + node.style.height * result.initialViewport.zoom;
+
+      expect(left).toBeGreaterThanOrEqual(0);
+      expect(top).toBeGreaterThanOrEqual(0);
+      expect(right).toBeLessThanOrEqual(BRANCH_MOBILE_REFERENCE_VIEWPORT.width);
+      expect(bottom).toBeLessThanOrEqual(
+        BRANCH_MOBILE_REFERENCE_VIEWPORT.height,
+      );
+    }
   });
 });

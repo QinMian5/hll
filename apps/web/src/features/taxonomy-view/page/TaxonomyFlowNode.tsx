@@ -50,7 +50,9 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
       data-bubble-variant="branch"
       data-depth={data.depth}
       data-node-scope="branch"
+      data-testid="taxonomy-bubble-frame"
       style={{ transform: `rotate(${rotationDegrees})` }}
+      title={data.tooltip || data.label}
     >
       <span
         aria-hidden="true"
@@ -82,7 +84,12 @@ export function TaxonomyFlowNode({ data }: NodeProps<BubbleFlowNode>) {
           maxWidth: "var(--taxonomy-bubble-label-width)",
         }}
       >
-        {data.label}
+        <span
+          className="block max-w-full overflow-hidden text-ellipsis break-words [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3]"
+          data-testid="taxonomy-bubble-label-text"
+        >
+          {data.label}
+        </span>
       </span>
     </div>
   );

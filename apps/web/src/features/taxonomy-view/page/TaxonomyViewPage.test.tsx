@@ -9,9 +9,11 @@ import {
   createRoute,
   createRouter,
   Outlet,
+  type RouteComponent,
   RouterProvider,
 } from "@tanstack/react-router";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -19,51 +21,72 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import type { ComponentType, ReactNode } from "react";
+import { type ComponentType, type ReactNode, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@xyflow/react", () => ({
-  Background: () => <div data-testid="reactflow-background" />,
-  ReactFlow: ({
-    children,
-    nodeTypes = {},
-    nodes,
-    onNodeClick,
-  }: MockReactFlowProps) => (
-    <div data-testid="reactflow-mock">
-      {nodes.map((node) => {
-        const BubbleNode = node.type ? nodeTypes[node.type] : undefined;
-
-        return (
-          /* biome-ignore lint/a11y/noStaticElementInteractions: test-only container proxies node click behavior. */
-          /* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard behavior is outside the scope of this structural mock. */
-          <div
-            data-testid={`reactflow-node-${node.id}`}
-            key={node.id}
-            onClick={() => onNodeClick?.({}, node)}
-          >
-            {BubbleNode ? (
-              <BubbleNode
-                data={node.data}
-                dragging={false}
-                id={node.id}
-                isConnectable={false}
-                selected={false}
-                type={node.type}
-                xPos={node.position?.x ?? 0}
-                yPos={node.position?.y ?? 0}
-                zIndex={0}
-              />
-            ) : (
-              String(node.data.label)
-            )}
-          </div>
-        );
-      })}
-      {children}
-    </div>
-  ),
+const reactFlowMockState = vi.hoisted(() => ({
+  nextMountId: 1,
 }));
+
+vi.mock("@xyflow/react", async () => {
+  const React = await import("react");
+
+  return {
+    Background: () => <div data-testid="reactflow-background" />,
+    ReactFlow: ({
+      children,
+      defaultViewport,
+      fitView,
+      minZoom,
+      nodeTypes = {},
+      nodes,
+      onNodeClick,
+    }: MockReactFlowProps) => {
+      const mountId = React.useMemo(() => reactFlowMockState.nextMountId++, []);
+
+      return (
+        <div
+          data-default-viewport={JSON.stringify(defaultViewport)}
+          data-fit-view={fitView ? "true" : "false"}
+          data-min-zoom={String(minZoom)}
+          data-mount-id={mountId}
+          data-testid="reactflow-mock"
+        >
+          {nodes.map((node) => {
+            const BubbleNode = node.type ? nodeTypes[node.type] : undefined;
+
+            return (
+              /* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard behavior is outside the scope of this structural mock. */
+              <section
+                aria-label={node.ariaLabel}
+                data-testid={`reactflow-node-${node.id}`}
+                key={node.id}
+                onClick={() => onNodeClick?.({}, node)}
+              >
+                {BubbleNode ? (
+                  <BubbleNode
+                    data={node.data}
+                    dragging={false}
+                    id={node.id}
+                    isConnectable={false}
+                    selected={false}
+                    type={node.type}
+                    xPos={node.position?.x ?? 0}
+                    yPos={node.position?.y ?? 0}
+                    zIndex={0}
+                  />
+                ) : (
+                  String(node.data.label)
+                )}
+              </section>
+            );
+          })}
+          {children}
+        </div>
+      );
+    },
+  };
+});
 
 vi.mock("./leaf/LeafRenderer", () => ({
   LeafRenderer: ({
@@ -125,18 +148,26 @@ import { TaxonomyViewPage } from "./TaxonomyViewPage";
 
 interface MockReactFlowProps {
   readonly children?: ReactNode;
+  readonly defaultViewport?: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
+  readonly fitView?: boolean;
+  readonly minZoom?: number;
   readonly nodeTypes?: Record<
     string,
     ComponentType<MockFlowNodeComponentProps>
   >;
   readonly nodes: Array<{
+    readonly ariaLabel?: string;
     readonly data: {
       readonly depth?: number;
       readonly label: string;
       readonly renderMode?: "bubble" | "point";
       readonly scope?: "branch" | "inner" | "outer";
       readonly targetNodeId?: number | null;
-      readonly targetRoutePath?: string;
+      readonly targetRoutePath?: string | null;
       readonly tooltip?: string;
     };
     readonly id: string;
@@ -152,7 +183,7 @@ interface MockReactFlowProps {
     node: {
       readonly data: {
         readonly targetNodeId?: number | null;
-        readonly targetRoutePath?: string;
+        readonly targetRoutePath?: string | null;
       };
       readonly id: string;
     },
@@ -196,6 +227,7 @@ const mockUseWebSession = vi.mocked(webSession.useWebSession);
 let rootQueryState: MockQueryResult<TaxonomyRootView>;
 let pathQueryStates: Map<string, MockQueryResult<TaxonomyNodeView>>;
 let mutateSuggestedEdit: ReturnType<typeof vi.fn>;
+let rerenderTaxonomyPage: (() => void) | undefined;
 
 function makeQueryResult<T>(
   overrides: Partial<MockQueryResult<T>>,
@@ -263,6 +295,8 @@ function makeBranchNodeView(
 }
 
 beforeEach(() => {
+  reactFlowMockState.nextMountId = 1;
+  rerenderTaxonomyPage = undefined;
   mutateSuggestedEdit = vi.fn(async () => undefined);
   rootQueryState = makeQueryResult({
     data: makeRootView({
@@ -345,17 +379,27 @@ function TestRoot() {
   return <Outlet />;
 }
 
-function createTaxonomyTestRouter(pathname: string) {
+function TaxonomyViewPageRerenderHarness() {
+  const [, setRenderIndex] = useState(0);
+  rerenderTaxonomyPage = () => setRenderIndex((index) => index + 1);
+
+  return <TaxonomyViewPage />;
+}
+
+function createTaxonomyTestRouter(
+  pathname: string,
+  routeComponent: RouteComponent = TaxonomyViewPage,
+) {
   const rootRoute = createRootRoute({
     component: TestRoot,
   });
   const graphRoute = createRoute({
-    component: TaxonomyViewPage,
+    component: routeComponent,
     getParentRoute: () => rootRoute,
     path: "graph",
   });
   const graphPathRoute = createRoute({
-    component: TaxonomyViewPage,
+    component: routeComponent,
     getParentRoute: () => rootRoute,
     path: "graph/$",
   });
@@ -367,13 +411,30 @@ function createTaxonomyTestRouter(pathname: string) {
   });
 }
 
-async function renderWithRoute(pathname = "/graph") {
-  const router = createTaxonomyTestRouter(pathname);
+async function renderWithRoute(
+  pathname = "/graph",
+  routeComponent: RouteComponent = TaxonomyViewPage,
+) {
+  const router = createTaxonomyTestRouter(pathname, routeComponent);
   const result = render(<RouterProvider router={router} />);
 
   await screen.findByTestId("taxonomy-canvas");
 
   return { ...result, router };
+}
+
+function parseReactFlowDefaultViewport() {
+  const serializedViewport = screen
+    .getByTestId("reactflow-mock")
+    .getAttribute("data-default-viewport");
+
+  expect(serializedViewport).not.toBeNull();
+
+  return JSON.parse(serializedViewport ?? "") as {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
 }
 
 describe("TaxonomyViewPage", () => {
@@ -511,6 +572,78 @@ describe("TaxonomyViewPage", () => {
     expect(screen.getByRole("button", { name: "Math" })).toHaveAttribute(
       "aria-current",
       "page",
+    );
+  });
+
+  it("starts dense branch flows from the computed initial viewport instead of fitView", async () => {
+    rootQueryState = makeQueryResult({
+      data: makeRootView({
+        children: Array.from({ length: 24 }, (_, index) => ({
+          depth: 0,
+          descendant_card_count: 300,
+          name: `Node ${index + 1}`,
+          node_kind: "branch",
+          parent_taxonomy_node_id: null,
+          route_path: `node-${index + 1}`,
+          route_slug: `node-${index + 1}`,
+          scope_kind: "taxonomy_node",
+          taxonomy_node_id: index + 1,
+        })),
+      }),
+    });
+
+    await renderWithRoute();
+
+    const reactFlow = screen.getByTestId("reactflow-mock");
+    const defaultViewport = parseReactFlowDefaultViewport();
+
+    expect(reactFlow).toHaveAttribute("data-fit-view", "false");
+    expect(defaultViewport.zoom).toBeLessThan(1);
+    expect(reactFlow).toHaveAttribute(
+      "data-min-zoom",
+      String(Math.min(0.2, defaultViewport.zoom)),
+    );
+    expect(screen.getAllByText(/^Node \d+$/)).toHaveLength(24);
+    expect(
+      screen.getByTestId("reactflow-node-taxonomy-taxonomy_node:1"),
+    ).toHaveAttribute("aria-label", "Node 1 · 300 cards");
+  });
+
+  it("remounts the branch flow when pending branch data resolves to a ready layout", async () => {
+    rootQueryState = makeQueryResult({ isPending: true });
+
+    await renderWithRoute("/graph", TaxonomyViewPageRerenderHarness);
+    const pendingMountId = screen
+      .getByTestId("reactflow-mock")
+      .getAttribute("data-mount-id");
+
+    rootQueryState = makeQueryResult({
+      data: makeRootView({
+        children: [
+          {
+            depth: 0,
+            descendant_card_count: 20,
+            name: "Physics",
+            node_kind: "branch",
+            parent_taxonomy_node_id: null,
+            route_path: "physics",
+            route_slug: "physics",
+            scope_kind: "taxonomy_node",
+            taxonomy_node_id: 42,
+          },
+        ],
+      }),
+    });
+
+    act(() => {
+      rerenderTaxonomyPage?.();
+    });
+
+    await screen.findByText("Physics");
+
+    expect(screen.getByTestId("reactflow-mock")).not.toHaveAttribute(
+      "data-mount-id",
+      pendingMountId ?? "",
     );
   });
 

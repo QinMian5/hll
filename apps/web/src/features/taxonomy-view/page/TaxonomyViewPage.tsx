@@ -39,12 +39,14 @@ import {
   buildBranchLayout,
 } from "./layout/buildBranchLayout";
 import type {
+  BranchInitialViewport,
   LayoutViewport,
   TaxonomyLayoutNodeData,
 } from "./layout/taxonomyLayoutTypes";
 import { TaxonomyFlowNode } from "./TaxonomyFlowNode";
 
 const DEFAULT_CANVAS_VIEWPORT = BRANCH_DESKTOP_REFERENCE_VIEWPORT;
+const DEFAULT_BRANCH_VIEWPORT = { x: 0, y: 0, zoom: 1 } as const;
 const breadcrumbMutedClasses =
   "text-[13px] leading-[18px] font-normal text-[rgba(92,107,138,0.74)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0";
 const breadcrumbCurrentClasses =
@@ -53,6 +55,12 @@ const errorActionClasses =
   "mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-[#006bff] px-4 text-[13px] leading-[18px] font-medium text-white transition-colors hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
 
 type BubbleFlowNode = Node<TaxonomyLayoutNodeData, "bubble">;
+
+interface BranchFlowGraph {
+  readonly initialViewport: BranchInitialViewport;
+  readonly layoutIdentity: string;
+  readonly nodes: BubbleFlowNode[];
+}
 
 const nodeTypes = {
   bubble: TaxonomyFlowNode,
@@ -82,6 +90,7 @@ function toFlowNode(
   node: ReturnType<typeof buildBranchLayout>["nodes"][number],
 ): BubbleFlowNode {
   return {
+    ariaLabel: node.data.tooltip || node.data.label,
     data: node.data,
     draggable: false,
     id: node.id,
@@ -133,6 +142,29 @@ function toBranchLayoutChildren(children: readonly TaxonomyViewChild[]) {
 
 function sameViewport(left: LayoutViewport, right: LayoutViewport) {
   return left.height === right.height && left.width === right.width;
+}
+
+function emptyBranchFlowGraph(layoutIdentity: string): BranchFlowGraph {
+  return {
+    initialViewport: DEFAULT_BRANCH_VIEWPORT,
+    layoutIdentity,
+    nodes: [],
+  };
+}
+
+function branchLayoutIdentity(
+  branchLayout: ReturnType<typeof buildBranchLayout>,
+) {
+  const roundedBounds = [
+    Math.round(branchLayout.bounds.minX),
+    Math.round(branchLayout.bounds.minY),
+    Math.round(branchLayout.bounds.maxX),
+    Math.round(branchLayout.bounds.maxY),
+  ].join(":");
+
+  return `ready:${roundedBounds}:${branchLayout.nodes
+    .map((node) => node.id)
+    .join("|")}`;
 }
 
 function isTaxonomyRoutePathNotFound(error: Error | null): boolean {
@@ -278,40 +310,54 @@ export function TaxonomyViewPage() {
 
   const branchFlowGraph = useMemo(() => {
     if (activeQuery.isPending) {
-      return { nodes: [] as BubbleFlowNode[] };
+      return emptyBranchFlowGraph("pending");
+    }
+
+    if (activeQuery.isError) {
+      return emptyBranchFlowGraph("error");
     }
 
     if (rootMode) {
+      if (!rootQuery.data) {
+        return emptyBranchFlowGraph("no-data");
+      }
+
       const branchLayout = buildBranchLayout({
         center: layoutCenter,
-        children: toBranchLayoutChildren(rootQuery.data?.children ?? []),
+        children: toBranchLayoutChildren(rootQuery.data.children),
         viewport: canvasViewport,
       });
 
       return {
+        initialViewport: branchLayout.initialViewport,
+        layoutIdentity: branchLayoutIdentity(branchLayout),
         nodes: branchLayout.nodes.map(toFlowNode),
       };
     }
 
+    if (pathQuery.data?.node_kind !== "branch") {
+      return emptyBranchFlowGraph("no-data");
+    }
+
     const branchLayout = buildBranchLayout({
       center: layoutCenter,
-      children:
-        pathQuery.data?.node_kind === "branch"
-          ? toBranchLayoutChildren(pathQuery.data.children)
-          : [],
+      children: toBranchLayoutChildren(pathQuery.data.children),
       viewport: canvasViewport,
     });
 
     return {
+      initialViewport: branchLayout.initialViewport,
+      layoutIdentity: branchLayoutIdentity(branchLayout),
       nodes: branchLayout.nodes.map(toFlowNode),
     };
   }, [
+    activeQuery.isError,
     activeQuery.isPending,
     canvasViewport,
     layoutCenter,
     pathQuery.data,
     rootMode,
-    rootQuery.data?.children,
+    rootQuery.data,
   ]);
   const routePathNotFound =
     activeQuery.isError && isTaxonomyRoutePathNotFound(activeQuery.error);
@@ -458,12 +504,14 @@ export function TaxonomyViewPage() {
               data-testid="taxonomy-branch-reactflow"
             >
               <ReactFlow
-                fitView
-                fitViewOptions={{
-                  padding: canvasViewport.width < 640 ? 0.12 : 0.08,
-                }}
-                key={activeRoutePath || "root"}
-                minZoom={0.2}
+                defaultViewport={branchFlowGraph.initialViewport}
+                key={[
+                  activeRoutePath || "root",
+                  canvasViewport.width,
+                  canvasViewport.height,
+                  branchFlowGraph.layoutIdentity,
+                ].join(":")}
+                minZoom={Math.min(0.2, branchFlowGraph.initialViewport.zoom)}
                 nodeTypes={nodeTypes}
                 nodes={branchFlowGraph.nodes}
                 onNodeClick={(_, node) => {

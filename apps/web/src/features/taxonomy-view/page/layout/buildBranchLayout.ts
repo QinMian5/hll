@@ -1,4 +1,4 @@
-// abstract: Force-based branch layout helper for weighted taxonomy bubbles.
+// abstract: Expanded-world branch layout helper for fixed-size weighted taxonomy bubbles.
 // out_of_scope: Leaf graph layout and React Flow page orchestration.
 
 import {
@@ -11,6 +11,7 @@ import {
 import type {
   BranchLayoutInput,
   BranchLayoutResult,
+  LayoutBounds,
   LayoutPoint,
   LayoutViewport,
 } from "./taxonomyLayoutTypes";
@@ -24,6 +25,10 @@ export const BRANCH_MOBILE_REFERENCE_VIEWPORT = {
   height: 892,
   width: 440,
 } as const;
+
+const BRANCH_BOUNDS_MIN_PADDING = 24;
+const BRANCH_INITIAL_VIEWPORT_DESKTOP_PADDING = 32;
+const BRANCH_INITIAL_VIEWPORT_MOBILE_PADDING = 20;
 
 export interface BranchBubbleMetrics {
   readonly diameter: number;
@@ -71,6 +76,25 @@ function viewportWidthFactor(viewport: LayoutViewport) {
   );
 }
 
+function compareBranchChildIds(
+  left: BranchLayoutInput["children"][number]["id"],
+  right: BranchLayoutInput["children"][number]["id"],
+) {
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+
+  return String(left).localeCompare(String(right));
+}
+
+function branchRingGap(viewport: LayoutViewport) {
+  return lerp(28, 44, viewportWidthFactor(viewport));
+}
+
+function branchHaloPadding(diameter: number) {
+  return Math.max(BRANCH_BOUNDS_MIN_PADDING, diameter * 0.18 + 14);
+}
+
 export function buildBranchBubbleMetrics(
   descendantCardCount: number,
   viewport: LayoutViewport,
@@ -93,62 +117,57 @@ export function buildBranchBubbleMetrics(
   };
 }
 
-function positionOnRing(options: {
-  readonly center: LayoutPoint;
-  readonly index: number;
-  readonly nodeRadius: number;
-  readonly targetRadius: number;
-  readonly viewport: BranchLayoutInput["viewport"];
-}): LayoutPoint {
-  const angle = options.index * 2.399963229728653;
-  const radius = options.targetRadius;
-  const viewportPadding = 16;
-  const horizontalLimit = Math.max(
-    options.nodeRadius,
-    Math.min(options.center.x, options.viewport.width - options.center.x) -
-      options.nodeRadius -
-      viewportPadding,
-  );
-  const verticalLimit = Math.max(
-    options.nodeRadius,
-    Math.min(options.center.y, options.viewport.height - options.center.y) -
-      options.nodeRadius -
-      viewportPadding,
-  );
+function ringSlotForIndex(index: number) {
+  if (index === 0) {
+    return {
+      capacity: 1,
+      ring: 0,
+      slot: 0,
+    };
+  }
 
-  return {
-    x:
-      options.center.x +
-      Math.cos(angle) * Math.min(radius * 1.05, horizontalLimit),
-    y:
-      options.center.y +
-      Math.sin(angle) * Math.min(radius * 0.86, verticalLimit),
-  };
+  let remaining = index - 1;
+  let ring = 1;
+
+  while (true) {
+    const capacity = ring * 6;
+
+    if (remaining < capacity) {
+      return {
+        capacity,
+        ring,
+        slot: remaining,
+      };
+    }
+
+    remaining -= capacity;
+    ring += 1;
+  }
 }
 
-function clampCenterPosition(options: {
+function positionOnRing(options: {
   readonly center: LayoutPoint;
-  readonly node: BranchSimulationNode;
-  readonly viewport: BranchLayoutInput["viewport"];
+  readonly capacity: number;
+  readonly ring: number;
+  readonly slot: number;
+  readonly targetRadius: number;
 }): LayoutPoint {
-  const padding = options.node.radius + 12;
+  if (options.ring === 0) {
+    return options.center;
+  }
+
+  const angleStep = (Math.PI * 2) / options.capacity;
+  const ringOffset = options.ring % 2 === 0 ? angleStep / 2 : 0;
+  const angle = -Math.PI / 2 + ringOffset + options.slot * angleStep;
 
   return {
-    x: Math.min(
-      Math.max(options.node.x, padding),
-      options.viewport.width - padding,
-    ),
-    y: Math.min(
-      Math.max(options.node.y, padding),
-      options.viewport.height - padding,
-    ),
+    x: options.center.x + Math.cos(angle) * options.targetRadius,
+    y: options.center.y + Math.sin(angle) * options.targetRadius,
   };
 }
 
 function resolveBranchOverlaps(options: {
-  readonly center: LayoutPoint;
   readonly nodes: BranchSimulationNode[];
-  readonly viewport: BranchLayoutInput["viewport"];
 }) {
   for (let pass = 0; pass < 80; pass += 1) {
     let moved = false;
@@ -186,22 +205,6 @@ function resolveBranchOverlaps(options: {
         left.y -= unitY * pushDistance * (rightMobility / totalMobility);
         right.x += unitX * pushDistance * (leftMobility / totalMobility);
         right.y += unitY * pushDistance * (leftMobility / totalMobility);
-
-        const clampedLeft = clampCenterPosition({
-          center: options.center,
-          node: left,
-          viewport: options.viewport,
-        });
-        const clampedRight = clampCenterPosition({
-          center: options.center,
-          node: right,
-          viewport: options.viewport,
-        });
-
-        left.x = clampedLeft.x;
-        left.y = clampedLeft.y;
-        right.x = clampedRight.x;
-        right.y = clampedRight.y;
         moved = true;
       }
     }
@@ -212,15 +215,107 @@ function resolveBranchOverlaps(options: {
   }
 }
 
+function branchLayoutBounds(
+  nodes: readonly {
+    readonly position: LayoutPoint;
+    readonly style: { readonly height: number; readonly width: number };
+  }[],
+  center: LayoutPoint,
+): LayoutBounds {
+  if (nodes.length === 0) {
+    return {
+      maxX: center.x,
+      maxY: center.y,
+      minX: center.x,
+      minY: center.y,
+    };
+  }
+
+  return nodes.reduce<LayoutBounds>(
+    (bounds, node) => {
+      const haloPadding = branchHaloPadding(node.style.width);
+
+      return {
+        maxX: Math.max(
+          bounds.maxX,
+          node.position.x + node.style.width + haloPadding,
+        ),
+        maxY: Math.max(
+          bounds.maxY,
+          node.position.y + node.style.height + haloPadding,
+        ),
+        minX: Math.min(bounds.minX, node.position.x - haloPadding),
+        minY: Math.min(bounds.minY, node.position.y - haloPadding),
+      };
+    },
+    {
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY,
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+    },
+  );
+}
+
+function branchInitialViewportPadding(viewport: LayoutViewport) {
+  return viewport.width < 640
+    ? BRANCH_INITIAL_VIEWPORT_MOBILE_PADDING
+    : BRANCH_INITIAL_VIEWPORT_DESKTOP_PADDING;
+}
+
+function branchInitialViewport(bounds: LayoutBounds, viewport: LayoutViewport) {
+  const boundsWidth = bounds.maxX - bounds.minX;
+  const boundsHeight = bounds.maxY - bounds.minY;
+
+  if (boundsWidth <= 0 || boundsHeight <= 0) {
+    return {
+      x: 0,
+      y: 0,
+      zoom: 1,
+    };
+  }
+
+  const padding = branchInitialViewportPadding(viewport);
+  const availableWidth = Math.max(1, viewport.width - padding * 2);
+  const availableHeight = Math.max(1, viewport.height - padding * 2);
+  const zoom = Math.min(
+    1,
+    availableWidth / boundsWidth,
+    availableHeight / boundsHeight,
+  );
+
+  return {
+    x: (viewport.width - boundsWidth * zoom) / 2 - bounds.minX * zoom,
+    y: (viewport.height - boundsHeight * zoom) / 2 - bounds.minY * zoom,
+    zoom,
+  };
+}
+
 export function buildBranchLayout(
   input: BranchLayoutInput,
 ): BranchLayoutResult {
   const sortedChildren = [...input.children].sort(
     (left, right) =>
       right.descendant_card_count - left.descendant_card_count ||
-      left.name.localeCompare(right.name) ||
-      left.route_path.localeCompare(right.route_path),
+      compareBranchChildIds(left.id, right.id),
   );
+  const maximumDiameter = Math.max(
+    ...sortedChildren
+      .map((child) =>
+        buildBranchBubbleMetrics(child.descendant_card_count, input.viewport),
+      )
+      .map((metrics) => metrics.diameter),
+    0,
+  );
+  const centerRadius =
+    sortedChildren.length > 0
+      ? buildBranchBubbleMetrics(
+          sortedChildren[0].descendant_card_count,
+          input.viewport,
+        ).diameter / 2
+      : 0;
+  const ringGap = branchRingGap(input.viewport);
+  const ringStep = maximumDiameter + ringGap;
 
   const nodes: BranchSimulationNode[] = sortedChildren.map((child, index) => {
     const metrics = buildBranchBubbleMetrics(
@@ -229,23 +324,20 @@ export function buildBranchLayout(
     );
     const diameter = metrics.diameter;
     const radius = diameter / 2;
-    const compactDimension = Math.min(
-      input.viewport.height,
-      input.viewport.width,
-    );
-    const baseRadius = compactDimension * 0.24;
-    const radiusStep = compactDimension * 0.18;
-    const maximumRadius = compactDimension * 0.52;
+    const ringSlot = ringSlotForIndex(index);
     const targetRadius =
-      index === 0
+      ringSlot.ring === 0
         ? 0
-        : Math.min(baseRadius + Math.sqrt(index) * radiusStep, maximumRadius);
+        : centerRadius +
+          maximumDiameter / 2 +
+          ringGap +
+          (ringSlot.ring - 1) * ringStep;
     const position = positionOnRing({
+      capacity: ringSlot.capacity,
       center: input.center,
-      index,
-      nodeRadius: radius,
+      ring: ringSlot.ring,
+      slot: ringSlot.slot,
       targetRadius,
-      viewport: input.viewport,
     });
 
     return {
@@ -284,49 +376,47 @@ export function buildBranchLayout(
     .tick(260);
 
   resolveBranchOverlaps({
-    center: input.center,
     nodes,
-    viewport: input.viewport,
   });
 
-  return {
-    nodes: nodes.map((node) => {
-      const metrics = buildBranchBubbleMetrics(
-        node.child.descendant_card_count,
-        input.viewport,
-      );
-      const center = clampCenterPosition({
-        center: input.center,
-        node,
-        viewport: input.viewport,
-      });
+  const layoutNodes = nodes.map((node) => {
+    const metrics = buildBranchBubbleMetrics(
+      node.child.descendant_card_count,
+      input.viewport,
+    );
 
-      return {
-        data: {
-          depth: node.child.depth,
-          label: node.child.name,
-          scope: "branch",
-          targetNodeId:
-            node.child.taxonomy_node_id ??
-            (typeof node.child.id === "number" ? node.child.id : null),
-          targetRoutePath: node.child.route_path,
-          tooltip: `${node.child.name} · ${node.child.descendant_card_count} cards`,
-        },
-        id: node.id,
-        position: {
-          x: center.x - node.radius,
-          y: center.y - node.radius,
-        },
-        style: {
-          "--taxonomy-bubble-label-font-size": `${metrics.labelFontSize}px`,
-          "--taxonomy-bubble-label-line-height": `${metrics.labelLineHeight}px`,
-          "--taxonomy-bubble-label-width": `${metrics.labelMaxWidth}px`,
-          borderRadius: `${node.diameter}px`,
-          height: node.diameter,
-          width: node.diameter,
-        },
-        type: "bubble" as const,
-      };
-    }),
+    return {
+      data: {
+        depth: node.child.depth,
+        label: node.child.name,
+        scope: "branch" as const,
+        targetNodeId:
+          node.child.taxonomy_node_id ??
+          (typeof node.child.id === "number" ? node.child.id : null),
+        targetRoutePath: node.child.route_path,
+        tooltip: `${node.child.name} · ${node.child.descendant_card_count} cards`,
+      },
+      id: node.id,
+      position: {
+        x: node.x - node.radius,
+        y: node.y - node.radius,
+      },
+      style: {
+        "--taxonomy-bubble-label-font-size": `${metrics.labelFontSize}px`,
+        "--taxonomy-bubble-label-line-height": `${metrics.labelLineHeight}px`,
+        "--taxonomy-bubble-label-width": `${metrics.labelMaxWidth}px`,
+        borderRadius: `${node.diameter}px`,
+        height: node.diameter,
+        width: node.diameter,
+      },
+      type: "bubble" as const,
+    };
+  });
+  const bounds = branchLayoutBounds(layoutNodes, input.center);
+
+  return {
+    bounds,
+    initialViewport: branchInitialViewport(bounds, input.viewport),
+    nodes: layoutNodes,
   };
 }

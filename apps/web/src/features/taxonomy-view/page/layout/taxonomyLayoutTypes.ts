@@ -13,6 +13,19 @@ export interface LayoutViewport {
   readonly width: number;
 }
 
+export interface LayoutBounds {
+  readonly maxX: number;
+  readonly maxY: number;
+  readonly minX: number;
+  readonly minY: number;
+}
+
+export interface BranchInitialViewport {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+}
+
 export interface BranchChildLayoutInput {
   readonly depth: number;
   readonly descendant_card_count: number;
@@ -83,6 +96,8 @@ export interface LeafLayoutInput {
 }
 
 export interface BranchLayoutResult {
+  readonly bounds: LayoutBounds;
+  readonly initialViewport: BranchInitialViewport;
   readonly nodes: TaxonomyLayoutNode[];
 }
 

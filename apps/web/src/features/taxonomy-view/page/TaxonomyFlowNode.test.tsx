@@ -51,6 +51,10 @@ describe("TaxonomyFlowNode", () => {
     );
 
     expect(screen.queryByText("Open")).not.toBeInTheDocument();
+    expect(screen.getByTestId("taxonomy-bubble-frame")).toHaveAttribute(
+      "title",
+      "Mathematics · 12 cards",
+    );
     expect(screen.getByTestId("taxonomy-bubble-halo")).toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-bubble-surface")).toBeInTheDocument();
     expect(screen.getByTestId("taxonomy-bubble-core-glow")).toBeInTheDocument();
@@ -79,6 +83,9 @@ describe("TaxonomyFlowNode", () => {
     expect(label.className).toContain("flex");
     expect(label.className).toContain("items-center");
     expect(label.className).toContain("justify-center");
+    expect(screen.getByTestId("taxonomy-bubble-label-text")).toHaveClass(
+      "overflow-hidden",
+    );
   });
 
   it("rejects non-branch node payloads", () => {
