@@ -40,6 +40,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `scripts/export-prod-api-bootstrap-snapshot.sh` exports a production data-only snapshot for development bootstrap.
 - The export is read-only against production PostgreSQL and is scoped to the API tables listed in this section.
 - `alembic_version` is excluded; Alembic migrations remain the schema source of truth.
+- `make dev-up` invokes `scripts/bootstrap-dev-api-from-prod-snapshot.sh` before starting the development Compose stack.
 - `scripts/bootstrap-dev-api-from-prod-snapshot.sh` targets `infra/env/.env.dev`, runs development migrations, stops development API writer and taxonomy layout services, truncates the scoped API tables with `RESTART IDENTITY CASCADE`, restores the snapshot, and clears Redis-derived read models.
 - The snapshot preserves current card IDs, titles, content, embeddings, edge relationships, taxonomy nodes, node taxonomy assignments, taxonomy projection edges, ingestion request rows, and taxonomy classification orchestration rows.
 

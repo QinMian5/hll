@@ -17,7 +17,9 @@ from entrypoints.ops.prod_snapshot_bootstrap import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
+DEV_UP_SCRIPT = REPO_ROOT / "scripts" / "dev-up.sh"
 DEV_BOOTSTRAP_SCRIPT = REPO_ROOT / "scripts" / "bootstrap-dev-api-from-prod-snapshot.sh"
+DEV_BOOTSTRAP_SNAPSHOT = REPO_ROOT / "apps" / "api" / "bootstrap" / "prod-api-bootstrap.sql"
 
 
 @pytest.mark.unit
@@ -90,3 +92,30 @@ def test_dev_bootstrap_flushes_redis_after_snapshot_restore() -> None:
     redis_flush_index = script.index("redis-cli FLUSHDB")
 
     assert restore_index < redis_flush_index
+
+
+@pytest.mark.unit
+def test_dev_up_restores_snapshot_before_starting_stack() -> None:
+    script = DEV_UP_SCRIPT.read_text(encoding="utf-8")
+    restore_index = script.index("scripts/bootstrap-dev-api-from-prod-snapshot.sh")
+    start_index = script.index('docker compose "${compose_args[@]}" up -d --build')
+
+    assert restore_index < start_index
+
+
+@pytest.mark.unit
+def test_committed_dev_bootstrap_snapshot_matches_current_taxonomy_schema() -> None:
+    snapshot = DEV_BOOTSTRAP_SNAPSHOT.read_text(encoding="utf-8")
+    taxonomy_node_inserts = [
+        line for line in snapshot.splitlines() if line.startswith("INSERT INTO public.taxonomy_nodes")
+    ]
+
+    assert "is_leaf" not in snapshot
+    assert "source_unclassified_node_id" not in snapshot
+    assert "taxonomy_leaf_projection_edges" not in snapshot
+    assert taxonomy_node_inserts
+    for line in taxonomy_node_inserts:
+        assert line.startswith(
+            "INSERT INTO public.taxonomy_nodes (id, parent_id, name, route_slug, depth)"
+        )
+        assert "'Unclassified'" not in line

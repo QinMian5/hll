@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# abstract: Start the repository development Docker Compose stack.
+# abstract: Reset development API data from snapshot and start the Docker Compose stack.
 # out_of_scope: Production volume setup and test database lifecycle.
 
 set -euo pipefail
@@ -19,6 +19,8 @@ compose_args=(
 
 # Role provisioning belongs to database bootstrap, not Alembic migrations.
 converge_online_postgres_roles "${compose_args[@]}"
+
+bash "$ROOT_DIR/scripts/bootstrap-dev-api-from-prod-snapshot.sh"
 
 # `migrate`, `knowledge_corpus_migrate`, `source_pipeline_migrate`, and `mcp_migrate` are one-shot jobs. If an older
 # failed container is reused, `service_completed_successfully` can stay blocked.

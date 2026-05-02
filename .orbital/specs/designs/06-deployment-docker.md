@@ -129,6 +129,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Taxonomy-classification webhook receiver role command owns taxonomy-classification webhook HTTP bootstrap and then starts the authenticated notification receiver.
 
 ## Startup and Gating Order
+- `make dev-up` first resets development API data from the bootstrap snapshot through `scripts/bootstrap-dev-api-from-prod-snapshot.sh`, then starts the development Compose stack.
 - Required startup order is fixed:
   1. Online and app-owned PostgreSQL services plus `redis` reach healthy state.
   2. Online PostgreSQL role bootstrap converges repository-managed login roles after `db` is healthy and before online migrations run.
