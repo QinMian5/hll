@@ -82,12 +82,19 @@ async def run_forever(runtime: TaxonomyClassificationRuntime) -> None:
                 service = TaxonomyClassificationRuntimeService(
                     session,
                     job_queue_client=runtime.job_queue_client,
+                    queue_name=runtime.settings.taxonomy_classification_queue_name,
                     poll_batch_size=runtime.settings.taxonomy_classification_poll_batch_size,
                     reconcile_interval_seconds=(
                         runtime.settings.taxonomy_classification_reconcile_interval_seconds
                     ),
                     reconcile_batch_size=(
                         runtime.settings.taxonomy_classification_reconcile_batch_size
+                    ),
+                    continuation_request_batch_size=(
+                        runtime.settings.taxonomy_classification_continuation_request_batch_size
+                    ),
+                    continuation_flush_interval_seconds=(
+                        runtime.settings.taxonomy_classification_continuation_flush_interval_seconds
                     ),
                     projection_refresh_batch_size=(
                         runtime.settings.taxonomy_classification_projection_refresh_batch_size

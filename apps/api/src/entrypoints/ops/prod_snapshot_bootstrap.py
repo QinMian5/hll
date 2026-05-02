@@ -18,6 +18,7 @@ API_BOOTSTRAP_TABLES: tuple[str, ...] = (
     "edges",
     "node_taxonomy_assignments",
     "taxonomy_classification_jobs",
+    "taxonomy_classification_continuation_requests",
     "taxonomy_classification_webhook_wakeups",
     "adjacency",
     "card_suggested_edits",

@@ -33,6 +33,7 @@ def test_api_bootstrap_tables_cover_prod_snapshot_closure() -> None:
         "edges",
         "node_taxonomy_assignments",
         "taxonomy_classification_jobs",
+        "taxonomy_classification_continuation_requests",
         "taxonomy_classification_webhook_wakeups",
         "adjacency",
         "card_suggested_edits",
@@ -107,7 +108,9 @@ def test_dev_up_restores_snapshot_before_starting_stack() -> None:
 def test_committed_dev_bootstrap_snapshot_matches_current_taxonomy_schema() -> None:
     snapshot = DEV_BOOTSTRAP_SNAPSHOT.read_text(encoding="utf-8")
     taxonomy_node_inserts = [
-        line for line in snapshot.splitlines() if line.startswith("INSERT INTO public.taxonomy_nodes")
+        line
+        for line in snapshot.splitlines()
+        if line.startswith("INSERT INTO public.taxonomy_nodes")
     ]
 
     assert "is_leaf" not in snapshot

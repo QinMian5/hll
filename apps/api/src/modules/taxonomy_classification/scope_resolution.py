@@ -55,6 +55,22 @@ async def resolve_taxonomy_classification_scopes(
     return index.resolve_all_direct_assignments()
 
 
+async def resolve_taxonomy_classification_scope_by_node_id(
+    session: AsyncSession,
+    scope_node_id: int,
+) -> ResolvedTaxonomyClassificationScope:
+    nodes = list(
+        await session.scalars(
+            select(TaxonomyNode).order_by(
+                TaxonomyNode.depth.asc(),
+                TaxonomyNode.name.asc(),
+                TaxonomyNode.id.asc(),
+            )
+        )
+    )
+    return _TaxonomyScopeIndex(nodes).resolve_scope_node_id(scope_node_id)
+
+
 class _TaxonomyScopeIndex:
     def __init__(self, nodes: list[TaxonomyNode]) -> None:
         self._node_by_id = {node.id: node for node in nodes}
@@ -119,6 +135,17 @@ class _TaxonomyScopeIndex:
         scopes = [self._build_resolved_scope(node) for node in self._node_by_id.values()]
         return sorted(scopes, key=lambda scope: (scope.breadcrumb, scope.scope_node.id))
 
+    def resolve_scope_node_id(
+        self,
+        scope_node_id: int,
+    ) -> ResolvedTaxonomyClassificationScope:
+        node = self._node_by_id.get(scope_node_id)
+        if node is None:
+            raise TaxonomyClassificationScopeResolutionError(
+                f"No regular taxonomy node matches scope node id {scope_node_id}."
+            )
+        return self._build_resolved_scope(node)
+
     def _build_resolved_scope(
         self,
         scope_node: TaxonomyNode,
@@ -170,5 +197,6 @@ def _format_breadcrumb(breadcrumb: tuple[str, ...]) -> str:
 __all__ = [
     "ResolvedTaxonomyClassificationScope",
     "TaxonomyClassificationScopeResolutionError",
+    "resolve_taxonomy_classification_scope_by_node_id",
     "resolve_taxonomy_classification_scopes",
 ]

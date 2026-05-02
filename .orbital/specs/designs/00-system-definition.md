@@ -31,7 +31,7 @@ The core value is open knowledge dissemination through a machine-consumable know
 - Atomic knowledge cards.
 - Relation links with dot-product-mapped strength computation in ingestion worker execution.
 - Taxonomy-backed hierarchical browsing with branch/leaf query responses.
-- Operator-managed taxonomy structure with visible `Unclassified` leaves.
+- Operator-managed taxonomy structure with visible virtual `Unclassified` card scopes over direct assignments.
 - Background taxonomy classification through `job-queue-mcp`.
 - Leaf-level one-hop graph view (inner + pulled outer nodes, scoped edges).
 - Backend-owned taxonomy view read models provide branch and leaf browsing data, including backend-computed leaf coordinates.
@@ -51,10 +51,5 @@ The core value is open knowledge dissemination through a machine-consumable know
 - Public web browsing works through the BFF access boundary with anonymous and logged-in quota policy.
 - Public MCP search works through the MCP access boundary with Logto personal-access-token authentication and usage attribution.
 - Ingestion-driven relation strength is computed and usable in search and leaf-level graph views.
-- New cards enter taxonomy browsing through `Root -> Unclassified`.
-- Background classification can move cards from a scope's `Unclassified` leaf into child-scope `Unclassified` leaves.
-
-## Future Expansion Directions
-- Community contribution and governance models.
-- Source provenance and verification models.
-- Relation-evolution algorithms beyond initial similarity.
+- New cards enter taxonomy browsing as direct `Root` assignments exposed through the root `Unclassified` card scope.
+- Background classification can iteratively move cards from visible `Unclassified` card scopes into accepted taxonomy target scopes.

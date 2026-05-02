@@ -1,5 +1,5 @@
 ---
-abstract: Job-queue-backed taxonomy classification orchestration for incrementally moving directly assigned cards into deeper LCC child categories.
+abstract: Job-queue-backed taxonomy classification orchestration for incrementally moving cards through visible Unclassified card scopes.
 out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechanics, and HTTP-triggered classification APIs.
 ---
 
@@ -11,29 +11,34 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the `taxonomy_classification` module that lets workers choose a direct child category for cards assigned to a selected taxonomy scope, then moves valid child choices directly to that child category or keeps the card assigned to the current scope.
-- **Scope/Boundaries:** Covers operator-triggered one-shot job submission, one-card job contracts, local job linkage state, queue-result notification intake, lightweight reconcile, result validation, and assignment-move orchestration. Excludes taxonomy tree persistence ownership, worker-side implementation mechanics, and HTTP-triggered classification APIs.
+- **Purpose:** Define the `taxonomy_classification` module that lets workers choose a direct child category for cards assigned to a selected taxonomy scope, moves valid child choices directly to that child category, persists continuation work after real assignment movement, and keeps cards assigned to the current scope when the worker chooses `Unclassified`.
+- **Scope/Boundaries:** Covers operator-triggered seed job submission, one-card job contracts, local job linkage state, local continuation request state, queue-result notification intake, lightweight reconcile, result validation, assignment-move orchestration, and runtime continuation submission. Excludes taxonomy tree persistence ownership, worker-side implementation mechanics, and HTTP-triggered classification APIs.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Constraint Projection
 - **Governing Constraints:** Module boundaries remain explicit, persistent truth ownership stays in `knowledge_graph` and `taxonomy`, queue execution stays external to the API process, and behavior-changing design decisions stay synchronized in active specs.
-- **Detail Commitments:** Classification execution is operator-triggered via one-shot scripts and advanced by a background runtime. The runtime submits one `taxonomy_classification` queue job per eligible card through the job-queue producer batch-create surface, consumes notification-only webhook events plus lightweight polling/reconcile, reads result status through the job-queue batch result-read surface, validates target children against taxonomy-owned truth, and moves assignments only through taxonomy-owned services.
+- **Detail Commitments:** Classification execution is seeded by operator scripts and advanced by a background runtime. The runtime submits one `taxonomy_classification` queue job per eligible card through the job-queue producer batch-create surface, consumes notification-only webhook events plus lightweight polling/reconcile, reads result status through the job-queue batch result-read surface, validates target children against taxonomy-owned truth, moves assignments only through taxonomy-owned services, persists continuation requests after real assignment movement, and drains buffered continuation requests through the same job-queue producer batch boundary.
 - **Update Rule:** Requirement-level constraints remain stable while classification orchestration behavior, queue contracts, result-consumption rules, and runtime/operator semantics are maintained here as implementation-facing truth.
 
 ## Design Approach
 - **Approach:** Keep human taxonomy-structure control in operator scripts and delegate card-level classification judgment to `job-queue-mcp`. The local `taxonomy_classification` runtime owns queue interaction and result application. Workers return structured classification decisions only; they never write knowledge APIs or databases.
 - **Key Elements:**
-  - **Module ownership:** `apps/api/src/modules/taxonomy_classification` owns classification job submission, job linkage persistence, result event processing, low-frequency reconcile, accepted-result validation, and assignment-move orchestration.
+  - **Module ownership:** `apps/api/src/modules/taxonomy_classification` owns classification job submission, job linkage persistence, continuation request persistence, result event processing, low-frequency reconcile, accepted-result validation, assignment-move orchestration, and continuation request draining.
   - **Dependency boundary:** `taxonomy_classification` consumes `knowledge_graph` service ports for card input data and consumes `taxonomy` service ports for scope lookup, child lookup, and assignment movement.
   - **Queue boundary:** Classification jobs are submitted to the `taxonomy_classification` queue in `job-queue-mcp`.
   - **Producer/result-reader SDK boundary:** `taxonomy_classification` uses the upstream `job_queue_mcp_client.producer.AsyncClient` and `job_queue_mcp_client.auth.ClientCredentialsTokenProvider` public facades directly for batch job submission, batch result reads, and machine-to-machine token acquisition. The module owns classification payload construction, output schema export, local linkage persistence, result validation, and assignment movement.
-  - **One-shot submission rule:** Operator scripts enqueue cards directly assigned to selected taxonomy scopes at run time. The module does not run a continuous service that automatically submits every future card.
+  - **Direct-assignment view rule:** Cards directly assigned to a taxonomy scope are exposed in taxonomy browsing as that scope's visible `Unclassified` card scope.
+  - **Seed submission rule:** Operator scripts enqueue cards directly assigned to selected taxonomy scopes at run time, which is operator-facing submission for cards in selected scope `Unclassified` card scopes. Runtime continuation only follows cards whose accepted classification result produced a real assignment move; it does not continuously scan all card assignments.
   - **Single-card job rule:** One knowledge card is processed by exactly one queue job for one scope classification attempt.
   - **Node context contract:** The worker receives only the selected card's `title` and `content`, the current scope breadcrumb path, and available sibling target category names.
   - **Human-structure rule:** The worker must choose among existing direct child category names of the current scope or choose `Unclassified` to keep the card in the current scope. The worker cannot create taxonomy nodes, request new taxonomy nodes, or move a card to the parent scope.
   - **Move target rule:** Choosing a child category moves the card assignment directly to that child category.
   - **Keep-current-scope rule:** Choosing `Unclassified` keeps the card assignment at the current scope and records the classification attempt as processed.
   - **Validation-before-move rule:** The runtime applies accepted results only after verifying that the card is still assigned to the source scope, the selected child still exists, and the selected child belongs directly to the source scope.
+  - **Continuation trigger rule:** A valid accepted result creates continuation work only when assignment movement actually changes the card's taxonomy scope.
+  - **Continuation policy boundary:** Continuation eligibility is evaluated from current taxonomy and assignment truth. The active policy submits another classification attempt for the moved card when the current target scope has direct child categories and the card has no active job for that target scope.
+  - **Continuation stop rule:** Continuation stops when the result keeps the card in the current scope, the accepted result is invalid, the source assignment is stale, the queue job reaches a terminal non-accepted state, the current target scope has no direct child categories, the current assignment no longer matches the continuation request, or an active job already exists for the card and target scope.
+  - **Continuation depth rule:** The continuation stop rule is the current stop boundary; the runtime does not maintain a separate fixed-depth counter.
   - **Invalid-result rule:** Invalid accepted results are recorded with an error and do not move assignments.
   - **No HTTP trigger surface:** First-version classification submission and taxonomy child creation are operator-script driven.
   - **Migration safety rule:** Schema changes that alter taxonomy assignment shape require zero active taxonomy-classification jobs before applying the change.
@@ -102,6 +107,13 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - affected `taxonomy_node_id`
   - optional last refresh error
   - timestamps
+- A continuation request record stores:
+  - target scope node id
+  - card node id
+  - source local classification job id
+  - nullable next local classification job id
+  - optional last submission error
+  - timestamps
 - Local state does not duplicate accepted result payloads, full queue lifecycle history, leases, or submission history from `job-queue-mcp`.
 
 ## Result Consumption
@@ -109,15 +121,19 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - queue-level webhook subscriptions deliver notification-only events;
   - local webhook intake authenticates and persists events idempotently;
   - pending local events wake the background runtime;
-  - accepted result payloads and not-ready status are reread through `POST /results/batch`;
+  - accepted result payloads and not-ready status are reread through the configured job-queue batch result-read surface;
   - low-frequency polling/reconcile checks outstanding job links to compensate for missed notifications or exhausted remote delivery retries.
 - The webhook receiver does not move assignments or read result payloads. It returns after authenticated atomic idempotent event persistence.
 - The webhook receiver rejects authenticated notifications whose `queue_name` does not match the configured taxonomy-classification queue before writing any local event.
-- The background runtime owns event processing, batch result reads, validation, assignment movement, dirty projection request creation, terminal checkpoint updates, processed/error markers, and bounded projection refresh work.
+- The background runtime owns event processing, batch result reads, validation, assignment movement, continuation request creation, dirty projection request creation, terminal checkpoint updates, processed/error markers, buffered continuation submission, and bounded projection refresh work.
 - Pending accepted-result webhook events are read in batches. Ready batch items are applied through existing per-job validation and assignment movement. Not-ready or not-found batch items for accepted-result webhook events are recorded as event processing errors because the webhook contract indicated an accepted result should be available.
 - Low-frequency reconcile reads outstanding linked jobs in batches. Ready batch items are applied through existing per-job validation and assignment movement. Not-ready items whose remote state is a terminal non-accepted state mark the local job terminal; other not-ready items remain outstanding. Not-found items record a local job error while leaving the job outstanding for operator visibility.
 - Local assignment movement remains per job and serial within a runtime tick so assignment locks and taxonomy validation keep existing conservative semantics while remote result I/O is batched.
+- A real assignment move inserts a continuation request in the same transaction as accepted-result processing and projection refresh request creation. A keep-current-scope result does not insert a continuation request.
 - Assignment movement records affected source and target `(scope_kind, taxonomy_node_id)` identities as projection refresh requests. Request insertion is idempotent by scope identity and happens in the same transaction as the accepted-result job/event processing state.
+- Continuation submission is a local buffered follow-up step. The runtime checks pending continuation request count and oldest request age only after result event or reconcile work has been committed for the tick. It claims continuation requests when the pending count reaches the configured continuation request batch size or the oldest pending request reaches the configured continuation flush interval.
+- Each claimed request validates that the card is still assigned to the request target scope, that the target scope has direct child categories, and that no active classification job already exists for the card and target scope. Eligible requests create or reuse a local classification job intent, and valid no-op stop conditions delete their continuation requests without remote submission.
+- Continuation producer submission uses the same configured queue name, producer SDK boundary, producer item-count batch ceiling, request body limits, and `taxonomy-classification-job:{local_job_id}` idempotency rule as operator submission. Eligible continuation jobs are submitted through the shared producer batch-create path after local job intents are committed. Job Queue endpoints, credentials, and queue names remain runtime configuration, not module constants.
 - Projection refresh is a derived read-model operation. The runtime processes pending result events before projection refresh work. When no result events are ready for a tick, the runtime claims a bounded set of dirty scope refresh requests, rebuilds each claimed scope projection, and deletes each request only after the refresh succeeds.
 - Each projection refresh request is processed independently so one expensive or failing scope refresh does not roll back accepted-result job processing for unrelated events.
 - Webhook receiver authentication remains module-owned and validates incoming delivery tokens against the `knowledge` Logto authority. The job-queue producer/result-reader SDK is not the authority for incoming webhook delivery-token validation.
@@ -131,11 +147,13 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 6. The classification runtime reads accepted results and outstanding result status through batch result-read requests.
 7. The runtime validates the accepted result against current taxonomy and assignment truth.
 8. Valid child targets move the card directly to the target child through taxonomy-owned assignment movement and queue projection refresh requests for affected scopes.
-9. Valid `unclassified` targets keep the card in the current source scope and mark the job processed.
-10. Invalid accepted results record a job processing error, mark the accepted result locally processed, remove the event wakeup, and leave the current assignment unchanged.
-11. Terminal non-accepted states record terminal checkpoints and leave the current assignment unchanged.
-12. Low-frequency reconcile repeats result and terminal checks for outstanding job links.
-13. When result work is drained for a tick, the runtime refreshes queued scope projections and deletes only successfully refreshed requests.
+9. Real assignment movement persists a continuation request for the moved card and target scope in the same transaction as accepted-result processing.
+10. The runtime drains buffered continuation requests once the configured batch threshold is reached or the configured flush interval elapses, then submits eligible moved cards for their current target scopes when each target scope is still current, has direct child categories, and has no active classification job for that card and target scope.
+11. Valid `unclassified` targets keep the card in the current source scope, mark the job processed, and do not create continuation work.
+12. Invalid accepted results record a job processing error, mark the accepted result locally processed, remove the event wakeup, and leave the current assignment unchanged.
+13. Terminal non-accepted states record terminal checkpoints and leave the current assignment unchanged.
+14. Low-frequency reconcile repeats result and terminal checks for outstanding job links.
+15. When result and continuation work are drained for a tick, the runtime refreshes queued scope projections and deletes only successfully refreshed requests.
 
 ## Runtime Configuration
 - Classification runtime configuration is independent from `apps/cli` reviewer configuration.
@@ -154,6 +172,8 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - runtime poll interval;
   - runtime reconcile interval;
   - pending event batch size;
+  - continuation request batch size;
+  - continuation flush interval;
   - projection refresh batch size.
 - Settings boundary rule:
   - the taxonomy-classification runtime settings require job-queue producer/result-reader settings and do not require webhook auth settings.
@@ -167,6 +187,8 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - Duplicate webhook deliveries are accepted idempotently through repository-owned atomic event insertion and do not create duplicate local wakeups.
 - Duplicate operator submission runs do not submit another active job for the same card and scope when a linked outstanding job already exists. Processed and terminal job rows do not block later operator submissions.
 - Runtime errors preserve enough local state for a later runtime tick to retry unprocessed events or reconcile outstanding jobs.
+- Continuation producer submission failures preserve the affected continuation requests with `last_error` for later retry. If a local next-job intent has already been created, later retries reuse that local job id and the same remote idempotency key instead of creating duplicate active jobs.
+- Continuation requests whose current assignment is stale, whose target scope has no direct child categories, or whose card already has an active job for the target scope are completed without remote submission.
 - Projection refresh failures preserve the dirty scope request with `last_error` for a later retry and do not undo already-processed classification events.
 
 ## Validation
@@ -188,11 +210,20 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Queue-contract tests verify `taxonomy_classification` payload and output schema shape.
   - Webhook receiver tests verify authentication, duplicate event handling, event persistence, and local wakeup behavior.
   - Runtime tests verify accepted valid child targets move assignments directly to the target child.
+  - Runtime tests verify accepted valid child targets that change assignment create continuation requests in the same local transaction as processed-job state and projection refresh requests.
   - Runtime tests verify accepted `unclassified` targets keep the current assignment and mark the job processed.
+  - Runtime tests verify accepted `unclassified` targets do not create continuation requests.
   - Runtime tests verify unknown target names and stale source assignments record errors without moving assignments.
+  - Runtime tests verify unknown target names, stale source assignments, and terminal non-accepted states do not create continuation requests.
   - Runtime tests verify terminal non-accepted queue states stop repeated processing for that job.
   - Runtime batch result-read tests verify accepted-result webhook events and low-frequency reconcile use the batch result-read SDK, preserve per-job validation semantics, and handle ready, not-ready, not-found, and terminal-state items correctly.
   - Reconcile tests verify outstanding job links are checked at low frequency through the batch result-read surface.
+  - Continuation request tests verify moved cards are submitted for their current target scope only when the scope has direct child categories, no active job for that card and scope, and the direct assignment is exposed through that scope's visible `Unclassified` card scope.
+  - Continuation request tests verify pending requests wait below the configured batch threshold until the configured flush interval elapses.
+  - Continuation producer tests verify pending continuation requests reaching the configured batch threshold are submitted through the shared producer batch-create path.
+  - Continuation request tests verify no-child, stale-assignment, and already-active-job requests are completed without remote submission.
+  - Continuation producer tests verify continuation-created local jobs use the same configured queue name, batch-create producer client, request-size limits, and `taxonomy-classification-job:{local_job_id}` idempotency key semantics as operator-created jobs.
+  - Continuation retry tests verify producer failures retain request state and retry through the same local next-job intent without duplicate active jobs.
   - Projection refresh request tests verify assignment moves enqueue source and target scopes once per scope, accepted-result job processing commits independently from projection refresh work, and refresh success removes only the refreshed scope request.
   - Projection refresh failure tests verify failed scope refreshes retain retry state without re-opening processed result events.
 - **Evidence:**

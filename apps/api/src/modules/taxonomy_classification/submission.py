@@ -58,6 +58,13 @@ class _PendingSubmissionItem:
 
 
 @dataclass(frozen=True, slots=True)
+class TaxonomyClassificationExistingJobSubmission:
+    resolved_scope: ResolvedTaxonomyClassificationScope
+    local_job: TaxonomyClassificationJob
+    card: Node
+
+
+@dataclass(frozen=True, slots=True)
 class _ScopeSubmissionPreflight:
     pending_local_count: int = 0
     candidate_without_active_job_count: int = 0
@@ -238,6 +245,75 @@ class TaxonomyClassificationSubmissionService:
             for scope_key in scope_pairs
         }
 
+    async def create_and_submit_single_job(
+        self,
+        *,
+        resolved_scope: ResolvedTaxonomyClassificationScope,
+        card: Node,
+        batch_size: int = MAX_JOB_QUEUE_BATCH_SIZE,
+    ) -> TaxonomyClassificationJob:
+        if batch_size < 1 or batch_size > MAX_JOB_QUEUE_BATCH_SIZE:
+            raise ValueError("batch_size must be between 1 and 1000")
+        pending_jobs = await self._create_pending_jobs(
+            resolved_scope=resolved_scope,
+            cards=[card],
+        )
+        await self._submit_pending_jobs(
+            resolved_scope=resolved_scope,
+            pending_jobs=pending_jobs,
+            batch_size=batch_size,
+            progress_advance_callback=None,
+        )
+        return pending_jobs[0][0]
+
+    async def submit_existing_single_job(
+        self,
+        *,
+        resolved_scope: ResolvedTaxonomyClassificationScope,
+        local_job: TaxonomyClassificationJob,
+        card: Node,
+        batch_size: int = MAX_JOB_QUEUE_BATCH_SIZE,
+    ) -> TaxonomyClassificationJob:
+        if batch_size < 1 or batch_size > MAX_JOB_QUEUE_BATCH_SIZE:
+            raise ValueError("batch_size must be between 1 and 1000")
+        await self.submit_existing_jobs(
+            submissions=[
+                TaxonomyClassificationExistingJobSubmission(
+                    resolved_scope=resolved_scope,
+                    local_job=local_job,
+                    card=card,
+                )
+            ],
+            batch_size=batch_size,
+        )
+        return local_job
+
+    async def submit_existing_jobs(
+        self,
+        *,
+        submissions: Sequence[TaxonomyClassificationExistingJobSubmission],
+        batch_size: int = MAX_JOB_QUEUE_BATCH_SIZE,
+    ) -> None:
+        if batch_size < 1 or batch_size > MAX_JOB_QUEUE_BATCH_SIZE:
+            raise ValueError("batch_size must be between 1 and 1000")
+        instruction = build_taxonomy_classification_instruction()
+        output_schema = export_taxonomy_classification_output_schema()
+        pending_items = [
+            self._pending_submission_item(
+                resolved_scope=submission.resolved_scope,
+                local_job=submission.local_job,
+                card=submission.card,
+                instruction=instruction,
+                output_schema=output_schema,
+            )
+            for submission in submissions
+        ]
+        await self._submit_pending_items(
+            pending_items=pending_items,
+            batch_size=batch_size,
+            progress_advance_callback=None,
+        )
+
     async def _submit_resolved_scope_jobs(
         self,
         *,
@@ -312,33 +388,62 @@ class TaxonomyClassificationSubmissionService:
         batch_size: int,
         progress_advance_callback: Callable[[int], None] | None,
     ) -> _SubmissionCounts:
-        submitted_count = 0
-        reused_idempotent_count = 0
         instruction = build_taxonomy_classification_instruction()
         output_schema = export_taxonomy_classification_output_schema()
-
         pending_items = [
-            _PendingSubmissionItem(
+            self._pending_submission_item(
+                resolved_scope=resolved_scope,
                 local_job=local_job,
                 card=card,
-                create_job=CreateJobItem(
-                    queue_name=self._queue_name,
-                    idempotency_key=_idempotency_key(local_job),
-                    priority="normal",
-                    instruction=instruction,
-                    output_schema=output_schema,
-                    payload=self._job_payload(
-                        resolved_scope=resolved_scope,
-                        card=card,
-                    ).model_dump(mode="json"),
-                    metadata={
-                        "scope_node_id": resolved_scope.scope_node.id,
-                        "node_id": card.id,
-                    },
-                ),
+                instruction=instruction,
+                output_schema=output_schema,
             )
             for local_job, card in pending_jobs
         ]
+        return await self._submit_pending_items(
+            pending_items=pending_items,
+            batch_size=batch_size,
+            progress_advance_callback=progress_advance_callback,
+        )
+
+    def _pending_submission_item(
+        self,
+        *,
+        resolved_scope: ResolvedTaxonomyClassificationScope,
+        local_job: TaxonomyClassificationJob,
+        card: Node,
+        instruction: str,
+        output_schema: dict[str, object],
+    ) -> _PendingSubmissionItem:
+        return _PendingSubmissionItem(
+            local_job=local_job,
+            card=card,
+            create_job=CreateJobItem(
+                queue_name=self._queue_name,
+                idempotency_key=_idempotency_key(local_job),
+                priority="normal",
+                instruction=instruction,
+                output_schema=output_schema,
+                payload=self._job_payload(
+                    resolved_scope=resolved_scope,
+                    card=card,
+                ).model_dump(mode="json"),
+                metadata={
+                    "scope_node_id": resolved_scope.scope_node.id,
+                    "node_id": card.id,
+                },
+            ),
+        )
+
+    async def _submit_pending_items(
+        self,
+        *,
+        pending_items: list[_PendingSubmissionItem],
+        batch_size: int,
+        progress_advance_callback: Callable[[int], None] | None,
+    ) -> _SubmissionCounts:
+        submitted_count = 0
+        reused_idempotent_count = 0
 
         for batch in _chunk_submission_items(
             pending_items,
@@ -651,4 +756,7 @@ def _created_job_by_index(
     return created_job_by_index
 
 
-__all__ = ["TaxonomyClassificationSubmissionService"]
+__all__ = [
+    "TaxonomyClassificationExistingJobSubmission",
+    "TaxonomyClassificationSubmissionService",
+]

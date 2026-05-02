@@ -244,16 +244,18 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 3. Taxonomy storage remains the authoritative structure truth.
 
 ## Taxonomy Classification Flow
-1. Operator script resolves one scope by case-insensitive name or path, or scans all eligible directly assigned scopes.
-2. Operator script selects cards directly assigned to each selected scope in deterministic order (`nodes.id ASC` within each scope).
+1. Operator script resolves one scope by case-insensitive name or path, or scans all eligible directly assigned scopes. Direct assignments are exposed in taxonomy browsing as each selected scope's visible `Unclassified` card scope.
+2. Operator script selects directly assigned cards from each selected scope in deterministic order (`nodes.id ASC` within each scope).
 3. Operator script skips selected scopes that have no regular direct child categories.
 4. Operator script submits one `taxonomy_classification` queue job per selected card.
 5. `job-queue-mcp` delivers notification-only events for accepted results and terminal non-accepted outcomes.
 6. The local taxonomy-classification runtime persists webhook events idempotently and reads accepted result payloads through batch result-read requests.
 7. Valid child targets move the card assignment directly to the selected child category.
-8. Valid `unclassified` targets keep the card assignment at the current scope.
-9. Invalid accepted results and terminal non-accepted outcomes record local processing state without moving assignments.
-10. Lightweight polling/reconcile checks outstanding job links as a compensation path.
+8. Real assignment movement persists taxonomy-classification continuation work for the moved card and target scope.
+9. The taxonomy-classification runtime drains buffered continuation work through the configured `job-queue-mcp` producer when the configured continuation batch threshold is reached or the configured flush interval elapses, and each target scope remains current as the card's direct assignment, has direct child categories, and has no active job for the card and target scope.
+10. Valid `unclassified` targets keep the card assignment at the current scope and do not create continuation work.
+11. Invalid accepted results and terminal non-accepted outcomes record local processing state without moving assignments.
+12. Lightweight polling/reconcile checks outstanding job links as a compensation path.
 
 ## Runtime Dependencies
 - Redis is required for ingestion queue broker transport.
@@ -273,6 +275,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Taxonomy view endpoints expose backend-owned card-scope layout coordinates only through the viewport-bounded card-scope layout endpoint.
 - Taxonomy classification workers do not write knowledge APIs or databases.
 - Taxonomy classification result processing moves assignments only after local validation against current taxonomy truth.
+- Taxonomy classification continuation submission uses local persisted continuation requests, configured batch and flush thresholds, and configured `job-queue-mcp` producer settings rather than hard-coded queue transport details.
 
 ## Non-Goals (V1)
 - Semantic-map snapshot/tile APIs.
@@ -306,9 +309,11 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
   - suggested-edit checks verifying unknown base versions, empty proposed values, and no-op suggestions are rejected
   - suggested-edit checks verifying stale but existing base versions are accepted
   - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, `GET /api/v1/taxonomy/view/path/{route_path:path}`, `GET /api/v1/taxonomy/view/card-scopes/layout`, `POST /api/v1/taxonomy/view/card-scopes/titles`, and `POST /api/v1/taxonomy/view/card-scopes/details` contract checks
+  - taxonomy view checks verifying direct taxonomy-node assignments are exposed through visible virtual `Unclassified` card scopes without materializing real `Unclassified` taxonomy nodes or buckets
   - taxonomy classification queue-contract checks
   - taxonomy classification webhook/reconcile checks
   - taxonomy classification assignment-move checks
+  - taxonomy classification continuation-request and continuation-submission checks
   - architecture checks that `search`/`ingestion` do not import `knowledge_graph.repo/model`
   - architecture checks that runtime API entrypoint does not import worker entrypoint
 - **Evidence:**

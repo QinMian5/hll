@@ -21,6 +21,7 @@ from shared.db.base import Base
 def test_projection_registers_taxonomy_classification_tables() -> None:
     assert {
         "taxonomy_classification_jobs",
+        "taxonomy_classification_continuation_requests",
         "taxonomy_classification_projection_refresh_requests",
         "taxonomy_classification_webhook_events",
         "taxonomy_classification_webhook_wakeups",
@@ -93,4 +94,25 @@ def test_projection_refresh_requests_use_scope_identity_primary_key_and_updated_
 
     assert primary_key_columns == {"scope_kind", "taxonomy_node_id"}
     assert {"updated_at", "scope_kind", "taxonomy_node_id"} in index_column_sets
+    assert table.c.last_error.nullable is True
+
+
+def test_continuation_requests_use_unique_scope_node_and_drain_index() -> None:
+    table = Base.metadata.tables["taxonomy_classification_continuation_requests"]
+    primary_key_columns = {column.name for column in table.primary_key.columns}
+    unique_constraints = [
+        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
+    ]
+    unique_column_sets = [
+        {column.name for column in constraint.columns} for constraint in unique_constraints
+    ]
+    index_column_sets = [{column.name for column in index.columns} for index in table.indexes]
+
+    assert primary_key_columns == {"id"}
+    assert {"scope_node_id", "node_id"} in unique_column_sets
+    assert {"updated_at", "id"} in index_column_sets
+    assert table.c.scope_node_id.nullable is False
+    assert table.c.node_id.nullable is False
+    assert table.c.source_job_id.nullable is False
+    assert table.c.next_job_id.nullable is True
     assert table.c.last_error.nullable is True

@@ -123,6 +123,55 @@ class TaxonomyClassificationWebhookWakeup(Base):
     )
 
 
+class TaxonomyClassificationContinuationRequest(Base):
+    __tablename__ = "taxonomy_classification_continuation_requests"
+    __table_args__ = (
+        UniqueConstraint(
+            "scope_node_id",
+            "node_id",
+            name="uq_taxonomy_classification_continuation_scope_node",
+        ),
+        Index(
+            "ix_taxonomy_classification_continuation_updated_id",
+            "updated_at",
+            "id",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scope_node_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("taxonomy_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    node_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("nodes.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    source_job_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("taxonomy_classification_jobs.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    next_job_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("taxonomy_classification_jobs.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class TaxonomyClassificationProjectionRefreshRequest(Base):
     __tablename__ = "taxonomy_classification_projection_refresh_requests"
     __table_args__ = (
@@ -154,6 +203,7 @@ class TaxonomyClassificationProjectionRefreshRequest(Base):
 
 
 __all__ = [
+    "TaxonomyClassificationContinuationRequest",
     "TaxonomyClassificationJob",
     "TaxonomyClassificationProjectionRefreshRequest",
     "TaxonomyClassificationWebhookEvent",

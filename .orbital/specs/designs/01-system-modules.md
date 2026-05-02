@@ -59,7 +59,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Expose the public `search` tool for external model clients.
   - Own Logto personal-access-token exchange and access-token validation for MCP callers.
   - Own MCP account-level quota, token-level quota, and usage attribution.
-  - Own MCP-only successful agent-search analytics persistence for future offline path and ranking analysis.
+  - Own MCP-only successful agent-search analytics persistence for offline path and ranking analysis inputs.
   - Own MCP usage-summary read semantics for internal dashboard consumption.
   - Call private backend search API through generated contract artifacts over Docker-network HTTP.
 - **Non-responsibilities:**
@@ -119,16 +119,19 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### taxonomy Module
 - **Responsibilities:**
   - Own authoritative persisted operator-managed taxonomy tree.
-  - Own the real single `Root` node and system-created `Unclassified` leaf buckets.
-  - Own current knowledge-node to taxonomy-leaf assignment truth.
+  - Own the real single `Root` node and visible virtual `Unclassified` card scopes over direct assignments.
+  - Own current knowledge-node to taxonomy-node assignment truth.
   - Own taxonomy import and operator structure mutation orchestration.
-  - Own default assignment of newly created knowledge nodes to `Root -> Unclassified`.
-  - Own assignment movement between valid taxonomy leaves.
+  - Own default direct assignment of newly created knowledge nodes to `Root`, exposed in taxonomy browsing through the root `Unclassified` card scope.
+  - Own assignment movement between valid taxonomy nodes.
   - Own taxonomy drill-down view read contracts:
     - `GET /api/v1/taxonomy/view/root`
     - `GET /api/v1/taxonomy/view/nodes/{node_id}`
-    - `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
-  - Shape branch and leaf payloads (including breadcrumb and scope-marked leaf graph nodes).
+    - `GET /api/v1/taxonomy/view/path/{route_path:path}`
+    - `GET /api/v1/taxonomy/view/card-scopes/layout`
+    - `POST /api/v1/taxonomy/view/card-scopes/titles`
+    - `POST /api/v1/taxonomy/view/card-scopes/details`
+  - Shape branch and card-scope payloads, including breadcrumb and scope-marked graph nodes.
 - **Non-responsibilities:**
   - Knowledge-node persistence ownership.
   - LLM classification orchestration state.
@@ -138,7 +141,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### taxonomy_classification Module
 - **Responsibilities:**
-  - Own operator-triggered job submission for cards in selected scope `Unclassified` leaves.
+  - Own operator-triggered job submission for cards directly assigned to selected taxonomy scopes and exposed through selected scope `Unclassified` card scopes.
   - Own job-queue-backed classification runtime state and result consumption.
   - Submit one `taxonomy_classification` queue job per selected card.
   - Consume notification-only webhooks and low-frequency reconcile for queue results.

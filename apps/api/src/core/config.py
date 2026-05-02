@@ -91,6 +91,8 @@ class TaxonomyClassificationRuntimeSettings(BaseSettings):
     taxonomy_classification_poll_batch_size: int = Field(ge=1)
     taxonomy_classification_reconcile_interval_seconds: float = Field(gt=0)
     taxonomy_classification_reconcile_batch_size: int = Field(ge=1)
+    taxonomy_classification_continuation_request_batch_size: int = Field(ge=1, le=1000)
+    taxonomy_classification_continuation_flush_interval_seconds: float = Field(gt=0)
     taxonomy_classification_projection_refresh_batch_size: int = Field(ge=1)
 
 

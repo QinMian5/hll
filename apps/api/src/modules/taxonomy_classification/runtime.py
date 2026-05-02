@@ -6,24 +6,37 @@ Out of scope: HTTP webhook authentication and operator command-line UX.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
+from job_queue_mcp_client.errors import JobQueueMCPClientError
 from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
-from job_queue_mcp_client.types import ResultReadItem
+from job_queue_mcp_client.types import CreatedJob, CreateJobItem, ResultReadItem
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from modules.knowledge_graph.model import Node
 from modules.knowledge_graph.repo import KnowledgeRepo
 from modules.taxonomy.dto import TaxonomyScopeIdentity
 from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
 from modules.taxonomy.repo import UNCLASSIFIED_NODE_NAME, TaxonomyRepo
 from modules.taxonomy_classification.contracts import TaxonomyClassificationAcceptedResult
 from modules.taxonomy_classification.model import (
+    TaxonomyClassificationContinuationRequest,
     TaxonomyClassificationJob,
     TaxonomyClassificationProjectionRefreshRequest,
     TaxonomyClassificationWebhookEvent,
+)
+from modules.taxonomy_classification.scope_resolution import (
+    TaxonomyClassificationScopeResolutionError,
+    resolve_taxonomy_classification_scope_by_node_id,
+)
+from modules.taxonomy_classification.submission import (
+    MAX_JOB_QUEUE_BATCH_SIZE,
+    TaxonomyClassificationExistingJobSubmission,
+    TaxonomyClassificationSubmissionService,
 )
 from modules.taxonomy_classification.webhook import TaxonomyClassificationWebhookRepository
 
@@ -33,6 +46,13 @@ MAX_RESULT_READ_BATCH_SIZE = 1000
 
 class TaxonomyClassificationJobQueueClientPort(Protocol):
     async def get_results(self, job_ids: Sequence[int]) -> Sequence[ResultReadItem]: ...
+    async def create_jobs(self, jobs: Sequence[CreateJobItem]) -> Sequence[CreatedJob]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedContinuationSubmission:
+    request_id: int
+    submission: TaxonomyClassificationExistingJobSubmission
 
 
 class TaxonomyClassificationRuntimeService:
@@ -41,9 +61,12 @@ class TaxonomyClassificationRuntimeService:
         session: AsyncSession,
         *,
         job_queue_client: TaxonomyClassificationJobQueueClientPort,
+        queue_name: str | None = None,
         poll_batch_size: int = 100,
         reconcile_interval_seconds: float = 3600,
         reconcile_batch_size: int = 100,
+        continuation_request_batch_size: int = MAX_JOB_QUEUE_BATCH_SIZE,
+        continuation_flush_interval_seconds: float = 60,
         projection_refresh_batch_size: int = 1,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
@@ -51,15 +74,26 @@ class TaxonomyClassificationRuntimeService:
             raise ValueError("poll_batch_size must be at least 1")
         if reconcile_batch_size < 1:
             raise ValueError("reconcile_batch_size must be at least 1")
+        if continuation_request_batch_size < 1:
+            raise ValueError("continuation_request_batch_size must be at least 1")
+        if continuation_request_batch_size > MAX_JOB_QUEUE_BATCH_SIZE:
+            raise ValueError("continuation_request_batch_size must be at most 1000")
         if projection_refresh_batch_size < 1:
             raise ValueError("projection_refresh_batch_size must be at least 1")
         if reconcile_interval_seconds <= 0:
             raise ValueError("reconcile_interval_seconds must be greater than 0")
+        if continuation_flush_interval_seconds <= 0:
+            raise ValueError("continuation_flush_interval_seconds must be greater than 0")
+        if queue_name == "":
+            raise ValueError("queue_name must not be empty")
         self._session = session
         self._job_queue_client = job_queue_client
+        self._queue_name = queue_name
         self._poll_batch_size = poll_batch_size
         self._reconcile_interval = timedelta(seconds=reconcile_interval_seconds)
         self._reconcile_batch_size = reconcile_batch_size
+        self._continuation_request_batch_size = continuation_request_batch_size
+        self._continuation_flush_interval = timedelta(seconds=continuation_flush_interval_seconds)
         self._projection_refresh_batch_size = projection_refresh_batch_size
         self._clock = clock or (lambda: datetime.now(UTC))
         self._last_reconcile_at: datetime | None = None
@@ -71,6 +105,9 @@ class TaxonomyClassificationRuntimeService:
             await self._session.commit()
             return
         if await self.run_low_frequency_reconcile(now=now):
+            await self._session.commit()
+            return
+        if await self.drain_continuation_requests(now=now) > 0:
             await self._session.commit()
             return
         if await self.drain_projection_refresh_requests(now=now) > 0:
@@ -231,6 +268,7 @@ class TaxonomyClassificationRuntimeService:
             )
             await self._move_assignment_if_needed(
                 node_id=job.node_id,
+                source_job_id=job.id,
                 source_taxonomy_node_id=job.scope_node_id,
                 target_taxonomy_node_id=target_taxonomy_node_id,
                 now=now,
@@ -269,6 +307,7 @@ class TaxonomyClassificationRuntimeService:
         self,
         *,
         node_id: int,
+        source_job_id: int,
         source_taxonomy_node_id: int,
         target_taxonomy_node_id: int,
         now: datetime,
@@ -307,6 +346,238 @@ class TaxonomyClassificationRuntimeService:
                 *current_scope_identities.values(),
             ),
             now=now,
+        )
+        await self._record_continuation_request(
+            scope_node_id=target_taxonomy_node_id,
+            node_id=node_id,
+            source_job_id=source_job_id,
+            now=now,
+        )
+
+    async def _record_continuation_request(
+        self,
+        *,
+        scope_node_id: int,
+        node_id: int,
+        source_job_id: int,
+        now: datetime,
+    ) -> None:
+        statement = pg_insert(TaxonomyClassificationContinuationRequest).values(
+            scope_node_id=scope_node_id,
+            node_id=node_id,
+            source_job_id=source_job_id,
+            next_job_id=None,
+            last_error=None,
+            created_at=now,
+            updated_at=now,
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=[
+                TaxonomyClassificationContinuationRequest.scope_node_id,
+                TaxonomyClassificationContinuationRequest.node_id,
+            ],
+            set_={
+                "source_job_id": statement.excluded.source_job_id,
+                "last_error": None,
+                "updated_at": statement.excluded.updated_at,
+            },
+        )
+        await self._session.execute(statement)
+
+    async def drain_continuation_requests(self, *, now: datetime) -> int:
+        pending_count = await self._count_continuation_requests()
+        if pending_count == 0:
+            return 0
+        oldest_updated_at = await self._oldest_continuation_request_updated_at()
+        if (
+            pending_count < self._continuation_request_batch_size
+            and oldest_updated_at is not None
+            and now - oldest_updated_at < self._continuation_flush_interval
+        ):
+            return 0
+
+        requests = list(
+            (
+                await self._session.scalars(
+                    select(TaxonomyClassificationContinuationRequest)
+                    .order_by(
+                        TaxonomyClassificationContinuationRequest.updated_at.asc(),
+                        TaxonomyClassificationContinuationRequest.id.asc(),
+                    )
+                    .limit(self._continuation_request_batch_size)
+                    .with_for_update(skip_locked=True)
+                )
+            ).all()
+        )
+        prepared_submissions: list[_PreparedContinuationSubmission] = []
+        for request in requests:
+            prepared_submission = await self._prepare_continuation_submission(
+                request=request,
+                now=now,
+            )
+            if prepared_submission is not None:
+                prepared_submissions.append(prepared_submission)
+        await self._session.flush()
+        if prepared_submissions:
+            await self._session.commit()
+            try:
+                await self._submission_service().submit_existing_jobs(
+                    submissions=[item.submission for item in prepared_submissions],
+                    batch_size=self._continuation_request_batch_size,
+                )
+            except JobQueueMCPClientError as exc:
+                await self._record_continuation_submission_error(
+                    request_ids=[item.request_id for item in prepared_submissions],
+                    error=str(exc),
+                    now=now,
+                )
+                return len(requests)
+            for item in prepared_submissions:
+                await self._delete_continuation_request(request_id=item.request_id)
+            await self._session.flush()
+        return len(requests)
+
+    async def _count_continuation_requests(self) -> int:
+        count = await self._session.scalar(
+            select(func.count()).select_from(TaxonomyClassificationContinuationRequest)
+        )
+        return int(count or 0)
+
+    async def _oldest_continuation_request_updated_at(self) -> datetime | None:
+        return await self._session.scalar(
+            select(TaxonomyClassificationContinuationRequest.updated_at)
+            .order_by(
+                TaxonomyClassificationContinuationRequest.updated_at.asc(),
+                TaxonomyClassificationContinuationRequest.id.asc(),
+            )
+            .limit(1)
+        )
+
+    async def _prepare_continuation_submission(
+        self,
+        *,
+        request: TaxonomyClassificationContinuationRequest,
+        now: datetime,
+    ) -> _PreparedContinuationSubmission | None:
+        request_id = request.id
+        scope_node_id = request.scope_node_id
+        node_id = request.node_id
+        next_job_id = request.next_job_id
+
+        assignment = await self._assignment_for_update(node_id=node_id)
+        if assignment is None or assignment.taxonomy_node_id != scope_node_id:
+            await self._delete_continuation_request(request_id=request_id)
+            return None
+
+        try:
+            resolved_scope = await resolve_taxonomy_classification_scope_by_node_id(
+                self._session,
+                scope_node_id,
+            )
+        except TaxonomyClassificationScopeResolutionError:
+            await self._delete_continuation_request(request_id=request_id)
+            return None
+        if not resolved_scope.regular_children:
+            await self._delete_continuation_request(request_id=request_id)
+            return None
+
+        active_job = await self._active_job_for_scope_node(
+            scope_node_id=scope_node_id,
+            node_id=node_id,
+        )
+        if active_job is not None:
+            if active_job.id != next_job_id or active_job.job_id is not None:
+                await self._delete_continuation_request(request_id=request_id)
+                return None
+            local_job = active_job
+        else:
+            local_job = TaxonomyClassificationJob(
+                scope_node_id=scope_node_id,
+                node_id=node_id,
+            )
+            self._session.add(local_job)
+            await self._session.flush()
+            request.next_job_id = local_job.id
+            request.last_error = None
+            request.updated_at = now
+            await self._session.flush()
+
+        card = await self._session.get(Node, node_id)
+        if card is None:
+            await self._delete_continuation_request(request_id=request_id)
+            return None
+        return _PreparedContinuationSubmission(
+            request_id=request_id,
+            submission=TaxonomyClassificationExistingJobSubmission(
+                resolved_scope=resolved_scope,
+                local_job=local_job,
+                card=card,
+            ),
+        )
+
+    async def _record_continuation_submission_error(
+        self,
+        *,
+        request_ids: Sequence[int],
+        error: str,
+        now: datetime,
+    ) -> None:
+        for request_id in request_ids:
+            request_for_error = await self._continuation_request_for_update(request_id=request_id)
+            if request_for_error is not None:
+                request_for_error.last_error = error
+                request_for_error.updated_at = now
+        await self._session.flush()
+
+    async def _assignment_for_update(self, *, node_id: int) -> NodeTaxonomyAssignment | None:
+        return await self._session.scalar(
+            select(NodeTaxonomyAssignment)
+            .where(NodeTaxonomyAssignment.node_id == node_id)
+            .limit(1)
+            .with_for_update()
+        )
+
+    async def _active_job_for_scope_node(
+        self,
+        *,
+        scope_node_id: int,
+        node_id: int,
+    ) -> TaxonomyClassificationJob | None:
+        return await self._session.scalar(
+            select(TaxonomyClassificationJob)
+            .where(TaxonomyClassificationJob.scope_node_id == scope_node_id)
+            .where(TaxonomyClassificationJob.node_id == node_id)
+            .where(TaxonomyClassificationJob.processed_at.is_(None))
+            .where(TaxonomyClassificationJob.terminal_state.is_(None))
+            .order_by(TaxonomyClassificationJob.id.asc())
+            .limit(1)
+            .with_for_update()
+        )
+
+    async def _continuation_request_for_update(
+        self,
+        *,
+        request_id: int,
+    ) -> TaxonomyClassificationContinuationRequest | None:
+        return await self._session.scalar(
+            select(TaxonomyClassificationContinuationRequest)
+            .where(TaxonomyClassificationContinuationRequest.id == request_id)
+            .limit(1)
+            .with_for_update()
+        )
+
+    async def _delete_continuation_request(self, *, request_id: int) -> None:
+        request = await self._continuation_request_for_update(request_id=request_id)
+        if request is not None:
+            await self._session.delete(request)
+
+    def _submission_service(self) -> TaxonomyClassificationSubmissionService:
+        if self._queue_name is None:
+            raise RuntimeError("taxonomy-classification queue_name is required.")
+        return TaxonomyClassificationSubmissionService(
+            self._session,
+            job_queue_client=self._job_queue_client,
+            queue_name=self._queue_name,
         )
 
     async def _record_projection_refresh_requests(

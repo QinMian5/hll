@@ -33,6 +33,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `node_taxonomy_assignments`
 - `taxonomy_scope_projection_edges`
 - `taxonomy_classification_jobs`
+- `taxonomy_classification_continuation_requests`
 - `taxonomy_classification_webhook_events`
 - `taxonomy_classification_webhook_wakeups`
 
@@ -213,6 +214,24 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `created_at`: non-null timestamp with timezone.
 - Required constraints:
   - uniqueness over `event_id`.
+
+### Taxonomy Classification Continuation Requests
+- `id`: integer primary key.
+- `scope_node_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
+- `node_id`: non-null foreign key to `nodes.id` with `ondelete="CASCADE"`.
+- `source_job_id`: non-null foreign key to `taxonomy_classification_jobs.id` with `ondelete="CASCADE"`.
+- `next_job_id`: nullable foreign key to `taxonomy_classification_jobs.id` with `ondelete="SET NULL"`.
+- `last_error`: nullable text.
+- `created_at`: non-null timestamp with timezone.
+- `updated_at`: non-null timestamp with timezone.
+- Required constraints:
+  - uniqueness over `(scope_node_id, node_id)`.
+- Required indexes:
+  - pending continuation lookup by `(updated_at, id)`.
+- Write semantics:
+  - accepted-result assignment movement inserts or updates one request for the moved card and target scope.
+  - runtime drain deletes the request after successful next-job linkage or a valid no-op stop condition.
+  - failed producer submission leaves the request retryable with `last_error` populated and `next_job_id` preserving the retry local job intent when one exists.
 
 ### Taxonomy Classification Projection Refresh Requests
 - Composite primary key: `(scope_kind, taxonomy_node_id)`.

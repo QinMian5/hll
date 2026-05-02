@@ -13,6 +13,7 @@ from typing import Any, cast
 from uuid import uuid4
 
 import pytest
+from job_queue_mcp_client.errors import TransportError
 from job_queue_mcp_client.types import AcceptedResult as AcceptedTaxonomyClassificationJobResult
 from job_queue_mcp_client.types import CreatedJob, CreateJobItem, ResultReadItem
 from sqlalchemy import delete, event, func, select
@@ -27,9 +28,11 @@ from modules.taxonomy.repo import (
     TaxonomyRepo,
 )
 from modules.taxonomy.route_path import slugify_taxonomy_route_segment
+from modules.taxonomy_classification import scope_resolution as scope_resolution_module
 from modules.taxonomy_classification import submission as submission_module
 from modules.taxonomy_classification.dto import TaxonomyClassificationSubmissionSelection
 from modules.taxonomy_classification.model import (
+    TaxonomyClassificationContinuationRequest,
     TaxonomyClassificationJob,
     TaxonomyClassificationProjectionRefreshRequest,
     TaxonomyClassificationWebhookEvent,
@@ -54,6 +57,10 @@ class FakeJobQueueClient:
     results_by_job_id: dict[int, AcceptedTaxonomyClassificationJobResult]
     requested_result_job_ids: list[int] = field(default_factory=list)
     requested_result_batches: list[list[int]] = field(default_factory=list)
+    created_jobs: list[dict[str, Any]] = field(default_factory=list)
+    created_job_batches: list[list[CreateJobItem]] = field(default_factory=list)
+    create_job_ids: list[int] = field(default_factory=list)
+    create_jobs_errors: list[Exception] = field(default_factory=list)
 
     async def get_result(self, job_id: int) -> AcceptedTaxonomyClassificationJobResult:
         self.requested_result_job_ids.append(job_id)
@@ -73,6 +80,27 @@ class FakeJobQueueClient:
             for index, job_id in enumerate(job_ids)
             for result in [self.results_by_job_id[job_id]]
         ]
+
+    async def create_jobs(self, jobs: Sequence[CreateJobItem]) -> list[CreatedJob]:
+        self.created_job_batches.append(list(jobs))
+        if self.create_jobs_errors:
+            raise self.create_jobs_errors.pop(0)
+
+        results: list[CreatedJob] = []
+        for index, job in enumerate(jobs):
+            self.created_jobs.append(
+                {
+                    "queue_name": job.queue_name,
+                    "priority": job.priority,
+                    "instruction": job.instruction,
+                    "output_schema": job.output_schema,
+                    "payload": job.payload or {},
+                    "metadata": job.metadata or {},
+                    "idempotency_key": job.idempotency_key,
+                }
+            )
+            results.append(CreatedJob(index=index, job_id=self.create_job_ids.pop(0), created=True))
+        return results
 
 
 @dataclass(slots=True)
@@ -241,6 +269,18 @@ async def _projection_refresh_scope_keys(db_session: AsyncSession) -> list[tuple
     )
 
 
+async def _continuation_requests(
+    db_session: AsyncSession,
+) -> list[TaxonomyClassificationContinuationRequest]:
+    return list(
+        await db_session.scalars(
+            select(TaxonomyClassificationContinuationRequest).order_by(
+                TaxonomyClassificationContinuationRequest.id.asc()
+            )
+        )
+    )
+
+
 def _webhook_payload(*, event_id: str, job_id: int) -> TaxonomyClassificationWebhookPayload:
     return TaxonomyClassificationWebhookPayload.model_validate(
         {
@@ -312,9 +352,7 @@ async def test_concurrent_duplicate_webhook_event_id_reuses_existing_event(
 async def test_scope_resolution_scope_name_unique_case_insensitive(
     db_session: AsyncSession,
 ) -> None:
-    root, _root_scope, science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, _root_scope, science, _science_scope = await _create_taxonomy_tree(db_session)
     await _create_regular_child(db_session, parent=science, name="Physics")
     await db_session.commit()
 
@@ -348,9 +386,7 @@ async def test_scope_resolution_scope_name_no_match_fails(
 async def test_scope_resolution_scope_name_duplicate_lists_candidate_breadcrumbs(
     db_session: AsyncSession,
 ) -> None:
-    root, _root_scope, science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, _root_scope, science, _science_scope = await _create_taxonomy_tree(db_session)
     art, _art_scope = await _create_regular_child(db_session, parent=root, name="Art")
     await _create_regular_child(db_session, parent=science, name="Methods")
     await _create_regular_child(db_session, parent=art, name="methods")
@@ -371,9 +407,7 @@ async def test_scope_resolution_scope_name_duplicate_lists_candidate_breadcrumbs
 async def test_scope_resolution_scope_path_case_insensitive(
     db_session: AsyncSession,
 ) -> None:
-    root, _root_scope, science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, _root_scope, science, _science_scope = await _create_taxonomy_tree(db_session)
     algebra, _algebra_scope = await _create_regular_child(
         db_session,
         parent=science,
@@ -441,9 +475,7 @@ async def test_taxonomy_nodes_reject_case_insensitive_sibling_name_duplicates(
 async def test_scope_resolution_all_direct_assignments_returns_scopes_and_no_child_marker(
     db_session: AsyncSession,
 ) -> None:
-    root, _root_scope, science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, _root_scope, science, _science_scope = await _create_taxonomy_tree(db_session)
     physics, _physics_scope = await _create_regular_child(
         db_session,
         parent=science,
@@ -464,12 +496,31 @@ async def test_scope_resolution_all_direct_assignments_returns_scopes_and_no_chi
     assert scope_by_id[physics.id].has_regular_children is False
 
 
+async def test_scope_resolution_by_node_id_returns_scope_with_children(
+    db_session: AsyncSession,
+) -> None:
+    _root, _root_scope, science, _science_scope = await _create_taxonomy_tree(db_session)
+    physics, _physics_scope = await _create_regular_child(
+        db_session,
+        parent=science,
+        name="Physics",
+    )
+    await db_session.commit()
+
+    resolved_scope = await scope_resolution_module.resolve_taxonomy_classification_scope_by_node_id(
+        db_session,
+        science.id,
+    )
+
+    assert resolved_scope.scope_node.id == science.id
+    assert resolved_scope.breadcrumb == ("Root", "Science")
+    assert [child.id for child in resolved_scope.regular_children] == [physics.id]
+
+
 async def test_valid_child_result_moves_assignment_to_child_scope(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     taxonomy_repo = TaxonomyRepo(session=db_session)
     await taxonomy_repo.set_current_assignment(
@@ -505,19 +556,28 @@ async def test_valid_child_result_moves_assignment_to_child_scope(
     await db_session.commit()
 
     assignment = await taxonomy_repo.get_assignment_for_node(node_id=node.id)
+    continuation_requests = await _continuation_requests(db_session)
+    stored_job = await db_session.scalar(
+        select(TaxonomyClassificationJob).where(TaxonomyClassificationJob.job_id == 7001)
+    )
     assert processed_count == 1
     assert client.requested_result_batches == [[7001]]
     assert client.requested_result_job_ids == []
     assert assignment is not None
     assert assignment.taxonomy_node.id == science_scope.id
+    assert stored_job is not None
+    assert len(continuation_requests) == 1
+    assert continuation_requests[0].scope_node_id == science_scope.id
+    assert continuation_requests[0].node_id == node.id
+    assert continuation_requests[0].source_job_id == stored_job.id
+    assert continuation_requests[0].next_job_id is None
+    assert continuation_requests[0].last_error is None
 
 
 async def test_unclassified_result_name_keeps_source_scope_assignment(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     taxonomy_repo = TaxonomyRepo(session=db_session)
     await taxonomy_repo.set_current_assignment(
@@ -553,14 +613,13 @@ async def test_unclassified_result_name_keeps_source_scope_assignment(
     assert client.requested_result_job_ids == []
     assert assignment is not None
     assert assignment.taxonomy_node.id == root_scope.id
+    assert await _continuation_requests(db_session) == []
 
 
 async def test_webhook_processing_reads_accepted_results_in_one_batch(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, science_scope = await _create_taxonomy_tree(db_session)
     first_node = await _create_node(db_session)
     second_node = await _create_node(db_session)
     taxonomy_repo = TaxonomyRepo(session=db_session)
@@ -621,9 +680,7 @@ async def test_valid_child_result_records_projection_refresh_without_sync_rebuil
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    root, root_scope, _science, science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     taxonomy_repo = TaxonomyRepo(session=db_session)
     await taxonomy_repo.set_current_assignment(
@@ -668,9 +725,7 @@ async def test_batch_result_processing_deduplicates_projection_refresh_requests(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    root, root_scope, _science, science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, science_scope = await _create_taxonomy_tree(db_session)
     first_node = await _create_node(db_session)
     second_node = await _create_node(db_session)
     taxonomy_repo = TaxonomyRepo(session=db_session)
@@ -733,9 +788,7 @@ async def test_tick_processes_results_before_dirty_projection_refresh(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    root, root_scope, _science, science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     await TaxonomyRepo(session=db_session).set_current_assignment(
         node_id=node.id,
@@ -778,9 +831,7 @@ async def test_projection_refresh_success_deletes_only_refreshed_request(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _root, root_scope, _science, science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    _root, root_scope, _science, science_scope = await _create_taxonomy_tree(db_session)
     db_session.add_all(
         [
             TaxonomyClassificationProjectionRefreshRequest(
@@ -823,9 +874,7 @@ async def test_projection_refresh_failure_keeps_request_with_error(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    _root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     db_session.add(
         TaxonomyClassificationProjectionRefreshRequest(
             scope_kind=TAXONOMY_NODE_SCOPE_KIND,
@@ -855,12 +904,463 @@ async def test_projection_refresh_failure_keeps_request_with_error(
     assert request.last_error == f"refresh failed for scope {root_scope.id}"
 
 
+async def test_continuation_drain_submits_eligible_request_and_deletes_it(
+    db_session: AsyncSession,
+) -> None:
+    root, _root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
+    physics, _physics_scope = await _create_regular_child(
+        db_session,
+        parent=science,
+        name="Physics",
+    )
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=science_scope.id,
+    )
+    source_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        node_id=node.id,
+        job_id=7041,
+        processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
+        target_payload={"target_name": "Science"},
+    )
+    db_session.add(source_job)
+    await db_session.flush()
+    db_session.add(
+        TaxonomyClassificationContinuationRequest(
+            scope_node_id=science.id,
+            node_id=node.id,
+            source_job_id=source_job.id,
+        )
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient({}, create_job_ids=[8401])
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+        continuation_request_batch_size=1,
+    )
+
+    drained_count = await service.drain_continuation_requests(
+        now=datetime(2026, 4, 26, 15, 3, tzinfo=UTC)
+    )
+    await db_session.commit()
+    next_job = await db_session.scalar(
+        select(TaxonomyClassificationJob).where(TaxonomyClassificationJob.job_id == 8401)
+    )
+
+    assert drained_count == 1
+    assert await _continuation_requests(db_session) == []
+    assert next_job is not None
+    assert next_job.scope_node_id == science.id
+    assert next_job.node_id == node.id
+    assert len(client.created_job_batches) == 1
+    assert client.created_jobs[0]["queue_name"] == "taxonomy_classification"
+    assert client.created_jobs[0]["idempotency_key"] == (
+        f"taxonomy-classification-job:{next_job.id}"
+    )
+    assert client.created_jobs[0]["metadata"] == {
+        "scope_node_id": science.id,
+        "node_id": node.id,
+    }
+    assert client.created_jobs[0]["payload"] == {
+        "scope_path": "Root / Science",
+        "card": {"title": node.title, "content": node.content},
+        "children": [{"name": physics.name}, {"name": "Unclassified"}],
+    }
+
+
+async def test_continuation_drain_waits_until_flush_interval_when_batch_is_not_full(
+    db_session: AsyncSession,
+) -> None:
+    root, _root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
+    await _create_regular_child(db_session, parent=science, name="Physics")
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=science_scope.id,
+    )
+    source_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        node_id=node.id,
+        job_id=7048,
+        processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
+    )
+    db_session.add(source_job)
+    await db_session.flush()
+    db_session.add(
+        TaxonomyClassificationContinuationRequest(
+            scope_node_id=science.id,
+            node_id=node.id,
+            source_job_id=source_job.id,
+            created_at=datetime(2026, 4, 26, 15, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 26, 15, 0, tzinfo=UTC),
+        )
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient({}, create_job_ids=[8408])
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+        continuation_request_batch_size=2,
+        continuation_flush_interval_seconds=60,
+    )
+
+    early_count = await service.drain_continuation_requests(
+        now=datetime(2026, 4, 26, 15, 0, 30, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assert early_count == 0
+    assert len(await _continuation_requests(db_session)) == 1
+    assert client.created_jobs == []
+
+    flushed_count = await service.drain_continuation_requests(
+        now=datetime(2026, 4, 26, 15, 1, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assert flushed_count == 1
+    assert await _continuation_requests(db_session) == []
+    assert len(client.created_jobs) == 1
+
+
+async def test_continuation_drain_batches_requests_when_batch_threshold_is_reached(
+    db_session: AsyncSession,
+) -> None:
+    root, _root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
+    await _create_regular_child(db_session, parent=science, name="Physics")
+    first_node = await _create_node(db_session)
+    second_node = await _create_node(db_session)
+    taxonomy_repo = TaxonomyRepo(session=db_session)
+    await taxonomy_repo.set_current_assignment(
+        node_id=first_node.id,
+        taxonomy_node_id=science_scope.id,
+    )
+    await taxonomy_repo.set_current_assignment(
+        node_id=second_node.id,
+        taxonomy_node_id=science_scope.id,
+    )
+    first_source_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        node_id=first_node.id,
+        job_id=7049,
+        processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
+    )
+    second_source_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        node_id=second_node.id,
+        job_id=7050,
+        processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
+    )
+    db_session.add_all([first_source_job, second_source_job])
+    await db_session.flush()
+    db_session.add_all(
+        [
+            TaxonomyClassificationContinuationRequest(
+                scope_node_id=science.id,
+                node_id=first_node.id,
+                source_job_id=first_source_job.id,
+                created_at=datetime(2026, 4, 26, 15, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 4, 26, 15, 0, tzinfo=UTC),
+            ),
+            TaxonomyClassificationContinuationRequest(
+                scope_node_id=science.id,
+                node_id=second_node.id,
+                source_job_id=second_source_job.id,
+                created_at=datetime(2026, 4, 26, 15, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 4, 26, 15, 0, tzinfo=UTC),
+            ),
+        ]
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient({}, create_job_ids=[8409, 8410])
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+        continuation_request_batch_size=2,
+        continuation_flush_interval_seconds=60,
+    )
+
+    drained_count = await service.drain_continuation_requests(
+        now=datetime(2026, 4, 26, 15, 0, 30, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assert drained_count == 2
+    assert await _continuation_requests(db_session) == []
+    assert [len(batch) for batch in client.created_job_batches] == [2]
+    assert [job.metadata["node_id"] for job in client.created_job_batches[0]] == [
+        first_node.id,
+        second_node.id,
+    ]
+
+
+async def test_continuation_drain_deletes_request_when_scope_has_no_regular_children(
+    db_session: AsyncSession,
+) -> None:
+    root, _root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=science_scope.id,
+    )
+    source_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        node_id=node.id,
+        job_id=7042,
+        processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
+    )
+    db_session.add(source_job)
+    await db_session.flush()
+    db_session.add(
+        TaxonomyClassificationContinuationRequest(
+            scope_node_id=science.id,
+            node_id=node.id,
+            source_job_id=source_job.id,
+        )
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient({}, create_job_ids=[8402])
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+        continuation_request_batch_size=1,
+    )
+
+    drained_count = await service.drain_continuation_requests(
+        now=datetime(2026, 4, 26, 15, 3, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assert drained_count == 1
+    assert await _continuation_requests(db_session) == []
+    assert client.created_jobs == []
+
+
+async def test_continuation_drain_deletes_stale_assignment_request_without_submission(
+    db_session: AsyncSession,
+) -> None:
+    root, root_scope, science, _science_scope = await _create_taxonomy_tree(db_session)
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=root_scope.id,
+    )
+    source_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        node_id=node.id,
+        job_id=7043,
+        processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
+    )
+    db_session.add(source_job)
+    await db_session.flush()
+    db_session.add(
+        TaxonomyClassificationContinuationRequest(
+            scope_node_id=science.id,
+            node_id=node.id,
+            source_job_id=source_job.id,
+        )
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient({}, create_job_ids=[8403])
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+        continuation_request_batch_size=1,
+    )
+
+    drained_count = await service.drain_continuation_requests(
+        now=datetime(2026, 4, 26, 15, 3, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assert drained_count == 1
+    assert await _continuation_requests(db_session) == []
+    assert client.created_jobs == []
+
+
+async def test_continuation_drain_deletes_request_when_active_job_already_exists(
+    db_session: AsyncSession,
+) -> None:
+    root, _root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
+    await _create_regular_child(db_session, parent=science, name="Physics")
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=science_scope.id,
+    )
+    source_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        node_id=node.id,
+        job_id=7044,
+        processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
+    )
+    active_job = TaxonomyClassificationJob(
+        scope_node_id=science.id,
+        node_id=node.id,
+        job_id=8404,
+    )
+    db_session.add_all([source_job, active_job])
+    await db_session.flush()
+    db_session.add(
+        TaxonomyClassificationContinuationRequest(
+            scope_node_id=science.id,
+            node_id=node.id,
+            source_job_id=source_job.id,
+        )
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient({}, create_job_ids=[8405])
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+        continuation_request_batch_size=1,
+    )
+
+    drained_count = await service.drain_continuation_requests(
+        now=datetime(2026, 4, 26, 15, 3, tzinfo=UTC)
+    )
+    await db_session.commit()
+
+    assert drained_count == 1
+    assert await _continuation_requests(db_session) == []
+    assert client.created_jobs == []
+
+
+async def test_continuation_drain_keeps_failed_producer_request_and_reuses_next_job(
+    db_session: AsyncSession,
+) -> None:
+    root, _root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
+    await _create_regular_child(db_session, parent=science, name="Physics")
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=science_scope.id,
+    )
+    source_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        node_id=node.id,
+        job_id=7045,
+        processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
+    )
+    db_session.add(source_job)
+    await db_session.flush()
+    db_session.add(
+        TaxonomyClassificationContinuationRequest(
+            scope_node_id=science.id,
+            node_id=node.id,
+            source_job_id=source_job.id,
+        )
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient(
+        {},
+        create_job_ids=[8406],
+        create_jobs_errors=[TransportError("producer unavailable")],
+    )
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+        continuation_request_batch_size=1,
+    )
+
+    first_drain_count = await service.drain_continuation_requests(
+        now=datetime(2026, 4, 26, 15, 3, tzinfo=UTC)
+    )
+    await db_session.commit()
+    request_after_failure = (await _continuation_requests(db_session))[0]
+    first_next_job_id = request_after_failure.next_job_id
+
+    assert first_drain_count == 1
+    assert first_next_job_id is not None
+    assert request_after_failure.last_error == "producer unavailable"
+    first_next_job = await db_session.get(TaxonomyClassificationJob, first_next_job_id)
+    assert first_next_job is not None
+    assert first_next_job.job_id is None
+
+    retry_count = await service.drain_continuation_requests(
+        now=datetime(2026, 4, 26, 15, 4, tzinfo=UTC)
+    )
+    await db_session.commit()
+    retried_next_job = await db_session.get(TaxonomyClassificationJob, first_next_job_id)
+
+    assert retry_count == 1
+    assert await _continuation_requests(db_session) == []
+    assert retried_next_job is not None
+    assert retried_next_job.job_id == 8406
+    assert [job["idempotency_key"] for job in client.created_jobs] == [
+        f"taxonomy-classification-job:{first_next_job_id}"
+    ]
+
+
+async def test_tick_processes_continuations_before_dirty_projection_refresh(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
+    await _create_regular_child(db_session, parent=science, name="Physics")
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=science_scope.id,
+    )
+    source_job = TaxonomyClassificationJob(
+        scope_node_id=root.id,
+        node_id=node.id,
+        job_id=7046,
+        processed_at=datetime(2026, 4, 26, 15, 2, tzinfo=UTC),
+    )
+    db_session.add(source_job)
+    await db_session.flush()
+    db_session.add_all(
+        [
+            TaxonomyClassificationContinuationRequest(
+                scope_node_id=science.id,
+                node_id=node.id,
+                source_job_id=source_job.id,
+            ),
+            TaxonomyClassificationProjectionRefreshRequest(
+                scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+                taxonomy_node_id=root_scope.id,
+            ),
+        ]
+    )
+    await db_session.commit()
+    client = FakeJobQueueClient({}, create_job_ids=[8407])
+    service = TaxonomyClassificationRuntimeService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+        continuation_request_batch_size=1,
+    )
+
+    async def fail_projection_drain(*, scope_identity: object) -> None:
+        raise AssertionError(f"dirty projection refresh must wait for {scope_identity}")
+
+    monkeypatch.setattr(service, "_refresh_scope_projection", fail_projection_drain)
+
+    await service.tick()
+
+    assert await _continuation_requests(db_session) == []
+    assert await _projection_refresh_scope_keys(db_session) == [
+        (TAXONOMY_NODE_SCOPE_KIND, root_scope.id)
+    ]
+    assert len(client.created_jobs) == 1
+
+
 async def test_reconcile_reads_pending_remote_jobs_in_one_batch(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     taxonomy_repo = TaxonomyRepo(session=db_session)
     await taxonomy_repo.set_current_assignment(
@@ -905,9 +1405,7 @@ async def test_reconcile_reads_pending_remote_jobs_in_one_batch(
 async def test_operator_submission_creates_one_job_per_card_in_scope(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     await TaxonomyRepo(session=db_session).set_current_assignment(
         node_id=node.id,
@@ -961,12 +1459,62 @@ async def test_operator_submission_creates_one_job_per_card_in_scope(
     }
 
 
+async def test_continuation_submission_creates_single_job_for_resolved_scope(
+    db_session: AsyncSession,
+) -> None:
+    _root, _root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
+    physics, _physics_scope = await _create_regular_child(
+        db_session,
+        parent=science,
+        name="Physics",
+    )
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=science_scope.id,
+    )
+    await db_session.commit()
+    client = FakeCreateJobClient(create_job_ids=[8301])
+    service = TaxonomyClassificationSubmissionService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+    )
+    resolved_scope = await scope_resolution_module.resolve_taxonomy_classification_scope_by_node_id(
+        db_session,
+        science.id,
+    )
+
+    local_job = await service.create_and_submit_single_job(
+        resolved_scope=resolved_scope,
+        card=node,
+    )
+    await db_session.commit()
+
+    assert local_job.scope_node_id == science.id
+    assert local_job.node_id == node.id
+    assert local_job.job_id == 8301
+    assert len(client.created_job_batches) == 1
+    assert len(client.created_job_batches[0]) == 1
+    assert client.created_jobs[0]["queue_name"] == "taxonomy_classification"
+    assert client.created_jobs[0]["idempotency_key"] == (
+        f"taxonomy-classification-job:{local_job.id}"
+    )
+    assert client.created_jobs[0]["metadata"] == {
+        "scope_node_id": science.id,
+        "node_id": node.id,
+    }
+    assert client.created_jobs[0]["payload"] == {
+        "scope_path": "Root / Science",
+        "card": {"title": node.title, "content": node.content},
+        "children": [{"name": physics.name}, {"name": "Unclassified"}],
+    }
+
+
 async def test_operator_submission_persists_local_intent_before_remote_job_create(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     await TaxonomyRepo(session=db_session).set_current_assignment(
         node_id=node.id,
@@ -1023,9 +1571,7 @@ async def test_operator_submission_persists_local_intent_before_remote_job_creat
 async def test_operator_submission_reuses_pending_local_intent_without_duplicate_job(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     await TaxonomyRepo(session=db_session).set_current_assignment(
         node_id=node.id,
@@ -1075,9 +1621,7 @@ async def test_operator_submission_reuses_pending_local_intent_without_duplicate
 async def test_operator_submission_batches_pending_jobs_and_counts_idempotent_reuse(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     first_node = await _create_node(db_session)
     second_node = await _create_node(db_session)
     taxonomy_repo = TaxonomyRepo(session=db_session)
@@ -1152,9 +1696,7 @@ async def test_operator_submission_auto_chunks_by_request_byte_limit(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    _root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     first_node = await _create_node(db_session)
     second_node = await _create_node(db_session)
     first_node.content = "Vector spaces. " * 80
@@ -1200,9 +1742,7 @@ async def test_operator_submission_rejects_single_job_above_request_byte_limit(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    _root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    _root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     await TaxonomyRepo(session=db_session).set_current_assignment(
         node_id=node.id,
@@ -1237,9 +1777,7 @@ async def test_operator_submission_rejects_single_job_above_request_byte_limit(
 async def test_operator_submission_counts_active_job_as_already_linked(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     await TaxonomyRepo(session=db_session).set_current_assignment(
         node_id=node.id,
@@ -1279,9 +1817,7 @@ async def test_operator_submission_counts_active_job_as_already_linked(
 async def test_operator_submission_skips_scope_without_regular_children(
     db_session: AsyncSession,
 ) -> None:
-    root, _root_scope, science, science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, _root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     await TaxonomyRepo(session=db_session).set_current_assignment(
         node_id=node.id,
@@ -1315,9 +1851,7 @@ async def test_operator_submission_preflight_skips_empty_regular_scopes(
     db_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    root, _root_scope, science, science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, _root_scope, science, science_scope = await _create_taxonomy_tree(db_session)
     physics, _physics_scope = await _create_regular_child(
         db_session,
         parent=science,
@@ -1374,9 +1908,7 @@ async def test_operator_submission_preflight_skips_empty_regular_scopes(
 async def test_invalid_child_result_is_terminal_local_error_without_assignment_move(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     taxonomy_repo = TaxonomyRepo(session=db_session)
     await taxonomy_repo.set_current_assignment(
@@ -1427,14 +1959,13 @@ async def test_invalid_child_result_is_terminal_local_error_without_assignment_m
     assert await _count_wakeups(db_session, event_id="evt-invalid-child") == 0
     assert assignment is not None
     assert assignment.taxonomy_node.id == root_scope.id
+    assert await _continuation_requests(db_session) == []
 
 
 async def test_processed_keep_unclassified_job_does_not_block_later_submission(
     db_session: AsyncSession,
 ) -> None:
-    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(
-        db_session
-    )
+    root, root_scope, _science, _science_scope = await _create_taxonomy_tree(db_session)
     node = await _create_node(db_session)
     await TaxonomyRepo(session=db_session).set_current_assignment(
         node_id=node.id,
