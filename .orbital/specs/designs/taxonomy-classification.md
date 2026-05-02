@@ -54,6 +54,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Batch sizing: limits each producer batch-create request to an item-count ceiling from 1 through 1000 and defaults to 1000. The service also automatically splits producer batch-create requests so each serialized request body stays below the 900 KiB producer body cap.
   - Selection set: cards currently assigned to each selected scope node's direct `Unclassified` leaf and lacking an active outstanding classification job for the same scope and source assignment.
   - Ordering: scopes are processed by breadcrumb path and taxonomy node id; selected cards within a scope are processed in `nodes.id ASC`.
+  - Submission preflight: the service aggregates pending local jobs, candidate cards, and already-linked active remote jobs for all selected scopes before submission. Regular scopes with no pending local jobs and no candidate cards keep their summary row but do not enter the per-scope submission path.
   - Local intent creation: the service creates and commits local active submission rows before producer batch submission so each row has a stable local job id.
   - Producer submission: one queue job per selected card is created through the producer batch-create SDK. Each request is bounded by both item count and serialized request-body size. Each batch item uses `taxonomy-classification-job:{local_job_id}` as its queue-scoped idempotency key.
   - Batch response handling: the service applies producer batch-create results by input index and writes the returned remote `job_id` to the matching local job row.
@@ -178,6 +179,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Operator submission script reports breadcrumb context and fails when a `scope_path` segment is missing or ambiguous.
   - Operator submission script scans all eligible scope `Unclassified` leaves when `all_unclassified` is selected.
   - Operator submission script skips scopes with no regular direct children and reports `skipped_no_children`.
+  - Submission preflight tests verify selected regular scopes with no pending local jobs and no candidate cards do not enter the per-scope submission path.
   - Operator submission script selects cards from each selected scope's `Unclassified` leaf in `nodes.id ASC` order.
   - Submission idempotency tests verify repeated runs do not duplicate active job links for the same card and scope.
   - Producer batch submission tests verify local job ids drive stable producer idempotency keys, batch-create responses are applied by input index, idempotent remote reuses are counted, automatic request-body chunking keeps producer requests below the 900 KiB body cap, oversized single-job requests fail before remote submission, and interrupted submissions can be safely resumed.

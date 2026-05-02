@@ -1343,6 +1343,66 @@ async def test_operator_submission_skips_scope_without_regular_children(
     assert client.created_jobs == []
 
 
+async def test_operator_submission_preflight_skips_empty_regular_scopes(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, _root_unclassified, science, science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    physics, _physics_unclassified = await _create_regular_child(
+        db_session,
+        parent=science,
+        name="Physics",
+    )
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=science_unclassified.id,
+    )
+    await db_session.commit()
+
+    client = FakeCreateJobClient(create_job_ids=[9003])
+    service = TaxonomyClassificationSubmissionService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+    )
+    original_submit = service._submit_resolved_scope_jobs
+    submitted_breadcrumbs: list[tuple[str, ...]] = []
+
+    async def record_submit_scope(
+        *,
+        resolved_scope: submission_module.ResolvedTaxonomyClassificationScope,
+        limit: int | None,
+        batch_size: int,
+        progress_advance_callback: Callable[[int], None] | None,
+    ) -> submission_module._SubmissionCounts:
+        submitted_breadcrumbs.append(resolved_scope.breadcrumb)
+        return await original_submit(
+            resolved_scope=resolved_scope,
+            limit=limit,
+            batch_size=batch_size,
+            progress_advance_callback=progress_advance_callback,
+        )
+
+    monkeypatch.setattr(service, "_submit_resolved_scope_jobs", record_submit_scope)
+
+    result = await service.submit_refinement_jobs(
+        selection=TaxonomyClassificationSubmissionSelection(kind="all_unclassified"),
+        limit=None,
+    )
+    scope_by_id = {scope.scope_node_id: scope for scope in result.scopes}
+
+    assert submitted_breadcrumbs == [("Root", "Science")]
+    assert result.selected_scope_count == 3
+    assert result.submitted_count == 1
+    assert scope_by_id[root.id].submitted_count == 0
+    assert scope_by_id[root.id].skipped_no_children is False
+    assert scope_by_id[science.id].submitted_count == 1
+    assert scope_by_id[physics.id].skipped_no_children is True
+
+
 async def test_invalid_child_result_is_terminal_local_error_without_assignment_move(
     db_session: AsyncSession,
 ) -> None:
