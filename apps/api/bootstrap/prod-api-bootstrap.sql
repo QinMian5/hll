@@ -940,65 +940,78 @@ ALTER TABLE public.taxonomy_nodes ENABLE TRIGGER ALL;
 
 ALTER TABLE public.node_taxonomy_assignments DISABLE TRIGGER ALL;
 
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (1, 2, 1, '2026-04-30 14:03:12.080353+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (47, 47, 1, '2026-04-30 14:04:05.679457+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (49, 49, 1, '2026-04-30 14:04:05.750829+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (3, 3, 1, '2026-04-30 14:03:12.094831+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (2, 1, 1, '2026-04-30 14:03:12.055959+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (4, 5, 1, '2026-04-30 14:03:12.102753+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (5, 4, 1, '2026-04-30 14:03:12.096059+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (6, 6, 1, '2026-04-30 14:03:12.173715+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (7, 7, 1, '2026-04-30 14:03:12.230725+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (8, 8, 1, '2026-04-30 14:03:13.453865+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (9, 9, 1, '2026-04-30 14:03:16.730995+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (10, 10, 1, '2026-04-30 14:03:16.779522+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (11, 11, 1, '2026-04-30 14:03:16.878467+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (12, 12, 1, '2026-04-30 14:03:16.892909+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (13, 13, 1, '2026-04-30 14:03:16.978646+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (14, 14, 1, '2026-04-30 14:03:16.998935+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (15, 15, 1, '2026-04-30 14:03:17.035959+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (16, 16, 1, '2026-04-30 14:03:17.059505+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (17, 17, 1, '2026-04-30 14:03:17.637372+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (18, 18, 1, '2026-04-30 14:03:17.656738+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (19, 19, 1, '2026-04-30 14:03:22.332086+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (20, 20, 1, '2026-04-30 14:03:22.395829+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (21, 21, 1, '2026-04-30 14:03:22.585498+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (22, 22, 1, '2026-04-30 14:03:22.701269+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (23, 23, 1, '2026-04-30 14:03:22.723749+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (24, 24, 1, '2026-04-30 14:03:22.87127+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (25, 25, 1, '2026-04-30 14:03:22.981846+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (26, 26, 1, '2026-04-30 14:03:23.023716+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (27, 27, 1, '2026-04-30 14:03:23.197536+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (28, 28, 1, '2026-04-30 14:03:48.552992+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (29, 29, 1, '2026-04-30 14:03:48.623207+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (30, 30, 1, '2026-04-30 14:03:48.638194+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (31, 31, 1, '2026-04-30 14:03:48.726777+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (32, 32, 1, '2026-04-30 14:03:48.855715+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (33, 33, 1, '2026-04-30 14:03:49.007453+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (34, 34, 1, '2026-04-30 14:03:49.156294+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (35, 35, 1, '2026-04-30 14:03:49.211338+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (36, 36, 1, '2026-04-30 14:03:49.384175+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (37, 37, 1, '2026-04-30 14:03:59.448327+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (38, 38, 1, '2026-04-30 14:03:59.50493+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (39, 39, 1, '2026-04-30 14:03:59.773415+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (40, 40, 1, '2026-04-30 14:03:59.932158+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (41, 41, 1, '2026-04-30 14:03:59.997053+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (42, 42, 1, '2026-04-30 14:04:00.120131+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (43, 43, 1, '2026-04-30 14:04:00.196435+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (44, 44, 1, '2026-04-30 14:04:00.405654+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (45, 45, 1, '2026-04-30 14:04:00.618301+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (46, 46, 1, '2026-04-30 14:04:00.815127+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (48, 48, 1, '2026-04-30 14:04:05.727658+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (50, 50, 1, '2026-04-30 14:04:06.123532+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (51, 51, 1, '2026-04-30 14:04:07.580036+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (52, 52, 1, '2026-04-30 14:04:08.684077+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (53, 53, 1, '2026-04-30 14:04:56.982431+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (54, 54, 1, '2026-04-30 14:04:57.089474+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (55, 55, 1, '2026-04-30 14:04:57.212248+00');
-INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (56, 56, 1, '2026-04-30 14:04:59.478206+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (1, 2, 3, '2026-04-30 14:03:12.080353+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (47, 47, 3, '2026-04-30 14:04:05.679457+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (49, 49, 3, '2026-04-30 14:04:05.750829+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (3, 3, 3, '2026-04-30 14:03:12.094831+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (2, 1, 3, '2026-04-30 14:03:12.055959+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (4, 5, 3, '2026-04-30 14:03:12.102753+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (5, 4, 3, '2026-04-30 14:03:12.096059+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (6, 6, 3, '2026-04-30 14:03:12.173715+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (7, 7, 3, '2026-04-30 14:03:12.230725+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (8, 8, 3, '2026-04-30 14:03:13.453865+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (9, 9, 3, '2026-04-30 14:03:16.730995+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (10, 10, 3, '2026-04-30 14:03:16.779522+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (11, 11, 3, '2026-04-30 14:03:16.878467+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (12, 12, 3, '2026-04-30 14:03:16.892909+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (13, 13, 3, '2026-04-30 14:03:16.978646+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (14, 14, 3, '2026-04-30 14:03:16.998935+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (15, 15, 3, '2026-04-30 14:03:17.035959+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (16, 16, 3, '2026-04-30 14:03:17.059505+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (17, 17, 3, '2026-04-30 14:03:17.637372+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (18, 18, 3, '2026-04-30 14:03:17.656738+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (19, 19, 3, '2026-04-30 14:03:22.332086+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (20, 20, 3, '2026-04-30 14:03:22.395829+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (21, 21, 3, '2026-04-30 14:03:22.585498+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (22, 22, 3, '2026-04-30 14:03:22.701269+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (23, 23, 3, '2026-04-30 14:03:22.723749+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (24, 24, 3, '2026-04-30 14:03:22.87127+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (25, 25, 3, '2026-04-30 14:03:22.981846+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (26, 26, 3, '2026-04-30 14:03:23.023716+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (27, 27, 3, '2026-04-30 14:03:23.197536+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (28, 28, 3, '2026-04-30 14:03:48.552992+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (29, 29, 3, '2026-04-30 14:03:48.623207+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (30, 30, 3, '2026-04-30 14:03:48.638194+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (31, 31, 3, '2026-04-30 14:03:48.726777+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (32, 32, 3, '2026-04-30 14:03:48.855715+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (33, 33, 3, '2026-04-30 14:03:49.007453+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (34, 34, 3, '2026-04-30 14:03:49.156294+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (35, 35, 3, '2026-04-30 14:03:49.211338+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (36, 36, 3, '2026-04-30 14:03:49.384175+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (37, 37, 3, '2026-04-30 14:03:59.448327+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (38, 38, 3, '2026-04-30 14:03:59.50493+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (39, 39, 3, '2026-04-30 14:03:59.773415+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (40, 40, 3, '2026-04-30 14:03:59.932158+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (41, 41, 3, '2026-04-30 14:03:59.997053+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (42, 42, 3, '2026-04-30 14:04:00.120131+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (43, 43, 3, '2026-04-30 14:04:00.196435+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (44, 44, 3, '2026-04-30 14:04:00.405654+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (45, 45, 3, '2026-04-30 14:04:00.618301+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (46, 46, 3, '2026-04-30 14:04:00.815127+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (48, 48, 3, '2026-04-30 14:04:05.727658+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (50, 50, 3, '2026-04-30 14:04:06.123532+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (51, 51, 3, '2026-04-30 14:04:07.580036+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (52, 52, 3, '2026-04-30 14:04:08.684077+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (53, 53, 3, '2026-04-30 14:04:56.982431+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (54, 54, 3, '2026-04-30 14:04:57.089474+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (55, 55, 3, '2026-04-30 14:04:57.212248+00');
+INSERT INTO public.node_taxonomy_assignments (id, node_id, taxonomy_node_id, assigned_at) VALUES (56, 56, 3, '2026-04-30 14:04:59.478206+00');
 
 
 ALTER TABLE public.node_taxonomy_assignments ENABLE TRIGGER ALL;
+
+--
+-- Data for Name: taxonomy_scope_projection_edges; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+ALTER TABLE public.taxonomy_scope_projection_edges DISABLE TRIGGER ALL;
+
+INSERT INTO public.taxonomy_scope_projection_edges (scope_kind, taxonomy_node_id, edge_id)
+SELECT 'taxonomy_node', 3, id
+FROM public.edges;
+
+
+ALTER TABLE public.taxonomy_scope_projection_edges ENABLE TRIGGER ALL;
 
 --
 -- Data for Name: taxonomy_classification_jobs; Type: TABLE DATA; Schema: public; Owner: -
@@ -1107,4 +1120,3 @@ SELECT pg_catalog.setval('public.taxonomy_nodes_id_seq', 264, true);
 --
 
 \unrestrict igDyWQFfq75N5YDIfazY1ttijte1FbfI4HXshOVyk6wGz5cEHCCaC9Ya3oEve7U
-

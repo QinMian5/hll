@@ -24,9 +24,7 @@ import { useCreateSuggestedEditMutation } from "../../search/data/searchQueries"
 import { suggestedEditErrorMessage } from "../../search/suggestedEditErrors";
 import {
   type TaxonomyNodeView,
-  type TaxonomyRootView,
   useTaxonomyNodeViewByPathQuery,
-  useTaxonomyRootViewQuery,
 } from "../data/taxonomyViewQueries";
 
 export {
@@ -118,7 +116,11 @@ function measuredViewportFromElement(element: HTMLElement | null) {
   };
 }
 
-type TaxonomyViewChild = TaxonomyRootView["children"][number];
+type TaxonomyViewBranch = Extract<
+  TaxonomyNodeView,
+  { readonly node_kind: "branch" }
+>;
+type TaxonomyViewChild = TaxonomyViewBranch["children"][number];
 type TaxonomyViewScope = Extract<
   TaxonomyNodeView,
   { readonly node_kind: "branch" }
@@ -209,15 +211,12 @@ export function TaxonomyViewPage() {
   const [suggestionError, setSuggestionError] = useState<string | undefined>();
   const [isSignInDialogOpen, setIsSignInDialogOpen] = useState(false);
 
-  const rootQuery = useTaxonomyRootViewQuery({
-    enabled: rootMode,
-  });
   const pathQuery = useTaxonomyNodeViewByPathQuery(activeRoutePath, {
-    enabled: !rootMode,
+    enabled: true,
   });
 
-  const activeQuery = rootMode ? rootQuery : pathQuery;
-  const breadcrumbs = rootMode ? [] : (pathQuery.data?.breadcrumb ?? []);
+  const activeQuery = pathQuery;
+  const breadcrumbs = pathQuery.data?.breadcrumb ?? [];
   const displayBreadcrumbs =
     breadcrumbs[0]?.parent_taxonomy_node_id === null &&
     breadcrumbs[0].name === "Root"
@@ -317,24 +316,6 @@ export function TaxonomyViewPage() {
       return emptyBranchFlowGraph("error");
     }
 
-    if (rootMode) {
-      if (!rootQuery.data) {
-        return emptyBranchFlowGraph("no-data");
-      }
-
-      const branchLayout = buildBranchLayout({
-        center: layoutCenter,
-        children: toBranchLayoutChildren(rootQuery.data.children),
-        viewport: canvasViewport,
-      });
-
-      return {
-        initialViewport: branchLayout.initialViewport,
-        layoutIdentity: branchLayoutIdentity(branchLayout),
-        nodes: branchLayout.nodes.map(toFlowNode),
-      };
-    }
-
     if (pathQuery.data?.node_kind !== "branch") {
       return emptyBranchFlowGraph("no-data");
     }
@@ -356,8 +337,6 @@ export function TaxonomyViewPage() {
     canvasViewport,
     layoutCenter,
     pathQuery.data,
-    rootMode,
-    rootQuery.data,
   ]);
   const routePathNotFound =
     activeQuery.isError && isTaxonomyRoutePathNotFound(activeQuery.error);

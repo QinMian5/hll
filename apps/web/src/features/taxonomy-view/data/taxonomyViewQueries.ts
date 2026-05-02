@@ -190,9 +190,11 @@ function encodeRoutePath(routePath: string): string {
 async function fetchTaxonomyNodeViewByPath(
   routePath: string,
 ): Promise<TaxonomyNodeView> {
-  const result = await fetchWebApiJson<unknown>(
-    `/web-api/taxonomy/view/path/${encodeRoutePath(routePath)}`,
-  );
+  const endpoint =
+    routePath === ""
+      ? "/web-api/taxonomy/view/path"
+      : `/web-api/taxonomy/view/path/${encodeRoutePath(routePath)}`;
+  const result = await fetchWebApiJson<unknown>(endpoint);
 
   return normalizeTaxonomyNodeViewPayload(result);
 }

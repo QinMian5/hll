@@ -141,6 +141,40 @@ describe("taxonomyNodeViewQueryOptions", () => {
     });
   });
 
+  it("calls the same-origin BFF taxonomy path endpoint for the empty root route path", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        current_scope: {
+          depth: 0,
+          name: "Root",
+          parent_taxonomy_node_id: null,
+          route_path: "",
+          route_slug: "root",
+          scope_kind: "taxonomy_node",
+          taxonomy_node_id: 1,
+        },
+        node_kind: "card_scope",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runQuery(taxonomyNodeViewByPathQueryOptions(""));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/web-api/taxonomy/view/path",
+      expect.objectContaining({
+        credentials: "include",
+        method: "GET",
+      }),
+    );
+    expect(result).toMatchObject({
+      current_scope: {
+        route_path: "",
+      },
+      node_kind: "card_scope",
+    });
+  });
+
   it("calls the same-origin BFF card-scope detail endpoint", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({

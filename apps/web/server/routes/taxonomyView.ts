@@ -131,6 +131,19 @@ function handleTaxonomyPathRouteError(
   handleWebRouteError(error, response, next);
 }
 
+async function sendTaxonomyPathResponse(
+  options: CreateTaxonomyViewRouterOptions,
+  routePath: string,
+  response: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    response.json(await options.internalApi.getTaxonomyNodeByPath(routePath));
+  } catch (error) {
+    handleTaxonomyPathRouteError(error, response, next);
+  }
+}
+
 function parseFiniteQueryNumber(value: unknown): number {
   if (typeof value !== "string") {
     throw new WebRouteInputError(
@@ -181,17 +194,19 @@ export function createTaxonomyViewRouter(
   );
 
   router.get(
+    "/path",
+    options.quotaMiddleware,
+    async (_request, response, next) => {
+      await sendTaxonomyPathResponse(options, "", response, next);
+    },
+  );
+
+  router.get(
     "/path/*routePath",
     options.quotaMiddleware,
     async (request, response, next) => {
-      try {
-        const routePath = parseRoutePath(request.params.routePath);
-        response.json(
-          await options.internalApi.getTaxonomyNodeByPath(routePath),
-        );
-      } catch (error) {
-        handleTaxonomyPathRouteError(error, response, next);
-      }
+      const routePath = parseRoutePath(request.params.routePath);
+      await sendTaxonomyPathResponse(options, routePath, response, next);
     },
   );
 

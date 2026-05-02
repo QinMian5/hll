@@ -142,6 +142,17 @@ describe("taxonomy view route", () => {
     });
   });
 
+  it("calls the internal taxonomy path API with the empty root route path", async () => {
+    const client = createClient();
+    const app = await createTestApp({ client });
+
+    const response = await request(app).get("/web-api/taxonomy/view/path");
+
+    expect(response.status).toBe(200);
+    expect(client.getTaxonomyNodeByPath).toHaveBeenCalledWith("");
+    expect(response.body.node_kind).toBe("branch");
+  });
+
   it("preserves taxonomy layout readiness errors from the internal API", async () => {
     const readinessError = new InternalApiError(503, "layout not ready", {
       clientMessage: "Taxonomy card-scope layout is being prepared.",

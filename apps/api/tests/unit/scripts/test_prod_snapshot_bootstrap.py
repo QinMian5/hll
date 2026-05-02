@@ -119,3 +119,22 @@ def test_committed_dev_bootstrap_snapshot_matches_current_taxonomy_schema() -> N
             "INSERT INTO public.taxonomy_nodes (id, parent_id, name, route_slug, depth)"
         )
         assert "'Unclassified'" not in line
+
+
+@pytest.mark.unit
+def test_committed_dev_bootstrap_snapshot_places_cards_under_science() -> None:
+    snapshot = DEV_BOOTSTRAP_SNAPSHOT.read_text(encoding="utf-8")
+    assignment_inserts = [
+        line
+        for line in snapshot.splitlines()
+        if line.startswith("INSERT INTO public.node_taxonomy_assignments")
+    ]
+
+    assert (
+        "INSERT INTO public.taxonomy_nodes (id, parent_id, name, route_slug, depth) "
+        "VALUES (3, 1, 'Science', 'science', 1);"
+    ) in snapshot
+    assert len(assignment_inserts) == 56
+    assert all(", 3, " in line for line in assignment_inserts)
+    assert "INSERT INTO public.taxonomy_scope_projection_edges" in snapshot
+    assert "SELECT 'taxonomy_node', 3, id\nFROM public.edges;" in snapshot

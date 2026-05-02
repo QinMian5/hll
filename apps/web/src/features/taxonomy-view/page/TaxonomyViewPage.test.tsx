@@ -294,6 +294,31 @@ function makeBranchNodeView(
   } as TaxonomyNodeView;
 }
 
+function rootScope() {
+  return {
+    depth: 0,
+    name: "Root",
+    parent_taxonomy_node_id: null,
+    route_path: "",
+    route_slug: "root",
+    scope_kind: "taxonomy_node",
+    taxonomy_node_id: 1,
+  } as const;
+}
+
+function rootQueryStateAsPathQuery(): MockQueryResult<TaxonomyNodeView> {
+  return {
+    ...rootQueryState,
+    data: rootQueryState.data
+      ? makeBranchNodeView({
+          breadcrumb: [rootScope()],
+          children: rootQueryState.data.children,
+          current_scope: rootScope(),
+        })
+      : undefined,
+  };
+}
+
 beforeEach(() => {
   reactFlowMockState.nextMountId = 1;
   rerenderTaxonomyPage = undefined;
@@ -343,6 +368,13 @@ beforeEach(() => {
       >,
   );
   mockUseTaxonomyNodeViewByPathQuery.mockImplementation((routePath) => {
+    if (routePath === "") {
+      return (pathQueryStates.get("") ??
+        rootQueryStateAsPathQuery()) as unknown as ReturnType<
+        typeof taxonomyViewQueries.useTaxonomyNodeViewByPathQuery
+      >;
+    }
+
     const result = pathQueryStates.get(routePath);
     return (result ??
       makeQueryResult({ isPending: true })) as unknown as ReturnType<
@@ -544,6 +576,46 @@ describe("TaxonomyViewPage", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
+  it("loads the root graph route through the path resolver so Root card-scope data can render", async () => {
+    pathQueryStates.set(
+      "",
+      makeQueryResult({
+        data: makeLeafNodeView({
+          breadcrumb: [
+            {
+              depth: 0,
+              name: "Root",
+              parent_taxonomy_node_id: null,
+              route_path: "",
+              route_slug: "root",
+              scope_kind: "taxonomy_node",
+              taxonomy_node_id: 1,
+            },
+          ],
+          current_scope: {
+            depth: 0,
+            name: "Root",
+            parent_taxonomy_node_id: null,
+            route_path: "",
+            route_slug: "root",
+            scope_kind: "taxonomy_node",
+            taxonomy_node_id: 1,
+          },
+          node_count: 56,
+        }),
+      }),
+    );
+
+    await renderWithRoute("/graph");
+
+    expect(mockUseTaxonomyNodeViewByPathQuery).toHaveBeenCalledWith("", {
+      enabled: true,
+    });
+    expect(
+      await screen.findByTestId("taxonomy-leaf-renderer"),
+    ).toHaveTextContent("Root");
+  });
+
   it("renders branch mode on React Flow and drills into leaf mode on the dedicated leaf renderer", async () => {
     const { router } = await renderWithRoute();
 
@@ -723,9 +795,7 @@ describe("TaxonomyViewPage", () => {
   it("renders a readable deep link without first visiting the root graph", async () => {
     await renderWithRoute("/graph/math");
 
-    expect(mockUseTaxonomyRootViewQuery).toHaveBeenCalledWith({
-      enabled: false,
-    });
+    expect(mockUseTaxonomyRootViewQuery).not.toHaveBeenCalled();
     expect(mockUseTaxonomyNodeViewByPathQuery).toHaveBeenCalledWith("math", {
       enabled: true,
     });
