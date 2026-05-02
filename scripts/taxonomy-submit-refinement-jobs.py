@@ -111,7 +111,10 @@ async def submit_refinement_jobs(
     type=click.IntRange(min=1, max=1000),
     default=1000,
     show_default=True,
-    help="Producer batch size for job-queue-mcp batch creation.",
+    help=(
+        "Maximum producer jobs per request. Request bodies are also "
+        "auto-split below the 900 KiB producer body cap."
+    ),
 )
 @click.option(
     "--verbose",

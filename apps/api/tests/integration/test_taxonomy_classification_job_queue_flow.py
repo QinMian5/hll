@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from modules.knowledge_graph.model import Node
 from modules.taxonomy.model import TaxonomyNode
 from modules.taxonomy.repo import TaxonomyRepo
+from modules.taxonomy_classification import submission as submission_module
 from modules.taxonomy_classification.dto import TaxonomyClassificationSubmissionSelection
 from modules.taxonomy_classification.model import (
     TaxonomyClassificationJob,
@@ -1176,6 +1177,92 @@ async def test_operator_submission_batches_pending_jobs_and_counts_idempotent_re
     assert result.scopes[0].reused_idempotent_count == 1
     assert first_local_job.job_id == 8101
     assert second_local_job.job_id == 8102
+
+
+async def test_operator_submission_auto_chunks_by_request_byte_limit(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _root, root_unclassified, _science, _science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    first_node = await _create_node(db_session)
+    second_node = await _create_node(db_session)
+    first_node.content = "Vector spaces. " * 80
+    second_node.content = "Matrix decompositions. " * 80
+    taxonomy_repo = TaxonomyRepo(session=db_session)
+    await taxonomy_repo.set_current_assignment(
+        node_id=first_node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    await taxonomy_repo.set_current_assignment(
+        node_id=second_node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    await db_session.commit()
+    monkeypatch.setattr(
+        submission_module,
+        "MAX_JOB_QUEUE_BATCH_REQUEST_BYTES",
+        4_000,
+    )
+    client = FakeCreateJobClient(create_job_ids=[8201, 8202])
+    service = TaxonomyClassificationSubmissionService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+    )
+
+    result = await service.submit_refinement_jobs(
+        selection=TaxonomyClassificationSubmissionSelection(
+            kind="scope_name",
+            scope_name="Root",
+        ),
+        limit=None,
+        batch_size=1000,
+    )
+    await db_session.commit()
+
+    assert [len(batch) for batch in client.created_job_batches] == [1, 1]
+    assert result.submitted_count == 2
+    assert result.reused_idempotent_count == 0
+
+
+async def test_operator_submission_rejects_single_job_above_request_byte_limit(
+    db_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _root, root_unclassified, _science, _science_unclassified = await _create_taxonomy_tree(
+        db_session
+    )
+    node = await _create_node(db_session)
+    await TaxonomyRepo(session=db_session).set_current_assignment(
+        node_id=node.id,
+        taxonomy_node_id=root_unclassified.id,
+    )
+    await db_session.commit()
+    monkeypatch.setattr(
+        submission_module,
+        "MAX_JOB_QUEUE_BATCH_REQUEST_BYTES",
+        100,
+    )
+    client = FakeCreateJobClient(create_job_ids=[8203])
+    service = TaxonomyClassificationSubmissionService(
+        db_session,
+        job_queue_client=client,
+        queue_name="taxonomy_classification",
+    )
+
+    with pytest.raises(ValueError, match="single taxonomy-classification job request"):
+        await service.submit_refinement_jobs(
+            selection=TaxonomyClassificationSubmissionSelection(
+                kind="scope_name",
+                scope_name="Root",
+            ),
+            limit=None,
+            batch_size=1000,
+        )
+
+    assert client.created_job_batches == []
 
 
 async def test_operator_submission_counts_active_job_as_already_linked(

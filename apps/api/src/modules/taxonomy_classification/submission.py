@@ -5,6 +5,7 @@ Out of scope: Runtime result processing and webhook authentication.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Protocol
@@ -34,6 +35,9 @@ from modules.taxonomy_classification.scope_resolution import (
 )
 
 MAX_JOB_QUEUE_BATCH_SIZE = 1000
+MAX_JOB_QUEUE_BATCH_REQUEST_BYTES = 900 * 1024
+_JOB_BATCH_REQUEST_PREFIX_BYTES = len(b'{"jobs":[')
+_JOB_BATCH_REQUEST_SUFFIX_BYTES = len(b"]}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +48,13 @@ class _SubmissionCounts:
     @property
     def total_count(self) -> int:
         return self.submitted_count + self.reused_idempotent_count
+
+
+@dataclass(frozen=True, slots=True)
+class _PendingSubmissionItem:
+    local_job: TaxonomyClassificationJob
+    card: Node
+    create_job: CreateJobItem
 
 
 class TaxonomyClassificationCreateJobClientPort(Protocol):
@@ -223,9 +234,11 @@ class TaxonomyClassificationSubmissionService:
         instruction = build_taxonomy_classification_instruction()
         output_schema = export_taxonomy_classification_output_schema()
 
-        for batch in _chunks(pending_jobs, batch_size):
-            items = [
-                CreateJobItem(
+        pending_items = [
+            _PendingSubmissionItem(
+                local_job=local_job,
+                card=card,
+                create_job=CreateJobItem(
                     queue_name=self._queue_name,
                     idempotency_key=_idempotency_key(local_job),
                     priority="normal",
@@ -240,17 +253,25 @@ class TaxonomyClassificationSubmissionService:
                         "source_unclassified_node_id": (resolved_scope.source_unclassified_node.id),
                         "node_id": card.id,
                     },
-                )
-                for local_job, card in batch
-            ]
+                ),
+            )
+            for local_job, card in pending_jobs
+        ]
+
+        for batch in _chunk_submission_items(
+            pending_items,
+            max_item_count=batch_size,
+            max_request_bytes=MAX_JOB_QUEUE_BATCH_REQUEST_BYTES,
+        ):
+            items = [entry.create_job for entry in batch]
             created_jobs = await self._job_queue_client.create_jobs(items)
             created_job_by_index = _created_job_by_index(
                 created_jobs=created_jobs,
                 expected_count=len(batch),
             )
-            for index, (local_job, _card) in enumerate(batch):
+            for index, entry in enumerate(batch):
                 created_job = created_job_by_index[index]
-                local_job.job_id = created_job.job_id
+                entry.local_job.job_id = created_job.job_id
                 if created_job.created:
                     submitted_count += 1
                 else:
@@ -468,8 +489,72 @@ def _idempotency_key(local_job: TaxonomyClassificationJob) -> str:
     return f"taxonomy-classification-job:{local_job.id}"
 
 
-def _chunks[T](items: Sequence[T], size: int) -> list[Sequence[T]]:
-    return [items[index : index + size] for index in range(0, len(items), size)]
+def _chunk_submission_items(
+    items: Sequence[_PendingSubmissionItem],
+    *,
+    max_item_count: int,
+    max_request_bytes: int,
+) -> list[list[_PendingSubmissionItem]]:
+    chunks: list[list[_PendingSubmissionItem]] = []
+    current: list[_PendingSubmissionItem] = []
+    current_request_bytes = _empty_batch_request_size_bytes()
+
+    for item in items:
+        item_json_bytes = _create_job_item_size_bytes(item.create_job)
+        single_item_request_bytes = _empty_batch_request_size_bytes() + item_json_bytes
+        if single_item_request_bytes > max_request_bytes:
+            raise ValueError(
+                "single taxonomy-classification job request "
+                f"local_job_id={item.local_job.id} node_id={item.card.id} "
+                f"is {single_item_request_bytes} bytes, exceeding max producer batch "
+                f"request size {max_request_bytes} bytes"
+            )
+
+        candidate_request_bytes = current_request_bytes + item_json_bytes
+        if current:
+            candidate_request_bytes += 1
+
+        if current and (
+            len(current) >= max_item_count or candidate_request_bytes > max_request_bytes
+        ):
+            chunks.append(current)
+            current = [item]
+            current_request_bytes = _empty_batch_request_size_bytes() + item_json_bytes
+            continue
+
+        current.append(item)
+        current_request_bytes = candidate_request_bytes
+
+    if current:
+        chunks.append(current)
+
+    return chunks
+
+
+def _empty_batch_request_size_bytes() -> int:
+    return _JOB_BATCH_REQUEST_PREFIX_BYTES + _JOB_BATCH_REQUEST_SUFFIX_BYTES
+
+
+def _create_job_item_size_bytes(item: CreateJobItem) -> int:
+    return len(
+        json.dumps(
+            _create_job_item_request_dict(item),
+            ensure_ascii=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    )
+
+
+def _create_job_item_request_dict(item: CreateJobItem) -> dict[str, object]:
+    return {
+        "queue_name": item.queue_name,
+        "idempotency_key": item.idempotency_key,
+        "instruction": item.instruction,
+        "output_schema": item.output_schema,
+        "priority": item.priority,
+        "payload": item.payload or {},
+        "metadata": item.metadata or {},
+    }
 
 
 def _created_job_by_index(

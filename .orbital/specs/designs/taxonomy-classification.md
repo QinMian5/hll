@@ -51,11 +51,11 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - `all_unclassified` scope rule: the script scans all regular taxonomy nodes that have a direct `Unclassified` leaf.
   - No-child skip rule: a scope with no regular direct child categories is skipped and counted as `skipped_no_children`.
   - Optional limit: limits the total number of submitted card jobs for the run after scope eligibility is resolved.
-  - Batch size: limits each producer batch-create request to a value from 1 through 1000 and defaults to 1000.
+  - Batch sizing: limits each producer batch-create request to an item-count ceiling from 1 through 1000 and defaults to 1000. The service also automatically splits producer batch-create requests so each serialized request body stays below the 900 KiB producer body cap.
   - Selection set: cards currently assigned to each selected scope node's direct `Unclassified` leaf and lacking an active outstanding classification job for the same scope and source assignment.
   - Ordering: scopes are processed by breadcrumb path and taxonomy node id; selected cards within a scope are processed in `nodes.id ASC`.
   - Local intent creation: the service creates and commits local active submission rows before producer batch submission so each row has a stable local job id.
-  - Producer submission: one queue job per selected card is created through the producer batch-create SDK. Each batch item uses `taxonomy-classification-job:{local_job_id}` as its queue-scoped idempotency key.
+  - Producer submission: one queue job per selected card is created through the producer batch-create SDK. Each request is bounded by both item count and serialized request-body size. Each batch item uses `taxonomy-classification-job:{local_job_id}` as its queue-scoped idempotency key.
   - Batch response handling: the service applies producer batch-create results by input index and writes the returned remote `job_id` to the matching local job row.
   - Idempotent recovery count: a batch result with `created=false` is counted as an idempotent remote job reuse for a previously created producer job.
   - Progress output: the script displays one aggregate progress indicator for jobs that require producer submission or producer-submission recovery. Already-linked jobs are excluded from progress.
@@ -180,7 +180,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Operator submission script skips scopes with no regular direct children and reports `skipped_no_children`.
   - Operator submission script selects cards from each selected scope's `Unclassified` leaf in `nodes.id ASC` order.
   - Submission idempotency tests verify repeated runs do not duplicate active job links for the same card and scope.
-  - Producer batch submission tests verify local job ids drive stable producer idempotency keys, batch-create responses are applied by input index, idempotent remote reuses are counted, and interrupted submissions can be safely resumed.
+  - Producer batch submission tests verify local job ids drive stable producer idempotency keys, batch-create responses are applied by input index, idempotent remote reuses are counted, automatic request-body chunking keeps producer requests below the 900 KiB body cap, oversized single-job requests fail before remote submission, and interrupted submissions can be safely resumed.
   - Operator progress tests verify the default output contains one aggregate progress display and a compact summary without per-scope detail.
   - Operator verbose-output tests verify per-scope detail is emitted only in verbose mode.
   - Resubmission tests verify processed keep-unclassified results, processed invalid accepted results, and terminal non-accepted results do not block later submissions for cards still assigned to the same scope `Unclassified` leaf.
