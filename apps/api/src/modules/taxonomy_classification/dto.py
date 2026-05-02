@@ -14,7 +14,7 @@ from modules.taxonomy.dto import TaxonomyAssignmentRecord, TaxonomyNodeRecord
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 NodeOutcomeStatus = Literal["assigned", "already_assigned", "error"]
 SessionResult = Literal["assigned", "already_assigned"]
-SubmissionSelectionKind = Literal["scope_name", "scope_path", "all_unclassified"]
+SubmissionSelectionKind = Literal["scope_name", "scope_path", "all_direct_assignments"]
 
 
 class TaxonomyClassificationSubmissionSelection(BaseModel):
@@ -30,10 +30,10 @@ class TaxonomyClassificationSubmissionSelection(BaseModel):
             raise ValueError("scope_name selection requires only scope_name")
         if self.kind == "scope_path" and (self.scope_path is None or self.scope_name is not None):
             raise ValueError("scope_path selection requires only scope_path")
-        if self.kind == "all_unclassified" and (
+        if self.kind == "all_direct_assignments" and (
             self.scope_name is not None or self.scope_path is not None
         ):
-            raise ValueError("all_unclassified selection does not accept a scope")
+            raise ValueError("all_direct_assignments selection does not accept a scope")
         return self
 
 
@@ -65,7 +65,7 @@ class TaxonomyClassificationNodeOutcome(BaseModel):
 
     node_id: int = Field(gt=0)
     status: NodeOutcomeStatus
-    leaf_id: int | None = Field(default=None, gt=0)
+    taxonomy_node_id: int | None = Field(default=None, gt=0)
     detail: NonEmptyString | None = None
 
 
@@ -92,7 +92,7 @@ class SessionAssignmentResponse(BaseModel):
     assignment: TaxonomyAssignmentRecord | None = None
 
 
-class SessionAssignLeafResponse(BaseModel):
+class SessionAssignTaxonomyNodeResponse(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
 
     result: SessionResult

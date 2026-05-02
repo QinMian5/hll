@@ -44,12 +44,13 @@ def test_jobs_projection_contains_job_id_partial_unique_index() -> None:
 
 def test_jobs_projection_contains_active_only_partial_unique_index() -> None:
     table = cast(Table, TaxonomyClassificationJob.__table__)
+    assert "source_unclassified_node_id" not in table.c
+
     indexes = [index for index in table.indexes if isinstance(index, Index)]
     matching = [
         index
         for index in indexes
-        if {column.name for column in index.columns}
-        == {"scope_node_id", "source_unclassified_node_id", "node_id"}
+        if {column.name for column in index.columns} == {"scope_node_id", "node_id"}
         and index.unique
     ]
 
@@ -85,11 +86,11 @@ def test_webhook_wakeups_projection_uses_event_id_unique_constraint() -> None:
     assert {"event_id"} in unique_column_sets
 
 
-def test_projection_refresh_requests_use_leaf_primary_key_and_updated_at_index() -> None:
+def test_projection_refresh_requests_use_scope_identity_primary_key_and_updated_at_index() -> None:
     table = cast(Table, TaxonomyClassificationProjectionRefreshRequest.__table__)
     primary_key_columns = {column.name for column in table.primary_key.columns}
     index_column_sets = [{column.name for column in index.columns} for index in table.indexes]
 
-    assert primary_key_columns == {"leaf_id"}
-    assert {"updated_at", "leaf_id"} in index_column_sets
+    assert primary_key_columns == {"scope_kind", "taxonomy_node_id"}
+    assert {"updated_at", "scope_kind", "taxonomy_node_id"} in index_column_sets
     assert table.c.last_error.nullable is True

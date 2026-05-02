@@ -12,83 +12,101 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from entrypoints.taxonomy_view_layout_runtime import process_next_leaf_layout
+from entrypoints.taxonomy_view_layout_runtime import process_next_card_scope_layout
+from modules.taxonomy.dto import TaxonomyScopeIdentity
+from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND
 
 
 @dataclass(slots=True)
 class _FakeLayoutCache:
-    claimed_leaf_id: int | None
-    completed_leaf_ids: list[int] = field(default_factory=list)
+    claimed_scope_identity: TaxonomyScopeIdentity | None
+    completed_scope_identities: list[TaxonomyScopeIdentity] = field(default_factory=list)
 
-    async def claim_leaf_layout_compute(self) -> int | None:
-        return self.claimed_leaf_id
+    async def claim_card_scope_layout_compute(self) -> TaxonomyScopeIdentity | None:
+        return self.claimed_scope_identity
 
-    async def complete_leaf_layout_compute(self, *, leaf_id: int) -> None:
-        self.completed_leaf_ids.append(leaf_id)
+    async def complete_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> None:
+        self.completed_scope_identities.append(scope_identity)
 
 
 @dataclass(slots=True)
 class _FakeTaxonomyService:
-    computed_leaf_ids: list[int] = field(default_factory=list)
+    computed_scope_identities: list[TaxonomyScopeIdentity] = field(default_factory=list)
     fail: bool = False
 
-    async def build_and_cache_leaf_layout(self, *, leaf_id: int) -> None:
-        self.computed_leaf_ids.append(leaf_id)
+    async def build_and_cache_card_scope_layout(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> None:
+        self.computed_scope_identities.append(scope_identity)
         if self.fail:
             raise RuntimeError("layout compute failed")
 
 
 @pytest.mark.anyio
-async def test_process_next_leaf_layout_claims_computes_and_completes() -> None:
-    cache = _FakeLayoutCache(claimed_leaf_id=9)
+async def test_process_next_card_scope_layout_claims_computes_and_completes() -> None:
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=9,
+    )
+    cache = _FakeLayoutCache(claimed_scope_identity=scope_identity)
     service = _FakeTaxonomyService()
 
     @asynccontextmanager
     async def service_factory() -> AsyncIterator[_FakeTaxonomyService]:
         yield service
 
-    processed = await process_next_leaf_layout(
+    processed = await process_next_card_scope_layout(
         cache=cache,
         service_factory=service_factory,
     )
 
     assert processed is True
-    assert service.computed_leaf_ids == [9]
-    assert cache.completed_leaf_ids == [9]
+    assert service.computed_scope_identities == [scope_identity]
+    assert cache.completed_scope_identities == [scope_identity]
 
 
 @pytest.mark.anyio
-async def test_process_next_leaf_layout_returns_false_when_queue_is_empty() -> None:
-    cache = _FakeLayoutCache(claimed_leaf_id=None)
+async def test_process_next_card_scope_layout_returns_false_when_queue_is_empty() -> None:
+    cache = _FakeLayoutCache(claimed_scope_identity=None)
 
     @asynccontextmanager
     async def service_factory() -> AsyncIterator[_FakeTaxonomyService]:
         raise AssertionError("service factory should not be opened")
         yield _FakeTaxonomyService()
 
-    processed = await process_next_leaf_layout(
+    processed = await process_next_card_scope_layout(
         cache=cache,
         service_factory=service_factory,
     )
 
     assert processed is False
-    assert cache.completed_leaf_ids == []
+    assert cache.completed_scope_identities == []
 
 
 @pytest.mark.anyio
-async def test_process_next_leaf_layout_completes_singleflight_state_after_failure() -> None:
-    cache = _FakeLayoutCache(claimed_leaf_id=9)
+async def test_process_next_card_scope_layout_completes_singleflight_state_after_failure() -> None:
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=9,
+    )
+    cache = _FakeLayoutCache(claimed_scope_identity=scope_identity)
     service = _FakeTaxonomyService(fail=True)
 
     @asynccontextmanager
     async def service_factory() -> AsyncIterator[_FakeTaxonomyService]:
         yield service
 
-    processed = await process_next_leaf_layout(
+    processed = await process_next_card_scope_layout(
         cache=cache,
         service_factory=service_factory,
     )
 
     assert processed is True
-    assert service.computed_leaf_ids == [9]
-    assert cache.completed_leaf_ids == [9]
+    assert service.computed_scope_identities == [scope_identity]
+    assert cache.completed_scope_identities == [scope_identity]

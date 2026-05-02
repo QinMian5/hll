@@ -31,7 +31,7 @@ def test_seed_blueprint_uses_placeholder_taxonomy_cards_and_hardcoded_edges() ->
         "Card7",
         "Card8",
     ]
-    assert {card.leaf_name for card in DEV_SEED_CARD_SPECS} == {
+    assert {card.card_scope_name for card in DEV_SEED_CARD_SPECS} == {
         "Leaf1",
         "Leaf2",
         "Leaf3",

@@ -18,9 +18,11 @@ from modules.knowledge_graph.model import Adjacency, Edge, Node
 from modules.knowledge_graph.repo import KnowledgeRepo
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
-    TaxonomyLeafProjectionEdge,
     TaxonomyNode,
+    TaxonomyScopeProjectionEdge,
 )
+from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND
+from modules.taxonomy.route_path import slugify_taxonomy_route_segment
 
 DEV_ROOT_NAME = "Root"
 DEV_SEED_BRANCHES: dict[str, tuple[str, ...]] = {
@@ -34,7 +36,7 @@ DEV_SEED_EMBEDDING_DIMENSIONS = 1536
 class DevSeedCardSpec:
     title: str
     content: str
-    leaf_name: str
+    card_scope_name: str
 
 
 @dataclass(slots=True, frozen=True)
@@ -93,21 +95,21 @@ async def seed_dev_taxonomy_view(
         raise ValueError("Dev taxonomy seed rows already exist. Re-run with --reset.")
 
     root = await _get_or_create_root(session=session)
-    leaf_ids_by_name = await _create_taxonomy_seed(session=session, root_id=root.id)
+    scope_ids_by_name = await _create_taxonomy_seed(session=session, root_id=root.id)
     node_ids_by_title = await _create_card_seed(session=session)
     await _create_assignment_seed(
         session=session,
-        leaf_ids_by_name=leaf_ids_by_name,
+        scope_ids_by_name=scope_ids_by_name,
         node_ids_by_title=node_ids_by_title,
     )
     edge_endpoints_by_id = await _create_edge_seed(
         session=session,
         node_ids_by_title=node_ids_by_title,
     )
-    projection_edge_count = await _create_leaf_projection_seed(
+    projection_edge_count = await _create_card_scope_projection_seed(
         session=session,
         edge_endpoints_by_id=edge_endpoints_by_id,
-        leaf_ids_by_name=leaf_ids_by_name,
+        scope_ids_by_name=scope_ids_by_name,
         node_ids_by_title=node_ids_by_title,
     )
     await session.commit()
@@ -171,19 +173,21 @@ async def _delete_existing_dev_seed(*, session: AsyncSession) -> None:
         await session.flush()
         return
 
-    leaf_ids = (
+    scope_ids = (
         await session.scalars(select(TaxonomyNode.id).where(TaxonomyNode.parent_id.in_(branch_ids)))
     ).all()
-    subtree_ids = [*leaf_ids, *branch_ids]
+    subtree_ids = [*scope_ids, *branch_ids]
     await session.execute(
         delete(NodeTaxonomyAssignment).where(
             NodeTaxonomyAssignment.taxonomy_node_id.in_(subtree_ids)
         )
     )
     await session.execute(
-        delete(TaxonomyLeafProjectionEdge).where(TaxonomyLeafProjectionEdge.leaf_id.in_(leaf_ids))
+        delete(TaxonomyScopeProjectionEdge)
+        .where(TaxonomyScopeProjectionEdge.scope_kind == TAXONOMY_NODE_SCOPE_KIND)
+        .where(TaxonomyScopeProjectionEdge.taxonomy_node_id.in_(scope_ids))
     )
-    await session.execute(delete(TaxonomyNode).where(TaxonomyNode.id.in_(leaf_ids)))
+    await session.execute(delete(TaxonomyNode).where(TaxonomyNode.id.in_(scope_ids)))
     await session.execute(delete(TaxonomyNode).where(TaxonomyNode.id.in_(branch_ids)))
     await session.flush()
 
@@ -197,7 +201,7 @@ async def _get_or_create_root(*, session: AsyncSession) -> TaxonomyNode:
     if root is not None:
         return root
 
-    root = TaxonomyNode(parent_id=None, name=DEV_ROOT_NAME, depth=0, is_leaf=False)
+    root = _taxonomy_node(parent_id=None, name=DEV_ROOT_NAME, depth=0)
     session.add(root)
     await session.flush()
     return root
@@ -208,17 +212,26 @@ async def _create_taxonomy_seed(
     session: AsyncSession,
     root_id: int,
 ) -> dict[str, int]:
-    leaf_ids_by_name: dict[str, int] = {}
-    for branch_name, leaf_names in DEV_SEED_BRANCHES.items():
-        branch = TaxonomyNode(parent_id=root_id, name=branch_name, depth=1, is_leaf=False)
+    scope_ids_by_name: dict[str, int] = {}
+    for branch_name, scope_names in DEV_SEED_BRANCHES.items():
+        branch = _taxonomy_node(parent_id=root_id, name=branch_name, depth=1)
         session.add(branch)
         await session.flush()
-        for leaf_name in leaf_names:
-            leaf = TaxonomyNode(parent_id=branch.id, name=leaf_name, depth=2, is_leaf=True)
-            session.add(leaf)
+        for scope_name in scope_names:
+            card_scope = _taxonomy_node(parent_id=branch.id, name=scope_name, depth=2)
+            session.add(card_scope)
             await session.flush()
-            leaf_ids_by_name[leaf_name] = leaf.id
-    return leaf_ids_by_name
+            scope_ids_by_name[scope_name] = card_scope.id
+    return scope_ids_by_name
+
+
+def _taxonomy_node(*, parent_id: int | None, name: str, depth: int) -> TaxonomyNode:
+    return TaxonomyNode(
+        parent_id=parent_id,
+        name=name,
+        route_slug=slugify_taxonomy_route_segment(name),
+        depth=depth,
+    )
 
 
 async def _create_card_seed(*, session: AsyncSession) -> dict[str, int]:
@@ -237,14 +250,14 @@ async def _create_card_seed(*, session: AsyncSession) -> dict[str, int]:
 async def _create_assignment_seed(
     *,
     session: AsyncSession,
-    leaf_ids_by_name: dict[str, int],
+    scope_ids_by_name: dict[str, int],
     node_ids_by_title: dict[str, int],
 ) -> None:
     for card in DEV_SEED_CARD_SPECS:
         session.add(
             NodeTaxonomyAssignment(
                 node_id=node_ids_by_title[card.title],
-                taxonomy_node_id=leaf_ids_by_name[card.leaf_name],
+                taxonomy_node_id=scope_ids_by_name[card.card_scope_name],
             )
         )
     await session.flush()
@@ -278,25 +291,31 @@ async def _create_edge_seed(
     return edge_endpoints_by_id
 
 
-async def _create_leaf_projection_seed(
+async def _create_card_scope_projection_seed(
     *,
     session: AsyncSession,
     edge_endpoints_by_id: dict[int, tuple[int, int]],
-    leaf_ids_by_name: dict[str, int],
+    scope_ids_by_name: dict[str, int],
     node_ids_by_title: dict[str, int],
 ) -> int:
-    node_ids_by_leaf_id: dict[int, set[int]] = {
-        leaf_id: set() for leaf_id in leaf_ids_by_name.values()
+    node_ids_by_scope_id: dict[int, set[int]] = {
+        scope_id: set() for scope_id in scope_ids_by_name.values()
     }
     for card in DEV_SEED_CARD_SPECS:
-        leaf_id = leaf_ids_by_name[card.leaf_name]
-        node_ids_by_leaf_id[leaf_id].add(node_ids_by_title[card.title])
+        scope_id = scope_ids_by_name[card.card_scope_name]
+        node_ids_by_scope_id[scope_id].add(node_ids_by_title[card.title])
 
-    projection_rows: list[TaxonomyLeafProjectionEdge] = []
-    for leaf_id, node_ids in node_ids_by_leaf_id.items():
+    projection_rows: list[TaxonomyScopeProjectionEdge] = []
+    for scope_id, node_ids in node_ids_by_scope_id.items():
         for edge_id, endpoints in edge_endpoints_by_id.items():
             if endpoints[0] in node_ids or endpoints[1] in node_ids:
-                projection_rows.append(TaxonomyLeafProjectionEdge(leaf_id=leaf_id, edge_id=edge_id))
+                projection_rows.append(
+                    TaxonomyScopeProjectionEdge(
+                        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+                        taxonomy_node_id=scope_id,
+                        edge_id=edge_id,
+                    )
+                )
 
     session.add_all(projection_rows)
     await session.flush()

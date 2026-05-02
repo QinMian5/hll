@@ -22,6 +22,7 @@ from modules.knowledge_graph.dto import (
     TaxonomyClassificationNodeInput,
     VectorSearchCandidate,
 )
+from modules.taxonomy.dto import TaxonomyScopeIdentity
 
 RRF_K = 60
 
@@ -169,14 +170,18 @@ class KnowledgeGraphRepoProtocol(Protocol):
 
 
 class KnowledgeGraphTaxonomyProjectionPort(Protocol):
-    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int: ...
+    async def assign_node_to_root(self, *, node_id: int) -> int: ...
 
-    async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]: ...
-
-    async def add_projected_edge_ids_for_leaf(
+    async def list_scope_identities_for_node_ids(
         self,
         *,
-        leaf_id: int,
+        node_ids: list[int],
+    ) -> dict[int, TaxonomyScopeIdentity]: ...
+
+    async def add_projected_edge_ids_for_scope(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
         edge_ids: list[int],
     ) -> None: ...
 
@@ -401,7 +406,7 @@ class KnowledgeGraphService:
                 embedding=embedding,
             )
             if self._taxonomy_projection_port is not None:
-                await self._taxonomy_projection_port.assign_node_to_root_unclassified(
+                await self._taxonomy_projection_port.assign_node_to_root(
                     node_id=node_id,
                 )
 
@@ -472,11 +477,17 @@ class KnowledgeGraphService:
             strength=strength,
         )
         if self._taxonomy_projection_port is not None:
-            leaf_ids_by_node_id = await self._taxonomy_projection_port.list_leaf_ids_for_node_ids(
-                node_ids=[source_node_id, related_node_id]
+            scope_identities_by_node_id = (
+                await self._taxonomy_projection_port.list_scope_identities_for_node_ids(
+                    node_ids=[source_node_id, related_node_id]
+                )
             )
-            for leaf_id in sorted(set(leaf_ids_by_node_id.values())):
-                await self._taxonomy_projection_port.add_projected_edge_ids_for_leaf(
-                    leaf_id=leaf_id,
+            scope_identities = sorted(
+                set(scope_identities_by_node_id.values()),
+                key=lambda item: (item.scope_kind, item.taxonomy_node_id),
+            )
+            for scope_identity in scope_identities:
+                await self._taxonomy_projection_port.add_projected_edge_ids_for_scope(
+                    scope_identity=scope_identity,
                     edge_ids=[edge_id],
                 )

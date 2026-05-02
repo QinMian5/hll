@@ -40,6 +40,7 @@ docker compose "${compose_args[@]}" run --rm migrate
 docker compose "${compose_args[@]}" stop \
   api \
   worker \
+  taxonomy_view_layout_runtime \
   taxonomy_classification_runtime \
   taxonomy_classification_webhook_receiver >/dev/null 2>&1 || true
 
@@ -49,5 +50,8 @@ docker compose "${compose_args[@]}" stop \
 } | docker compose "${compose_args[@]}" exec -T postgres sh -lc \
   'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
 
+docker compose "${compose_args[@]}" up -d --wait redis
+docker compose "${compose_args[@]}" exec -T redis redis-cli FLUSHDB >/dev/null
+
 docker compose "${compose_args[@]}" exec -T postgres sh -lc \
-  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select '\''nodes'\'', count(*) from nodes union all select '\''card_versions'\'', count(*) from card_versions union all select '\''edges'\'', count(*) from edges union all select '\''taxonomy_nodes'\'', count(*) from taxonomy_nodes union all select '\''node_taxonomy_assignments'\'', count(*) from node_taxonomy_assignments union all select '\''taxonomy_leaf_projection_edges'\'', count(*) from taxonomy_leaf_projection_edges order by 1;"'
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "select '\''nodes'\'', count(*) from nodes union all select '\''card_versions'\'', count(*) from card_versions union all select '\''edges'\'', count(*) from edges union all select '\''taxonomy_nodes'\'', count(*) from taxonomy_nodes union all select '\''node_taxonomy_assignments'\'', count(*) from node_taxonomy_assignments union all select '\''taxonomy_scope_projection_edges'\'', count(*) from taxonomy_scope_projection_edges order by 1;"'

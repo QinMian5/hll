@@ -10,11 +10,11 @@ from collections.abc import Callable
 from fastapi import APIRouter, Depends
 
 from modules.taxonomy.schema import (
-    TaxonomyLeafLayoutSliceResponse,
-    TaxonomyLeafNodeDetailsRequest,
-    TaxonomyLeafNodeDetailsResponse,
-    TaxonomyLeafNodeTitlesRequest,
-    TaxonomyLeafNodeTitlesResponse,
+    TaxonomyCardScopeLayoutSliceResponse,
+    TaxonomyCardScopeNodeDetailsRequest,
+    TaxonomyCardScopeNodeDetailsResponse,
+    TaxonomyCardScopeNodeTitlesRequest,
+    TaxonomyCardScopeNodeTitlesResponse,
     TaxonomyNodeViewResponse,
     TaxonomyRootViewResponse,
 )
@@ -47,19 +47,19 @@ def build_router(*, get_taxonomy_service: TaxonomyServiceProvider) -> APIRouter:
         return await taxonomy_service.get_node_view_by_route_path(route_path=route_path)
 
     @router.get(
-        "/view/leaves/{node_id}/layout",
-        response_model=TaxonomyLeafLayoutSliceResponse,
+        "/view/card-scopes/layout",
+        response_model=TaxonomyCardScopeLayoutSliceResponse,
     )
-    async def get_leaf_layout_slice(
-        node_id: int,
+    async def get_card_scope_layout_slice(
+        route_path: str,
         min_x: float,
         min_y: float,
         max_x: float,
         max_y: float,
         taxonomy_service: TaxonomyService = Depends(get_taxonomy_service),
-    ) -> TaxonomyLeafLayoutSliceResponse:
-        return await taxonomy_service.get_leaf_layout_slice(
-            node_id=node_id,
+    ) -> TaxonomyCardScopeLayoutSliceResponse:
+        return await taxonomy_service.get_card_scope_layout_slice(
+            route_path=route_path,
             min_x=min_x,
             min_y=min_y,
             max_x=max_x,
@@ -67,30 +67,28 @@ def build_router(*, get_taxonomy_service: TaxonomyServiceProvider) -> APIRouter:
         )
 
     @router.post(
-        "/view/leaves/{node_id}/details",
-        response_model=TaxonomyLeafNodeDetailsResponse,
+        "/view/card-scopes/details",
+        response_model=TaxonomyCardScopeNodeDetailsResponse,
     )
-    async def get_leaf_node_details(
-        node_id: int,
-        request: TaxonomyLeafNodeDetailsRequest,
+    async def get_card_scope_node_details(
+        request: TaxonomyCardScopeNodeDetailsRequest,
         taxonomy_service: TaxonomyService = Depends(get_taxonomy_service),
-    ) -> TaxonomyLeafNodeDetailsResponse:
-        return await taxonomy_service.get_leaf_node_details(
-            node_id=node_id,
+    ) -> TaxonomyCardScopeNodeDetailsResponse:
+        return await taxonomy_service.get_card_scope_node_details(
+            route_path=request.route_path,
             node_ids=request.node_ids,
         )
 
     @router.post(
-        "/view/leaves/{node_id}/titles",
-        response_model=TaxonomyLeafNodeTitlesResponse,
+        "/view/card-scopes/titles",
+        response_model=TaxonomyCardScopeNodeTitlesResponse,
     )
-    async def get_leaf_node_titles(
-        node_id: int,
-        request: TaxonomyLeafNodeTitlesRequest,
+    async def get_card_scope_node_titles(
+        request: TaxonomyCardScopeNodeTitlesRequest,
         taxonomy_service: TaxonomyService = Depends(get_taxonomy_service),
-    ) -> TaxonomyLeafNodeTitlesResponse:
-        return await taxonomy_service.get_leaf_node_titles(
-            node_id=node_id,
+    ) -> TaxonomyCardScopeNodeTitlesResponse:
+        return await taxonomy_service.get_card_scope_node_titles(
+            route_path=request.route_path,
             node_ids=request.node_ids,
         )
 

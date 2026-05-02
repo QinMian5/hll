@@ -1,5 +1,5 @@
 """
-Abstract: Integration tests for the taxonomy leaf-only assignment trigger.
+Abstract: Integration tests for direct taxonomy node assignment persistence.
 Out of scope: Import bootstrap behavior and taxonomy HTTP transport contracts.
 """
 
@@ -8,11 +8,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.model import Node
 from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
+from modules.taxonomy.route_path import slugify_taxonomy_route_segment
 
 
 async def _create_knowledge_node(db_session: AsyncSession) -> Node:
@@ -31,14 +31,13 @@ async def _create_taxonomy_node(
     *,
     name: str,
     depth: int,
-    is_leaf: bool,
     parent_id: int | None = None,
 ) -> TaxonomyNode:
     taxonomy_node = TaxonomyNode(
         parent_id=parent_id,
         name=name,
+        route_slug=slugify_taxonomy_route_segment(name),
         depth=depth,
-        is_leaf=is_leaf,
     )
     db_session.add(taxonomy_node)
     await db_session.flush()
@@ -48,33 +47,31 @@ async def _create_taxonomy_node(
 @pytest.mark.integration
 @pytest.mark.db
 @pytest.mark.anyio
-async def test_assignment_to_non_leaf_taxonomy_node_is_rejected(
+async def test_assignment_to_root_taxonomy_node_is_accepted(
     db_session: AsyncSession,
 ) -> None:
     knowledge_node = await _create_knowledge_node(db_session)
-    parent = await _create_taxonomy_node(
+    root = await _create_taxonomy_node(
         db_session,
         name="Root",
         depth=0,
-        is_leaf=False,
     )
 
-    db_session.add(
-        NodeTaxonomyAssignment(
-            node_id=knowledge_node.id,
-            taxonomy_node_id=parent.id,
-            assigned_at=datetime.now(UTC),
-        )
+    assignment = NodeTaxonomyAssignment(
+        node_id=knowledge_node.id,
+        taxonomy_node_id=root.id,
+        assigned_at=datetime.now(UTC),
     )
+    db_session.add(assignment)
+    await db_session.flush()
 
-    with pytest.raises(DBAPIError):
-        await db_session.flush()
+    assert assignment.id is not None
 
 
 @pytest.mark.integration
 @pytest.mark.db
 @pytest.mark.anyio
-async def test_assignment_to_leaf_taxonomy_node_is_accepted(
+async def test_assignment_to_branch_taxonomy_node_is_accepted(
     db_session: AsyncSession,
 ) -> None:
     knowledge_node = await _create_knowledge_node(db_session)
@@ -82,19 +79,17 @@ async def test_assignment_to_leaf_taxonomy_node_is_accepted(
         db_session,
         name="Root",
         depth=0,
-        is_leaf=False,
     )
-    leaf = await _create_taxonomy_node(
+    branch = await _create_taxonomy_node(
         db_session,
         name="Mathematics",
         depth=1,
-        is_leaf=True,
         parent_id=parent.id,
     )
 
     assignment = NodeTaxonomyAssignment(
         node_id=knowledge_node.id,
-        taxonomy_node_id=leaf.id,
+        taxonomy_node_id=branch.id,
         assigned_at=datetime.now(UTC),
     )
     db_session.add(assignment)

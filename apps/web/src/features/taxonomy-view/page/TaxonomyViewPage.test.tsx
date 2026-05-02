@@ -70,7 +70,9 @@ vi.mock("./leaf/LeafRenderer", () => ({
     leafView,
     onSuggestEdit,
   }: {
-    readonly leafView: { readonly current_node: { readonly name: string } };
+    readonly leafView: {
+      readonly current_scope?: { readonly name: string };
+    };
     readonly onSuggestEdit?: (card: {
       readonly content: string;
       readonly currentVersion: number;
@@ -79,7 +81,7 @@ vi.mock("./leaf/LeafRenderer", () => ({
     }) => void;
   }) => (
     <div data-testid="taxonomy-leaf-renderer">
-      {leafView.current_node.name}
+      {leafView.current_scope?.name}
       <button
         onClick={() => {
           onSuggestEdit?.({
@@ -221,19 +223,19 @@ function makeLeafNodeView(
 ): TaxonomyNodeView {
   return {
     breadcrumb: [],
-    current_node: {
+    current_scope: {
       depth: 2,
-      id: 2,
-      is_leaf: true,
       name: "Algebra",
-      parent_id: 1,
+      parent_taxonomy_node_id: 1,
       route_path: "math",
       route_slug: "math",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 2,
     },
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",
-    layout_version: "taxonomy-leaf-layout-v3",
-    node_kind: "leaf",
+    layout_version: "taxonomy-card-scope-layout-v1",
+    node_kind: "card_scope",
     node_count: 2,
     world_bounds: { max_x: 744, max_y: 484, min_x: 696, min_y: 446 },
     ...overrides,
@@ -246,14 +248,14 @@ function makeBranchNodeView(
   return {
     breadcrumb: [],
     children: [],
-    current_node: {
+    current_scope: {
       depth: 1,
-      id: 1,
-      is_leaf: false,
       name: "Mathematics",
-      parent_id: null,
+      parent_taxonomy_node_id: null,
       route_path: "math",
       route_slug: "math",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 1,
     },
     node_kind: "branch",
     ...overrides,
@@ -268,12 +270,13 @@ beforeEach(() => {
         {
           depth: 0,
           descendant_card_count: 20,
-          id: 1,
-          is_leaf: false,
           name: "Math",
-          parent_id: null,
+          node_kind: "branch",
+          parent_taxonomy_node_id: null,
           route_path: "math",
           route_slug: "math",
+          scope_kind: "taxonomy_node",
+          taxonomy_node_id: 1,
         },
       ],
     }),
@@ -286,12 +289,12 @@ beforeEach(() => {
           breadcrumb: [
             {
               depth: 0,
-              id: 1,
-              is_leaf: false,
               name: "Math",
-              parent_id: null,
+              parent_taxonomy_node_id: null,
               route_path: "math",
               route_slug: "math",
+              scope_kind: "taxonomy_node",
+              taxonomy_node_id: 1,
             },
           ],
         }),
@@ -453,14 +456,14 @@ describe("TaxonomyViewPage", () => {
     );
   });
 
-  it("shows a retryable layout readiness message when leaf layout is not ready", async () => {
+  it("shows a retryable layout readiness message when card-scope layout is not ready", async () => {
     const refetch = vi.fn();
     pathQueryStates.set(
       "unclassified",
       makeQueryResult({
         error: new WebApiRequestError({
           code: "layout_not_ready",
-          message: "Taxonomy leaf layout is being prepared.",
+          message: "Taxonomy card-scope layout is being prepared.",
           retryAfterSeconds: 10,
           status: 503,
         }),
@@ -605,12 +608,13 @@ describe("TaxonomyViewPage", () => {
           {
             depth: 1,
             descendant_card_count: 54,
-            id: 4,
-            is_leaf: true,
             name: "Unclassified",
-            parent_id: 3,
+            node_kind: "card_scope",
+            parent_taxonomy_node_id: 3,
             route_path: "unclassified",
             route_slug: "unclassified",
+            scope_kind: "virtual_unclassified",
+            taxonomy_node_id: 3,
           },
         ],
       }),
@@ -622,31 +626,31 @@ describe("TaxonomyViewPage", () => {
           breadcrumb: [
             {
               depth: 0,
-              id: 3,
-              is_leaf: false,
               name: "Root",
-              parent_id: null,
+              parent_taxonomy_node_id: null,
               route_path: "",
               route_slug: "root",
+              scope_kind: "taxonomy_node",
+              taxonomy_node_id: 3,
             },
             {
               depth: 1,
-              id: 4,
-              is_leaf: true,
               name: "Unclassified",
-              parent_id: 3,
+              parent_taxonomy_node_id: 3,
               route_path: "unclassified",
               route_slug: "unclassified",
+              scope_kind: "virtual_unclassified",
+              taxonomy_node_id: 3,
             },
           ],
-          current_node: {
+          current_scope: {
             depth: 1,
-            id: 4,
-            is_leaf: true,
             name: "Unclassified",
-            parent_id: 3,
+            parent_taxonomy_node_id: 3,
             route_path: "unclassified",
             route_slug: "unclassified",
+            scope_kind: "virtual_unclassified",
+            taxonomy_node_id: 3,
           },
         }),
       }),
@@ -682,31 +686,31 @@ describe("TaxonomyViewPage", () => {
           breadcrumb: [
             {
               depth: 0,
-              id: 2,
-              is_leaf: false,
               name: "Science",
-              parent_id: null,
+              parent_taxonomy_node_id: null,
               route_path: "science",
               route_slug: "science",
+              scope_kind: "taxonomy_node",
+              taxonomy_node_id: 2,
             },
             {
               depth: 1,
-              id: 1,
-              is_leaf: false,
               name: "Mathematics",
-              parent_id: 2,
+              parent_taxonomy_node_id: 2,
               route_path: "science/mathematics",
               route_slug: "mathematics",
+              scope_kind: "taxonomy_node",
+              taxonomy_node_id: 1,
             },
           ],
-          current_node: {
+          current_scope: {
             depth: 1,
-            id: 1,
-            is_leaf: false,
             name: "Mathematics",
-            parent_id: 2,
+            parent_taxonomy_node_id: 2,
             route_path: "science/mathematics",
             route_slug: "mathematics",
+            scope_kind: "taxonomy_node",
+            taxonomy_node_id: 1,
           },
         }),
       }),

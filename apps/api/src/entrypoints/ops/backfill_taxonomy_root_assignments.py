@@ -1,5 +1,5 @@
 """
-Abstract: Operator CLI for one-time Root Unclassified taxonomy assignment backfill.
+Abstract: Operator CLI for one-time Root taxonomy assignment backfill.
 Out of scope: API serving, schema migration, and job-queue classification runtime.
 """
 
@@ -12,13 +12,13 @@ import click
 from entrypoints.runtime import get_runtime_dependencies
 from modules.knowledge_graph.builders import build_knowledge_graph_service
 from modules.taxonomy.repo import TaxonomyRepo
-from modules.taxonomy.root_unclassified_backfill import (
-    TaxonomyRootUnclassifiedBackfillResult,
-    TaxonomyRootUnclassifiedBackfillService,
+from modules.taxonomy.root_assignment_backfill import (
+    TaxonomyRootAssignmentBackfillResult,
+    TaxonomyRootAssignmentBackfillService,
 )
 
 
-async def run_backfill(*, apply: bool) -> TaxonomyRootUnclassifiedBackfillResult:
+async def run_backfill(*, apply: bool) -> TaxonomyRootAssignmentBackfillResult:
     runtime = get_runtime_dependencies()
     async with runtime.session_factory() as session:
         taxonomy_repo = TaxonomyRepo(session=session)
@@ -33,17 +33,16 @@ async def run_backfill(*, apply: bool) -> TaxonomyRootUnclassifiedBackfillResult
             if apply
             else None
         )
-        service = TaxonomyRootUnclassifiedBackfillService(
+        service = TaxonomyRootAssignmentBackfillService(
             repo=taxonomy_repo,
             knowledge_projection_port=projection_port,
         )
         return await service.run(apply=apply)
 
 
-def _print_result(result: TaxonomyRootUnclassifiedBackfillResult) -> None:
+def _print_result(result: TaxonomyRootAssignmentBackfillResult) -> None:
     click.echo(f"mode={result.mode}")
     click.echo(f"root_id={result.root_id}")
-    click.echo(f"root_unclassified_id={result.root_unclassified_id}")
     click.echo(f"total_cards={result.total_cards}")
     click.echo(f"assigned_before={result.assigned_before}")
     click.echo(f"missing_before={result.missing_before}")

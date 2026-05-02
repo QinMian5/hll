@@ -7,16 +7,10 @@ lifecycle wiring.
 
 from __future__ import annotations
 
-from pathlib import Path
-from tempfile import gettempdir
 from typing import Self
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
-
-_DEFAULT_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE = str(
-    Path(gettempdir()) / "knowledge-api-taxonomy-classification"
-)
 
 
 class Settings(BaseSettings):
@@ -34,29 +28,23 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = Field(gt=0)
     search_max_matched: int = Field(ge=1)
     search_max_connected: int = Field(ge=1)
-    search_response_cache_ttl_seconds: int = Field(default=60, ge=1)
-    search_embedding_cache_ttl_seconds: int = Field(default=86_400, ge=1)
-    taxonomy_view_cache_ttl_seconds: int = Field(default=60, ge=1)
-    taxonomy_leaf_layout_cache_ttl_seconds: int = Field(default=600, ge=1)
+    search_response_cache_ttl_seconds: int = Field(ge=1)
+    search_embedding_cache_ttl_seconds: int = Field(ge=1)
+    taxonomy_view_cache_ttl_seconds: int = Field(ge=1)
+    taxonomy_card_scope_layout_cache_ttl_seconds: int = Field(ge=1)
     edge_title_mention_top_k: int = Field(ge=0)
     edge_semantic_top_k: int = Field(ge=0)
     edge_semantic_min_strength: float = Field(ge=0.0, le=1.0)
     edge_semantic_candidate_limit: int = Field(ge=0)
-    log_level: str = Field(default="INFO", min_length=1)
+    log_level: str = Field(min_length=1)
     log_file_path: str
-    log_file_max_bytes: int = Field(default=10_485_760, gt=0)
-    log_file_backup_count: int = Field(default=5, ge=1)
-    taxonomy_classification_cursor_command: str = Field(
-        default="cursor-agent",
-        min_length=1,
-    )
-    taxonomy_classification_cursor_workspace_root: str = Field(
-        default=_DEFAULT_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE,
-        min_length=1,
-    )
-    taxonomy_classification_cursor_timeout_seconds: float = Field(default=180.0, gt=0)
-    taxonomy_classification_cursor_max_retries: int = Field(default=3, ge=1)
-    taxonomy_classification_max_workers: int = Field(default=8, ge=1)
+    log_file_max_bytes: int = Field(gt=0)
+    log_file_backup_count: int = Field(ge=1)
+    taxonomy_classification_cursor_command: str = Field(min_length=1)
+    taxonomy_classification_cursor_workspace_root: str = Field(min_length=1)
+    taxonomy_classification_cursor_timeout_seconds: float = Field(gt=0)
+    taxonomy_classification_cursor_max_retries: int = Field(ge=1)
+    taxonomy_classification_max_workers: int = Field(ge=1)
 
     @model_validator(mode="after")
     def validate_edge_initialization_settings(self) -> Self:
@@ -91,7 +79,6 @@ class TaxonomyClassificationRuntimeSettings(BaseSettings):
 
     database_url: str
     taxonomy_classification_queue_name: str = Field(
-        default="taxonomy_classification",
         min_length=1,
     )
     taxonomy_classification_job_queue_base_url: str = Field(min_length=1)
@@ -99,12 +86,12 @@ class TaxonomyClassificationRuntimeSettings(BaseSettings):
     taxonomy_classification_job_queue_client_id: str = Field(min_length=1)
     taxonomy_classification_job_queue_client_secret: str = Field(min_length=1)
     taxonomy_classification_job_queue_resource: str = Field(min_length=1)
-    taxonomy_classification_job_queue_scopes: str = "jobs:create results:read"
-    taxonomy_classification_poll_interval_seconds: float = Field(default=5.0, gt=0)
-    taxonomy_classification_poll_batch_size: int = Field(default=100, ge=1)
-    taxonomy_classification_reconcile_interval_seconds: float = Field(default=3600, gt=0)
-    taxonomy_classification_reconcile_batch_size: int = Field(default=100, ge=1)
-    taxonomy_classification_projection_refresh_batch_size: int = Field(default=1, ge=1)
+    taxonomy_classification_job_queue_scopes: str = Field(min_length=1)
+    taxonomy_classification_poll_interval_seconds: float = Field(gt=0)
+    taxonomy_classification_poll_batch_size: int = Field(ge=1)
+    taxonomy_classification_reconcile_interval_seconds: float = Field(gt=0)
+    taxonomy_classification_reconcile_batch_size: int = Field(ge=1)
+    taxonomy_classification_projection_refresh_batch_size: int = Field(ge=1)
 
 
 class TaxonomyViewLayoutRuntimeSettings(BaseSettings):
@@ -116,8 +103,8 @@ class TaxonomyViewLayoutRuntimeSettings(BaseSettings):
 
     database_url: str
     redis_url: str
-    taxonomy_view_cache_ttl_seconds: int = Field(default=60, ge=1)
-    taxonomy_leaf_layout_cache_ttl_seconds: int = Field(default=600, ge=1)
+    taxonomy_view_cache_ttl_seconds: int = Field(ge=1)
+    taxonomy_card_scope_layout_cache_ttl_seconds: int = Field(ge=1)
     edge_title_mention_top_k: int = Field(ge=0)
     edge_semantic_top_k: int = Field(ge=0)
     edge_semantic_min_strength: float = Field(ge=0.0, le=1.0)
@@ -142,16 +129,14 @@ class TaxonomyClassificationWebhookReceiverSettings(BaseSettings):
 
     database_url: str
     taxonomy_classification_queue_name: str = Field(
-        default="taxonomy_classification",
         min_length=1,
     )
     taxonomy_classification_webhook_auth_issuer: str = Field(min_length=1)
     taxonomy_classification_webhook_auth_resource: str = Field(min_length=1)
     taxonomy_classification_webhook_auth_discovery_url: str = Field(min_length=1)
     taxonomy_classification_webhook_allowed_client_id: str = Field(min_length=1)
-    taxonomy_classification_webhook_auth_http_timeout_seconds: float = Field(default=5.0, gt=0)
+    taxonomy_classification_webhook_auth_http_timeout_seconds: float = Field(gt=0)
     taxonomy_classification_webhook_public_path: str = Field(
-        default="/taxonomy-classification/webhooks/job-queue",
         min_length=1,
     )
 

@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.repo import KnowledgeRepo
+from modules.taxonomy.dto import TaxonomyScopeIdentity
 from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
 from modules.taxonomy.repo import UNCLASSIFIED_NODE_NAME, TaxonomyRepo
 from modules.taxonomy_classification.contracts import TaxonomyClassificationAcceptedResult
@@ -224,11 +225,14 @@ class TaxonomyClassificationRuntimeService:
             return
         try:
             accepted = TaxonomyClassificationAcceptedResult.model_validate(result.result_payload)
-            target_leaf_id = await self._resolve_target_leaf_id(job=job, accepted=accepted)
+            target_taxonomy_node_id = await self._resolve_target_taxonomy_node_id(
+                job=job,
+                accepted=accepted,
+            )
             await self._move_assignment_if_needed(
                 node_id=job.node_id,
-                source_leaf_id=job.source_unclassified_node_id,
-                target_leaf_id=target_leaf_id,
+                source_taxonomy_node_id=job.scope_node_id,
+                target_taxonomy_node_id=target_taxonomy_node_id,
                 now=now,
             )
         except ValueError as exc:
@@ -241,7 +245,7 @@ class TaxonomyClassificationRuntimeService:
         job.updated_at = now
         await self._session.flush()
 
-    async def _resolve_target_leaf_id(
+    async def _resolve_target_taxonomy_node_id(
         self,
         *,
         job: TaxonomyClassificationJob,
@@ -249,35 +253,24 @@ class TaxonomyClassificationRuntimeService:
     ) -> int:
         target_name = accepted.target_name.strip()
         if target_name.casefold() == UNCLASSIFIED_NODE_NAME.casefold():
-            return job.source_unclassified_node_id
+            return job.scope_node_id
 
         child = await self._session.scalar(
             select(TaxonomyNode)
             .where(TaxonomyNode.parent_id == job.scope_node_id)
-            .where(TaxonomyNode.is_leaf.is_(False))
             .where(func.lower(TaxonomyNode.name) == target_name.lower())
             .limit(1)
         )
         if child is None:
             raise ValueError("unknown child target")
-
-        target_leaf = await self._session.scalar(
-            select(TaxonomyNode)
-            .where(TaxonomyNode.parent_id == child.id)
-            .where(TaxonomyNode.name == UNCLASSIFIED_NODE_NAME)
-            .where(TaxonomyNode.is_leaf.is_(True))
-            .limit(1)
-        )
-        if target_leaf is None:
-            raise ValueError("target child is missing an Unclassified leaf")
-        return target_leaf.id
+        return child.id
 
     async def _move_assignment_if_needed(
         self,
         *,
         node_id: int,
-        source_leaf_id: int,
-        target_leaf_id: int,
+        source_taxonomy_node_id: int,
+        target_taxonomy_node_id: int,
         now: datetime,
     ) -> None:
         assignment = await self._session.scalar(
@@ -288,43 +281,63 @@ class TaxonomyClassificationRuntimeService:
         )
         if assignment is None:
             raise ValueError("card assignment is missing")
-        if assignment.taxonomy_node_id != source_leaf_id:
-            raise ValueError("card assignment no longer belongs to source Unclassified leaf")
-        if assignment.taxonomy_node_id == target_leaf_id:
+        if assignment.taxonomy_node_id != source_taxonomy_node_id:
+            raise ValueError("card assignment no longer belongs to source taxonomy scope")
+        taxonomy_repo = TaxonomyRepo(session=self._session)
+        previous_scope_identities = await taxonomy_repo.list_scope_identities_for_node_ids(
+            node_ids=[node_id]
+        )
+        if assignment.taxonomy_node_id == target_taxonomy_node_id:
+            await self._record_projection_refresh_requests(
+                scope_identities=tuple(previous_scope_identities.values()),
+                now=now,
+            )
             return
 
-        source_leaf_id_before_move = assignment.taxonomy_node_id
-        await TaxonomyRepo(session=self._session).set_current_assignment(
+        await taxonomy_repo.set_current_assignment(
             node_id=node_id,
-            taxonomy_node_id=target_leaf_id,
+            taxonomy_node_id=target_taxonomy_node_id,
+        )
+        current_scope_identities = await taxonomy_repo.list_scope_identities_for_node_ids(
+            node_ids=[node_id]
         )
         await self._record_projection_refresh_requests(
-            leaf_ids=(source_leaf_id_before_move, target_leaf_id),
+            scope_identities=(
+                *previous_scope_identities.values(),
+                *current_scope_identities.values(),
+            ),
             now=now,
         )
 
     async def _record_projection_refresh_requests(
         self,
         *,
-        leaf_ids: Sequence[int],
+        scope_identities: Sequence[TaxonomyScopeIdentity],
         now: datetime,
     ) -> None:
-        unique_leaf_ids = sorted(set(leaf_ids))
-        if not unique_leaf_ids:
+        unique_scope_identities = sorted(
+            set(scope_identities),
+            key=lambda item: (item.scope_kind, item.taxonomy_node_id),
+        )
+        if not unique_scope_identities:
             return
         statement = pg_insert(TaxonomyClassificationProjectionRefreshRequest).values(
             [
                 {
-                    "leaf_id": leaf_id,
+                    "scope_kind": scope_identity.scope_kind,
+                    "taxonomy_node_id": scope_identity.taxonomy_node_id,
                     "last_error": None,
                     "created_at": now,
                     "updated_at": now,
                 }
-                for leaf_id in unique_leaf_ids
+                for scope_identity in unique_scope_identities
             ]
         )
         statement = statement.on_conflict_do_update(
-            index_elements=[TaxonomyClassificationProjectionRefreshRequest.leaf_id],
+            index_elements=[
+                TaxonomyClassificationProjectionRefreshRequest.scope_kind,
+                TaxonomyClassificationProjectionRefreshRequest.taxonomy_node_id,
+            ],
             set_={
                 "last_error": None,
                 "updated_at": statement.excluded.updated_at,
@@ -339,7 +352,8 @@ class TaxonomyClassificationRuntimeService:
                     select(TaxonomyClassificationProjectionRefreshRequest)
                     .order_by(
                         TaxonomyClassificationProjectionRefreshRequest.updated_at.asc(),
-                        TaxonomyClassificationProjectionRefreshRequest.leaf_id.asc(),
+                        TaxonomyClassificationProjectionRefreshRequest.scope_kind.asc(),
+                        TaxonomyClassificationProjectionRefreshRequest.taxonomy_node_id.asc(),
                     )
                     .limit(self._projection_refresh_batch_size)
                     .with_for_update(skip_locked=True)
@@ -349,7 +363,12 @@ class TaxonomyClassificationRuntimeService:
         refreshed_count = 0
         for request in requests:
             try:
-                await self._refresh_leaf_projection(leaf_id=request.leaf_id)
+                await self._refresh_scope_projection(
+                    scope_identity=TaxonomyScopeIdentity(
+                        scope_kind=request.scope_kind,
+                        taxonomy_node_id=request.taxonomy_node_id,
+                    )
+                )
             except Exception as exc:
                 request.last_error = str(exc)
                 request.updated_at = now
@@ -360,16 +379,18 @@ class TaxonomyClassificationRuntimeService:
         await self._session.flush()
         return refreshed_count
 
-    async def _refresh_leaf_projection(self, *, leaf_id: int) -> None:
+    async def _refresh_scope_projection(self, *, scope_identity: TaxonomyScopeIdentity) -> None:
         taxonomy_repo = TaxonomyRepo(session=self._session)
         knowledge_repo = KnowledgeRepo(session=self._session)
-        inner_node_ids = await taxonomy_repo.list_assigned_node_ids_for_leaf(leaf_id=leaf_id)
+        inner_node_ids = await taxonomy_repo.list_assigned_node_ids_for_scope(
+            scope_identity=scope_identity
+        )
         adjacent_edge_ids = await knowledge_repo.fetch_adjacent_edge_ids_for_node_ids(
             node_ids=inner_node_ids
         )
-        await taxonomy_repo.clear_projected_edge_ids_for_leaf(leaf_id=leaf_id)
-        await taxonomy_repo.add_projected_edge_ids_for_leaf(
-            leaf_id=leaf_id,
+        await taxonomy_repo.clear_projected_edge_ids_for_scope(scope_identity=scope_identity)
+        await taxonomy_repo.add_projected_edge_ids_for_scope(
+            scope_identity=scope_identity,
             edge_ids=adjacent_edge_ids,
         )
 

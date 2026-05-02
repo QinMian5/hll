@@ -11,20 +11,20 @@ from typing import Protocol
 
 from pydantic import TypeAdapter, ValidationError
 
-from modules.taxonomy.dto import TaxonomyLeafLayout
-from modules.taxonomy.layout import TAXONOMY_LEAF_LAYOUT_VERSION
+from modules.taxonomy.dto import TaxonomyCardScopeLayout, TaxonomyScopeIdentity
+from modules.taxonomy.layout import TAXONOMY_CARD_SCOPE_LAYOUT_VERSION
 from modules.taxonomy.schema import (
     TaxonomyNodeBranchViewResponse,
-    TaxonomyNodeLeafViewResponse,
+    TaxonomyNodeCardScopeViewResponse,
     TaxonomyNodeViewResponse,
     TaxonomyRootViewResponse,
 )
 
 TAXONOMY_VIEW_COUNT_CACHE_TTL_SECONDS = 60
 TAXONOMY_VIEW_RESPONSE_CACHE_TTL_SECONDS = 60
-TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS = 600
-TAXONOMY_VIEW_LEAF_LAYOUT_PENDING_TTL_SECONDS = 600
-TAXONOMY_VIEW_LEAF_LAYOUT_RUNNING_TTL_SECONDS = 1800
+TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS = 600
+TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_PENDING_TTL_SECONDS = 600
+TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_RUNNING_TTL_SECONDS = 1800
 TAXONOMY_VIEW_LOCK_TTL_SECONDS = 30
 TAXONOMY_VIEW_CACHE_KEY_PREFIX = "taxonomy:view:v1"
 TAXONOMY_API_VIEW_CACHE_KEY_PREFIX = "knowledge:api:taxonomy-view:v1"
@@ -58,12 +58,12 @@ class TaxonomyViewRedisCache:
         redis: TaxonomyRedisProtocol,
         descendant_count_ttl_seconds: int = TAXONOMY_VIEW_COUNT_CACHE_TTL_SECONDS,
         view_response_ttl_seconds: int = TAXONOMY_VIEW_RESPONSE_CACHE_TTL_SECONDS,
-        leaf_layout_ttl_seconds: int = TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS,
+        card_scope_layout_ttl_seconds: int = TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS,
     ) -> None:
         self._redis = redis
         self._descendant_count_ttl_seconds = descendant_count_ttl_seconds
         self._view_response_ttl_seconds = view_response_ttl_seconds
-        self._leaf_layout_ttl_seconds = leaf_layout_ttl_seconds
+        self._card_scope_layout_ttl_seconds = card_scope_layout_ttl_seconds
 
     async def get_root_view(self) -> TaxonomyRootViewResponse | None:
         raw_payload = await self._redis.get(_root_view_key())
@@ -86,7 +86,7 @@ class TaxonomyViewRedisCache:
         self,
         *,
         node_id: int,
-    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None:
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse | None:
         raw_payload = await self._redis.get(_node_view_key(node_id=node_id))
         if raw_payload is None:
             return None
@@ -100,7 +100,7 @@ class TaxonomyViewRedisCache:
         self,
         *,
         node_id: int,
-        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse,
     ) -> None:
         await self._redis.set(
             _node_view_key(node_id=node_id),
@@ -112,7 +112,7 @@ class TaxonomyViewRedisCache:
         self,
         *,
         route_path: str,
-    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None:
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse | None:
         raw_payload = await self._redis.get(_path_view_key(route_path=route_path))
         if raw_payload is None:
             return None
@@ -126,7 +126,7 @@ class TaxonomyViewRedisCache:
         self,
         *,
         route_path: str,
-        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse,
     ) -> None:
         await self._redis.set(
             _path_view_key(route_path=route_path),
@@ -180,8 +180,12 @@ class TaxonomyViewRedisCache:
         )
         return bool(result)
 
-    async def get_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout | None:
-        raw_payload = await self._redis.get(_leaf_layout_key(leaf_id=leaf_id))
+    async def get_card_scope_layout(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> TaxonomyCardScopeLayout | None:
+        raw_payload = await self._redis.get(_card_scope_layout_key(scope_identity=scope_identity))
         if raw_payload is None:
             return None
         if isinstance(raw_payload, bytes):
@@ -191,88 +195,116 @@ class TaxonomyViewRedisCache:
 
         try:
             payload = json.loads(payload_text)
-            return TaxonomyLeafLayout.model_validate(payload)
+            return TaxonomyCardScopeLayout.model_validate(payload)
         except (json.JSONDecodeError, ValidationError, ValueError) as exc:
-            raise ValueError("Invalid leaf layout cache payload.") from exc
+            raise ValueError("Invalid card-scope layout cache payload.") from exc
 
-    async def set_leaf_layout(self, *, leaf_id: int, layout: TaxonomyLeafLayout) -> None:
+    async def set_card_scope_layout(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout: TaxonomyCardScopeLayout,
+    ) -> None:
         payload = json.dumps(
             layout.model_dump(mode="json"),
             separators=(",", ":"),
             sort_keys=True,
         )
         await self._redis.set(
-            _leaf_layout_key(leaf_id=leaf_id),
+            _card_scope_layout_key(scope_identity=scope_identity),
             payload,
-            ex=self._leaf_layout_ttl_seconds,
+            ex=self._card_scope_layout_ttl_seconds,
         )
 
-    async def acquire_leaf_layout_lock(self, *, leaf_id: int) -> bool:
+    async def acquire_card_scope_layout_lock(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> bool:
         result = await self._redis.set(
-            f"{_leaf_layout_key(leaf_id=leaf_id)}:lock",
+            f"{_card_scope_layout_key(scope_identity=scope_identity)}:lock",
             "1",
             ex=TAXONOMY_VIEW_LOCK_TTL_SECONDS,
             nx=True,
         )
         return bool(result)
 
-    async def request_leaf_layout_compute(self, *, leaf_id: int) -> bool:
-        running_marker = await self._redis.get(_leaf_layout_running_key(leaf_id=leaf_id))
+    async def request_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> bool:
+        running_marker = await self._redis.get(
+            _card_scope_layout_running_key(scope_identity=scope_identity)
+        )
         if running_marker is not None:
             return False
 
         pending_created = await self._redis.set(
-            _leaf_layout_pending_key(leaf_id=leaf_id),
+            _card_scope_layout_pending_key(scope_identity=scope_identity),
             "1",
-            ex=TAXONOMY_VIEW_LEAF_LAYOUT_PENDING_TTL_SECONDS,
+            ex=TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_PENDING_TTL_SECONDS,
             nx=True,
         )
         if not pending_created:
             return False
 
-        await self._redis.rpush(_leaf_layout_request_queue_key(), str(leaf_id))
+        await self._redis.rpush(
+            _card_scope_layout_request_queue_key(),
+            _dump_scope_identity(scope_identity),
+        )
         return True
 
-    async def claim_leaf_layout_compute(self) -> int | None:
-        raw_leaf_id = await self._redis.lpop(_leaf_layout_request_queue_key())
-        if raw_leaf_id is None:
+    async def claim_card_scope_layout_compute(self) -> TaxonomyScopeIdentity | None:
+        raw_identity = await self._redis.lpop(_card_scope_layout_request_queue_key())
+        if raw_identity is None:
             return None
 
-        leaf_id = int(_payload_text(raw_payload=raw_leaf_id))
+        scope_identity = TaxonomyScopeIdentity.model_validate_json(
+            _payload_text(raw_payload=raw_identity)
+        )
         running_created = await self._redis.set(
-            _leaf_layout_running_key(leaf_id=leaf_id),
+            _card_scope_layout_running_key(scope_identity=scope_identity),
             "1",
-            ex=TAXONOMY_VIEW_LEAF_LAYOUT_RUNNING_TTL_SECONDS,
+            ex=TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_RUNNING_TTL_SECONDS,
             nx=True,
         )
-        await self._redis.delete(_leaf_layout_pending_key(leaf_id=leaf_id))
+        await self._redis.delete(_card_scope_layout_pending_key(scope_identity=scope_identity))
         if not running_created:
             return None
-        return leaf_id
+        return scope_identity
 
-    async def complete_leaf_layout_compute(self, *, leaf_id: int) -> None:
-        await self._redis.delete(_leaf_layout_pending_key(leaf_id=leaf_id))
-        await self._redis.delete(_leaf_layout_running_key(leaf_id=leaf_id))
+    async def complete_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> None:
+        await self._redis.delete(_card_scope_layout_pending_key(scope_identity=scope_identity))
+        await self._redis.delete(_card_scope_layout_running_key(scope_identity=scope_identity))
 
 
 def _descendant_counts_key() -> str:
     return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:descendant-counts"
 
 
-def _leaf_layout_key(*, leaf_id: int) -> str:
-    return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:leaf-layout:{TAXONOMY_LEAF_LAYOUT_VERSION}:{leaf_id}"
+def _card_scope_layout_key(*, scope_identity: TaxonomyScopeIdentity) -> str:
+    return (
+        f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:card-scope-layout:"
+        f"{TAXONOMY_CARD_SCOPE_LAYOUT_VERSION}:"
+        f"{scope_identity.scope_kind}:{scope_identity.taxonomy_node_id}"
+    )
 
 
-def _leaf_layout_pending_key(*, leaf_id: int) -> str:
-    return f"{_leaf_layout_key(leaf_id=leaf_id)}:pending"
+def _card_scope_layout_pending_key(*, scope_identity: TaxonomyScopeIdentity) -> str:
+    return f"{_card_scope_layout_key(scope_identity=scope_identity)}:pending"
 
 
-def _leaf_layout_running_key(*, leaf_id: int) -> str:
-    return f"{_leaf_layout_key(leaf_id=leaf_id)}:running"
+def _card_scope_layout_running_key(*, scope_identity: TaxonomyScopeIdentity) -> str:
+    return f"{_card_scope_layout_key(scope_identity=scope_identity)}:running"
 
 
-def _leaf_layout_request_queue_key() -> str:
-    return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:leaf-layout:requests"
+def _card_scope_layout_request_queue_key() -> str:
+    return f"{TAXONOMY_VIEW_CACHE_KEY_PREFIX}:card-scope-layout:requests"
 
 
 def _root_view_key() -> str:
@@ -295,10 +327,20 @@ def _payload_text(*, raw_payload: str | bytes) -> str:
 
 
 def _dump_model_payload(
-    view: TaxonomyRootViewResponse | TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+    view: TaxonomyRootViewResponse
+    | TaxonomyNodeBranchViewResponse
+    | TaxonomyNodeCardScopeViewResponse,
 ) -> str:
     return json.dumps(
         view.model_dump(mode="json"),
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+
+
+def _dump_scope_identity(scope_identity: TaxonomyScopeIdentity) -> str:
+    return json.dumps(
+        scope_identity.model_dump(mode="json"),
         separators=(",", ":"),
         sort_keys=True,
     )

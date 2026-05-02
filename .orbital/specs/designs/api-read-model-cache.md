@@ -31,7 +31,9 @@ out_of_scope: Redis service topology, durable persistence, frontend query cachin
   - **Reusable cache boundary:** Shared API cache infrastructure is a technical concern only. It must not import feature modules or contain Search or taxonomy business logic.
   - **Feature-owned keys:** Search and taxonomy modules own cache key construction, cache schema versions, payload validation, and TTL constants or settings.
   - **Short TTL consistency:** Public read responses may be temporarily stale within the configured TTL window. Writes leave cache entries to expire by TTL, and cache schema or algorithm changes use versioned keys.
-  - **Fail-soft reads:** Redis read, write, decode, or validation failures do not fail successful public read requests. The API logs the cache failure, treats it as a cache miss, and returns data from authoritative dependencies when those dependencies succeed.
+  - **Fail-soft reads:** Redis read, write, decode, or validation failures do not fail public read requests that can be served through bounded authoritative read flow. The API logs the cache failure, treats it as a cache miss, and returns data from authoritative dependencies when those dependencies succeed.
+  - **Card-scope layout readiness:** Full layout Redis read models are required for taxonomy card-scope metadata and viewport layout responses. Missing or expired full layout read models return `503 layout_not_ready` with `Retry-After` after one Redis-backed compute request is registered for the scope/version.
+  - **Request-path compute boundary:** Taxonomy card-scope layout simulation is long-running CPU-bound work and does not run inside API request handlers. The dedicated taxonomy view layout runtime consumes pending compute requests and writes full layout read models.
   - **Payload validation:** Cached JSON payloads must be validated through Pydantic models or existing response contract models before being returned to callers.
 
 ## Cacheable Surfaces
@@ -55,32 +57,38 @@ out_of_scope: Redis service topology, durable persistence, frontend query cachin
 - Embedding cache entries are intermediate read models and are not returned directly to public clients.
 
 ### Taxonomy View Response Cache
-- Caches taxonomy root, branch node, leaf metadata, and canonical path view responses for Graph View.
+- Caches taxonomy root, branch node, card-scope metadata, and canonical path view responses for Graph View.
 - Cache key inputs include taxonomy view cache schema version plus one of:
   - root view identity
   - node id
   - hash of canonical route path
 - TTL is configured by `KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS` and defaults to `60` seconds.
 - Cache hits return validated taxonomy response payloads without reloading the taxonomy tree or recomputing response shaping.
-- Cache misses run taxonomy-owned read orchestration and write the validated response payload.
+- Cache misses run bounded taxonomy-owned read orchestration and write the validated response payload.
+- Card-scope metadata response misses may derive metadata only from an available full layout read model. If the full layout read model is unavailable, the API returns `503 layout_not_ready` and registers one compute request instead of running the layout simulation.
 - Taxonomy view response caches use short TTL consistency and versioned keys for payload-shape changes.
 
 ### Graph View Cache Surface Matrix
 - `GET /api/v1/taxonomy/view/root`: cached as a validated taxonomy view response under `knowledge:api:taxonomy-view:v1:root` with a `60` second TTL.
 - `GET /api/v1/taxonomy/view/nodes/{node_id}` for a branch node: cached as a validated taxonomy view response under `knowledge:api:taxonomy-view:v1:node:{node_id}` with a `60` second TTL.
-- `GET /api/v1/taxonomy/view/nodes/{node_id}` for a leaf node: cached as validated leaf metadata under `knowledge:api:taxonomy-view:v1:node:{node_id}` with a `60` second TTL. The cached metadata excludes full graph nodes, graph edges, node titles, node content, and `current_version`.
-- `GET /api/v1/taxonomy/view/path/{route_path:path}`: cached as the resolved branch or leaf metadata response under `knowledge:api:taxonomy-view:v1:path:{route_path_hash}` with a `60` second TTL.
-- `GET /api/v1/taxonomy/view/leaves/{node_id}/layout`: the per-viewport response is not stored as an independent Redis response cache. It is derived from the taxonomy-owned full leaf layout read model.
-- `POST /api/v1/taxonomy/view/leaves/{node_id}/titles`: not stored in Redis; callers fetch explicit node-id batches from authoritative read ports.
-- `POST /api/v1/taxonomy/view/leaves/{node_id}/details`: not stored in Redis; callers fetch explicit node-id batches from authoritative read ports.
+- `GET /api/v1/taxonomy/view/nodes/{node_id}` for a real card-scope node: cached as validated card-scope metadata under `knowledge:api:taxonomy-view:v1:node:{node_id}` with a `60` second TTL. The cached metadata excludes full graph nodes, graph edges, node titles, node content, and `current_version`. Cache miss requires an available taxonomy-owned full layout read model.
+- `GET /api/v1/taxonomy/view/path/{route_path:path}`: cached as the resolved branch or card-scope metadata response under `knowledge:api:taxonomy-view:v1:path:{route_path_hash}` with a `60` second TTL. Card-scope path cache miss requires an available taxonomy-owned full layout read model.
+- `GET /api/v1/taxonomy/view/card-scopes/layout`: the per-viewport response is not stored as an independent Redis response cache. It is derived from the taxonomy-owned full layout read model and returns `layout_not_ready` when that read model is unavailable.
+- `POST /api/v1/taxonomy/view/card-scopes/titles`: not stored in Redis; callers fetch explicit node-id batches from authoritative read ports.
+- `POST /api/v1/taxonomy/view/card-scopes/details`: not stored in Redis; callers fetch explicit node-id batches from authoritative read ports.
 
-### Taxonomy Leaf Layout And Hydration Cache Policy
-- Taxonomy descendant-count and full leaf-layout Redis caches are taxonomy-owned read models.
+### Taxonomy Card-Scope Layout And Hydration Cache Policy
+- Taxonomy descendant-count and full card-scope layout Redis caches are taxonomy-owned read models.
 - Descendant counts use a `60` second TTL.
-- Full leaf layouts use a `600` second TTL and include the active leaf layout algorithm version in their cache key.
-- Full leaf-layout cache entries expire by TTL and use versioned keys for layout-shape changes.
-- Viewport layout slices are derived from cached full leaf layouts and are not stored as independent Redis response caches.
-- Leaf title and detail requests are not stored in Redis; frontend local/TanStack caches handle immediate repeated browser hydration.
+- Full card-scope layouts use a `600` second TTL and include the active layout algorithm version plus explicit scope identity in their cache key.
+- Full layout cache entries expire by TTL and use versioned keys for layout-shape changes.
+- Full layout cache entries are required before card-scope metadata or viewport layout responses can be returned.
+- Missing or expired full layout entries return `503 layout_not_ready` with `Retry-After` after the API registers or refreshes a Redis-backed compute request keyed by card-scope identity and active layout version.
+- Redis pending and running state prevents duplicate compute requests for concurrent callers targeting the same scope/version.
+- The API request path does not run the CPU-bound card-scope layout simulation.
+- The taxonomy view layout runtime consumes pending compute requests, runs the deterministic layout simulation, writes the full layout entry, and logs failures.
+- Viewport layout slices are derived from cached full layouts and are not stored as independent Redis response caches.
+- Card-scope title and detail requests are not stored in Redis; frontend local/TanStack caches handle immediate repeated browser hydration.
 
 ## Key Namespace
 - API read-model cache keys use the `knowledge:api:` prefix.
@@ -90,7 +98,8 @@ out_of_scope: Redis service topology, durable persistence, frontend query cachin
   - `knowledge:api:taxonomy-view:v1:root`
   - `knowledge:api:taxonomy-view:v1:node:{node_id}`
   - `knowledge:api:taxonomy-view:v1:path:{route_path_hash}`
-- Taxonomy descendant-count and full leaf-layout read-model keys use taxonomy-owned key namespaces.
+- Taxonomy descendant-count and full card-scope layout read-model keys use taxonomy-owned key namespaces.
+- Taxonomy card-scope layout compute pending and running keys use taxonomy-owned key namespaces keyed by card-scope identity and layout version.
 - Feature modules may bump the cache schema version when payload shape or key semantics change.
 
 ## Runtime Composition
@@ -105,6 +114,8 @@ out_of_scope: Redis service topology, durable persistence, frontend query cachin
 - Redis connection, timeout, command, decode, or validation errors are logged and handled as cache misses.
 - Cache set failures are logged and do not change the response returned to callers.
 - Malformed cache entries are not returned. The API may delete or overwrite malformed entries after recomputing the read model.
+- Card-scope layout cache misses are readiness failures, not request-path recomputation triggers. The API returns `503 layout_not_ready` after registering one compute request for the scope/version.
+- Redis dependency failures in the card-scope layout readiness path do not fall back to request-path layout simulation.
 - Authoritative dependency failures still surface through existing error-governance behavior.
 
 ## Validation
@@ -113,8 +124,11 @@ out_of_scope: Redis service topology, durable persistence, frontend query cachin
 - Search cache tests verify cache misses write response and embedding entries with configured TTLs.
 - Search cache tests verify malformed cached payloads and Redis failures fall back to authoritative read flow.
 - Search key tests verify normalized query, limits, embedding model, and algorithm/cache versions affect keys as specified.
-- Taxonomy cache tests verify root, branch node, leaf metadata node, and path view cache hits return validated payloads.
+- Taxonomy cache tests verify root, branch node, card-scope metadata, and path view cache hits return validated payloads.
 - Taxonomy cache tests verify miss, malformed payload, and Redis failure behavior.
+- Taxonomy cache tests verify missing full card-scope layout read models return `503 layout_not_ready` with `Retry-After` and register at most one compute request for concurrent callers.
+- Taxonomy cache tests verify card-scope metadata and viewport layout request handlers do not run the CPU-bound layout simulation on cache miss.
+- Taxonomy runtime tests verify the taxonomy view layout runtime consumes pending compute requests and writes full layout read models.
 - Settings tests verify API cache TTL settings parse from environment and expose accepted defaults.
 - Provider tests verify cache wiring uses `Settings.redis_url` and does not read Redis configuration from scattered environment variables.
 - Contract drift checks remain unchanged because cache behavior preserves public and private API response contracts.

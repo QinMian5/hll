@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
 
 import click
 
@@ -19,13 +18,11 @@ from modules.taxonomy_classification.session_tool import (
     TaxonomyClassificationSessionTool,
 )
 
-_ResultT = TypeVar("_ResultT")
 
-
-async def _with_tool(
+async def _with_tool[ResultT](
     *,
-    operation: Callable[[TaxonomyClassificationSessionTool], Awaitable[_ResultT]],
-) -> _ResultT:
+    operation: Callable[[TaxonomyClassificationSessionTool], Awaitable[ResultT]],
+) -> ResultT:
     runtime = get_runtime_dependencies()
     async with runtime.session_factory() as session:
         taxonomy_service = TaxonomyService(repo=TaxonomyRepo(session=session))
@@ -74,7 +71,7 @@ def get_assignment_command(node_id: int) -> None:
         raise click.ClickException(str(exc)) from exc
 
 
-@cli.command("assign-leaf")
+@cli.command("assign-taxonomy-node")
 @click.option(
     "--node-id",
     required=True,
@@ -82,14 +79,17 @@ def get_assignment_command(node_id: int) -> None:
     help="Knowledge node id.",
 )
 @click.option(
-    "--leaf-id",
+    "--taxonomy-node-id",
     required=True,
     type=click.IntRange(min=1),
-    help="Taxonomy leaf node id.",
+    help="Taxonomy node id.",
 )
-def assign_leaf_command(node_id: int, leaf_id: int) -> None:
+def assign_taxonomy_node_command(node_id: int, taxonomy_node_id: int) -> None:
     async def _operation(tool: TaxonomyClassificationSessionTool) -> str:
-        response = await tool.assign_leaf(node_id=node_id, leaf_id=leaf_id)
+        response = await tool.assign_taxonomy_node(
+            node_id=node_id,
+            taxonomy_node_id=taxonomy_node_id,
+        )
         return response.model_dump_json()
 
     try:

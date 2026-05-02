@@ -96,15 +96,15 @@ async def submit_refinement_jobs(
     help="Case-insensitive root-to-node path separated by '/'. Example: Root / Science.",
 )
 @click.option(
-    "--all-unclassified",
+    "--all-direct-assignments",
     is_flag=True,
-    help="Scan all taxonomy nodes that have a direct Unclassified leaf.",
+    help="Scan all taxonomy nodes that have direct card assignments.",
 )
 @click.option(
     "--limit",
     type=click.IntRange(min=1),
     default=None,
-    help="Submit only the first N cards currently assigned to the scope Unclassified leaf.",
+    help="Submit only the first N cards currently assigned directly to selected scopes.",
 )
 @click.option(
     "--batch-size",
@@ -124,7 +124,7 @@ async def submit_refinement_jobs(
 def cli(
     scope_name: str | None,
     scope_path: str | None,
-    all_unclassified: bool,
+    all_direct_assignments: bool,
     limit: int | None,
     batch_size: int,
     verbose: bool,
@@ -134,7 +134,7 @@ def cli(
         selection = _build_selection(
             scope_name=scope_name,
             scope_path=scope_path,
-            all_unclassified=all_unclassified,
+            all_direct_assignments=all_direct_assignments,
         )
         stdout = click.get_text_stream("stdout")
         if stdout.isatty():
@@ -191,18 +191,19 @@ def _build_selection(
     *,
     scope_name: str | None,
     scope_path: str | None,
-    all_unclassified: bool,
+    all_direct_assignments: bool,
 ) -> TaxonomyClassificationSubmissionSelection:
     selector_count = sum(
         [
             scope_name is not None,
             scope_path is not None,
-            all_unclassified,
+            all_direct_assignments,
         ]
     )
     if selector_count != 1:
         raise click.UsageError(
-            "Choose exactly one scope selector: --scope-name, --scope-path, or --all-unclassified."
+            "Choose exactly one scope selector: --scope-name, --scope-path, "
+            "or --all-direct-assignments."
         )
     if scope_name is not None:
         return TaxonomyClassificationSubmissionSelection(
@@ -214,7 +215,7 @@ def _build_selection(
             kind="scope_path",
             scope_path=_parse_scope_path(scope_path),
         )
-    return TaxonomyClassificationSubmissionSelection(kind="all_unclassified")
+    return TaxonomyClassificationSubmissionSelection(kind="all_direct_assignments")
 
 
 def _parse_scope_path(raw_scope_path: str) -> tuple[str, ...]:

@@ -38,14 +38,6 @@ class TaxonomyImporter:
                 parent_id=None,
                 name=ROOT_NODE_NAME,
                 depth=0,
-                is_leaf=False,
-            )
-            imported_count += 1
-            await self._repo.create_taxonomy_node(
-                parent_id=root_id,
-                name=UNCLASSIFIED_NODE_NAME,
-                depth=1,
-                is_leaf=True,
             )
             imported_count += 1
             for node in nodes:
@@ -54,14 +46,6 @@ class TaxonomyImporter:
                     parent_id=parent_id,
                     name=node.name,
                     depth=node.depth + 1,
-                    is_leaf=False,
-                )
-                imported_count += 1
-                await self._repo.create_taxonomy_node(
-                    parent_id=node_id,
-                    name=UNCLASSIFIED_NODE_NAME,
-                    depth=node.depth + 2,
-                    is_leaf=True,
                 )
                 imported_count += 1
                 path_to_id[node.path] = node_id
@@ -101,14 +85,12 @@ def _extend_mapping_nodes(
     for raw_name, raw_children in mapping.items():
         name = _coerce_node_name(raw_name)
         path = (name,) if parent_path is None else (*parent_path, name)
-        is_leaf = _children_spec_is_leaf(raw_children)
         nodes.append(
             TaxonomyImportNode(
                 path=path,
                 parent_path=parent_path,
                 name=name,
                 depth=depth,
-                is_leaf=is_leaf,
             )
         )
         _extend_child_nodes(
@@ -135,7 +117,6 @@ def _extend_child_nodes(
                 parent_path=parent_path,
                 name=spec,
                 depth=depth,
-                is_leaf=True,
             )
         )
         return
@@ -156,7 +137,6 @@ def _extend_child_nodes(
                         parent_path=parent_path,
                         name=item,
                         depth=depth,
-                        is_leaf=True,
                     )
                 )
                 continue
@@ -170,18 +150,6 @@ def _extend_child_nodes(
                 continue
             raise TaxonomyImportError("taxonomy child list items must be strings or mappings")
         return
-    raise TaxonomyImportError("taxonomy node children must be a mapping, list, string, or null")
-
-
-def _children_spec_is_leaf(spec: object) -> bool:
-    if spec is None:
-        return True
-    if isinstance(spec, str):
-        return False
-    if isinstance(spec, Mapping):
-        return len(spec) == 0
-    if isinstance(spec, Sequence) and not isinstance(spec, str):
-        return len(spec) == 0
     raise TaxonomyImportError("taxonomy node children must be a mapping, list, string, or null")
 
 
@@ -202,10 +170,10 @@ def _validate_route_slugs(nodes: list[TaxonomyImportNode]) -> None:
             )
         siblings[route_slug] = name
 
-    add_slug(parent_path=None, name=UNCLASSIFIED_NODE_NAME)
     for node in nodes:
+        if node.name == UNCLASSIFIED_NODE_NAME:
+            raise TaxonomyImportError("taxonomy rows cannot use reserved virtual scope name")
         add_slug(parent_path=node.parent_path, name=node.name)
-        add_slug(parent_path=node.path, name=UNCLASSIFIED_NODE_NAME)
 
 
 def _normalize_yaml_mapping(spec: Mapping[Any, Any]) -> TaxonomyYamlMapping:

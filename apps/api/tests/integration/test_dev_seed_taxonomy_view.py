@@ -13,8 +13,8 @@ from entrypoints.ops.dev_seed_taxonomy_view import seed_dev_taxonomy_view
 from modules.knowledge_graph.model import Adjacency, Edge, Node
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
-    TaxonomyLeafProjectionEdge,
     TaxonomyNode,
+    TaxonomyScopeProjectionEdge,
 )
 
 pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.anyio]
@@ -36,7 +36,7 @@ async def test_seed_dev_taxonomy_view_writes_placeholder_graph(
         select(func.count()).select_from(NodeTaxonomyAssignment)
     )
     projection_count = await db_session.scalar(
-        select(func.count()).select_from(TaxonomyLeafProjectionEdge)
+        select(func.count()).select_from(TaxonomyScopeProjectionEdge)
     )
 
     assert first_result.taxonomy_node_count == 7

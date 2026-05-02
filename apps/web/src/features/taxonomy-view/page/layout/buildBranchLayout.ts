@@ -218,7 +218,8 @@ export function buildBranchLayout(
   const sortedChildren = [...input.children].sort(
     (left, right) =>
       right.descendant_card_count - left.descendant_card_count ||
-      left.id - right.id,
+      left.name.localeCompare(right.name) ||
+      left.route_path.localeCompare(right.route_path),
   );
 
   const nodes: BranchSimulationNode[] = sortedChildren.map((child, index) => {
@@ -305,7 +306,9 @@ export function buildBranchLayout(
           depth: node.child.depth,
           label: node.child.name,
           scope: "branch",
-          targetNodeId: node.child.id,
+          targetNodeId:
+            node.child.taxonomy_node_id ??
+            (typeof node.child.id === "number" ? node.child.id : null),
           targetRoutePath: node.child.route_path,
           tooltip: `${node.child.name} · ${node.child.descendant_card_count} cards`,
         },

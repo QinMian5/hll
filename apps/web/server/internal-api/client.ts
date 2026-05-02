@@ -16,14 +16,14 @@ export type SuggestedEditCreateResponse =
   components["schemas"]["SuggestedEditCreateResponse"];
 export type TaxonomyNodeViewResponse =
   components["schemas"]["TaxonomyNodeViewResponse"];
-export type TaxonomyLeafNodeDetailsResponse =
-  components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
-export type TaxonomyLeafLayoutSliceResponse =
-  components["schemas"]["TaxonomyLeafLayoutSliceResponse"];
-export type TaxonomyLeafNodeTitlesResponse =
-  components["schemas"]["TaxonomyLeafNodeTitlesResponse"];
+export type TaxonomyCardScopeNodeDetailsResponse =
+  components["schemas"]["TaxonomyCardScopeNodeDetailsResponse"];
+export type TaxonomyCardScopeLayoutSliceResponse =
+  components["schemas"]["TaxonomyCardScopeLayoutSliceResponse"];
+export type TaxonomyCardScopeNodeTitlesResponse =
+  components["schemas"]["TaxonomyCardScopeNodeTitlesResponse"];
 
-export interface TaxonomyLeafLayoutBounds {
+export interface TaxonomyCardScopeLayoutBounds {
   readonly min_x: number;
   readonly min_y: number;
   readonly max_x: number;
@@ -36,18 +36,18 @@ export interface InternalApiClient {
     payload: SuggestedEditCreateRequest,
     suggestedByUserId: string,
   ) => Promise<SuggestedEditCreateResponse>;
-  readonly getTaxonomyLeafNodeDetails: (
-    leafId: number,
+  readonly getTaxonomyCardScopeNodeDetails: (
+    routePath: string,
     nodeIds: readonly number[],
-  ) => Promise<TaxonomyLeafNodeDetailsResponse>;
-  readonly getTaxonomyLeafLayoutSlice: (
-    leafId: number,
-    bounds: TaxonomyLeafLayoutBounds,
-  ) => Promise<TaxonomyLeafLayoutSliceResponse>;
-  readonly getTaxonomyLeafNodeTitles: (
-    leafId: number,
+  ) => Promise<TaxonomyCardScopeNodeDetailsResponse>;
+  readonly getTaxonomyCardScopeLayoutSlice: (
+    routePath: string,
+    bounds: TaxonomyCardScopeLayoutBounds,
+  ) => Promise<TaxonomyCardScopeLayoutSliceResponse>;
+  readonly getTaxonomyCardScopeNodeTitles: (
+    routePath: string,
     nodeIds: readonly number[],
-  ) => Promise<TaxonomyLeafNodeTitlesResponse>;
+  ) => Promise<TaxonomyCardScopeNodeTitlesResponse>;
   readonly getTaxonomyNode: (
     nodeId: number,
   ) => Promise<TaxonomyNodeViewResponse>;
@@ -165,42 +165,41 @@ export function createInternalApiClient(
 
       return unwrapInternalApiData<SuggestedEditCreateResponse>(result);
     },
-    getTaxonomyLeafNodeDetails: async (leafId, nodeIds) => {
+    getTaxonomyCardScopeNodeDetails: async (routePath, nodeIds) => {
       const result = await client.POST(
-        "/api/v1/taxonomy/view/leaves/{node_id}/details",
+        "/api/v1/taxonomy/view/card-scopes/details",
         {
-          body: { node_ids: [...nodeIds] },
-          params: { path: { node_id: leafId } },
+          body: { node_ids: [...nodeIds], route_path: routePath },
         },
       );
 
-      return unwrapInternalApiData<TaxonomyLeafNodeDetailsResponse>(result);
+      return unwrapInternalApiData<TaxonomyCardScopeNodeDetailsResponse>(
+        result,
+      );
     },
-    getTaxonomyLeafLayoutSlice: async (leafId, bounds) => {
+    getTaxonomyCardScopeLayoutSlice: async (routePath, bounds) => {
       const result = await client.GET(
-        "/api/v1/taxonomy/view/leaves/{node_id}/layout",
+        "/api/v1/taxonomy/view/card-scopes/layout",
         {
           params: {
-            path: { node_id: leafId },
-            query: bounds,
+            query: { ...bounds, route_path: routePath },
           },
         },
       );
 
       return unwrapInternalApiData<unknown>(
         result,
-      ) as TaxonomyLeafLayoutSliceResponse;
+      ) as TaxonomyCardScopeLayoutSliceResponse;
     },
-    getTaxonomyLeafNodeTitles: async (leafId, nodeIds) => {
+    getTaxonomyCardScopeNodeTitles: async (routePath, nodeIds) => {
       const result = await client.POST(
-        "/api/v1/taxonomy/view/leaves/{node_id}/titles",
+        "/api/v1/taxonomy/view/card-scopes/titles",
         {
-          body: { node_ids: [...nodeIds] },
-          params: { path: { node_id: leafId } },
+          body: { node_ids: [...nodeIds], route_path: routePath },
         },
       );
 
-      return unwrapInternalApiData<TaxonomyLeafNodeTitlesResponse>(result);
+      return unwrapInternalApiData<TaxonomyCardScopeNodeTitlesResponse>(result);
     },
     getTaxonomyNode: async (nodeId) => {
       const result = await client.GET("/api/v1/taxonomy/view/nodes/{node_id}", {

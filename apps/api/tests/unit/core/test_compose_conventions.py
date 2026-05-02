@@ -284,7 +284,7 @@ def test_base_compose_defines_taxonomy_view_layout_runtime_with_private_dependen
         "KNOWLEDGE_API_DATABASE_URL",
         "KNOWLEDGE_API_REDIS_URL",
         "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS",
-        "KNOWLEDGE_API_TAXONOMY_LEAF_LAYOUT_CACHE_TTL_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS",
         "KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K",
         "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K",
         "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH",
@@ -320,8 +320,38 @@ def test_base_api_service_passes_taxonomy_view_cache_ttl_env_contract() -> None:
     environment = api["environment"]
 
     assert isinstance(environment, dict)
+    assert "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS" in environment
+    assert "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS" in environment
     assert "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS" in environment
-    assert "KNOWLEDGE_API_TAXONOMY_LEAF_LAYOUT_CACHE_TTL_SECONDS" in environment
+    assert "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS" in environment
+    assert "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS" in environment
+    assert "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS" in environment
+
+
+def test_base_worker_service_passes_required_cache_ttl_env_contract() -> None:
+    worker = _service_data(BASE_COMPOSE, "worker")
+    environment = worker["environment"]
+
+    assert isinstance(environment, dict)
+    assert "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS" in environment
+    assert "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS" in environment
+
+
+def test_base_api_and_worker_services_pass_required_shared_runtime_env_contract() -> None:
+    required_keys = {
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_COMMAND",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE_ROOT",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_TIMEOUT_SECONDS",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_MAX_RETRIES",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_MAX_WORKERS",
+    }
+
+    for service_name in ("api", "worker"):
+        service = _service_data(BASE_COMPOSE, service_name)
+        environment = service["environment"]
+
+        assert isinstance(environment, dict)
+        assert required_keys <= set(environment)
 
 
 def test_dev_compose_keeps_taxonomy_classification_services_out_of_default_startup() -> None:

@@ -1,5 +1,5 @@
 """
-Abstract: Unit tests for backend taxonomy leaf world-coordinate layout.
+Abstract: Unit tests for backend taxonomy card-scope world-coordinate layout.
 Out of scope: Redis cache behavior and HTTP response validation.
 """
 
@@ -8,12 +8,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from math import hypot
 
-from modules.taxonomy.dto import TaxonomyLeafLayoutEdge, TaxonomyLeafLayoutNode
-from modules.taxonomy.layout import build_leaf_layout, slice_leaf_layout
+from modules.taxonomy.dto import TaxonomyCardScopeLayoutEdge, TaxonomyCardScopeLayoutNode
+from modules.taxonomy.layout import build_card_scope_layout, slice_card_scope_layout
 
 
 def _node_position(
-    layout_nodes: list[TaxonomyLeafLayoutNode],
+    layout_nodes: list[TaxonomyCardScopeLayoutNode],
     node_id: int,
 ) -> tuple[float, float]:
     for node in layout_nodes:
@@ -23,7 +23,7 @@ def _node_position(
 
 
 def _distance(
-    layout_nodes: list[TaxonomyLeafLayoutNode],
+    layout_nodes: list[TaxonomyCardScopeLayoutNode],
     source_node_id: int,
     target_node_id: int,
 ) -> float:
@@ -32,23 +32,23 @@ def _distance(
     return hypot(target_x - source_x, target_y - source_y)
 
 
-def test_build_leaf_layout_returns_stable_global_coordinates() -> None:
+def test_build_card_scope_layout_returns_stable_global_coordinates() -> None:
     generated_at = datetime(2026, 4, 29, 12, 0, tzinfo=UTC)
     nodes = [
-        TaxonomyLeafLayoutNode(id=12, scope="inner", x=0.0, y=0.0),
-        TaxonomyLeafLayoutNode(id=11, scope="inner", x=0.0, y=0.0),
-        TaxonomyLeafLayoutNode(id=77, scope="outer", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=12, scope="inner", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=77, scope="outer", x=0.0, y=0.0),
     ]
     edges = [
-        TaxonomyLeafLayoutEdge(source_node_id=12, target_node_id=77, strength=0.66),
-        TaxonomyLeafLayoutEdge(source_node_id=12, target_node_id=11, strength=0.91),
+        TaxonomyCardScopeLayoutEdge(source_node_id=12, target_node_id=77, strength=0.66),
+        TaxonomyCardScopeLayoutEdge(source_node_id=12, target_node_id=11, strength=0.91),
     ]
 
-    first = build_leaf_layout(nodes=nodes, edges=edges, generated_at=generated_at)
-    second = build_leaf_layout(nodes=nodes, edges=edges, generated_at=generated_at)
+    first = build_card_scope_layout(nodes=nodes, edges=edges, generated_at=generated_at)
+    second = build_card_scope_layout(nodes=nodes, edges=edges, generated_at=generated_at)
 
     assert first == second
-    assert first.layout_version == "taxonomy-leaf-layout-v3"
+    assert first.layout_version == "taxonomy-card-scope-layout-v1"
     assert [node.id for node in first.nodes] == [11, 12, 77]
     assert [(node.id, node.scope) for node in first.nodes] == [
         (11, "inner"),
@@ -64,23 +64,23 @@ def test_build_leaf_layout_returns_stable_global_coordinates() -> None:
         assert first.world_bounds.min_y <= node.y <= first.world_bounds.max_y
 
 
-def test_build_leaf_layout_uses_edge_strength_in_force_geometry() -> None:
+def test_build_card_scope_layout_uses_edge_strength_in_force_geometry() -> None:
     generated_at = datetime(2026, 4, 29, 12, 0, tzinfo=UTC)
     nodes = [
-        TaxonomyLeafLayoutNode(id=10, scope="inner", x=0.0, y=0.0),
-        TaxonomyLeafLayoutNode(id=11, scope="inner", x=0.0, y=0.0),
-        TaxonomyLeafLayoutNode(id=12, scope="outer", x=0.0, y=0.0),
-        TaxonomyLeafLayoutNode(id=13, scope="outer", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=10, scope="inner", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=12, scope="outer", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=13, scope="outer", x=0.0, y=0.0),
     ]
 
-    weak_layout = build_leaf_layout(
+    weak_layout = build_card_scope_layout(
         nodes=nodes,
-        edges=[TaxonomyLeafLayoutEdge(source_node_id=10, target_node_id=11, strength=0.0)],
+        edges=[TaxonomyCardScopeLayoutEdge(source_node_id=10, target_node_id=11, strength=0.0)],
         generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
     )
-    strong_layout = build_leaf_layout(
+    strong_layout = build_card_scope_layout(
         nodes=nodes,
-        edges=[TaxonomyLeafLayoutEdge(source_node_id=10, target_node_id=11, strength=1.0)],
+        edges=[TaxonomyCardScopeLayoutEdge(source_node_id=10, target_node_id=11, strength=1.0)],
         generated_at=generated_at,
     )
 
@@ -91,9 +91,9 @@ def test_build_leaf_layout_uses_edge_strength_in_force_geometry() -> None:
     )
 
 
-def test_build_leaf_layout_uses_scaled_seed_radius_for_single_node() -> None:
-    layout = build_leaf_layout(
-        nodes=[TaxonomyLeafLayoutNode(id=11, scope="inner", x=0.0, y=0.0)],
+def test_build_card_scope_layout_uses_scaled_seed_radius_for_single_node() -> None:
+    layout = build_card_scope_layout(
+        nodes=[TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=0.0, y=0.0)],
         edges=[],
         generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
     )
@@ -107,22 +107,22 @@ def test_build_leaf_layout_uses_scaled_seed_radius_for_single_node() -> None:
     }
 
 
-def test_slice_leaf_layout_returns_only_nodes_and_edges_inside_bounds() -> None:
-    layout = build_leaf_layout(
+def test_slice_card_scope_layout_returns_only_nodes_and_edges_inside_bounds() -> None:
+    layout = build_card_scope_layout(
         nodes=[
-            TaxonomyLeafLayoutNode(id=11, scope="inner", x=0.0, y=0.0),
-            TaxonomyLeafLayoutNode(id=12, scope="inner", x=0.0, y=0.0),
-            TaxonomyLeafLayoutNode(id=77, scope="outer", x=0.0, y=0.0),
+            TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=0.0, y=0.0),
+            TaxonomyCardScopeLayoutNode(id=12, scope="inner", x=0.0, y=0.0),
+            TaxonomyCardScopeLayoutNode(id=77, scope="outer", x=0.0, y=0.0),
         ],
         edges=[
-            TaxonomyLeafLayoutEdge(source_node_id=11, target_node_id=12, strength=0.91),
-            TaxonomyLeafLayoutEdge(source_node_id=12, target_node_id=77, strength=0.66),
+            TaxonomyCardScopeLayoutEdge(source_node_id=11, target_node_id=12, strength=0.91),
+            TaxonomyCardScopeLayoutEdge(source_node_id=12, target_node_id=77, strength=0.66),
         ],
         generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
     )
     first_node = layout.nodes[0]
 
-    sliced = slice_leaf_layout(
+    sliced = slice_card_scope_layout(
         layout,
         min_x=first_node.x - 1.0,
         min_y=first_node.y - 1.0,
@@ -140,8 +140,8 @@ def test_slice_leaf_layout_returns_only_nodes_and_edges_inside_bounds() -> None:
     }
 
 
-def test_build_leaf_layout_handles_empty_leaf() -> None:
-    layout = build_leaf_layout(
+def test_build_card_scope_layout_handles_empty_scope() -> None:
+    layout = build_card_scope_layout(
         nodes=[],
         edges=[],
         generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),

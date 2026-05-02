@@ -17,9 +17,9 @@ import {
 
 export type TaxonomyViewInternalApi = Pick<
   InternalApiClient,
-  | "getTaxonomyLeafNodeDetails"
-  | "getTaxonomyLeafLayoutSlice"
-  | "getTaxonomyLeafNodeTitles"
+  | "getTaxonomyCardScopeNodeDetails"
+  | "getTaxonomyCardScopeLayoutSlice"
+  | "getTaxonomyCardScopeNodeTitles"
   | "getTaxonomyNode"
   | "getTaxonomyNodeByPath"
   | "getTaxonomyRoot"
@@ -67,6 +67,33 @@ function parseNodeIdsBody(body: unknown): number[] {
   }
 
   return nodeIds;
+}
+
+function parseRoutePathBody(body: unknown): string {
+  const routePath =
+    typeof body === "object" && body !== null && "route_path" in body
+      ? (body as { readonly route_path: unknown }).route_path
+      : undefined;
+
+  if (typeof routePath !== "string") {
+    throw new WebRouteInputError(
+      "invalid_request",
+      "Route path must be a string.",
+    );
+  }
+
+  return routePath;
+}
+
+function parseRoutePathQuery(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new WebRouteInputError(
+      "invalid_request",
+      "Route path must be a string.",
+    );
+  }
+
+  return value;
 }
 
 function parseRoutePath(value: unknown): string {
@@ -169,14 +196,17 @@ export function createTaxonomyViewRouter(
   );
 
   router.post(
-    "/leaves/:nodeId/details",
+    "/card-scopes/details",
     options.quotaMiddleware,
     async (request, response, next) => {
       try {
-        const nodeId = parseNodeId(request.params.nodeId);
+        const routePath = parseRoutePathBody(request.body);
         const nodeIds = parseNodeIdsBody(request.body);
         response.json(
-          await options.internalApi.getTaxonomyLeafNodeDetails(nodeId, nodeIds),
+          await options.internalApi.getTaxonomyCardScopeNodeDetails(
+            routePath,
+            nodeIds,
+          ),
         );
       } catch (error) {
         handleWebRouteError(error, response, next);
@@ -185,13 +215,13 @@ export function createTaxonomyViewRouter(
   );
 
   router.get(
-    "/leaves/:nodeId/layout",
+    "/card-scopes/layout",
     options.quotaMiddleware,
     async (request, response, next) => {
       try {
-        const nodeId = parseNodeId(request.params.nodeId);
+        const routePath = parseRoutePathQuery(request.query.route_path);
         response.json(
-          await options.internalApi.getTaxonomyLeafLayoutSlice(nodeId, {
+          await options.internalApi.getTaxonomyCardScopeLayoutSlice(routePath, {
             max_x: parseFiniteQueryNumber(request.query.max_x),
             max_y: parseFiniteQueryNumber(request.query.max_y),
             min_x: parseFiniteQueryNumber(request.query.min_x),
@@ -205,14 +235,17 @@ export function createTaxonomyViewRouter(
   );
 
   router.post(
-    "/leaves/:nodeId/titles",
+    "/card-scopes/titles",
     options.quotaMiddleware,
     async (request, response, next) => {
       try {
-        const nodeId = parseNodeId(request.params.nodeId);
+        const routePath = parseRoutePathBody(request.body);
         const nodeIds = parseNodeIdsBody(request.body);
         response.json(
-          await options.internalApi.getTaxonomyLeafNodeTitles(nodeId, nodeIds),
+          await options.internalApi.getTaxonomyCardScopeNodeTitles(
+            routePath,
+            nodeIds,
+          ),
         );
       } catch (error) {
         handleWebRouteError(error, response, next);

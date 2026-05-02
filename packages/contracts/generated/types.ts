@@ -55,7 +55,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/taxonomy/view/leaves/{node_id}/details": {
+  "/api/v1/taxonomy/view/card-scopes/details": {
     parameters: {
       query?: never;
       header?: never;
@@ -64,23 +64,23 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Get Leaf Node Details */
-    post: operations["get_leaf_node_details_api_v1_taxonomy_view_leaves__node_id__details_post"];
+    /** Get Card Scope Node Details */
+    post: operations["get_card_scope_node_details_api_v1_taxonomy_view_card_scopes_details_post"];
     delete?: never;
     options?: never;
     head?: never;
     patch?: never;
     trace?: never;
   };
-  "/api/v1/taxonomy/view/leaves/{node_id}/layout": {
+  "/api/v1/taxonomy/view/card-scopes/layout": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    /** Get Leaf Layout Slice */
-    get: operations["get_leaf_layout_slice_api_v1_taxonomy_view_leaves__node_id__layout_get"];
+    /** Get Card Scope Layout Slice */
+    get: operations["get_card_scope_layout_slice_api_v1_taxonomy_view_card_scopes_layout_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -89,7 +89,7 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/taxonomy/view/leaves/{node_id}/titles": {
+  "/api/v1/taxonomy/view/card-scopes/titles": {
     parameters: {
       query?: never;
       header?: never;
@@ -98,8 +98,8 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** Get Leaf Node Titles */
-    post: operations["get_leaf_node_titles_api_v1_taxonomy_view_leaves__node_id__titles_post"];
+    /** Get Card Scope Node Titles */
+    post: operations["get_card_scope_node_titles_api_v1_taxonomy_view_card_scopes_titles_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -266,9 +266,9 @@ export interface components {
        */
       status: "pending" | "accepted" | "rejected";
     };
-    TaxonomyLeafGraphEdgeResponse: [number, number, number];
-    /** TaxonomyLeafLayoutNodeResponse */
-    TaxonomyLeafLayoutNodeResponse: {
+    TaxonomyCardScopeGraphEdgeResponse: [number, number, number];
+    /** TaxonomyCardScopeLayoutNodeResponse */
+    TaxonomyCardScopeLayoutNodeResponse: {
       /** Id */
       id: number;
       /**
@@ -281,20 +281,29 @@ export interface components {
       /** Y */
       y: number;
     };
-    /** TaxonomyLeafLayoutSliceResponse */
-    TaxonomyLeafLayoutSliceResponse: {
+    /** TaxonomyCardScopeLayoutSliceResponse */
+    TaxonomyCardScopeLayoutSliceResponse: {
       /** Edges */
-      edges: components["schemas"]["TaxonomyLeafGraphEdgeResponse"][];
+      edges: components["schemas"]["TaxonomyCardScopeGraphEdgeResponse"][];
       /** Layout Version */
       layout_version: string;
-      /** Leaf Id */
-      leaf_id: number;
       /** Nodes */
-      nodes: components["schemas"]["TaxonomyLeafLayoutNodeResponse"][];
-      requested_bounds: components["schemas"]["TaxonomyLeafWorldBoundsResponse"];
+      nodes: components["schemas"]["TaxonomyCardScopeLayoutNodeResponse"][];
+      /** Parent Taxonomy Node Id */
+      parent_taxonomy_node_id?: number | null;
+      requested_bounds: components["schemas"]["TaxonomyCardScopeWorldBoundsResponse"];
+      /** Route Path */
+      route_path: string;
+      /**
+       * Scope Kind
+       * @enum {string}
+       */
+      scope_kind: "taxonomy_node" | "virtual_unclassified";
+      /** Taxonomy Node Id */
+      taxonomy_node_id?: number | null;
     };
-    /** TaxonomyLeafNodeDetailResponse */
-    TaxonomyLeafNodeDetailResponse: {
+    /** TaxonomyCardScopeNodeDetailResponse */
+    TaxonomyCardScopeNodeDetailResponse: {
       /** Content */
       content: string;
       /** Current Version */
@@ -304,35 +313,39 @@ export interface components {
       /** Title */
       title: string;
     };
-    /** TaxonomyLeafNodeDetailsRequest */
-    TaxonomyLeafNodeDetailsRequest: {
+    /** TaxonomyCardScopeNodeDetailsRequest */
+    TaxonomyCardScopeNodeDetailsRequest: {
       /** Node Ids */
       node_ids?: number[];
+      /** Route Path */
+      route_path: string;
     };
-    /** TaxonomyLeafNodeDetailsResponse */
-    TaxonomyLeafNodeDetailsResponse: {
+    /** TaxonomyCardScopeNodeDetailsResponse */
+    TaxonomyCardScopeNodeDetailsResponse: {
       /** Nodes */
-      nodes: components["schemas"]["TaxonomyLeafNodeDetailResponse"][];
+      nodes: components["schemas"]["TaxonomyCardScopeNodeDetailResponse"][];
     };
-    /** TaxonomyLeafNodeTitleResponse */
-    TaxonomyLeafNodeTitleResponse: {
+    /** TaxonomyCardScopeNodeTitleResponse */
+    TaxonomyCardScopeNodeTitleResponse: {
       /** Id */
       id: number;
       /** Title */
       title: string;
     };
-    /** TaxonomyLeafNodeTitlesRequest */
-    TaxonomyLeafNodeTitlesRequest: {
+    /** TaxonomyCardScopeNodeTitlesRequest */
+    TaxonomyCardScopeNodeTitlesRequest: {
       /** Node Ids */
       node_ids?: number[];
+      /** Route Path */
+      route_path: string;
     };
-    /** TaxonomyLeafNodeTitlesResponse */
-    TaxonomyLeafNodeTitlesResponse: {
+    /** TaxonomyCardScopeNodeTitlesResponse */
+    TaxonomyCardScopeNodeTitlesResponse: {
       /** Nodes */
-      nodes: components["schemas"]["TaxonomyLeafNodeTitleResponse"][];
+      nodes: components["schemas"]["TaxonomyCardScopeNodeTitleResponse"][];
     };
-    /** TaxonomyLeafWorldBoundsResponse */
-    TaxonomyLeafWorldBoundsResponse: {
+    /** TaxonomyCardScopeWorldBoundsResponse */
+    TaxonomyCardScopeWorldBoundsResponse: {
       /** Max X */
       max_x: number;
       /** Max Y */
@@ -345,21 +358,21 @@ export interface components {
     /** TaxonomyNodeBranchViewResponse */
     TaxonomyNodeBranchViewResponse: {
       /** Breadcrumb */
-      breadcrumb: components["schemas"]["TaxonomyViewNodeResponse"][];
+      breadcrumb: components["schemas"]["TaxonomyViewScopeResponse"][];
       /** Children */
       children: components["schemas"]["TaxonomyViewChildResponse"][];
-      current_node: components["schemas"]["TaxonomyViewNodeResponse"];
+      current_scope: components["schemas"]["TaxonomyViewScopeResponse"];
       /**
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
        */
       node_kind: "branch";
     };
-    /** TaxonomyNodeLeafViewResponse */
-    TaxonomyNodeLeafViewResponse: {
+    /** TaxonomyNodeCardScopeViewResponse */
+    TaxonomyNodeCardScopeViewResponse: {
       /** Breadcrumb */
-      breadcrumb: components["schemas"]["TaxonomyViewNodeResponse"][];
-      current_node: components["schemas"]["TaxonomyViewNodeResponse"];
+      breadcrumb: components["schemas"]["TaxonomyViewScopeResponse"][];
+      current_scope: components["schemas"]["TaxonomyViewScopeResponse"];
       /** Edge Count */
       edge_count: number;
       /**
@@ -375,16 +388,16 @@ export interface components {
        * @description discriminator enum property added by openapi-typescript
        * @enum {string}
        */
-      node_kind: "leaf";
-      world_bounds: components["schemas"]["TaxonomyLeafWorldBoundsResponse"];
+      node_kind: "card_scope";
+      world_bounds: components["schemas"]["TaxonomyCardScopeWorldBoundsResponse"];
     };
     TaxonomyNodeViewResponse:
       | components["schemas"]["TaxonomyNodeBranchViewResponse"]
-      | components["schemas"]["TaxonomyNodeLeafViewResponse"];
+      | components["schemas"]["TaxonomyNodeCardScopeViewResponse"];
     /** TaxonomyRootViewResponse */
     TaxonomyRootViewResponse: {
       /** Breadcrumb */
-      breadcrumb: components["schemas"]["TaxonomyViewNodeResponse"][];
+      breadcrumb: components["schemas"]["TaxonomyViewScopeResponse"][];
       /** Children */
       children: components["schemas"]["TaxonomyViewChildResponse"][];
     };
@@ -394,35 +407,46 @@ export interface components {
       depth: number;
       /** Descendant Card Count */
       descendant_card_count: number;
-      /** Id */
-      id: number;
-      /** Is Leaf */
-      is_leaf: boolean;
       /** Name */
       name: string;
-      /** Parent Id */
-      parent_id?: number | null;
+      /**
+       * Node Kind
+       * @enum {string}
+       */
+      node_kind: "branch" | "card_scope";
+      /** Parent Taxonomy Node Id */
+      parent_taxonomy_node_id?: number | null;
       /** Route Path */
       route_path: string;
       /** Route Slug */
       route_slug: string;
+      /**
+       * Scope Kind
+       * @enum {string}
+       */
+      scope_kind: "taxonomy_node" | "virtual_unclassified";
+      /** Taxonomy Node Id */
+      taxonomy_node_id?: number | null;
     };
-    /** TaxonomyViewNodeResponse */
-    TaxonomyViewNodeResponse: {
+    /** TaxonomyViewScopeResponse */
+    TaxonomyViewScopeResponse: {
       /** Depth */
       depth: number;
-      /** Id */
-      id: number;
-      /** Is Leaf */
-      is_leaf: boolean;
       /** Name */
       name: string;
-      /** Parent Id */
-      parent_id?: number | null;
+      /** Parent Taxonomy Node Id */
+      parent_taxonomy_node_id?: number | null;
       /** Route Path */
       route_path: string;
       /** Route Slug */
       route_slug: string;
+      /**
+       * Scope Kind
+       * @enum {string}
+       */
+      scope_kind: "taxonomy_node" | "virtual_unclassified";
+      /** Taxonomy Node Id */
+      taxonomy_node_id?: number | null;
     };
     /** ValidationError */
     ValidationError: {
@@ -567,18 +591,16 @@ export interface operations {
       };
     };
   };
-  get_leaf_node_details_api_v1_taxonomy_view_leaves__node_id__details_post: {
+  get_card_scope_node_details_api_v1_taxonomy_view_card_scopes_details_post: {
     parameters: {
       query?: never;
       header?: never;
-      path: {
-        node_id: number;
-      };
+      path?: never;
       cookie?: never;
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["TaxonomyLeafNodeDetailsRequest"];
+        "application/json": components["schemas"]["TaxonomyCardScopeNodeDetailsRequest"];
       };
     };
     responses: {
@@ -588,7 +610,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
+          "application/json": components["schemas"]["TaxonomyCardScopeNodeDetailsResponse"];
         };
       };
       /** @description Validation Error */
@@ -602,18 +624,17 @@ export interface operations {
       };
     };
   };
-  get_leaf_layout_slice_api_v1_taxonomy_view_leaves__node_id__layout_get: {
+  get_card_scope_layout_slice_api_v1_taxonomy_view_card_scopes_layout_get: {
     parameters: {
       query: {
+        route_path: string;
         min_x: number;
         min_y: number;
         max_x: number;
         max_y: number;
       };
       header?: never;
-      path: {
-        node_id: number;
-      };
+      path?: never;
       cookie?: never;
     };
     requestBody?: never;
@@ -624,7 +645,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["TaxonomyLeafLayoutSliceResponse"];
+          "application/json": components["schemas"]["TaxonomyCardScopeLayoutSliceResponse"];
         };
       };
       /** @description Validation Error */
@@ -638,18 +659,16 @@ export interface operations {
       };
     };
   };
-  get_leaf_node_titles_api_v1_taxonomy_view_leaves__node_id__titles_post: {
+  get_card_scope_node_titles_api_v1_taxonomy_view_card_scopes_titles_post: {
     parameters: {
       query?: never;
       header?: never;
-      path: {
-        node_id: number;
-      };
+      path?: never;
       cookie?: never;
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["TaxonomyLeafNodeTitlesRequest"];
+        "application/json": components["schemas"]["TaxonomyCardScopeNodeTitlesRequest"];
       };
     };
     responses: {
@@ -659,7 +678,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["TaxonomyLeafNodeTitlesResponse"];
+          "application/json": components["schemas"]["TaxonomyCardScopeNodeTitlesResponse"];
         };
       };
       /** @description Validation Error */

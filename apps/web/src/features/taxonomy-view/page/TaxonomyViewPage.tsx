@@ -23,6 +23,8 @@ import { SuggestEditDialog } from "../../search/components/SuggestEditDialog";
 import { useCreateSuggestedEditMutation } from "../../search/data/searchQueries";
 import { suggestedEditErrorMessage } from "../../search/suggestedEditErrors";
 import {
+  type TaxonomyNodeView,
+  type TaxonomyRootView,
   useTaxonomyNodeViewByPathQuery,
   useTaxonomyRootViewQuery,
 } from "../data/taxonomyViewQueries";
@@ -107,6 +109,28 @@ function measuredViewportFromElement(element: HTMLElement | null) {
   };
 }
 
+type TaxonomyViewChild = TaxonomyRootView["children"][number];
+type TaxonomyViewScope = Extract<
+  TaxonomyNodeView,
+  { readonly node_kind: "branch" }
+>["breadcrumb"][number];
+
+function taxonomyScopeKey(scope: TaxonomyViewScope) {
+  return `${scope.scope_kind}:${scope.taxonomy_node_id ?? scope.route_path}`;
+}
+
+function taxonomyChildLayoutId(child: TaxonomyViewChild) {
+  return `${child.scope_kind}:${child.taxonomy_node_id ?? child.route_path}`;
+}
+
+function toBranchLayoutChildren(children: readonly TaxonomyViewChild[]) {
+  return children.map((child) => ({
+    ...child,
+    id: taxonomyChildLayoutId(child),
+    taxonomy_node_id: child.taxonomy_node_id ?? null,
+  }));
+}
+
 function sameViewport(left: LayoutViewport, right: LayoutViewport) {
   return left.height === right.height && left.width === right.width;
 }
@@ -163,9 +187,14 @@ export function TaxonomyViewPage() {
   const activeQuery = rootMode ? rootQuery : pathQuery;
   const breadcrumbs = rootMode ? [] : (pathQuery.data?.breadcrumb ?? []);
   const displayBreadcrumbs =
-    breadcrumbs[0]?.parent_id === null && breadcrumbs[0].name === "Root"
+    breadcrumbs[0]?.parent_taxonomy_node_id === null &&
+    breadcrumbs[0].name === "Root"
       ? breadcrumbs.slice(1)
       : breadcrumbs;
+  const currentBreadcrumbKey =
+    displayBreadcrumbs.length > 0
+      ? taxonomyScopeKey(displayBreadcrumbs[displayBreadcrumbs.length - 1])
+      : undefined;
   const layoutCenter = useMemo(
     () => ({
       x: canvasViewport.width / 2,
@@ -255,7 +284,7 @@ export function TaxonomyViewPage() {
     if (rootMode) {
       const branchLayout = buildBranchLayout({
         center: layoutCenter,
-        children: rootQuery.data?.children ?? [],
+        children: toBranchLayoutChildren(rootQuery.data?.children ?? []),
         viewport: canvasViewport,
       });
 
@@ -267,7 +296,9 @@ export function TaxonomyViewPage() {
     const branchLayout = buildBranchLayout({
       center: layoutCenter,
       children:
-        pathQuery.data?.node_kind === "branch" ? pathQuery.data.children : [],
+        pathQuery.data?.node_kind === "branch"
+          ? toBranchLayoutChildren(pathQuery.data.children)
+          : [],
       viewport: canvasViewport,
     });
 
@@ -327,18 +358,20 @@ export function TaxonomyViewPage() {
               aria-hidden="true"
               className="size-3.5 shrink-0 text-[rgba(117,133,161,0.56)]"
               data-testid="taxonomy-breadcrumb-separator"
-              key={`${item.id}-separator`}
+              key={`${taxonomyScopeKey(item)}-separator`}
             />,
             <button
               aria-current={
-                item.id === displayBreadcrumbs.at(-1)?.id ? "page" : undefined
+                taxonomyScopeKey(item) === currentBreadcrumbKey
+                  ? "page"
+                  : undefined
               }
               className={
-                item.id === displayBreadcrumbs.at(-1)?.id
+                taxonomyScopeKey(item) === currentBreadcrumbKey
                   ? breadcrumbCurrentClasses
                   : breadcrumbMutedClasses
               }
-              key={item.id}
+              key={taxonomyScopeKey(item)}
               onClick={() => navigateToGraphPath(item.route_path)}
               type="button"
             >
@@ -410,10 +443,10 @@ export function TaxonomyViewPage() {
           </section>
         ) : null}
         <div className="taxonomy-flow-shell absolute inset-0 overflow-hidden">
-          {pathQuery.data?.node_kind === "leaf" ? (
+          {pathQuery.data?.node_kind === "card_scope" ? (
             <Suspense fallback={null}>
               <LeafRenderer
-                key={`${pathQuery.data.current_node.id}:${pathQuery.data.layout_version}:${pathQuery.data.generated_at}`}
+                key={`${taxonomyScopeKey(pathQuery.data.current_scope)}:${pathQuery.data.layout_version}:${pathQuery.data.generated_at}`}
                 leafView={pathQuery.data}
                 onSuggestEdit={handleSuggestEdit}
                 viewport={canvasViewport}

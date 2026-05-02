@@ -119,7 +119,7 @@ def get_taxonomy_service(
             redis=cast(TaxonomyRedisProtocol, Redis.from_url(settings.redis_url)),
             descendant_count_ttl_seconds=settings.taxonomy_view_cache_ttl_seconds,
             view_response_ttl_seconds=settings.taxonomy_view_cache_ttl_seconds,
-            leaf_layout_ttl_seconds=settings.taxonomy_leaf_layout_cache_ttl_seconds,
+            card_scope_layout_ttl_seconds=settings.taxonomy_card_scope_layout_cache_ttl_seconds,
         ),
     )
 

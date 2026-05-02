@@ -12,7 +12,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.taxonomy.model import TaxonomyNode
-from modules.taxonomy.repo import UNCLASSIFIED_NODE_NAME
 from modules.taxonomy_classification.dto import TaxonomyClassificationSubmissionSelection
 
 
@@ -23,7 +22,6 @@ class TaxonomyClassificationScopeResolutionError(ValueError):
 @dataclass(frozen=True, slots=True)
 class ResolvedTaxonomyClassificationScope:
     scope_node: TaxonomyNode
-    source_unclassified_node: TaxonomyNode
     regular_children: tuple[TaxonomyNode, ...]
     breadcrumb: tuple[str, ...]
 
@@ -54,7 +52,7 @@ async def resolve_taxonomy_classification_scopes(
         if selection.scope_path is None:
             raise TaxonomyClassificationScopeResolutionError("scope_path is required.")
         return [index.resolve_scope_path(selection.scope_path)]
-    return index.resolve_all_unclassified()
+    return index.resolve_all_direct_assignments()
 
 
 class _TaxonomyScopeIndex:
@@ -69,7 +67,7 @@ class _TaxonomyScopeIndex:
         candidates = [
             node
             for node in self._node_by_id.values()
-            if _is_regular_node(node) and _normalize_name(node.name) == normalized_name
+            if _normalize_name(node.name) == normalized_name
         ]
         if not candidates:
             raise TaxonomyClassificationScopeResolutionError(
@@ -115,51 +113,26 @@ class _TaxonomyScopeIndex:
                 )
             current = children[0]
 
-        if not _is_regular_node(current):
-            breadcrumb = _format_breadcrumb(self._breadcrumb(current))
-            raise TaxonomyClassificationScopeResolutionError(
-                f"Taxonomy scope path resolves to a leaf node: {breadcrumb}."
-            )
         return self._build_resolved_scope(current)
 
-    def resolve_all_unclassified(self) -> list[ResolvedTaxonomyClassificationScope]:
-        scopes: list[ResolvedTaxonomyClassificationScope] = []
-        for node in self._node_by_id.values():
-            if not _is_regular_node(node):
-                continue
-            source_unclassified = self._source_unclassified(node)
-            if source_unclassified is None:
-                continue
-            scopes.append(self._build_resolved_scope(node))
+    def resolve_all_direct_assignments(self) -> list[ResolvedTaxonomyClassificationScope]:
+        scopes = [self._build_resolved_scope(node) for node in self._node_by_id.values()]
         return sorted(scopes, key=lambda scope: (scope.breadcrumb, scope.scope_node.id))
 
     def _build_resolved_scope(
         self,
         scope_node: TaxonomyNode,
     ) -> ResolvedTaxonomyClassificationScope:
-        source_unclassified = self._source_unclassified(scope_node)
-        if source_unclassified is None:
-            breadcrumb = _format_breadcrumb(self._breadcrumb(scope_node))
-            raise TaxonomyClassificationScopeResolutionError(
-                f"Taxonomy scope node is missing its Unclassified leaf: {breadcrumb}."
-            )
         regular_children = tuple(
             child
             for child in self._children_by_parent_id.get(scope_node.id, [])
-            if _is_regular_child(child)
+            if child.name != "Unclassified"
         )
         return ResolvedTaxonomyClassificationScope(
             scope_node=scope_node,
-            source_unclassified_node=source_unclassified,
             regular_children=regular_children,
             breadcrumb=self._breadcrumb(scope_node),
         )
-
-    def _source_unclassified(self, scope_node: TaxonomyNode) -> TaxonomyNode | None:
-        for child in self._children_by_parent_id.get(scope_node.id, []):
-            if child.name == UNCLASSIFIED_NODE_NAME and child.is_leaf:
-                return child
-        return None
 
     def _children_by_name(self, *, parent_id: int | None, name: str) -> list[TaxonomyNode]:
         normalized_name = _normalize_name(name)
@@ -184,14 +157,6 @@ class _TaxonomyScopeIndex:
             f"{_format_breadcrumb(self._breadcrumb(node))} (id={node.id})"
             for node in sorted_candidates
         )
-
-
-def _is_regular_node(node: TaxonomyNode) -> bool:
-    return not node.is_leaf
-
-
-def _is_regular_child(node: TaxonomyNode) -> bool:
-    return not node.is_leaf and node.name != UNCLASSIFIED_NODE_NAME
 
 
 def _normalize_name(name: str) -> str:

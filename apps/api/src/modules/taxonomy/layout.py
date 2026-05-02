@@ -1,5 +1,5 @@
 """
-Abstract: Deterministic backend layout builder for taxonomy leaf graph coordinates.
+Abstract: Deterministic backend layout builder for taxonomy card-scope graph coordinates.
 Out of scope: Redis persistence and HTTP response construction.
 """
 
@@ -11,14 +11,14 @@ from math import cos, sin, sqrt
 from typing import Literal
 
 from modules.taxonomy.dto import (
-    TaxonomyLeafLayout,
-    TaxonomyLeafLayoutEdge,
-    TaxonomyLeafLayoutNode,
-    TaxonomyLeafLayoutSlice,
-    TaxonomyLeafWorldBounds,
+    TaxonomyCardScopeLayout,
+    TaxonomyCardScopeLayoutEdge,
+    TaxonomyCardScopeLayoutNode,
+    TaxonomyCardScopeLayoutSlice,
+    TaxonomyCardScopeWorldBounds,
 )
 
-TAXONOMY_LEAF_LAYOUT_VERSION = "taxonomy-leaf-layout-v3"
+TAXONOMY_CARD_SCOPE_LAYOUT_VERSION = "taxonomy-card-scope-layout-v1"
 _GOLDEN_ANGLE_RADIANS = 2.399963229728653
 _BASE_RADIUS = 96.0
 _RADIUS_STEP = 104.0
@@ -48,12 +48,12 @@ class _SimulationNode:
     vy: float = 0.0
 
 
-def build_leaf_layout(
+def build_card_scope_layout(
     *,
-    nodes: list[TaxonomyLeafLayoutNode],
-    edges: list[TaxonomyLeafLayoutEdge],
+    nodes: list[TaxonomyCardScopeLayoutNode],
+    edges: list[TaxonomyCardScopeLayoutEdge],
     generated_at: datetime,
-) -> TaxonomyLeafLayout:
+) -> TaxonomyCardScopeLayout:
     sorted_nodes = sorted(nodes, key=lambda node: node.id)
     simulation_nodes = [
         _build_simulation_node(node=node, index=index) for index, node in enumerate(sorted_nodes)
@@ -62,7 +62,7 @@ def build_leaf_layout(
     canonical_edges = _canonical_edges(edges=edges, node_ids=positioned_node_ids)
     _run_force_simulation(nodes=simulation_nodes, edges=canonical_edges)
     positioned_nodes = [
-        TaxonomyLeafLayoutNode(
+        TaxonomyCardScopeLayoutNode(
             id=node.id,
             scope=node.scope,
             x=round(node.x, 6),
@@ -71,8 +71,8 @@ def build_leaf_layout(
         for node in simulation_nodes
     ]
 
-    return TaxonomyLeafLayout(
-        layout_version=TAXONOMY_LEAF_LAYOUT_VERSION,
+    return TaxonomyCardScopeLayout(
+        layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
         generated_at=generated_at,
         world_bounds=_world_bounds(positioned_nodes),
         nodes=positioned_nodes,
@@ -80,15 +80,15 @@ def build_leaf_layout(
     )
 
 
-def slice_leaf_layout(
-    layout: TaxonomyLeafLayout,
+def slice_card_scope_layout(
+    layout: TaxonomyCardScopeLayout,
     *,
     min_x: float,
     min_y: float,
     max_x: float,
     max_y: float,
-) -> TaxonomyLeafLayoutSlice:
-    requested_bounds = TaxonomyLeafWorldBounds(
+) -> TaxonomyCardScopeLayoutSlice:
+    requested_bounds = TaxonomyCardScopeWorldBounds(
         min_x=min_x,
         min_y=min_y,
         max_x=max_x,
@@ -101,7 +101,7 @@ def slice_leaf_layout(
         for edge in layout.edges
         if edge.source_node_id in node_ids and edge.target_node_id in node_ids
     ]
-    return TaxonomyLeafLayoutSlice(
+    return TaxonomyCardScopeLayoutSlice(
         layout_version=layout.layout_version,
         requested_bounds=requested_bounds,
         nodes=nodes,
@@ -118,7 +118,7 @@ def _position_on_spiral(*, index: int) -> tuple[float, float]:
 def _build_simulation_node(
     *,
     index: int,
-    node: TaxonomyLeafLayoutNode,
+    node: TaxonomyCardScopeLayoutNode,
 ) -> _SimulationNode:
     x, y = _position_on_spiral(index=index)
     return _SimulationNode(id=node.id, scope=node.scope, x=x, y=y)
@@ -127,7 +127,7 @@ def _build_simulation_node(
 def _run_force_simulation(
     *,
     nodes: list[_SimulationNode],
-    edges: list[TaxonomyLeafLayoutEdge],
+    edges: list[TaxonomyCardScopeLayoutEdge],
 ) -> None:
     if len(nodes) <= 1:
         return
@@ -152,7 +152,7 @@ def _run_force_simulation(
 def _apply_link_force(
     *,
     alpha: float,
-    edges: list[TaxonomyLeafLayoutEdge],
+    edges: list[TaxonomyCardScopeLayoutEdge],
     nodes_by_id: dict[int, _SimulationNode],
 ) -> None:
     for edge in edges:
@@ -255,10 +255,10 @@ def _deterministic_unit_vector(
 
 def _canonical_edges(
     *,
-    edges: list[TaxonomyLeafLayoutEdge],
+    edges: list[TaxonomyCardScopeLayoutEdge],
     node_ids: set[int],
-) -> list[TaxonomyLeafLayoutEdge]:
-    edge_by_pair: dict[tuple[int, int], TaxonomyLeafLayoutEdge] = {}
+) -> list[TaxonomyCardScopeLayoutEdge]:
+    edge_by_pair: dict[tuple[int, int], TaxonomyCardScopeLayoutEdge] = {}
     for edge in edges:
         if edge.source_node_id not in node_ids or edge.target_node_id not in node_ids:
             continue
@@ -267,7 +267,7 @@ def _canonical_edges(
         pair = (source_node_id, target_node_id)
         edge_by_pair.setdefault(
             pair,
-            TaxonomyLeafLayoutEdge(
+            TaxonomyCardScopeLayoutEdge(
                 source_node_id=source_node_id,
                 target_node_id=target_node_id,
                 strength=edge.strength,
@@ -276,10 +276,10 @@ def _canonical_edges(
     return [edge_by_pair[pair] for pair in sorted(edge_by_pair)]
 
 
-def _world_bounds(nodes: list[TaxonomyLeafLayoutNode]) -> TaxonomyLeafWorldBounds:
+def _world_bounds(nodes: list[TaxonomyCardScopeLayoutNode]) -> TaxonomyCardScopeWorldBounds:
     if not nodes:
-        return TaxonomyLeafWorldBounds(min_x=0.0, min_y=0.0, max_x=0.0, max_y=0.0)
-    return TaxonomyLeafWorldBounds(
+        return TaxonomyCardScopeWorldBounds(min_x=0.0, min_y=0.0, max_x=0.0, max_y=0.0)
+    return TaxonomyCardScopeWorldBounds(
         min_x=min(node.x for node in nodes),
         min_y=min(node.y for node in nodes),
         max_x=max(node.x for node in nodes),

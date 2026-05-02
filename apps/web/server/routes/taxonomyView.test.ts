@@ -17,22 +17,24 @@ const TEST_ENV = createWebServerTestEnv();
 
 function createClient(overrides: Partial<TaxonomyViewInternalApi> = {}) {
   return {
-    getTaxonomyLeafLayoutSlice: vi.fn(async () => ({
+    getTaxonomyCardScopeLayoutSlice: vi.fn(async () => ({
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-leaf-layout-v3",
-      leaf_id: 7,
+      layout_version: "taxonomy-card-scope-layout-v1",
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },
         { id: 11, scope: "outer", x: 3.5, y: 4.5 },
       ],
+      route_path: "science/mathematics",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 7,
       requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
     })),
-    getTaxonomyLeafNodeDetails: vi.fn(async () => ({
+    getTaxonomyCardScopeNodeDetails: vi.fn(async () => ({
       nodes: [
         { content: "Card content", current_version: 4, id: 10, title: "Card" },
       ],
     })),
-    getTaxonomyLeafNodeTitles: vi.fn(async () => ({
+    getTaxonomyCardScopeNodeTitles: vi.fn(async () => ({
       nodes: [{ id: 10, title: "Card" }],
     })),
     getTaxonomyNode: vi.fn(async () => ({
@@ -43,14 +45,14 @@ function createClient(overrides: Partial<TaxonomyViewInternalApi> = {}) {
       title: "Physics",
     })),
     getTaxonomyNodeByPath: vi.fn(async () => ({
-      current_node: {
+      current_scope: {
         depth: 2,
-        id: 42,
-        is_leaf: false,
         name: "Algebra",
-        parent_id: 7,
+        parent_taxonomy_node_id: 7,
         route_path: "science/mathematics/algebra",
         route_slug: "algebra",
+        scope_kind: "taxonomy_node",
+        taxonomy_node_id: 42,
       },
       breadcrumb: [],
       children: [],
@@ -134,20 +136,20 @@ describe("taxonomy view route", () => {
     expect(client.getTaxonomyNodeByPath).toHaveBeenCalledWith(
       "science/mathematics/algebra",
     );
-    expect(response.body.current_node).toMatchObject({
-      id: 42,
+    expect(response.body.current_scope).toMatchObject({
       route_path: "science/mathematics/algebra",
+      taxonomy_node_id: 42,
     });
   });
 
   it("preserves taxonomy layout readiness errors from the internal API", async () => {
     const readinessError = new InternalApiError(503, "layout not ready", {
-      clientMessage: "Taxonomy leaf layout is being prepared.",
+      clientMessage: "Taxonomy card-scope layout is being prepared.",
       code: "layout_not_ready",
       retryAfterSeconds: 10,
     });
     const client = createClient({
-      getTaxonomyLeafLayoutSlice: vi.fn(async () => {
+      getTaxonomyCardScopeLayoutSlice: vi.fn(async () => {
         throw readinessError;
       }),
       getTaxonomyNodeByPath: vi.fn(async () => {
@@ -160,7 +162,7 @@ describe("taxonomy view route", () => {
       "/web-api/taxonomy/view/path/science/mathematics",
     );
     const layoutResponse = await request(app).get(
-      "/web-api/taxonomy/view/leaves/7/layout?min_x=-100&min_y=-200&max_x=100&max_y=200",
+      "/web-api/taxonomy/view/card-scopes/layout?route_path=science/mathematics&min_x=-100&min_y=-200&max_x=100&max_y=200",
     );
 
     for (const response of [pathResponse, layoutResponse]) {
@@ -169,7 +171,7 @@ describe("taxonomy view route", () => {
       expect(response.body).toEqual({
         error: {
           code: "layout_not_ready",
-          message: "Taxonomy leaf layout is being prepared.",
+          message: "Taxonomy card-scope layout is being prepared.",
         },
       });
     }
@@ -215,16 +217,19 @@ describe("taxonomy view route", () => {
     });
   });
 
-  it("calls the internal taxonomy leaf detail API", async () => {
+  it("calls the internal taxonomy card-scope detail API", async () => {
     const client = createClient();
     const app = await createTestApp({ client });
 
     const response = await request(app)
-      .post("/web-api/taxonomy/view/leaves/7/details")
-      .send({ node_ids: [10, 11] });
+      .post("/web-api/taxonomy/view/card-scopes/details")
+      .send({ node_ids: [10, 11], route_path: "science/mathematics" });
 
     expect(response.status).toBe(200);
-    expect(client.getTaxonomyLeafNodeDetails).toHaveBeenCalledWith(7, [10, 11]);
+    expect(client.getTaxonomyCardScopeNodeDetails).toHaveBeenCalledWith(
+      "science/mathematics",
+      [10, 11],
+    );
     expect(response.body).toEqual({
       nodes: [
         { content: "Card content", current_version: 4, id: 10, title: "Card" },
@@ -232,43 +237,48 @@ describe("taxonomy view route", () => {
     });
   });
 
-  it("calls the internal taxonomy leaf layout API with viewport bounds", async () => {
+  it("calls the internal taxonomy card-scope layout API with viewport bounds", async () => {
     const client = createClient();
     const app = await createTestApp({ client });
 
     const response = await request(app).get(
-      "/web-api/taxonomy/view/leaves/7/layout?min_x=-100&min_y=-200&max_x=100&max_y=200",
+      "/web-api/taxonomy/view/card-scopes/layout?route_path=science/mathematics&min_x=-100&min_y=-200&max_x=100&max_y=200",
     );
 
     expect(response.status).toBe(200);
-    expect(client.getTaxonomyLeafLayoutSlice).toHaveBeenCalledWith(7, {
-      max_x: 100,
-      max_y: 200,
-      min_x: -100,
-      min_y: -200,
-    });
+    expect(client.getTaxonomyCardScopeLayoutSlice).toHaveBeenCalledWith(
+      "science/mathematics",
+      {
+        max_x: 100,
+        max_y: 200,
+        min_x: -100,
+        min_y: -200,
+      },
+    );
     expect(response.body).toEqual({
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-leaf-layout-v3",
-      leaf_id: 7,
+      layout_version: "taxonomy-card-scope-layout-v1",
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },
         { id: 11, scope: "outer", x: 3.5, y: 4.5 },
       ],
+      route_path: "science/mathematics",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 7,
       requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
     });
   });
 
-  it("rejects invalid leaf layout bounds before calling the internal API", async () => {
+  it("rejects invalid card-scope layout bounds before calling the internal API", async () => {
     const client = createClient();
     const app = await createTestApp({ client });
 
     const response = await request(app).get(
-      "/web-api/taxonomy/view/leaves/7/layout?min_x=-100&min_y=-200&max_x=nope&max_y=200",
+      "/web-api/taxonomy/view/card-scopes/layout?route_path=science/mathematics&min_x=-100&min_y=-200&max_x=nope&max_y=200",
     );
 
     expect(response.status).toBe(400);
-    expect(client.getTaxonomyLeafLayoutSlice).not.toHaveBeenCalled();
+    expect(client.getTaxonomyCardScopeLayoutSlice).not.toHaveBeenCalled();
     expect(response.body).toEqual({
       error: {
         code: "invalid_request",
@@ -277,16 +287,19 @@ describe("taxonomy view route", () => {
     });
   });
 
-  it("calls the internal taxonomy leaf title API", async () => {
+  it("calls the internal taxonomy card-scope title API", async () => {
     const client = createClient();
     const app = await createTestApp({ client });
 
     const response = await request(app)
-      .post("/web-api/taxonomy/view/leaves/7/titles")
-      .send({ node_ids: [10, 11] });
+      .post("/web-api/taxonomy/view/card-scopes/titles")
+      .send({ node_ids: [10, 11], route_path: "science/mathematics" });
 
     expect(response.status).toBe(200);
-    expect(client.getTaxonomyLeafNodeTitles).toHaveBeenCalledWith(7, [10, 11]);
+    expect(client.getTaxonomyCardScopeNodeTitles).toHaveBeenCalledWith(
+      "science/mathematics",
+      [10, 11],
+    );
     expect(response.body).toEqual({
       nodes: [{ id: 10, title: "Card" }],
     });

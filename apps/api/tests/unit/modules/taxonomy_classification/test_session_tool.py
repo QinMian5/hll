@@ -14,17 +14,16 @@ from modules.taxonomy.dto import TaxonomyAssignmentRecord, TaxonomyNodeRecord
 from modules.taxonomy_classification.session_tool import TaxonomyClassificationSessionTool
 
 
-def _build_assignment(*, node_id: int, leaf_id: int) -> TaxonomyAssignmentRecord:
+def _build_assignment(*, node_id: int, taxonomy_node_id: int) -> TaxonomyAssignmentRecord:
     return TaxonomyAssignmentRecord(
         id=99,
         node_id=node_id,
         taxonomy_node=TaxonomyNodeRecord(
-            id=leaf_id,
+            id=taxonomy_node_id,
             parent_id=1,
             name="Algebra",
             route_slug="algebra",
             depth=2,
-            is_leaf=True,
         ),
         assigned_at=datetime(2026, 4, 6, 10, 0, tzinfo=UTC),
     )
@@ -43,7 +42,6 @@ class _StubTaxonomyPort:
                 name="Chemistry",
                 route_slug="chemistry",
                 depth=1,
-                is_leaf=True,
             ),
             TaxonomyNodeRecord(
                 id=12,
@@ -51,7 +49,6 @@ class _StubTaxonomyPort:
                 name="Physics",
                 route_slug="physics",
                 depth=1,
-                is_leaf=True,
             ),
         ]
 
@@ -67,7 +64,10 @@ class _StubTaxonomyPort:
     ) -> TaxonomyAssignmentRecord:
         assert node_id == 10
         assert taxonomy_node_id in (7, 8)
-        self.stored_assignment = _build_assignment(node_id=node_id, leaf_id=taxonomy_node_id)
+        self.stored_assignment = _build_assignment(
+            node_id=node_id,
+            taxonomy_node_id=taxonomy_node_id,
+        )
         return self.stored_assignment
 
 
@@ -81,23 +81,23 @@ async def test_list_children_returns_name_sorted_children() -> None:
 
 
 @pytest.mark.anyio
-async def test_assign_leaf_returns_assigned_on_first_write() -> None:
+async def test_assign_taxonomy_node_returns_assigned_on_first_write() -> None:
     tool = TaxonomyClassificationSessionTool(taxonomy_port=_StubTaxonomyPort())
 
-    payload = await tool.assign_leaf(node_id=10, leaf_id=7)
+    payload = await tool.assign_taxonomy_node(node_id=10, taxonomy_node_id=7)
 
     assert payload.result == "assigned"
     assert payload.assignment.taxonomy_node.id == 7
 
 
 @pytest.mark.anyio
-async def test_assign_leaf_moves_existing_assignment() -> None:
-    existing = _build_assignment(node_id=10, leaf_id=7)
+async def test_assign_taxonomy_node_moves_existing_assignment() -> None:
+    existing = _build_assignment(node_id=10, taxonomy_node_id=7)
     tool = TaxonomyClassificationSessionTool(
         taxonomy_port=_StubTaxonomyPort(stored_assignment=existing)
     )
 
-    payload = await tool.assign_leaf(node_id=10, leaf_id=8)
+    payload = await tool.assign_taxonomy_node(node_id=10, taxonomy_node_id=8)
 
     assert payload.result == "assigned"
     assert payload.assignment.taxonomy_node.id == 8

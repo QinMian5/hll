@@ -15,9 +15,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
 
 vi.mock("../../data/taxonomyViewQueries", () => ({
-  useTaxonomyLeafLayoutSliceQuery: vi.fn(),
-  useTaxonomyLeafNodeDetailsQuery: vi.fn(),
-  useTaxonomyLeafNodeTitlesQuery: vi.fn(),
+  useTaxonomyCardScopeLayoutSliceQuery: vi.fn(),
+  useTaxonomyCardScopeNodeDetailsQuery: vi.fn(),
+  useTaxonomyCardScopeNodeTitlesQuery: vi.fn(),
 }));
 
 vi.mock("./LeafDeckScene", () => ({
@@ -237,22 +237,22 @@ vi.mock("./LeafDeckScene", () => ({
 }));
 
 import type {
-  TaxonomyLeafLayoutSliceResponse,
-  TaxonomyLeafNodeDetailsResponse,
-  TaxonomyLeafNodeTitlesResponse,
+  TaxonomyCardScopeLayoutSliceResponse,
+  TaxonomyCardScopeNodeDetailsResponse,
+  TaxonomyCardScopeNodeTitlesResponse,
   TaxonomyLeafView,
 } from "../../data/taxonomyViewQueries";
 import * as taxonomyViewQueries from "../../data/taxonomyViewQueries";
 import { LeafRenderer } from "./LeafRenderer";
 
-const mockUseTaxonomyLeafLayoutSliceQuery = vi.mocked(
-  taxonomyViewQueries.useTaxonomyLeafLayoutSliceQuery,
+const mockUseTaxonomyCardScopeLayoutSliceQuery = vi.mocked(
+  taxonomyViewQueries.useTaxonomyCardScopeLayoutSliceQuery,
 );
-const mockUseTaxonomyLeafNodeDetailsQuery = vi.mocked(
-  taxonomyViewQueries.useTaxonomyLeafNodeDetailsQuery,
+const mockUseTaxonomyCardScopeNodeDetailsQuery = vi.mocked(
+  taxonomyViewQueries.useTaxonomyCardScopeNodeDetailsQuery,
 );
-const mockUseTaxonomyLeafNodeTitlesQuery = vi.mocked(
-  taxonomyViewQueries.useTaxonomyLeafNodeTitlesQuery,
+const mockUseTaxonomyCardScopeNodeTitlesQuery = vi.mocked(
+  taxonomyViewQueries.useTaxonomyCardScopeNodeTitlesQuery,
 );
 
 afterEach(() => {
@@ -263,33 +263,35 @@ afterEach(() => {
 function makeLeafView(): TaxonomyLeafView {
   return {
     breadcrumb: [],
-    current_node: {
+    current_scope: {
       depth: 2,
-      id: 2,
-      is_leaf: true,
       name: "Algebra",
-      parent_id: 1,
+      parent_taxonomy_node_id: 1,
       route_path: "math/algebra",
       route_slug: "algebra",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 2,
     },
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",
-    layout_version: "taxonomy-leaf-layout-v3",
-    node_kind: "leaf",
+    layout_version: "taxonomy-card-scope-layout-v1",
+    node_kind: "card_scope",
     node_count: 2,
     world_bounds: { max_x: 44, max_y: 34, min_x: -44, min_y: -34 },
   };
 }
 
-function makeLeafLayoutSliceResponse(): TaxonomyLeafLayoutSliceResponse {
+function makeLeafLayoutSliceResponse(): TaxonomyCardScopeLayoutSliceResponse {
   return {
     edges: [[10, 11, 0.8]],
-    layout_version: "taxonomy-leaf-layout-v3",
-    leaf_id: 2,
+    layout_version: "taxonomy-card-scope-layout-v1",
     nodes: [
       { id: 10, scope: "inner", x: 0, y: 0 },
       { id: 11, scope: "outer", x: 40, y: 30 },
     ],
+    route_path: "math/algebra",
+    scope_kind: "taxonomy_node",
+    taxonomy_node_id: 2,
     requested_bounds: {
       max_x: 2048,
       max_y: 2048,
@@ -299,7 +301,7 @@ function makeLeafLayoutSliceResponse(): TaxonomyLeafLayoutSliceResponse {
   };
 }
 
-function makeLeafTitlesResponse(): TaxonomyLeafNodeTitlesResponse {
+function makeLeafTitlesResponse(): TaxonomyCardScopeNodeTitlesResponse {
   return {
     nodes: [
       { id: 10, title: "Equation \\(E=mc^2\\)" },
@@ -310,10 +312,10 @@ function makeLeafTitlesResponse(): TaxonomyLeafNodeTitlesResponse {
 
 function makeLeafDetailsResponse(
   nodeIds: readonly number[],
-): TaxonomyLeafNodeDetailsResponse {
+): TaxonomyCardScopeNodeDetailsResponse {
   const detailsById: Record<
     number,
-    TaxonomyLeafNodeDetailsResponse["nodes"][number]
+    TaxonomyCardScopeNodeDetailsResponse["nodes"][number]
   > = {
     10: {
       content: "*Equation* content",
@@ -339,37 +341,37 @@ function makeLeafDetailsResponse(
 }
 
 function installSuccessfulQueryMocks() {
-  mockUseTaxonomyLeafLayoutSliceQuery.mockImplementation(
-    (_leafId, _bounds, _layoutIdentity, options) =>
+  mockUseTaxonomyCardScopeLayoutSliceQuery.mockImplementation(
+    (_routePath, _bounds, _layoutIdentity, options) =>
       ({
         data: options.enabled ? makeLeafLayoutSliceResponse() : undefined,
         error: null,
         isError: false,
         isPending: false,
       }) as unknown as ReturnType<
-        typeof taxonomyViewQueries.useTaxonomyLeafLayoutSliceQuery
+        typeof taxonomyViewQueries.useTaxonomyCardScopeLayoutSliceQuery
       >,
   );
-  mockUseTaxonomyLeafNodeTitlesQuery.mockImplementation(
-    (_leafId, _nodeIds, options) =>
+  mockUseTaxonomyCardScopeNodeTitlesQuery.mockImplementation(
+    (_routePath, _nodeIds, options) =>
       ({
         data: options.enabled ? makeLeafTitlesResponse() : undefined,
         error: null,
         isError: false,
         isPending: false,
       }) as unknown as ReturnType<
-        typeof taxonomyViewQueries.useTaxonomyLeafNodeTitlesQuery
+        typeof taxonomyViewQueries.useTaxonomyCardScopeNodeTitlesQuery
       >,
   );
-  mockUseTaxonomyLeafNodeDetailsQuery.mockImplementation(
-    (_leafId, nodeIds, options) =>
+  mockUseTaxonomyCardScopeNodeDetailsQuery.mockImplementation(
+    (_routePath, nodeIds, options) =>
       ({
         data: options.enabled ? makeLeafDetailsResponse(nodeIds) : undefined,
         error: null,
         isError: false,
         isPending: false,
       }) as unknown as ReturnType<
-        typeof taxonomyViewQueries.useTaxonomyLeafNodeDetailsQuery
+        typeof taxonomyViewQueries.useTaxonomyCardScopeNodeDetailsQuery
       >,
   );
 }
@@ -397,8 +399,8 @@ describe("LeafRenderer", () => {
     expect(
       screen.getByTestId("leaf-point-interaction-enabled"),
     ).toHaveTextContent("true");
-    expect(mockUseTaxonomyLeafLayoutSliceQuery).toHaveBeenCalledWith(
-      2,
+    expect(mockUseTaxonomyCardScopeLayoutSliceQuery).toHaveBeenCalledWith(
+      "math/algebra",
       {
         max_x: 2048,
         max_y: 2048,
@@ -407,7 +409,7 @@ describe("LeafRenderer", () => {
       },
       {
         generatedAt: "2026-04-29T00:00:00Z",
-        layoutVersion: "taxonomy-leaf-layout-v3",
+        layoutVersion: "taxonomy-card-scope-layout-v1",
       },
       expect.objectContaining({ enabled: true }),
     );
@@ -415,14 +417,14 @@ describe("LeafRenderer", () => {
       screen.getByTestId("leaf-scene-first-point-radius"),
     ).toHaveTextContent("8");
     await waitFor(() => {
-      expect(mockUseTaxonomyLeafNodeTitlesQuery).toHaveBeenCalledWith(
-        2,
+      expect(mockUseTaxonomyCardScopeNodeTitlesQuery).toHaveBeenCalledWith(
+        "math/algebra",
         expect.arrayContaining([10, 11]),
         expect.objectContaining({ enabled: true }),
       );
     });
-    expect(mockUseTaxonomyLeafNodeDetailsQuery).toHaveBeenCalledWith(
-      2,
+    expect(mockUseTaxonomyCardScopeNodeDetailsQuery).toHaveBeenCalledWith(
+      "math/algebra",
       [],
       expect.objectContaining({ enabled: false }),
     );
@@ -452,8 +454,8 @@ describe("LeafRenderer", () => {
 
     expect(initialZoom).toBeGreaterThan(LEAF_POINT_TITLE_ACTIVATION_ZOOM);
     expect(initialZoom).toBeCloseTo(LEAF_POINT_TITLE_ACTIVATION_ZOOM + 0.01);
-    expect(mockUseTaxonomyLeafLayoutSliceQuery).toHaveBeenCalledWith(
-      2,
+    expect(mockUseTaxonomyCardScopeLayoutSliceQuery).toHaveBeenCalledWith(
+      "math/algebra",
       {
         max_x: expect.any(Number),
         max_y: expect.any(Number),
@@ -462,7 +464,7 @@ describe("LeafRenderer", () => {
       },
       {
         generatedAt: "2026-04-29T00:00:00Z",
-        layoutVersion: "taxonomy-leaf-layout-v3",
+        layoutVersion: "taxonomy-card-scope-layout-v1",
       },
       expect.objectContaining({ enabled: true }),
     );
@@ -481,8 +483,8 @@ describe("LeafRenderer", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Zoom in" }));
 
     await waitFor(() => {
-      expect(mockUseTaxonomyLeafNodeTitlesQuery).toHaveBeenCalledWith(
-        2,
+      expect(mockUseTaxonomyCardScopeNodeTitlesQuery).toHaveBeenCalledWith(
+        "math/algebra",
         expect.arrayContaining([10, 11]),
         expect.objectContaining({ enabled: true }),
       );
@@ -503,8 +505,8 @@ describe("LeafRenderer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hover 10" }));
 
     await waitFor(() => {
-      expect(mockUseTaxonomyLeafNodeDetailsQuery).toHaveBeenCalledWith(
-        2,
+      expect(mockUseTaxonomyCardScopeNodeDetailsQuery).toHaveBeenCalledWith(
+        "math/algebra",
         [10],
         expect.objectContaining({ enabled: true }),
       );

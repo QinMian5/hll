@@ -46,6 +46,8 @@ def test_webhook_receiver_rejects_wrong_queue_before_recording_event() -> None:
             "https://knowledge-logto/.well-known/openid-configuration"
         ),
         taxonomy_classification_webhook_allowed_client_id="job-queue",
+        taxonomy_classification_webhook_auth_http_timeout_seconds=5.0,
+        taxonomy_classification_webhook_public_path="/taxonomy-classification/webhooks/job-queue",
     )
     app = create_taxonomy_classification_webhook_app(
         settings=settings,

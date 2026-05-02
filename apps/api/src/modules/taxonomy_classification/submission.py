@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from job_queue_mcp_client.types import CreatedJob, CreateJobItem
-from sqlalchemy import and_, func, select, tuple_
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.model import Node
@@ -173,52 +173,33 @@ class TaxonomyClassificationSubmissionService:
         self,
         *,
         resolved_scopes: Sequence[ResolvedTaxonomyClassificationScope],
-    ) -> dict[tuple[int, int], _ScopeSubmissionPreflight]:
+    ) -> dict[int, _ScopeSubmissionPreflight]:
         scope_pairs = [_scope_key(resolved_scope) for resolved_scope in resolved_scopes]
         if not scope_pairs:
             return {}
 
-        pending_counts: dict[tuple[int, int], int] = {}
+        pending_counts: dict[int, int] = {}
         pending_rows = await self._session.execute(
             select(
                 TaxonomyClassificationJob.scope_node_id,
-                TaxonomyClassificationJob.source_unclassified_node_id,
                 func.count(TaxonomyClassificationJob.id),
             )
-            .where(
-                tuple_(
-                    TaxonomyClassificationJob.scope_node_id,
-                    TaxonomyClassificationJob.source_unclassified_node_id,
-                ).in_(scope_pairs)
-            )
+            .where(TaxonomyClassificationJob.scope_node_id.in_(scope_pairs))
             .where(TaxonomyClassificationJob.job_id.is_(None))
             .where(TaxonomyClassificationJob.processed_at.is_(None))
             .where(TaxonomyClassificationJob.terminal_state.is_(None))
-            .group_by(
-                TaxonomyClassificationJob.scope_node_id,
-                TaxonomyClassificationJob.source_unclassified_node_id,
-            )
+            .group_by(TaxonomyClassificationJob.scope_node_id)
         )
-        for scope_node_id, source_unclassified_node_id, count in pending_rows:
-            pending_counts[(scope_node_id, source_unclassified_node_id)] = int(count or 0)
+        for scope_node_id, count in pending_rows:
+            pending_counts[scope_node_id] = int(count or 0)
 
-        source_to_scope_key = {
-            resolved_scope.source_unclassified_node.id: _scope_key(resolved_scope)
-            for resolved_scope in resolved_scopes
-        }
         active_jobs = (
             select(
                 TaxonomyClassificationJob.scope_node_id,
-                TaxonomyClassificationJob.source_unclassified_node_id,
                 TaxonomyClassificationJob.node_id,
                 TaxonomyClassificationJob.job_id,
             )
-            .where(
-                tuple_(
-                    TaxonomyClassificationJob.scope_node_id,
-                    TaxonomyClassificationJob.source_unclassified_node_id,
-                ).in_(scope_pairs)
-            )
+            .where(TaxonomyClassificationJob.scope_node_id.in_(scope_pairs))
             .where(TaxonomyClassificationJob.processed_at.is_(None))
             .where(TaxonomyClassificationJob.terminal_state.is_(None))
             .subquery()
@@ -234,18 +215,16 @@ class TaxonomyClassificationSubmissionService:
             .outerjoin(
                 active_jobs,
                 and_(
-                    active_jobs.c.source_unclassified_node_id
-                    == NodeTaxonomyAssignment.taxonomy_node_id,
+                    active_jobs.c.scope_node_id == NodeTaxonomyAssignment.taxonomy_node_id,
                     active_jobs.c.node_id == NodeTaxonomyAssignment.node_id,
                 ),
             )
-            .where(NodeTaxonomyAssignment.taxonomy_node_id.in_(source_to_scope_key))
+            .where(NodeTaxonomyAssignment.taxonomy_node_id.in_(scope_pairs))
             .group_by(NodeTaxonomyAssignment.taxonomy_node_id)
         )
-        assignment_counts: dict[tuple[int, int], tuple[int, int]] = {}
-        for source_unclassified_node_id, candidate_count, already_linked_count in assignment_rows:
-            scope_key = source_to_scope_key[source_unclassified_node_id]
-            assignment_counts[scope_key] = (
+        assignment_counts: dict[int, tuple[int, int]] = {}
+        for scope_node_id, candidate_count, already_linked_count in assignment_rows:
+            assignment_counts[scope_node_id] = (
                 int(candidate_count or 0),
                 int(already_linked_count or 0),
             )
@@ -271,7 +250,6 @@ class TaxonomyClassificationSubmissionService:
             return _SubmissionCounts()
 
         pending_jobs = await self._list_pending_local_jobs(
-            source_unclassified_node_id=resolved_scope.source_unclassified_node.id,
             scope_node_id=resolved_scope.scope_node.id,
             limit=limit,
         )
@@ -287,7 +265,6 @@ class TaxonomyClassificationSubmissionService:
             return counts
 
         cards = await self._list_cards_without_active_job(
-            source_unclassified_node_id=resolved_scope.source_unclassified_node.id,
             scope_node_id=resolved_scope.scope_node.id,
             limit=remaining_limit,
         )
@@ -318,7 +295,6 @@ class TaxonomyClassificationSubmissionService:
         for card in cards:
             local_job = TaxonomyClassificationJob(
                 scope_node_id=resolved_scope.scope_node.id,
-                source_unclassified_node_id=resolved_scope.source_unclassified_node.id,
                 node_id=card.id,
             )
             self._session.add(local_job)
@@ -357,7 +333,6 @@ class TaxonomyClassificationSubmissionService:
                     ).model_dump(mode="json"),
                     metadata={
                         "scope_node_id": resolved_scope.scope_node.id,
-                        "source_unclassified_node_id": (resolved_scope.source_unclassified_node.id),
                         "node_id": card.id,
                     },
                 ),
@@ -409,11 +384,7 @@ class TaxonomyClassificationSubmissionService:
                 TaxonomyClassificationChildPayload(name=child.name)
                 for child in resolved_scope.regular_children
             ]
-            + [
-                TaxonomyClassificationChildPayload(
-                    name=resolved_scope.source_unclassified_node.name
-                )
-            ],
+            + [TaxonomyClassificationChildPayload(name="Unclassified")],
         )
 
     async def _count_jobs_to_link(
@@ -432,7 +403,6 @@ class TaxonomyClassificationSubmissionService:
                 break
 
             pending_count = await self._count_pending_local_jobs(
-                source_unclassified_node_id=resolved_scope.source_unclassified_node.id,
                 scope_node_id=resolved_scope.scope_node.id,
                 limit=remaining_limit,
             )
@@ -443,7 +413,6 @@ class TaxonomyClassificationSubmissionService:
                 break
 
             total_count += await self._count_cards_without_active_job(
-                source_unclassified_node_id=resolved_scope.source_unclassified_node.id,
                 scope_node_id=resolved_scope.scope_node.id,
                 limit=remaining_limit,
             )
@@ -452,23 +421,19 @@ class TaxonomyClassificationSubmissionService:
     async def _list_cards_without_active_job(
         self,
         *,
-        source_unclassified_node_id: int,
         scope_node_id: int,
         limit: int | None,
     ) -> list[Node]:
         active_jobs = (
             select(TaxonomyClassificationJob.node_id)
             .where(TaxonomyClassificationJob.scope_node_id == scope_node_id)
-            .where(
-                TaxonomyClassificationJob.source_unclassified_node_id == source_unclassified_node_id
-            )
             .where(TaxonomyClassificationJob.processed_at.is_(None))
             .where(TaxonomyClassificationJob.terminal_state.is_(None))
         )
         statement = (
             select(Node)
             .join(NodeTaxonomyAssignment, NodeTaxonomyAssignment.node_id == Node.id)
-            .where(NodeTaxonomyAssignment.taxonomy_node_id == source_unclassified_node_id)
+            .where(NodeTaxonomyAssignment.taxonomy_node_id == scope_node_id)
             .where(Node.id.not_in(active_jobs))
             .order_by(Node.id.asc())
         )
@@ -479,23 +444,19 @@ class TaxonomyClassificationSubmissionService:
     async def _count_cards_without_active_job(
         self,
         *,
-        source_unclassified_node_id: int,
         scope_node_id: int,
         limit: int | None,
     ) -> int:
         active_jobs = (
             select(TaxonomyClassificationJob.node_id)
             .where(TaxonomyClassificationJob.scope_node_id == scope_node_id)
-            .where(
-                TaxonomyClassificationJob.source_unclassified_node_id == source_unclassified_node_id
-            )
             .where(TaxonomyClassificationJob.processed_at.is_(None))
             .where(TaxonomyClassificationJob.terminal_state.is_(None))
         )
         candidate_ids = (
             select(Node.id)
             .join(NodeTaxonomyAssignment, NodeTaxonomyAssignment.node_id == Node.id)
-            .where(NodeTaxonomyAssignment.taxonomy_node_id == source_unclassified_node_id)
+            .where(NodeTaxonomyAssignment.taxonomy_node_id == scope_node_id)
             .where(Node.id.not_in(active_jobs))
             .order_by(Node.id.asc())
         )
@@ -514,10 +475,6 @@ class TaxonomyClassificationSubmissionService:
         active_remote_jobs = (
             select(TaxonomyClassificationJob.node_id)
             .where(TaxonomyClassificationJob.scope_node_id == resolved_scope.scope_node.id)
-            .where(
-                TaxonomyClassificationJob.source_unclassified_node_id
-                == resolved_scope.source_unclassified_node.id
-            )
             .where(TaxonomyClassificationJob.job_id.is_not(None))
             .where(TaxonomyClassificationJob.processed_at.is_(None))
             .where(TaxonomyClassificationJob.terminal_state.is_(None))
@@ -525,10 +482,7 @@ class TaxonomyClassificationSubmissionService:
         count = await self._session.scalar(
             select(func.count(func.distinct(Node.id)))
             .join(NodeTaxonomyAssignment, NodeTaxonomyAssignment.node_id == Node.id)
-            .where(
-                NodeTaxonomyAssignment.taxonomy_node_id
-                == resolved_scope.source_unclassified_node.id
-            )
+            .where(NodeTaxonomyAssignment.taxonomy_node_id == resolved_scope.scope_node.id)
             .where(Node.id.in_(active_remote_jobs))
         )
         return int(count or 0)
@@ -536,7 +490,6 @@ class TaxonomyClassificationSubmissionService:
     async def _list_pending_local_jobs(
         self,
         *,
-        source_unclassified_node_id: int,
         scope_node_id: int,
         limit: int | None,
     ) -> list[tuple[TaxonomyClassificationJob, Node]]:
@@ -544,9 +497,6 @@ class TaxonomyClassificationSubmissionService:
             select(TaxonomyClassificationJob, Node)
             .join(Node, Node.id == TaxonomyClassificationJob.node_id)
             .where(TaxonomyClassificationJob.scope_node_id == scope_node_id)
-            .where(
-                TaxonomyClassificationJob.source_unclassified_node_id == source_unclassified_node_id
-            )
             .where(TaxonomyClassificationJob.job_id.is_(None))
             .where(TaxonomyClassificationJob.processed_at.is_(None))
             .where(TaxonomyClassificationJob.terminal_state.is_(None))
@@ -560,7 +510,6 @@ class TaxonomyClassificationSubmissionService:
     async def _count_pending_local_jobs(
         self,
         *,
-        source_unclassified_node_id: int,
         scope_node_id: int,
         limit: int | None,
     ) -> int:
@@ -568,9 +517,6 @@ class TaxonomyClassificationSubmissionService:
             select(TaxonomyClassificationJob.id)
             .join(Node, Node.id == TaxonomyClassificationJob.node_id)
             .where(TaxonomyClassificationJob.scope_node_id == scope_node_id)
-            .where(
-                TaxonomyClassificationJob.source_unclassified_node_id == source_unclassified_node_id
-            )
             .where(TaxonomyClassificationJob.job_id.is_(None))
             .where(TaxonomyClassificationJob.processed_at.is_(None))
             .where(TaxonomyClassificationJob.terminal_state.is_(None))
@@ -590,14 +536,14 @@ def _remaining_limit(*, limit: int | None, submitted_count: int) -> int | None:
     return max(limit - submitted_count, 0)
 
 
-def _scope_key(resolved_scope: ResolvedTaxonomyClassificationScope) -> tuple[int, int]:
-    return (resolved_scope.scope_node.id, resolved_scope.source_unclassified_node.id)
+def _scope_key(resolved_scope: ResolvedTaxonomyClassificationScope) -> int:
+    return resolved_scope.scope_node.id
 
 
 def _count_jobs_to_link_from_preflight(
     *,
     resolved_scopes: Sequence[ResolvedTaxonomyClassificationScope],
-    preflight_by_scope: dict[tuple[int, int], _ScopeSubmissionPreflight],
+    preflight_by_scope: dict[int, _ScopeSubmissionPreflight],
     limit: int | None,
 ) -> int:
     total_count = 0

@@ -89,13 +89,13 @@ class TaxonomyClassificationService:
                         outcome = TaxonomyClassificationNodeOutcome(
                             node_id=node.node_id,
                             status="assigned",
-                            leaf_id=assignment_after.taxonomy_node.id,
+                            taxonomy_node_id=assignment_after.taxonomy_node.id,
                         )
                     else:
                         outcome = TaxonomyClassificationNodeOutcome(
                             node_id=node.node_id,
                             status="already_assigned",
-                            leaf_id=assignment_after.taxonomy_node.id,
+                            taxonomy_node_id=assignment_after.taxonomy_node.id,
                         )
                 except Exception as exc:
                     detail = str(exc).strip() or exc.__class__.__name__

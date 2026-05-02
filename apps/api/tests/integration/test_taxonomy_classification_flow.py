@@ -14,6 +14,7 @@ from modules.knowledge_graph.repo import KnowledgeRepo
 from modules.knowledge_graph.service import KnowledgeGraphService
 from modules.taxonomy.model import TaxonomyNode
 from modules.taxonomy.repo import TaxonomyRepo
+from modules.taxonomy.route_path import slugify_taxonomy_route_segment
 from modules.taxonomy.service import TaxonomyService
 from modules.taxonomy_classification.service import TaxonomyClassificationService
 from modules.taxonomy_classification.session_tool import TaxonomyClassificationSessionTool
@@ -40,14 +41,13 @@ async def _create_taxonomy_node(
     *,
     name: str,
     depth: int,
-    is_leaf: bool,
     parent_id: int | None = None,
 ) -> TaxonomyNode:
     taxonomy_node = TaxonomyNode(
         parent_id=parent_id,
         name=name,
+        route_slug=slugify_taxonomy_route_segment(name),
         depth=depth,
-        is_leaf=is_leaf,
     )
     db_session.add(taxonomy_node)
     await db_session.flush()
@@ -57,15 +57,14 @@ async def _create_taxonomy_node(
 @pytest.mark.integration
 @pytest.mark.db
 @pytest.mark.anyio
-async def test_classification_flow_assigns_leaf_and_keeps_failed_node_unassigned(
+async def test_classification_flow_assigns_taxonomy_node_and_keeps_failed_node_unassigned(
     db_session: AsyncSession,
 ) -> None:
-    root = await _create_taxonomy_node(db_session, name="Root", depth=0, is_leaf=False)
-    leaf = await _create_taxonomy_node(
+    root = await _create_taxonomy_node(db_session, name="Root", depth=0)
+    taxonomy_node = await _create_taxonomy_node(
         db_session,
         name="Mathematics",
         depth=1,
-        is_leaf=True,
         parent_id=root.id,
     )
     good_node = await _create_node(db_session, title="Linear Algebra", content="Vector spaces")
@@ -89,7 +88,10 @@ async def test_classification_flow_assigns_leaf_and_keeps_failed_node_unassigned
         ) -> None:
             if node.node_id == bad_node.id:
                 raise RuntimeError("cursor-agent failed")
-            await session_tool.assign_leaf(node_id=node.node_id, leaf_id=leaf.id)
+            await session_tool.assign_taxonomy_node(
+                node_id=node.node_id,
+                taxonomy_node_id=taxonomy_node.id,
+            )
 
     service = TaxonomyClassificationService(
         knowledge_port=knowledge_service,
@@ -105,29 +107,27 @@ async def test_classification_flow_assigns_leaf_and_keeps_failed_node_unassigned
     assert result.error_count == 1
     good_assignment = await taxonomy_service.get_assignment_for_node(node_id=good_node.id)
     assert good_assignment is not None
-    assert good_assignment.taxonomy_node.id == leaf.id
+    assert good_assignment.taxonomy_node.id == taxonomy_node.id
     assert (await taxonomy_service.get_assignment_for_node(node_id=bad_node.id)) is None
 
 
 @pytest.mark.integration
 @pytest.mark.db
 @pytest.mark.anyio
-async def test_second_assign_leaf_attempt_moves_current_assignment(
+async def test_second_assign_taxonomy_node_attempt_moves_current_assignment(
     db_session: AsyncSession,
 ) -> None:
-    root = await _create_taxonomy_node(db_session, name="Root", depth=0, is_leaf=False)
-    first_leaf = await _create_taxonomy_node(
+    root = await _create_taxonomy_node(db_session, name="Root", depth=0)
+    first_taxonomy_node = await _create_taxonomy_node(
         db_session,
         name="Physics",
         depth=1,
-        is_leaf=True,
         parent_id=root.id,
     )
-    second_leaf = await _create_taxonomy_node(
+    second_taxonomy_node = await _create_taxonomy_node(
         db_session,
         name="Chemistry",
         depth=1,
-        is_leaf=True,
         parent_id=root.id,
     )
     node = await _create_node(
@@ -139,9 +139,15 @@ async def test_second_assign_leaf_attempt_moves_current_assignment(
         taxonomy_port=TaxonomyService(repo=TaxonomyRepo(session=db_session)),
     )
 
-    first = await tool.assign_leaf(node_id=node.id, leaf_id=first_leaf.id)
-    second = await tool.assign_leaf(node_id=node.id, leaf_id=second_leaf.id)
+    first = await tool.assign_taxonomy_node(
+        node_id=node.id,
+        taxonomy_node_id=first_taxonomy_node.id,
+    )
+    second = await tool.assign_taxonomy_node(
+        node_id=node.id,
+        taxonomy_node_id=second_taxonomy_node.id,
+    )
 
     assert first.result == "assigned"
     assert second.result == "assigned"
-    assert second.assignment.taxonomy_node.id == second_leaf.id
+    assert second.assignment.taxonomy_node.id == second_taxonomy_node.id

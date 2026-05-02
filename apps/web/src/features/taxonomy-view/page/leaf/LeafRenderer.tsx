@@ -15,13 +15,13 @@ import {
 } from "react";
 import type { SearchResultCardEditPayload } from "../../../search/components/SearchResultCard";
 import {
-  type TaxonomyLeafLayoutBounds,
-  type TaxonomyLeafLayoutSliceResponse,
-  type TaxonomyLeafNodeDetailRecord,
+  type TaxonomyCardScopeLayoutBounds,
+  type TaxonomyCardScopeLayoutSliceResponse,
+  type TaxonomyCardScopeNodeDetailRecord,
   type TaxonomyLeafView,
-  useTaxonomyLeafLayoutSliceQuery,
-  useTaxonomyLeafNodeDetailsQuery,
-  useTaxonomyLeafNodeTitlesQuery,
+  useTaxonomyCardScopeLayoutSliceQuery,
+  useTaxonomyCardScopeNodeDetailsQuery,
+  useTaxonomyCardScopeNodeTitlesQuery,
 } from "../../data/taxonomyViewQueries";
 import type {
   LayoutViewport,
@@ -63,11 +63,13 @@ const LeafDeckScene = lazy(() =>
 const LEAF_POINT_DIAMETER = 16;
 
 interface RenderableLeafLayout {
-  readonly edges: TaxonomyLeafLayoutSliceResponse["edges"];
+  readonly edges: TaxonomyCardScopeLayoutSliceResponse["edges"];
   readonly nodes: TaxonomyLayoutNode[];
 }
 
-function toLayoutBounds(bounds: LeafWorldBounds): TaxonomyLeafLayoutBounds {
+function toLayoutBounds(
+  bounds: LeafWorldBounds,
+): TaxonomyCardScopeLayoutBounds {
   return {
     max_x: bounds.right,
     max_y: bounds.bottom,
@@ -77,7 +79,7 @@ function toLayoutBounds(bounds: LeafWorldBounds): TaxonomyLeafLayoutBounds {
 }
 
 function buildRenderableLeafLayout(
-  layoutSlice: TaxonomyLeafLayoutSliceResponse | undefined,
+  layoutSlice: TaxonomyCardScopeLayoutSliceResponse | undefined,
 ): RenderableLeafLayout {
   if (!layoutSlice) {
     return { edges: [], nodes: [] };
@@ -111,7 +113,7 @@ function buildRenderableLeafLayout(
 }
 
 function buildDisclosureNode(options: {
-  readonly detail: TaxonomyLeafNodeDetailRecord | undefined;
+  readonly detail: TaxonomyCardScopeNodeDetailRecord | undefined;
   readonly pointNode: LeafScenePointNode | undefined;
 }) {
   if (!options.detail || !options.pointNode) {
@@ -136,7 +138,7 @@ export function LeafRenderer({
 }: LeafRendererProps) {
   const shellRef = useRef<HTMLDivElement | null>(null);
   const lastLeafLayoutSliceRef = useRef<
-    TaxonomyLeafLayoutSliceResponse | undefined
+    TaxonomyCardScopeLayoutSliceResponse | undefined
   >(undefined);
   const {
     max_x: leafWorldMaxX,
@@ -185,15 +187,11 @@ export function LeafRenderer({
     {},
   );
   const [leafDetailCache, setLeafDetailCache] = useState<
-    Record<number, TaxonomyLeafNodeDetailRecord>
+    Record<number, TaxonomyCardScopeNodeDetailRecord>
   >({});
-  const leafNodeId = leafView.current_node.id;
+  const cardScopeRoutePath = leafView.current_scope.route_path;
 
   useEffect(() => {
-    if (!Number.isFinite(leafNodeId)) {
-      return;
-    }
-
     liveViewportRef.current = initialDeckViewport;
     setDeckViewportSnapshot(initialDeckViewport);
     setIsPointTitleModeActive(
@@ -204,7 +202,7 @@ export function LeafRenderer({
     setLeafTitleCache({});
     setLeafDetailCache({});
     lastLeafLayoutSliceRef.current = undefined;
-  }, [initialDeckViewport, leafNodeId]);
+  }, [initialDeckViewport]);
 
   const handleViewportFrameChange = useCallback(
     (viewport: typeof initialDeckViewport) => {
@@ -284,11 +282,11 @@ export function LeafRenderer({
       ),
     [viewportState.overscanBounds],
   );
-  const leafLayoutQuery = useTaxonomyLeafLayoutSliceQuery(
-    leafNodeId,
+  const leafLayoutQuery = useTaxonomyCardScopeLayoutSliceQuery(
+    cardScopeRoutePath,
     leafLayoutBounds,
     leafLayoutIdentity,
-    { enabled: Number.isFinite(leafNodeId) },
+    { enabled: true },
   );
   useEffect(() => {
     if (leafLayoutQuery.data) {
@@ -330,8 +328,8 @@ export function LeafRenderer({
     [leafTitleCache, visibleTitleNodeIds],
   );
 
-  const leafTitlesQuery = useTaxonomyLeafNodeTitlesQuery(
-    leafNodeId,
+  const leafTitlesQuery = useTaxonomyCardScopeNodeTitlesQuery(
+    cardScopeRoutePath,
     missingTitleNodeIds,
     {
       enabled: isPointTitleModeActive && missingTitleNodeIds.length > 0,
@@ -381,8 +379,8 @@ export function LeafRenderer({
     [detailTargetNodeIds, leafDetailCache],
   );
 
-  const leafDetailsQuery = useTaxonomyLeafNodeDetailsQuery(
-    leafNodeId,
+  const leafDetailsQuery = useTaxonomyCardScopeNodeDetailsQuery(
+    cardScopeRoutePath,
     missingDetailNodeIds,
     {
       enabled: isPointTitleModeActive && missingDetailNodeIds.length > 0,

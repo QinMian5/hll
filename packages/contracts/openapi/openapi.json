@@ -247,7 +247,7 @@
         "title": "SuggestedEditCreateResponse",
         "type": "object"
       },
-      "TaxonomyLeafGraphEdgeResponse": {
+      "TaxonomyCardScopeGraphEdgeResponse": {
         "maxItems": 3,
         "minItems": 3,
         "prefixItems": [
@@ -267,7 +267,7 @@
         ],
         "type": "array"
       },
-      "TaxonomyLeafLayoutNodeResponse": {
+      "TaxonomyCardScopeLayoutNodeResponse": {
         "additionalProperties": false,
         "properties": {
           "id": {
@@ -298,15 +298,15 @@
           "x",
           "y"
         ],
-        "title": "TaxonomyLeafLayoutNodeResponse",
+        "title": "TaxonomyCardScopeLayoutNodeResponse",
         "type": "object"
       },
-      "TaxonomyLeafLayoutSliceResponse": {
+      "TaxonomyCardScopeLayoutSliceResponse": {
         "additionalProperties": false,
         "properties": {
           "edges": {
             "items": {
-              "$ref": "#/components/schemas/TaxonomyLeafGraphEdgeResponse"
+              "$ref": "#/components/schemas/TaxonomyCardScopeGraphEdgeResponse"
             },
             "title": "Edges",
             "type": "array"
@@ -316,33 +316,65 @@
             "title": "Layout Version",
             "type": "string"
           },
-          "leaf_id": {
-            "exclusiveMinimum": 0.0,
-            "title": "Leaf Id",
-            "type": "integer"
-          },
           "nodes": {
             "items": {
-              "$ref": "#/components/schemas/TaxonomyLeafLayoutNodeResponse"
+              "$ref": "#/components/schemas/TaxonomyCardScopeLayoutNodeResponse"
             },
             "title": "Nodes",
             "type": "array"
           },
+          "parent_taxonomy_node_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Taxonomy Node Id"
+          },
           "requested_bounds": {
-            "$ref": "#/components/schemas/TaxonomyLeafWorldBoundsResponse"
+            "$ref": "#/components/schemas/TaxonomyCardScopeWorldBoundsResponse"
+          },
+          "route_path": {
+            "title": "Route Path",
+            "type": "string"
+          },
+          "scope_kind": {
+            "enum": [
+              "taxonomy_node",
+              "virtual_unclassified"
+            ],
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "taxonomy_node_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxonomy Node Id"
           }
         },
         "required": [
-          "leaf_id",
+          "scope_kind",
+          "route_path",
           "layout_version",
           "requested_bounds",
           "nodes",
           "edges"
         ],
-        "title": "TaxonomyLeafLayoutSliceResponse",
+        "title": "TaxonomyCardScopeLayoutSliceResponse",
         "type": "object"
       },
-      "TaxonomyLeafNodeDetailResponse": {
+      "TaxonomyCardScopeNodeDetailResponse": {
         "additionalProperties": false,
         "properties": {
           "content": {
@@ -372,10 +404,10 @@
           "title",
           "content"
         ],
-        "title": "TaxonomyLeafNodeDetailResponse",
+        "title": "TaxonomyCardScopeNodeDetailResponse",
         "type": "object"
       },
-      "TaxonomyLeafNodeDetailsRequest": {
+      "TaxonomyCardScopeNodeDetailsRequest": {
         "additionalProperties": false,
         "properties": {
           "node_ids": {
@@ -384,17 +416,24 @@
             },
             "title": "Node Ids",
             "type": "array"
+          },
+          "route_path": {
+            "title": "Route Path",
+            "type": "string"
           }
         },
-        "title": "TaxonomyLeafNodeDetailsRequest",
+        "required": [
+          "route_path"
+        ],
+        "title": "TaxonomyCardScopeNodeDetailsRequest",
         "type": "object"
       },
-      "TaxonomyLeafNodeDetailsResponse": {
+      "TaxonomyCardScopeNodeDetailsResponse": {
         "additionalProperties": false,
         "properties": {
           "nodes": {
             "items": {
-              "$ref": "#/components/schemas/TaxonomyLeafNodeDetailResponse"
+              "$ref": "#/components/schemas/TaxonomyCardScopeNodeDetailResponse"
             },
             "title": "Nodes",
             "type": "array"
@@ -403,10 +442,10 @@
         "required": [
           "nodes"
         ],
-        "title": "TaxonomyLeafNodeDetailsResponse",
+        "title": "TaxonomyCardScopeNodeDetailsResponse",
         "type": "object"
       },
-      "TaxonomyLeafNodeTitleResponse": {
+      "TaxonomyCardScopeNodeTitleResponse": {
         "additionalProperties": false,
         "properties": {
           "id": {
@@ -424,10 +463,10 @@
           "id",
           "title"
         ],
-        "title": "TaxonomyLeafNodeTitleResponse",
+        "title": "TaxonomyCardScopeNodeTitleResponse",
         "type": "object"
       },
-      "TaxonomyLeafNodeTitlesRequest": {
+      "TaxonomyCardScopeNodeTitlesRequest": {
         "additionalProperties": false,
         "properties": {
           "node_ids": {
@@ -436,17 +475,24 @@
             },
             "title": "Node Ids",
             "type": "array"
+          },
+          "route_path": {
+            "title": "Route Path",
+            "type": "string"
           }
         },
-        "title": "TaxonomyLeafNodeTitlesRequest",
+        "required": [
+          "route_path"
+        ],
+        "title": "TaxonomyCardScopeNodeTitlesRequest",
         "type": "object"
       },
-      "TaxonomyLeafNodeTitlesResponse": {
+      "TaxonomyCardScopeNodeTitlesResponse": {
         "additionalProperties": false,
         "properties": {
           "nodes": {
             "items": {
-              "$ref": "#/components/schemas/TaxonomyLeafNodeTitleResponse"
+              "$ref": "#/components/schemas/TaxonomyCardScopeNodeTitleResponse"
             },
             "title": "Nodes",
             "type": "array"
@@ -455,10 +501,10 @@
         "required": [
           "nodes"
         ],
-        "title": "TaxonomyLeafNodeTitlesResponse",
+        "title": "TaxonomyCardScopeNodeTitlesResponse",
         "type": "object"
       },
-      "TaxonomyLeafWorldBoundsResponse": {
+      "TaxonomyCardScopeWorldBoundsResponse": {
         "additionalProperties": false,
         "properties": {
           "max_x": {
@@ -484,7 +530,7 @@
           "max_x",
           "max_y"
         ],
-        "title": "TaxonomyLeafWorldBoundsResponse",
+        "title": "TaxonomyCardScopeWorldBoundsResponse",
         "type": "object"
       },
       "TaxonomyNodeBranchViewResponse": {
@@ -492,7 +538,7 @@
         "properties": {
           "breadcrumb": {
             "items": {
-              "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
+              "$ref": "#/components/schemas/TaxonomyViewScopeResponse"
             },
             "title": "Breadcrumb",
             "type": "array"
@@ -504,8 +550,8 @@
             "title": "Children",
             "type": "array"
           },
-          "current_node": {
-            "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
+          "current_scope": {
+            "$ref": "#/components/schemas/TaxonomyViewScopeResponse"
           },
           "node_kind": {
             "const": "branch",
@@ -515,25 +561,25 @@
         },
         "required": [
           "node_kind",
-          "current_node",
+          "current_scope",
           "breadcrumb",
           "children"
         ],
         "title": "TaxonomyNodeBranchViewResponse",
         "type": "object"
       },
-      "TaxonomyNodeLeafViewResponse": {
+      "TaxonomyNodeCardScopeViewResponse": {
         "additionalProperties": false,
         "properties": {
           "breadcrumb": {
             "items": {
-              "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
+              "$ref": "#/components/schemas/TaxonomyViewScopeResponse"
             },
             "title": "Breadcrumb",
             "type": "array"
           },
-          "current_node": {
-            "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
+          "current_scope": {
+            "$ref": "#/components/schemas/TaxonomyViewScopeResponse"
           },
           "edge_count": {
             "minimum": 0.0,
@@ -556,17 +602,17 @@
             "type": "integer"
           },
           "node_kind": {
-            "const": "leaf",
+            "const": "card_scope",
             "title": "Node Kind",
             "type": "string"
           },
           "world_bounds": {
-            "$ref": "#/components/schemas/TaxonomyLeafWorldBoundsResponse"
+            "$ref": "#/components/schemas/TaxonomyCardScopeWorldBoundsResponse"
           }
         },
         "required": [
           "node_kind",
-          "current_node",
+          "current_scope",
           "breadcrumb",
           "layout_version",
           "world_bounds",
@@ -574,14 +620,14 @@
           "edge_count",
           "generated_at"
         ],
-        "title": "TaxonomyNodeLeafViewResponse",
+        "title": "TaxonomyNodeCardScopeViewResponse",
         "type": "object"
       },
       "TaxonomyNodeViewResponse": {
         "discriminator": {
           "mapping": {
             "branch": "#/components/schemas/TaxonomyNodeBranchViewResponse",
-            "leaf": "#/components/schemas/TaxonomyNodeLeafViewResponse"
+            "card_scope": "#/components/schemas/TaxonomyNodeCardScopeViewResponse"
           },
           "propertyName": "node_kind"
         },
@@ -590,7 +636,7 @@
             "$ref": "#/components/schemas/TaxonomyNodeBranchViewResponse"
           },
           {
-            "$ref": "#/components/schemas/TaxonomyNodeLeafViewResponse"
+            "$ref": "#/components/schemas/TaxonomyNodeCardScopeViewResponse"
           }
         ]
       },
@@ -599,7 +645,7 @@
         "properties": {
           "breadcrumb": {
             "items": {
-              "$ref": "#/components/schemas/TaxonomyViewNodeResponse"
+              "$ref": "#/components/schemas/TaxonomyViewScopeResponse"
             },
             "title": "Breadcrumb",
             "type": "array"
@@ -632,21 +678,20 @@
             "title": "Descendant Card Count",
             "type": "integer"
           },
-          "id": {
-            "exclusiveMinimum": 0.0,
-            "title": "Id",
-            "type": "integer"
-          },
-          "is_leaf": {
-            "title": "Is Leaf",
-            "type": "boolean"
-          },
           "name": {
             "minLength": 1,
             "title": "Name",
             "type": "string"
           },
-          "parent_id": {
+          "node_kind": {
+            "enum": [
+              "branch",
+              "card_scope"
+            ],
+            "title": "Node Kind",
+            "type": "string"
+          },
+          "parent_taxonomy_node_id": {
             "anyOf": [
               {
                 "exclusiveMinimum": 0.0,
@@ -656,7 +701,7 @@
                 "type": "null"
               }
             ],
-            "title": "Parent Id"
+            "title": "Parent Taxonomy Node Id"
           },
           "route_path": {
             "title": "Route Path",
@@ -666,21 +711,41 @@
             "minLength": 1,
             "title": "Route Slug",
             "type": "string"
+          },
+          "scope_kind": {
+            "enum": [
+              "taxonomy_node",
+              "virtual_unclassified"
+            ],
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "taxonomy_node_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxonomy Node Id"
           }
         },
         "required": [
-          "id",
+          "scope_kind",
           "name",
           "route_slug",
           "route_path",
           "depth",
-          "is_leaf",
+          "node_kind",
           "descendant_card_count"
         ],
         "title": "TaxonomyViewChildResponse",
         "type": "object"
       },
-      "TaxonomyViewNodeResponse": {
+      "TaxonomyViewScopeResponse": {
         "additionalProperties": false,
         "properties": {
           "depth": {
@@ -688,21 +753,12 @@
             "title": "Depth",
             "type": "integer"
           },
-          "id": {
-            "exclusiveMinimum": 0.0,
-            "title": "Id",
-            "type": "integer"
-          },
-          "is_leaf": {
-            "title": "Is Leaf",
-            "type": "boolean"
-          },
           "name": {
             "minLength": 1,
             "title": "Name",
             "type": "string"
           },
-          "parent_id": {
+          "parent_taxonomy_node_id": {
             "anyOf": [
               {
                 "exclusiveMinimum": 0.0,
@@ -712,7 +768,7 @@
                 "type": "null"
               }
             ],
-            "title": "Parent Id"
+            "title": "Parent Taxonomy Node Id"
           },
           "route_path": {
             "title": "Route Path",
@@ -722,17 +778,36 @@
             "minLength": 1,
             "title": "Route Slug",
             "type": "string"
+          },
+          "scope_kind": {
+            "enum": [
+              "taxonomy_node",
+              "virtual_unclassified"
+            ],
+            "title": "Scope Kind",
+            "type": "string"
+          },
+          "taxonomy_node_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxonomy Node Id"
           }
         },
         "required": [
-          "id",
+          "scope_kind",
           "name",
           "route_slug",
           "route_path",
-          "depth",
-          "is_leaf"
+          "depth"
         ],
-        "title": "TaxonomyViewNodeResponse",
+        "title": "TaxonomyViewScopeResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -968,25 +1043,14 @@
         ]
       }
     },
-    "/api/v1/taxonomy/view/leaves/{node_id}/details": {
+    "/api/v1/taxonomy/view/card-scopes/details": {
       "post": {
-        "operationId": "get_leaf_node_details_api_v1_taxonomy_view_leaves__node_id__details_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "node_id",
-            "required": true,
-            "schema": {
-              "title": "Node Id",
-              "type": "integer"
-            }
-          }
-        ],
+        "operationId": "get_card_scope_node_details_api_v1_taxonomy_view_card_scopes_details_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TaxonomyLeafNodeDetailsRequest"
+                "$ref": "#/components/schemas/TaxonomyCardScopeNodeDetailsRequest"
               }
             }
           },
@@ -997,7 +1061,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaxonomyLeafNodeDetailsResponse"
+                  "$ref": "#/components/schemas/TaxonomyCardScopeNodeDetailsResponse"
                 }
               }
             },
@@ -1014,23 +1078,23 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Leaf Node Details",
+        "summary": "Get Card Scope Node Details",
         "tags": [
           "taxonomy"
         ]
       }
     },
-    "/api/v1/taxonomy/view/leaves/{node_id}/layout": {
+    "/api/v1/taxonomy/view/card-scopes/layout": {
       "get": {
-        "operationId": "get_leaf_layout_slice_api_v1_taxonomy_view_leaves__node_id__layout_get",
+        "operationId": "get_card_scope_layout_slice_api_v1_taxonomy_view_card_scopes_layout_get",
         "parameters": [
           {
-            "in": "path",
-            "name": "node_id",
+            "in": "query",
+            "name": "route_path",
             "required": true,
             "schema": {
-              "title": "Node Id",
-              "type": "integer"
+              "title": "Route Path",
+              "type": "string"
             }
           },
           {
@@ -1075,7 +1139,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaxonomyLeafLayoutSliceResponse"
+                  "$ref": "#/components/schemas/TaxonomyCardScopeLayoutSliceResponse"
                 }
               }
             },
@@ -1092,31 +1156,20 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Leaf Layout Slice",
+        "summary": "Get Card Scope Layout Slice",
         "tags": [
           "taxonomy"
         ]
       }
     },
-    "/api/v1/taxonomy/view/leaves/{node_id}/titles": {
+    "/api/v1/taxonomy/view/card-scopes/titles": {
       "post": {
-        "operationId": "get_leaf_node_titles_api_v1_taxonomy_view_leaves__node_id__titles_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "node_id",
-            "required": true,
-            "schema": {
-              "title": "Node Id",
-              "type": "integer"
-            }
-          }
-        ],
+        "operationId": "get_card_scope_node_titles_api_v1_taxonomy_view_card_scopes_titles_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TaxonomyLeafNodeTitlesRequest"
+                "$ref": "#/components/schemas/TaxonomyCardScopeNodeTitlesRequest"
               }
             }
           },
@@ -1127,7 +1180,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaxonomyLeafNodeTitlesResponse"
+                  "$ref": "#/components/schemas/TaxonomyCardScopeNodeTitlesResponse"
                 }
               }
             },
@@ -1144,7 +1197,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Get Leaf Node Titles",
+        "summary": "Get Card Scope Node Titles",
         "tags": [
           "taxonomy"
         ]

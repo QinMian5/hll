@@ -8,7 +8,6 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
-    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -57,7 +56,6 @@ class TaxonomyNode(Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     route_slug: Mapped[str] = mapped_column(Text, nullable=False)
     depth: Mapped[int] = mapped_column(Integer, nullable=False)
-    is_leaf: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
 
 class NodeTaxonomyAssignment(Base):
@@ -88,11 +86,19 @@ class NodeTaxonomyAssignment(Base):
     )
 
 
-class TaxonomyLeafProjectionEdge(Base):
-    __tablename__ = "taxonomy_leaf_projection_edges"
-    __table_args__ = (Index("ix_taxonomy_leaf_projection_edges_edge_id", "edge_id"),)
+class TaxonomyScopeProjectionEdge(Base):
+    __tablename__ = "taxonomy_scope_projection_edges"
+    __table_args__ = (
+        Index("ix_taxonomy_scope_projection_edges_edge_id", "edge_id"),
+        Index(
+            "ix_taxonomy_scope_projection_edges_scope",
+            "scope_kind",
+            "taxonomy_node_id",
+        ),
+    )
 
-    leaf_id: Mapped[int] = mapped_column(
+    scope_kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    taxonomy_node_id: Mapped[int] = mapped_column(
         ForeignKey("taxonomy_nodes.id", ondelete="CASCADE"),
         primary_key=True,
     )

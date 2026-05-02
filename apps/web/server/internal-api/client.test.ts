@@ -54,9 +54,13 @@ describe("internal API client", () => {
           {
             error: {
               code: "layout_not_ready",
-              details: { leaf_id: 7 },
+              details: {
+                route_path: "science/mathematics",
+                scope_kind: "taxonomy_node",
+                taxonomy_node_id: 7,
+              },
               hint: "Retry this request shortly.",
-              message: "Taxonomy leaf layout is being prepared.",
+              message: "Taxonomy card-scope layout is being prepared.",
               request_id: "req_12345678",
             },
           },
@@ -72,7 +76,7 @@ describe("internal API client", () => {
 
     await expect(client.getTaxonomyNodeByPath("science")).rejects.toMatchObject(
       {
-        clientMessage: "Taxonomy leaf layout is being prepared.",
+        clientMessage: "Taxonomy card-scope layout is being prepared.",
         code: "layout_not_ready",
         name: "InternalApiError",
         retryAfterSeconds: 10,

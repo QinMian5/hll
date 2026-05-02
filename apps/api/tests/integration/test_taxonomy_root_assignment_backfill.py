@@ -1,5 +1,5 @@
 """
-Abstract: Integration tests for historical card assignment backfill into Root Unclassified.
+Abstract: Integration tests for historical card assignment backfill into Root.
 Out of scope: Operator CLI parsing and live production execution.
 """
 
@@ -12,8 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from modules.knowledge_graph.model import Node
 from modules.taxonomy.model import NodeTaxonomyAssignment, TaxonomyNode
 from modules.taxonomy.repo import TaxonomyRepo
-from modules.taxonomy.root_unclassified_backfill import (
-    TaxonomyRootUnclassifiedBackfillService,
+from modules.taxonomy.root_assignment_backfill import (
+    TaxonomyRootAssignmentBackfillService,
 )
 
 pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.anyio]
@@ -31,35 +31,26 @@ async def test_backfill_assigns_only_historical_cards_without_current_assignment
 ) -> None:
     assigned_node = await _create_node(db_session, title="Assigned")
     missing_node = await _create_node(db_session, title="Missing")
-    existing_root = TaxonomyNode(parent_id=None, name="Root", depth=0, is_leaf=False)
+    existing_root = TaxonomyNode(parent_id=None, name="Root", route_slug="root", depth=0)
     db_session.add(existing_root)
     await db_session.flush()
-    existing_unclassified = TaxonomyNode(
+    science = TaxonomyNode(
         parent_id=existing_root.id,
-        name="Unclassified",
+        name="Science",
+        route_slug="science",
         depth=1,
-        is_leaf=True,
     )
-    science = TaxonomyNode(parent_id=existing_root.id, name="Science", depth=1, is_leaf=False)
-    db_session.add_all([existing_unclassified, science])
-    await db_session.flush()
-    science_unclassified = TaxonomyNode(
-        parent_id=science.id,
-        name="Unclassified",
-        depth=2,
-        is_leaf=True,
-    )
-    db_session.add(science_unclassified)
+    db_session.add(science)
     await db_session.flush()
     db_session.add(
         NodeTaxonomyAssignment(
             node_id=assigned_node.id,
-            taxonomy_node_id=science_unclassified.id,
+            taxonomy_node_id=science.id,
         )
     )
     await db_session.commit()
 
-    service = TaxonomyRootUnclassifiedBackfillService(repo=TaxonomyRepo(session=db_session))
+    service = TaxonomyRootAssignmentBackfillService(repo=TaxonomyRepo(session=db_session))
 
     result = await service.run(apply=True)
     assigned_assignment = await db_session.scalar(
@@ -70,22 +61,21 @@ async def test_backfill_assigns_only_historical_cards_without_current_assignment
     )
 
     assert result.root_id == existing_root.id
-    assert result.root_unclassified_id == existing_unclassified.id
     assert result.total_cards == 2
     assert result.assigned_before == 1
     assert result.missing_before == 1
     assert result.inserted_assignments == 1
     assert result.missing_after == 0
     assert assigned_assignment is not None
-    assert assigned_assignment.taxonomy_node_id == science_unclassified.id
+    assert assigned_assignment.taxonomy_node_id == science.id
     assert missing_assignment is not None
-    assert missing_assignment.taxonomy_node_id == existing_unclassified.id
+    assert missing_assignment.taxonomy_node_id == existing_root.id
 
 
 async def test_backfill_apply_is_idempotent_after_first_run(db_session: AsyncSession) -> None:
     await _create_node(db_session, title="Only Card")
     await db_session.commit()
-    service = TaxonomyRootUnclassifiedBackfillService(repo=TaxonomyRepo(session=db_session))
+    service = TaxonomyRootAssignmentBackfillService(repo=TaxonomyRepo(session=db_session))
 
     first_result = await service.run(apply=True)
     second_result = await service.run(apply=True)

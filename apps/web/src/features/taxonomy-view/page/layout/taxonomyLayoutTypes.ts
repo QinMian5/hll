@@ -16,9 +16,10 @@ export interface LayoutViewport {
 export interface BranchChildLayoutInput {
   readonly depth: number;
   readonly descendant_card_count: number;
-  readonly id: number;
+  readonly id: number | string;
   readonly name: string;
   readonly route_path: string;
+  readonly taxonomy_node_id?: number | null;
 }
 
 export interface LeafSkeletonNodeLayoutInput {

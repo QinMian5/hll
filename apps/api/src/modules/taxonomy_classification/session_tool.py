@@ -6,8 +6,8 @@ Out of scope: Click CLI command parsing and runtime dependency assembly.
 from __future__ import annotations
 
 from modules.taxonomy_classification.dto import (
-    SessionAssignLeafResponse,
     SessionAssignmentResponse,
+    SessionAssignTaxonomyNodeResponse,
     SessionChildrenResponse,
 )
 from modules.taxonomy_classification.ports import TaxonomyClassificationSessionTaxonomyPort
@@ -30,12 +30,17 @@ class TaxonomyClassificationSessionTool:
         assignment = await self._taxonomy_port.get_assignment_for_node(node_id=node_id)
         return SessionAssignmentResponse(assignment=assignment)
 
-    async def assign_leaf(self, *, node_id: int, leaf_id: int) -> SessionAssignLeafResponse:
+    async def assign_taxonomy_node(
+        self,
+        *,
+        node_id: int,
+        taxonomy_node_id: int,
+    ) -> SessionAssignTaxonomyNodeResponse:
         assignment = await self._taxonomy_port.set_current_assignment(
             node_id=node_id,
-            taxonomy_node_id=leaf_id,
+            taxonomy_node_id=taxonomy_node_id,
         )
-        return SessionAssignLeafResponse(
+        return SessionAssignTaxonomyNodeResponse(
             result="assigned",
             assignment=assignment,
         )

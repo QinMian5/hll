@@ -23,7 +23,21 @@ RUNTIME_REQUIRED_ENV = {
     "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K": "4",
     "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH": "0.61",
     "KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT": "9",
+    "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS": "60",
+    "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS": "86400",
+    "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS": "60",
+    "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS": "600",
+    "KNOWLEDGE_API_LOG_LEVEL": "INFO",
     "KNOWLEDGE_API_LOG_FILE_PATH": "logs/api/app.log",
+    "KNOWLEDGE_API_LOG_FILE_MAX_BYTES": "10485760",
+    "KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT": "5",
+    "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_COMMAND": "cursor-agent",
+    "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE_ROOT": (
+        "/tmp/knowledge-api-taxonomy-classification"
+    ),
+    "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_TIMEOUT_SECONDS": "180",
+    "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_MAX_RETRIES": "3",
+    "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_MAX_WORKERS": "8",
 }
 
 MIGRATION_REQUIRED_ENV = {
@@ -34,18 +48,6 @@ ALL_SETTINGS_KEYS = (
     set(RUNTIME_REQUIRED_ENV)
     | set(MIGRATION_REQUIRED_ENV)
     | {
-        "KNOWLEDGE_API_LOG_LEVEL",
-        "KNOWLEDGE_API_LOG_FILE_MAX_BYTES",
-        "KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT",
-        "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS",
-        "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS",
-        "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS",
-        "KNOWLEDGE_API_TAXONOMY_LEAF_LAYOUT_CACHE_TTL_SECONDS",
-        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_COMMAND",
-        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE_ROOT",
-        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_TIMEOUT_SECONDS",
-        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_MAX_RETRIES",
-        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_MAX_WORKERS",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_BASE_URL",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_TOKEN_URL",
@@ -63,6 +65,7 @@ ALL_SETTINGS_KEYS = (
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_POLL_BATCH_SIZE",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_INTERVAL_SECONDS",
         "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_BATCH_SIZE",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_PROJECTION_REFRESH_BATCH_SIZE",
         "AN_UNRELATED_KEY",
     }
 )
@@ -89,6 +92,19 @@ def test_settings_type_is_defined() -> None:
 
 def test_migration_settings_type_is_defined() -> None:
     assert hasattr(config_module, "MigrationSettings")
+
+
+@pytest.mark.parametrize(
+    "settings_type",
+    (
+        config_module.Settings,
+        config_module.TaxonomyClassificationRuntimeSettings,
+        config_module.TaxonomyViewLayoutRuntimeSettings,
+        config_module.TaxonomyClassificationWebhookReceiverSettings,
+    ),
+)
+def test_runtime_settings_do_not_define_code_defaults(settings_type: type) -> None:
+    assert all(field.is_required() for field in settings_type.model_fields.values())
 
 
 def test_load_settings_reads_database_url_from_environment(
@@ -164,25 +180,24 @@ def test_load_settings_ignores_unrelated_infra_keys(
     assert settings.database_url.startswith("postgresql+psycopg://")
 
 
-def test_load_settings_applies_logging_defaults_when_optional_keys_absent(
+def test_load_settings_requires_logging_keys(
     isolated_env: pytest.MonkeyPatch,
 ) -> None:
-    _set_env(isolated_env, RUNTIME_REQUIRED_ENV)
-    settings = config_module.Settings()
-    assert settings.log_level == "INFO"
-    assert settings.log_file_max_bytes == 10_485_760
-    assert settings.log_file_backup_count == 5
+    values = dict(RUNTIME_REQUIRED_ENV)
+    values.pop("KNOWLEDGE_API_LOG_LEVEL")
+    _set_env(isolated_env, values)
+    with pytest.raises(ValidationError, match="log_level"):
+        config_module.Settings()
 
 
-def test_load_settings_applies_cache_ttl_defaults_when_optional_keys_absent(
+def test_load_settings_requires_cache_ttl_keys(
     isolated_env: pytest.MonkeyPatch,
 ) -> None:
-    _set_env(isolated_env, RUNTIME_REQUIRED_ENV)
-    settings = config_module.Settings()
-    assert settings.search_response_cache_ttl_seconds == 60
-    assert settings.search_embedding_cache_ttl_seconds == 86400
-    assert settings.taxonomy_view_cache_ttl_seconds == 60
-    assert settings.taxonomy_leaf_layout_cache_ttl_seconds == 600
+    values = dict(RUNTIME_REQUIRED_ENV)
+    values.pop("KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS")
+    _set_env(isolated_env, values)
+    with pytest.raises(ValidationError, match="taxonomy_card_scope_layout_cache_ttl_seconds"):
+        config_module.Settings()
 
 
 def test_load_settings_reads_cache_ttls_from_environment(
@@ -195,14 +210,14 @@ def test_load_settings_reads_cache_ttls_from_environment(
             "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS": "45",
             "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS": "7200",
             "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS": "30",
-            "KNOWLEDGE_API_TAXONOMY_LEAF_LAYOUT_CACHE_TTL_SECONDS": "300",
+            "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS": "300",
         },
     )
     settings = config_module.Settings()
     assert settings.search_response_cache_ttl_seconds == 45
     assert settings.search_embedding_cache_ttl_seconds == 7200
     assert settings.taxonomy_view_cache_ttl_seconds == 30
-    assert settings.taxonomy_leaf_layout_cache_ttl_seconds == 300
+    assert settings.taxonomy_card_scope_layout_cache_ttl_seconds == 300
 
 
 def test_shared_settings_exclude_taxonomy_classification_job_queue_and_webhook_fields(
@@ -218,6 +233,12 @@ def test_shared_settings_exclude_taxonomy_classification_job_queue_and_webhook_f
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_ID": "taxonomy-runtime",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET": "runtime-secret",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_RESOURCE": "https://job-queue",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_SCOPES": "jobs:create results:read",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_POLL_INTERVAL_SECONDS": "5",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_POLL_BATCH_SIZE": "100",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_INTERVAL_SECONDS": "3600",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_BATCH_SIZE": "100",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_PROJECTION_REFRESH_BATCH_SIZE": "1",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID": (
                 "job-queue-delivery"
             ),
@@ -242,6 +263,13 @@ def test_taxonomy_classification_runtime_settings_require_job_queue_secret(
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_TOKEN_URL": "http://logto/oidc/token",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_ID": "taxonomy-runtime",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_RESOURCE": "https://job-queue",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME": "taxonomy_classification",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_SCOPES": "jobs:create results:read",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_POLL_INTERVAL_SECONDS": "5",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_POLL_BATCH_SIZE": "100",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_INTERVAL_SECONDS": "3600",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_BATCH_SIZE": "100",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_PROJECTION_REFRESH_BATCH_SIZE": "1",
         },
     )
 
@@ -260,6 +288,8 @@ def test_taxonomy_classification_webhook_settings_do_not_expose_job_queue_secret
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_RESOURCE": "https://knowledge-api",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_DISCOVERY_URL": "http://logto/.well-known/openid-configuration",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID": "job-queue-delivery",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME": "taxonomy_classification",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_HTTP_TIMEOUT_SECONDS": "5",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_PUBLIC_PATH": (
                 "/taxonomy-classification/webhooks/job-queue"
             ),
@@ -285,6 +315,13 @@ def test_taxonomy_classification_runtime_settings_are_role_scoped(
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_ID": "taxonomy-runtime",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET": "runtime-secret",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_RESOURCE": "https://job-queue",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME": "taxonomy_classification",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_SCOPES": "jobs:create results:read",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_POLL_INTERVAL_SECONDS": "5",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_POLL_BATCH_SIZE": "100",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_INTERVAL_SECONDS": "3600",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_RECONCILE_BATCH_SIZE": "100",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_PROJECTION_REFRESH_BATCH_SIZE": "1",
         },
     )
 
@@ -306,6 +343,11 @@ def test_taxonomy_classification_webhook_receiver_settings_are_role_scoped(
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_RESOURCE": "https://knowledge-api",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_DISCOVERY_URL": "http://logto/oidc/.well-known/openid-configuration",
             "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID": "delivery",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME": "taxonomy_classification",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_AUTH_HTTP_TIMEOUT_SECONDS": "5",
+            "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_PUBLIC_PATH": (
+                "/taxonomy-classification/webhooks/job-queue"
+            ),
         },
     )
 

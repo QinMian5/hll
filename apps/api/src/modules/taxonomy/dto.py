@@ -21,7 +21,6 @@ class TaxonomyImportNode(BaseModel):
     parent_path: TaxonomyPath | None = None
     name: NonEmptyString
     depth: int = Field(ge=0)
-    is_leaf: bool
 
 
 class TaxonomyNodeRecord(BaseModel):
@@ -32,7 +31,6 @@ class TaxonomyNodeRecord(BaseModel):
     name: NonEmptyString
     route_slug: NonEmptyString
     depth: int = Field(ge=0)
-    is_leaf: bool
 
 
 class TaxonomyTreeNode(BaseModel):
@@ -43,7 +41,6 @@ class TaxonomyTreeNode(BaseModel):
     name: NonEmptyString
     route_slug: NonEmptyString
     depth: int = Field(ge=0)
-    is_leaf: bool
     children: list[TaxonomyTreeNode] = Field(default_factory=list)
 
 
@@ -56,21 +53,31 @@ class TaxonomyAssignmentRecord(BaseModel):
     assigned_at: datetime
 
 
-class TaxonomyLeafAssignment(BaseModel):
+TaxonomyScopeKind = Literal["taxonomy_node", "virtual_unclassified"]
+
+
+class TaxonomyScopeIdentity(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    scope_kind: TaxonomyScopeKind
+    taxonomy_node_id: int = Field(gt=0)
+
+
+class TaxonomyScopeAssignment(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
 
     node_id: int = Field(gt=0)
-    taxonomy_leaf_id: int = Field(gt=0)
+    taxonomy_node_id: int = Field(gt=0)
 
 
-class TaxonomyLeafAssignmentCount(BaseModel):
+class TaxonomyAssignmentCount(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
 
-    taxonomy_leaf_id: int = Field(gt=0)
+    taxonomy_node_id: int = Field(gt=0)
     card_count: int = Field(ge=0)
 
 
-class TaxonomyLeafWorldBounds(BaseModel):
+class TaxonomyCardScopeWorldBounds(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     min_x: float
@@ -79,7 +86,7 @@ class TaxonomyLeafWorldBounds(BaseModel):
     max_y: float
 
 
-class TaxonomyLeafLayoutNode(BaseModel):
+class TaxonomyCardScopeLayoutNode(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     id: int = Field(gt=0)
@@ -88,7 +95,7 @@ class TaxonomyLeafLayoutNode(BaseModel):
     y: float
 
 
-class TaxonomyLeafLayoutEdge(BaseModel):
+class TaxonomyCardScopeLayoutEdge(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     source_node_id: int = Field(gt=0)
@@ -96,14 +103,14 @@ class TaxonomyLeafLayoutEdge(BaseModel):
     strength: float = Field(ge=0.0, le=1.0)
 
 
-class TaxonomyLeafLayout(BaseModel):
+class TaxonomyCardScopeLayout(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     layout_version: str = Field(min_length=1)
     generated_at: datetime
-    world_bounds: TaxonomyLeafWorldBounds
-    nodes: list[TaxonomyLeafLayoutNode]
-    edges: list[TaxonomyLeafLayoutEdge]
+    world_bounds: TaxonomyCardScopeWorldBounds
+    nodes: list[TaxonomyCardScopeLayoutNode]
+    edges: list[TaxonomyCardScopeLayoutEdge]
 
     @property
     def node_count(self) -> int:
@@ -114,10 +121,10 @@ class TaxonomyLeafLayout(BaseModel):
         return len(self.edges)
 
 
-class TaxonomyLeafLayoutSlice(BaseModel):
+class TaxonomyCardScopeLayoutSlice(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     layout_version: str = Field(min_length=1)
-    requested_bounds: TaxonomyLeafWorldBounds
-    nodes: list[TaxonomyLeafLayoutNode]
-    edges: list[TaxonomyLeafLayoutEdge]
+    requested_bounds: TaxonomyCardScopeWorldBounds
+    nodes: list[TaxonomyCardScopeLayoutNode]
+    edges: list[TaxonomyCardScopeLayoutEdge]

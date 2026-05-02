@@ -14,35 +14,41 @@ from typing import Literal, Protocol
 from core.errors import ApplicationError, DomainError, ErrorCode
 from modules.knowledge_graph.dto import ProjectionCardNode, ProjectionCardTitle, ProjectionEdge
 from modules.taxonomy.dto import (
+    TaxonomyAssignmentCount,
     TaxonomyAssignmentRecord,
-    TaxonomyLeafAssignment,
-    TaxonomyLeafAssignmentCount,
-    TaxonomyLeafLayout,
-    TaxonomyLeafLayoutEdge,
-    TaxonomyLeafLayoutNode,
+    TaxonomyCardScopeLayout,
+    TaxonomyCardScopeLayoutEdge,
+    TaxonomyCardScopeLayoutNode,
     TaxonomyNodeRecord,
+    TaxonomyScopeAssignment,
+    TaxonomyScopeIdentity,
     TaxonomyTreeNode,
 )
 from modules.taxonomy.layout import (
-    TAXONOMY_LEAF_LAYOUT_VERSION,
-    build_leaf_layout,
-    slice_leaf_layout,
+    TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+    build_card_scope_layout,
+    slice_card_scope_layout,
+)
+from modules.taxonomy.repo import (
+    TAXONOMY_NODE_SCOPE_KIND,
+    UNCLASSIFIED_NODE_NAME,
+    VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
 )
 from modules.taxonomy.route_path import join_taxonomy_route_path
 from modules.taxonomy.schema import (
-    TaxonomyLeafLayoutNodeResponse,
-    TaxonomyLeafLayoutSliceResponse,
-    TaxonomyLeafNodeDetailResponse,
-    TaxonomyLeafNodeDetailsResponse,
-    TaxonomyLeafNodeTitleResponse,
-    TaxonomyLeafNodeTitlesResponse,
-    TaxonomyLeafWorldBoundsResponse,
+    TaxonomyCardScopeLayoutNodeResponse,
+    TaxonomyCardScopeLayoutSliceResponse,
+    TaxonomyCardScopeNodeDetailResponse,
+    TaxonomyCardScopeNodeDetailsResponse,
+    TaxonomyCardScopeNodeTitleResponse,
+    TaxonomyCardScopeNodeTitlesResponse,
+    TaxonomyCardScopeWorldBoundsResponse,
     TaxonomyNodeBranchViewResponse,
-    TaxonomyNodeLeafViewResponse,
+    TaxonomyNodeCardScopeViewResponse,
     TaxonomyNodeViewResponse,
     TaxonomyRootViewResponse,
     TaxonomyViewChildResponse,
-    TaxonomyViewNodeResponse,
+    TaxonomyViewScopeResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,24 +63,46 @@ class TaxonomyRepoProtocol(Protocol):
 
     async def get_assignment_for_node(self, *, node_id: int) -> TaxonomyAssignmentRecord | None: ...
 
-    async def list_final_assignments(self) -> list[TaxonomyLeafAssignment]: ...
+    async def list_current_assignments(self) -> list[TaxonomyScopeAssignment]: ...
 
-    async def list_leaf_assignment_counts(self) -> list[TaxonomyLeafAssignmentCount]: ...
+    async def list_assignment_counts(self) -> list[TaxonomyAssignmentCount]: ...
 
-    async def list_assigned_node_ids_for_leaf(self, *, leaf_id: int) -> list[int]: ...
-
-    async def list_projected_edge_ids_for_leaf(self, *, leaf_id: int) -> list[int]: ...
-
-    async def add_projected_edge_ids_for_leaf(
+    async def list_assigned_node_ids_for_scope(
         self,
         *,
-        leaf_id: int,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> list[int]: ...
+
+    async def list_projected_edge_ids_for_scope(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> list[int]: ...
+
+    async def add_projected_edge_ids_for_scope(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
         edge_ids: list[int],
     ) -> None: ...
 
-    async def clear_projected_edge_ids_for_leaf(self, *, leaf_id: int) -> None: ...
+    async def clear_projected_edge_ids_for_scope(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> None: ...
 
-    async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]: ...
+    async def list_taxonomy_node_ids_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> dict[int, int]: ...
+
+    async def list_scope_identities_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> dict[int, TaxonomyScopeIdentity]: ...
 
     async def set_current_assignment(
         self,
@@ -83,7 +111,7 @@ class TaxonomyRepoProtocol(Protocol):
         taxonomy_node_id: int,
     ) -> TaxonomyAssignmentRecord: ...
 
-    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int: ...
+    async def assign_node_to_root(self, *, node_id: int) -> int: ...
 
     async def commit(self) -> None: ...
 
@@ -131,26 +159,26 @@ class TaxonomyViewCachePort(Protocol):
         self,
         *,
         node_id: int,
-    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None: ...
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse | None: ...
 
     async def set_node_view(
         self,
         *,
         node_id: int,
-        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse,
     ) -> None: ...
 
     async def get_path_view(
         self,
         *,
         route_path: str,
-    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None: ...
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse | None: ...
 
     async def set_path_view(
         self,
         *,
         route_path: str,
-        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse,
     ) -> None: ...
 
     async def get_descendant_counts(self) -> dict[int, int] | None: ...
@@ -159,17 +187,34 @@ class TaxonomyViewCachePort(Protocol):
 
     async def acquire_descendant_counts_lock(self) -> bool: ...
 
-    async def get_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout | None: ...
+    async def get_card_scope_layout(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> TaxonomyCardScopeLayout | None: ...
 
-    async def set_leaf_layout(self, *, leaf_id: int, layout: TaxonomyLeafLayout) -> None: ...
+    async def set_card_scope_layout(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout: TaxonomyCardScopeLayout,
+    ) -> None: ...
 
-    async def acquire_leaf_layout_lock(self, *, leaf_id: int) -> bool: ...
+    async def acquire_card_scope_layout_lock(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> bool: ...
 
-    async def request_leaf_layout_compute(self, *, leaf_id: int) -> bool: ...
+    async def request_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> bool: ...
 
 
 @dataclass(slots=True)
-class _LeafGraphProjection:
+class _CardScopeGraphProjection:
     edges: list[ProjectionEdge]
     scope_by_node_id: dict[int, Literal["inner", "outer"]]
 
@@ -182,19 +227,42 @@ class _TaxonomyTreeContext:
     route_paths_by_id: dict[int, str]
 
 
-def _view_node_from_record(
+@dataclass(slots=True, frozen=True)
+class _ResolvedTaxonomyScope:
+    identity: TaxonomyScopeIdentity
+    current_scope: TaxonomyViewScopeResponse
+    breadcrumb: list[TaxonomyViewScopeResponse]
+
+
+def _view_scope_from_record(
     record: TaxonomyNodeRecord,
     *,
     route_path: str,
-) -> TaxonomyViewNodeResponse:
-    return TaxonomyViewNodeResponse(
-        id=record.id,
-        parent_id=record.parent_id,
+) -> TaxonomyViewScopeResponse:
+    return TaxonomyViewScopeResponse(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=record.id,
+        parent_taxonomy_node_id=record.parent_id,
         name=record.name,
         route_slug=record.route_slug,
         route_path=route_path,
         depth=record.depth,
-        is_leaf=record.is_leaf,
+    )
+
+
+def _virtual_unclassified_scope_from_parent(
+    parent: TaxonomyNodeRecord,
+    *,
+    parent_route_path: str,
+) -> TaxonomyViewScopeResponse:
+    return TaxonomyViewScopeResponse(
+        scope_kind=VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
+        taxonomy_node_id=None,
+        parent_taxonomy_node_id=parent.id,
+        name=UNCLASSIFIED_NODE_NAME,
+        route_slug="unclassified",
+        route_path=join_taxonomy_route_path([parent_route_path, "unclassified"]),
+        depth=parent.depth + 1,
     )
 
 
@@ -222,7 +290,6 @@ class TaxonomyService:
                 name=record.name,
                 route_slug=record.route_slug,
                 depth=record.depth,
-                is_leaf=record.is_leaf,
             )
             tree_nodes_by_id[record.id] = tree_node
             if record.parent_id is None:
@@ -248,6 +315,7 @@ class TaxonomyService:
             node_by_id=tree_context.node_by_id,
             child_ids_by_parent=tree_context.child_ids_by_parent,
         )
+        direct_counts = await self._load_direct_card_counts(node_by_id=tree_context.node_by_id)
         root_child_ids = sorted(
             tree_context.child_ids_by_parent.get(tree_context.root.id, []),
             key=lambda node_id: (
@@ -258,9 +326,18 @@ class TaxonomyService:
         children = _view_children_from_node_ids(
             child_ids=root_child_ids,
             node_by_id=tree_context.node_by_id,
+            child_ids_by_parent=tree_context.child_ids_by_parent,
             descendant_counts=descendant_counts,
             route_paths_by_id=tree_context.route_paths_by_id,
         )
+        if direct_counts[tree_context.root.id] > 0 and children:
+            children.append(
+                _virtual_unclassified_child_response(
+                    parent=tree_context.root,
+                    parent_route_path=tree_context.route_paths_by_id[tree_context.root.id],
+                    direct_card_count=direct_counts[tree_context.root.id],
+                )
+            )
         view = TaxonomyRootViewResponse(breadcrumb=[], children=children)
         await self._set_cached_root_view(view)
         return view
@@ -271,8 +348,18 @@ class TaxonomyService:
             return cached_view
 
         tree_context = await self._load_tree_context()
-        view = await self._get_node_view_from_tree_context(
-            node_id=node_id,
+        current_node = tree_context.node_by_id.get(node_id)
+        if current_node is None:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message=f"Taxonomy node {node_id} was not found.",
+                hint="Use an existing taxonomy node id and retry.",
+            )
+        view = await self._get_scope_view_from_tree_context(
+            resolved_scope=_real_scope_from_node(
+                node=current_node,
+                tree_context=tree_context,
+            ),
             tree_context=tree_context,
         )
         await self._set_cached_node_view(node_id=node_id, view=view)
@@ -284,18 +371,88 @@ class TaxonomyService:
             return cached_view
 
         tree_context = await self._load_tree_context()
-        node_id = _resolve_node_id_by_route_path(
+        resolved_scope = await self._resolve_scope_by_route_path(
             route_path=route_path,
-            root=tree_context.root,
-            child_ids_by_parent=tree_context.child_ids_by_parent,
-            node_by_id=tree_context.node_by_id,
+            tree_context=tree_context,
         )
-        view = await self._get_node_view_from_tree_context(
-            node_id=node_id,
+        view = await self._get_scope_view_from_tree_context(
+            resolved_scope=resolved_scope,
             tree_context=tree_context,
         )
         await self._set_cached_path_view(route_path=route_path, view=view)
         return view
+
+    async def _resolve_card_scope_by_route_path(
+        self,
+        *,
+        route_path: str,
+    ) -> _ResolvedTaxonomyScope:
+        tree_context = await self._load_tree_context()
+        resolved_scope = await self._resolve_scope_by_route_path(
+            route_path=route_path,
+            tree_context=tree_context,
+        )
+        await _resolve_card_scope_visibility(
+            service=self,
+            resolved_scope=resolved_scope,
+            tree_context=tree_context,
+        )
+        return resolved_scope
+
+    async def _resolve_scope_by_route_path(
+        self,
+        *,
+        route_path: str,
+        tree_context: _TaxonomyTreeContext,
+    ) -> _ResolvedTaxonomyScope:
+        if route_path.startswith("/") or route_path.endswith("/") or "//" in route_path:
+            raise _route_path_not_found(route_path)
+        if route_path == "":
+            return _real_scope_from_node(node=tree_context.root, tree_context=tree_context)
+
+        cursor = tree_context.root
+        segments = route_path.split("/")
+        for index, segment in enumerate(segments):
+            if segment == "unclassified":
+                if index != len(segments) - 1:
+                    raise _route_path_not_found(route_path)
+                resolved_scope = _ResolvedTaxonomyScope(
+                    identity=TaxonomyScopeIdentity(
+                        scope_kind=VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
+                        taxonomy_node_id=cursor.id,
+                    ),
+                    current_scope=_virtual_unclassified_scope_from_parent(
+                        cursor,
+                        parent_route_path=tree_context.route_paths_by_id[cursor.id],
+                    ),
+                    breadcrumb=[
+                        *_real_scope_from_node(
+                            node=cursor,
+                            tree_context=tree_context,
+                        ).breadcrumb,
+                        _virtual_unclassified_scope_from_parent(
+                            cursor,
+                            parent_route_path=tree_context.route_paths_by_id[cursor.id],
+                        ),
+                    ],
+                )
+                await _resolve_card_scope_visibility(
+                    service=self,
+                    resolved_scope=resolved_scope,
+                    tree_context=tree_context,
+                )
+                return resolved_scope
+
+            matches = [
+                child_id
+                for child_id in tree_context.child_ids_by_parent.get(cursor.id, [])
+                if tree_context.node_by_id[child_id].route_slug == segment
+            ]
+            if len(matches) != 1:
+                raise _route_path_not_found(route_path)
+            cursor = tree_context.node_by_id[matches[0]]
+
+        return _real_scope_from_node(node=cursor, tree_context=tree_context)
 
     async def _get_cached_root_view(self) -> TaxonomyRootViewResponse | None:
         if self._view_cache is None:
@@ -318,7 +475,7 @@ class TaxonomyService:
         self,
         *,
         node_id: int,
-    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None:
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse | None:
         if self._view_cache is None:
             return None
         try:
@@ -331,7 +488,7 @@ class TaxonomyService:
         self,
         *,
         node_id: int,
-        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse,
     ) -> None:
         if self._view_cache is None:
             return
@@ -344,7 +501,7 @@ class TaxonomyService:
         self,
         *,
         route_path: str,
-    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse | None:
+    ) -> TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse | None:
         if self._view_cache is None:
             return None
         try:
@@ -357,7 +514,7 @@ class TaxonomyService:
         self,
         *,
         route_path: str,
-        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeLeafViewResponse,
+        view: TaxonomyNodeBranchViewResponse | TaxonomyNodeCardScopeViewResponse,
     ) -> None:
         if self._view_cache is None:
             return
@@ -392,132 +549,98 @@ class TaxonomyService:
             route_paths_by_id=route_paths_by_id,
         )
 
-    async def _get_node_view_from_tree_context(
+    async def _get_scope_view_from_tree_context(
         self,
         *,
-        node_id: int,
+        resolved_scope: _ResolvedTaxonomyScope,
         tree_context: _TaxonomyTreeContext,
     ) -> TaxonomyNodeViewResponse:
-        current_node = tree_context.node_by_id.get(node_id)
-        if current_node is None:
-            raise DomainError(
-                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
-                message=f"Taxonomy node {node_id} was not found.",
-                hint="Use an existing taxonomy node id and retry.",
-            )
+        current_node = tree_context.node_by_id[resolved_scope.identity.taxonomy_node_id]
+        descendant_counts = await self._load_descendant_card_counts(
+            node_by_id=tree_context.node_by_id,
+            child_ids_by_parent=tree_context.child_ids_by_parent,
+        )
+        direct_counts = await self._load_direct_card_counts(node_by_id=tree_context.node_by_id)
+        visible_child_ids = _visible_child_ids(
+            node_id=current_node.id,
+            child_ids_by_parent=tree_context.child_ids_by_parent,
+            descendant_counts=descendant_counts,
+        )
 
-        breadcrumb = [
-            _view_node_from_record(
-                record,
-                route_path=tree_context.route_paths_by_id[record.id],
-            )
-            for record in _build_breadcrumb(
-                current_node_id=node_id,
-                node_by_id=tree_context.node_by_id,
-            )
-        ]
-
-        if not current_node.is_leaf:
-            descendant_counts = await self._load_descendant_card_counts(
+        if resolved_scope.identity.scope_kind == TAXONOMY_NODE_SCOPE_KIND and visible_child_ids:
+            children = _view_children_from_node_ids(
+                child_ids=visible_child_ids,
                 node_by_id=tree_context.node_by_id,
                 child_ids_by_parent=tree_context.child_ids_by_parent,
-            )
-            child_ids = sorted(
-                tree_context.child_ids_by_parent.get(current_node.id, []),
-                key=lambda child_node_id: (
-                    tree_context.node_by_id[child_node_id].name,
-                    tree_context.node_by_id[child_node_id].id,
-                ),
-            )
-            children = _view_children_from_node_ids(
-                child_ids=child_ids,
-                node_by_id=tree_context.node_by_id,
                 descendant_counts=descendant_counts,
                 route_paths_by_id=tree_context.route_paths_by_id,
             )
+            if direct_counts[current_node.id] > 0:
+                children.append(
+                    _virtual_unclassified_child_response(
+                        parent=current_node,
+                        parent_route_path=tree_context.route_paths_by_id[current_node.id],
+                        direct_card_count=direct_counts[current_node.id],
+                    )
+                )
             return TaxonomyNodeBranchViewResponse(
                 node_kind="branch",
-                current_node=_view_node_from_record(
-                    current_node,
-                    route_path=tree_context.route_paths_by_id[current_node.id],
-                ),
-                breadcrumb=breadcrumb,
+                current_scope=resolved_scope.current_scope,
+                breadcrumb=resolved_scope.breadcrumb,
                 children=children,
             )
 
-        leaf_layout = await self._load_ready_leaf_layout(current_node=current_node)
-        return TaxonomyNodeLeafViewResponse(
-            node_kind="leaf",
-            current_node=_view_node_from_record(
-                current_node,
-                route_path=tree_context.route_paths_by_id[current_node.id],
-            ),
-            breadcrumb=breadcrumb,
-            layout_version=TAXONOMY_LEAF_LAYOUT_VERSION,
-            world_bounds=_world_bounds_response_from_layout(leaf_layout),
-            node_count=leaf_layout.node_count,
-            edge_count=leaf_layout.edge_count,
-            generated_at=leaf_layout.generated_at,
+        layout = await self._load_ready_card_scope_layout(scope_identity=resolved_scope.identity)
+        return TaxonomyNodeCardScopeViewResponse(
+            node_kind="card_scope",
+            current_scope=resolved_scope.current_scope,
+            breadcrumb=resolved_scope.breadcrumb,
+            layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+            world_bounds=_world_bounds_response_from_layout(layout),
+            node_count=layout.node_count,
+            edge_count=layout.edge_count,
+            generated_at=layout.generated_at,
         )
 
-    async def get_leaf_layout_slice(
+    async def get_card_scope_layout_slice(
         self,
         *,
-        node_id: int,
+        route_path: str,
         min_x: float,
         min_y: float,
         max_x: float,
         max_y: float,
-    ) -> TaxonomyLeafLayoutSliceResponse:
-        tree_nodes = await self._repo.list_tree_nodes()
-        node_by_id, _ = _index_tree(tree_nodes)
-        if not node_by_id:
-            raise DomainError(
-                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
-                message="Taxonomy tree is not available.",
-                hint="Import taxonomy data and retry.",
-            )
-
-        current_node = node_by_id.get(node_id)
-        if current_node is None:
-            raise DomainError(
-                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
-                message=f"Taxonomy node {node_id} was not found.",
-                hint="Use an existing taxonomy node id and retry.",
-            )
-        if not current_node.is_leaf:
-            raise ApplicationError(
-                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
-                message="Leaf layout request requires a leaf taxonomy node.",
-                hint="Use a leaf taxonomy node id and retry.",
-            )
-
+    ) -> TaxonomyCardScopeLayoutSliceResponse:
         if min_x > max_x or min_y > max_y:
             raise ApplicationError(
                 code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
-                message="Leaf layout request bounds are invalid.",
+                message="Card-scope layout request bounds are invalid.",
                 hint="Use min bounds less than or equal to max bounds and retry.",
             )
 
-        leaf_layout = await self._load_ready_leaf_layout(current_node=current_node)
-        layout_slice = slice_leaf_layout(
-            leaf_layout,
+        resolved_scope = await self._resolve_card_scope_by_route_path(route_path=route_path)
+        layout = await self._load_ready_card_scope_layout(scope_identity=resolved_scope.identity)
+        layout_slice = slice_card_scope_layout(
+            layout,
             min_x=min_x,
             min_y=min_y,
             max_x=max_x,
             max_y=max_y,
         )
-        return TaxonomyLeafLayoutSliceResponse(
-            leaf_id=current_node.id,
+        return TaxonomyCardScopeLayoutSliceResponse(
+            scope_kind=resolved_scope.current_scope.scope_kind,
+            taxonomy_node_id=resolved_scope.current_scope.taxonomy_node_id,
+            parent_taxonomy_node_id=resolved_scope.current_scope.parent_taxonomy_node_id,
+            route_path=resolved_scope.current_scope.route_path,
             layout_version=layout_slice.layout_version,
-            requested_bounds=TaxonomyLeafWorldBoundsResponse(
+            requested_bounds=TaxonomyCardScopeWorldBoundsResponse(
                 min_x=layout_slice.requested_bounds.min_x,
                 min_y=layout_slice.requested_bounds.min_y,
                 max_x=layout_slice.requested_bounds.max_x,
                 max_y=layout_slice.requested_bounds.max_y,
             ),
             nodes=[
-                TaxonomyLeafLayoutNodeResponse(
+                TaxonomyCardScopeLayoutNodeResponse(
                     id=node.id,
                     scope=node.scope,
                     x=node.x,
@@ -531,79 +654,60 @@ class TaxonomyService:
             ],
         )
 
-    async def _validate_leaf_detail_node_ids(
+    async def _validate_card_scope_detail_node_ids(
         self,
         *,
-        node_id: int,
+        route_path: str,
         node_ids: list[int],
-    ) -> _LeafGraphProjection:
-        tree_nodes = await self._repo.list_tree_nodes()
-        node_by_id, _ = _index_tree(tree_nodes)
-        if not node_by_id:
-            raise DomainError(
-                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
-                message="Taxonomy tree is not available.",
-                hint="Import taxonomy data and retry.",
-            )
-
-        current_node = node_by_id.get(node_id)
-        if current_node is None:
-            raise DomainError(
-                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
-                message=f"Taxonomy node {node_id} was not found.",
-                hint="Use an existing taxonomy node id and retry.",
-            )
-
-        if not current_node.is_leaf:
-            raise ApplicationError(
-                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
-                message="Leaf detail request requires a leaf taxonomy node.",
-                hint="Use a leaf taxonomy node id and retry.",
-            )
-
+    ) -> _CardScopeGraphProjection:
         if not node_ids:
             raise ApplicationError(
                 code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
-                message="Leaf detail request requires at least one node id.",
-                hint="Send only unique node ids from the active leaf graph and retry.",
+                message="Card-scope detail request requires at least one node id.",
+                hint="Send only unique node ids from the active card-scope graph and retry.",
             )
 
         if len(node_ids) != len(set(node_ids)):
             raise ApplicationError(
                 code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
-                message="Leaf detail request contains duplicate node ids.",
-                hint="Send only unique node ids from the active leaf graph and retry.",
+                message="Card-scope detail request contains duplicate node ids.",
+                hint="Send only unique node ids from the active card-scope graph and retry.",
             )
 
-        leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
+        resolved_scope = await self._resolve_card_scope_by_route_path(route_path=route_path)
+        graph = await self._build_card_scope_graph_projection(
+            scope_identity=resolved_scope.identity
+        )
         invalid_node_ids = [
             requested_node_id
             for requested_node_id in node_ids
-            if requested_node_id not in leaf_graph.scope_by_node_id
+            if requested_node_id not in graph.scope_by_node_id
         ]
         if invalid_node_ids:
             raise ApplicationError(
                 code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
-                message="Leaf detail request references nodes outside the active leaf graph.",
-                hint="Send only unique node ids from the active leaf graph and retry.",
+                message="Card-scope detail request references nodes outside the active graph.",
+                hint="Send only unique node ids from the active card-scope graph and retry.",
             )
 
         if self._knowledge_projection_port is None:
-            raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
+            raise RuntimeError(
+                "Taxonomy card-scope graph view requires knowledge projection dependency."
+            )
 
-        return leaf_graph
+        return graph
 
-    async def get_leaf_node_details(
+    async def get_card_scope_node_details(
         self,
         *,
-        node_id: int,
+        route_path: str,
         node_ids: list[int],
-    ) -> TaxonomyLeafNodeDetailsResponse:
-        await self._validate_leaf_detail_node_ids(node_id=node_id, node_ids=node_ids)
+    ) -> TaxonomyCardScopeNodeDetailsResponse:
+        await self._validate_card_scope_detail_node_ids(route_path=route_path, node_ids=node_ids)
         projection_port = self._knowledge_projection_port
         if projection_port is None:
             raise RuntimeError(
-                "Taxonomy leaf detail view requires knowledge projection dependency."
+                "Taxonomy card-scope detail view requires knowledge projection dependency."
             )
 
         requested_projection_nodes = await projection_port.list_projection_cards_for_node_ids(
@@ -611,11 +715,11 @@ class TaxonomyService:
         )
         nodes_by_id = {node.node_id: node for node in requested_projection_nodes}
         if len(nodes_by_id) != len(node_ids):
-            raise RuntimeError("Leaf detail request returned incomplete node details.")
+            raise RuntimeError("Card-scope detail request returned incomplete node details.")
 
-        return TaxonomyLeafNodeDetailsResponse(
+        return TaxonomyCardScopeNodeDetailsResponse(
             nodes=[
-                TaxonomyLeafNodeDetailResponse(
+                TaxonomyCardScopeNodeDetailResponse(
                     id=requested_node_id,
                     current_version=nodes_by_id[requested_node_id].current_version,
                     title=nodes_by_id[requested_node_id].title,
@@ -625,27 +729,29 @@ class TaxonomyService:
             ]
         )
 
-    async def get_leaf_node_titles(
+    async def get_card_scope_node_titles(
         self,
         *,
-        node_id: int,
+        route_path: str,
         node_ids: list[int],
-    ) -> TaxonomyLeafNodeTitlesResponse:
-        await self._validate_leaf_detail_node_ids(node_id=node_id, node_ids=node_ids)
+    ) -> TaxonomyCardScopeNodeTitlesResponse:
+        await self._validate_card_scope_detail_node_ids(route_path=route_path, node_ids=node_ids)
         projection_port = self._knowledge_projection_port
         if projection_port is None:
-            raise RuntimeError("Taxonomy leaf title view requires knowledge projection dependency.")
+            raise RuntimeError(
+                "Taxonomy card-scope title view requires knowledge projection dependency."
+            )
 
         requested_projection_nodes = await projection_port.list_projection_card_titles_for_node_ids(
             node_ids=node_ids
         )
         nodes_by_id = {node.node_id: node for node in requested_projection_nodes}
         if len(nodes_by_id) != len(node_ids):
-            raise RuntimeError("Leaf title request returned incomplete node titles.")
+            raise RuntimeError("Card-scope title request returned incomplete node titles.")
 
-        return TaxonomyLeafNodeTitlesResponse(
+        return TaxonomyCardScopeNodeTitlesResponse(
             nodes=[
-                TaxonomyLeafNodeTitleResponse(
+                TaxonomyCardScopeNodeTitleResponse(
                     id=requested_node_id,
                     title=nodes_by_id[requested_node_id].title,
                 )
@@ -660,20 +766,23 @@ class TaxonomyService:
         taxonomy_node_id: int,
     ) -> TaxonomyAssignmentRecord:
         try:
-            previous_assignment = await self._repo.get_assignment_for_node(node_id=node_id)
-            previous_leaf_id = (
-                None if previous_assignment is None else previous_assignment.taxonomy_node.id
+            previous_scope_identities = await self._repo.list_scope_identities_for_node_ids(
+                node_ids=[node_id]
             )
             assignment = await self._repo.set_current_assignment(
                 node_id=node_id,
                 taxonomy_node_id=taxonomy_node_id,
             )
             if self._knowledge_projection_port is not None:
-                leaf_ids = {taxonomy_node_id}
-                if previous_leaf_id is not None:
-                    leaf_ids.add(previous_leaf_id)
-                for leaf_id in sorted(leaf_ids):
-                    await self._refresh_leaf_projection(leaf_id=leaf_id)
+                current_scope_identities = await self._repo.list_scope_identities_for_node_ids(
+                    node_ids=[node_id]
+                )
+                await self._refresh_card_scope_projections(
+                    scope_identities=[
+                        *previous_scope_identities.values(),
+                        *current_scope_identities.values(),
+                    ]
+                )
             await self._repo.commit()
             return assignment
         except Exception:
@@ -691,13 +800,24 @@ class TaxonomyService:
             taxonomy_node_id=taxonomy_node_id,
         )
 
-    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int:
+    async def assign_node_to_root(self, *, node_id: int) -> int:
         try:
-            leaf_id = await self._repo.assign_node_to_root_unclassified(node_id=node_id)
+            previous_scope_identities = await self._repo.list_scope_identities_for_node_ids(
+                node_ids=[node_id]
+            )
+            root_id = await self._repo.assign_node_to_root(node_id=node_id)
             if self._knowledge_projection_port is not None:
-                await self._refresh_leaf_projection(leaf_id=leaf_id)
+                current_scope_identities = await self._repo.list_scope_identities_for_node_ids(
+                    node_ids=[node_id]
+                )
+                await self._refresh_card_scope_projections(
+                    scope_identities=[
+                        *previous_scope_identities.values(),
+                        *current_scope_identities.values(),
+                    ]
+                )
             await self._repo.commit()
-            return leaf_id
+            return root_id
         except Exception:
             await self._repo.rollback()
             raise
@@ -714,10 +834,7 @@ class TaxonomyService:
                 return {node_id: cached_counts.get(node_id, 0) for node_id in node_by_id}
             await self._acquire_descendant_counts_lock()
 
-        assignment_counts = await self._repo.list_leaf_assignment_counts()
-        descendant_counts = dict.fromkeys(node_by_id, 0)
-        for assignment_count in assignment_counts:
-            descendant_counts[assignment_count.taxonomy_leaf_id] += assignment_count.card_count
+        descendant_counts = await self._load_direct_card_counts(node_by_id=node_by_id)
 
         for node in sorted(
             node_by_id.values(),
@@ -732,6 +849,18 @@ class TaxonomyService:
             await self._set_cached_descendant_counts(descendant_counts)
 
         return descendant_counts
+
+    async def _load_direct_card_counts(
+        self,
+        *,
+        node_by_id: dict[int, TaxonomyNodeRecord],
+    ) -> dict[int, int]:
+        assignment_counts = await self._repo.list_assignment_counts()
+        direct_counts = dict.fromkeys(node_by_id, 0)
+        for assignment_count in assignment_counts:
+            if assignment_count.taxonomy_node_id in direct_counts:
+                direct_counts[assignment_count.taxonomy_node_id] += assignment_count.card_count
+        return direct_counts
 
     async def _get_cached_descendant_counts(self) -> dict[int, int] | None:
         if self._view_cache is None:
@@ -758,17 +887,21 @@ class TaxonomyService:
         except Exception as exc:
             _log_cache_failure(cache_name="taxonomy-descendant-counts", operation="lock", exc=exc)
 
-    async def _build_leaf_graph_projection(
+    async def _build_card_scope_graph_projection(
         self,
         *,
-        current_node: TaxonomyNodeRecord,
-    ) -> _LeafGraphProjection:
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> _CardScopeGraphProjection:
         if self._knowledge_projection_port is None:
-            raise RuntimeError("Taxonomy leaf graph view requires knowledge projection dependency.")
+            raise RuntimeError(
+                "Taxonomy card-scope graph view requires knowledge projection dependency."
+            )
 
-        inner_node_ids = await self._repo.list_assigned_node_ids_for_leaf(leaf_id=current_node.id)
-        projected_edge_ids = await self._repo.list_projected_edge_ids_for_leaf(
-            leaf_id=current_node.id
+        inner_node_ids = await self._repo.list_assigned_node_ids_for_scope(
+            scope_identity=scope_identity
+        )
+        projected_edge_ids = await self._repo.list_projected_edge_ids_for_scope(
+            scope_identity=scope_identity
         )
         edges = await self._knowledge_projection_port.list_projection_edges_for_edge_ids(
             edge_ids=projected_edge_ids
@@ -784,116 +917,156 @@ class TaxonomyService:
                 "inner" if related_node_id in inner_node_id_set else "outer"
             )
 
-        return _LeafGraphProjection(
+        return _CardScopeGraphProjection(
             edges=edges,
             scope_by_node_id=scope_by_node_id,
         )
 
-    async def build_and_cache_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout:
-        current_node = await self._repo.get_node_by_id(node_id=leaf_id)
+    async def build_and_cache_card_scope_layout(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> TaxonomyCardScopeLayout:
+        current_node = await self._repo.get_node_by_id(node_id=scope_identity.taxonomy_node_id)
         if current_node is None:
             raise DomainError(
                 code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
-                message=f"Taxonomy node {leaf_id} was not found.",
+                message=f"Taxonomy node {scope_identity.taxonomy_node_id} was not found.",
                 hint="Use an existing taxonomy node id and retry.",
             )
-        if not current_node.is_leaf:
-            raise ApplicationError(
-                code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
-                message="Leaf layout compute requires a leaf taxonomy node.",
-                hint="Use a leaf taxonomy node id and retry.",
-            )
 
-        layout = await self._build_leaf_layout(current_node=current_node)
-        await self._set_cached_leaf_layout(leaf_id=current_node.id, layout=layout)
+        layout = await self._build_card_scope_layout(scope_identity=scope_identity)
+        await self._set_cached_card_scope_layout(scope_identity=scope_identity, layout=layout)
         return layout
 
-    async def _load_ready_leaf_layout(
+    async def _load_ready_card_scope_layout(
         self,
         *,
-        current_node: TaxonomyNodeRecord,
-    ) -> TaxonomyLeafLayout:
-        cached_layout = await self._get_cached_leaf_layout(leaf_id=current_node.id)
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> TaxonomyCardScopeLayout:
+        cached_layout = await self._get_cached_card_scope_layout(scope_identity=scope_identity)
         if cached_layout is not None:
             return cached_layout
 
-        await self._request_leaf_layout_compute(leaf_id=current_node.id)
-        raise _layout_not_ready_error(leaf_id=current_node.id)
+        await self._request_card_scope_layout_compute(scope_identity=scope_identity)
+        raise _layout_not_ready_error(scope_identity=scope_identity)
 
-    async def _build_leaf_layout(
+    async def _build_card_scope_layout(
         self,
         *,
-        current_node: TaxonomyNodeRecord,
-    ) -> TaxonomyLeafLayout:
-        leaf_graph = await self._build_leaf_graph_projection(current_node=current_node)
-        return build_leaf_layout(
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> TaxonomyCardScopeLayout:
+        graph = await self._build_card_scope_graph_projection(scope_identity=scope_identity)
+        return build_card_scope_layout(
             nodes=[
-                TaxonomyLeafLayoutNode(
+                TaxonomyCardScopeLayoutNode(
                     id=node_id,
-                    scope=leaf_graph.scope_by_node_id[node_id],
+                    scope=graph.scope_by_node_id[node_id],
                     x=0.0,
                     y=0.0,
                 )
-                for node_id in sorted(leaf_graph.scope_by_node_id)
+                for node_id in sorted(graph.scope_by_node_id)
             ],
             edges=[
-                TaxonomyLeafLayoutEdge(
+                TaxonomyCardScopeLayoutEdge(
                     source_node_id=edge.node_a_id,
                     target_node_id=edge.node_b_id,
                     strength=edge.strength,
                 )
-                for edge in leaf_graph.edges
+                for edge in graph.edges
             ],
             generated_at=datetime.now(UTC),
         )
 
-    async def _get_cached_leaf_layout(self, *, leaf_id: int) -> TaxonomyLeafLayout | None:
+    async def _get_cached_card_scope_layout(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> TaxonomyCardScopeLayout | None:
         if self._view_cache is None:
             return None
         try:
-            return await self._view_cache.get_leaf_layout(leaf_id=leaf_id)
+            return await self._view_cache.get_card_scope_layout(scope_identity=scope_identity)
         except Exception as exc:
-            _log_cache_failure(cache_name="taxonomy-leaf-layout", operation="get", exc=exc)
+            _log_cache_failure(cache_name="taxonomy-card-scope-layout", operation="get", exc=exc)
             return None
 
-    async def _set_cached_leaf_layout(self, *, leaf_id: int, layout: TaxonomyLeafLayout) -> None:
+    async def _set_cached_card_scope_layout(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout: TaxonomyCardScopeLayout,
+    ) -> None:
         if self._view_cache is None:
             return
         try:
-            await self._view_cache.set_leaf_layout(leaf_id=leaf_id, layout=layout)
+            await self._view_cache.set_card_scope_layout(
+                scope_identity=scope_identity,
+                layout=layout,
+            )
         except Exception as exc:
-            _log_cache_failure(cache_name="taxonomy-leaf-layout", operation="set", exc=exc)
+            _log_cache_failure(cache_name="taxonomy-card-scope-layout", operation="set", exc=exc)
 
-    async def _acquire_leaf_layout_lock(self, *, leaf_id: int) -> None:
+    async def _acquire_card_scope_layout_lock(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> None:
         if self._view_cache is None:
             return
         try:
-            await self._view_cache.acquire_leaf_layout_lock(leaf_id=leaf_id)
+            await self._view_cache.acquire_card_scope_layout_lock(scope_identity=scope_identity)
         except Exception as exc:
-            _log_cache_failure(cache_name="taxonomy-leaf-layout", operation="lock", exc=exc)
+            _log_cache_failure(cache_name="taxonomy-card-scope-layout", operation="lock", exc=exc)
 
-    async def _request_leaf_layout_compute(self, *, leaf_id: int) -> None:
+    async def _request_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> None:
         if self._view_cache is None:
             return
         try:
-            await self._view_cache.request_leaf_layout_compute(leaf_id=leaf_id)
+            await self._view_cache.request_card_scope_layout_compute(scope_identity=scope_identity)
         except Exception as exc:
-            _log_cache_failure(cache_name="taxonomy-leaf-layout", operation="request", exc=exc)
+            _log_cache_failure(
+                cache_name="taxonomy-card-scope-layout",
+                operation="request",
+                exc=exc,
+            )
 
-    async def _refresh_leaf_projection(self, *, leaf_id: int) -> None:
+    async def _refresh_card_scope_projection(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> None:
         if self._knowledge_projection_port is None:
             return
-        inner_node_ids = await self._repo.list_assigned_node_ids_for_leaf(leaf_id=leaf_id)
+        inner_node_ids = await self._repo.list_assigned_node_ids_for_scope(
+            scope_identity=scope_identity
+        )
         adjacent_edge_ids = (
             await self._knowledge_projection_port.list_adjacent_edge_ids_for_node_ids(
                 node_ids=inner_node_ids
             )
         )
-        await self._repo.clear_projected_edge_ids_for_leaf(leaf_id=leaf_id)
-        await self._repo.add_projected_edge_ids_for_leaf(
-            leaf_id=leaf_id,
+        await self._repo.clear_projected_edge_ids_for_scope(scope_identity=scope_identity)
+        await self._repo.add_projected_edge_ids_for_scope(
+            scope_identity=scope_identity,
             edge_ids=adjacent_edge_ids,
         )
+
+    async def _refresh_card_scope_projections(
+        self,
+        *,
+        scope_identities: list[TaxonomyScopeIdentity],
+    ) -> None:
+        deduped = {
+            (scope_identity.scope_kind, scope_identity.taxonomy_node_id): scope_identity
+            for scope_identity in scope_identities
+        }
+        for key in sorted(deduped):
+            await self._refresh_card_scope_projection(scope_identity=deduped[key])
 
 
 def _index_tree(
@@ -910,22 +1083,79 @@ def _view_children_from_node_ids(
     *,
     child_ids: list[int],
     node_by_id: dict[int, TaxonomyNodeRecord],
+    child_ids_by_parent: dict[int | None, list[int]],
     descendant_counts: dict[int, int],
     route_paths_by_id: dict[int, str],
 ) -> list[TaxonomyViewChildResponse]:
     return [
-        TaxonomyViewChildResponse(
-            id=node_by_id[node_id].id,
-            parent_id=node_by_id[node_id].parent_id,
-            name=node_by_id[node_id].name,
-            route_slug=node_by_id[node_id].route_slug,
+        _real_child_response(
+            node=node_by_id[node_id],
             route_path=route_paths_by_id[node_id],
-            depth=node_by_id[node_id].depth,
-            is_leaf=node_by_id[node_id].is_leaf,
+            node_kind=(
+                "branch"
+                if _visible_child_ids(
+                    node_id=node_id,
+                    child_ids_by_parent=child_ids_by_parent,
+                    descendant_counts=descendant_counts,
+                )
+                else "card_scope"
+            ),
             descendant_card_count=descendant_counts[node_id],
         )
         for node_id in child_ids
         if descendant_counts[node_id] > 0
+    ]
+
+
+def _real_child_response(
+    *,
+    node: TaxonomyNodeRecord,
+    route_path: str,
+    node_kind: Literal["branch", "card_scope"],
+    descendant_card_count: int,
+) -> TaxonomyViewChildResponse:
+    return TaxonomyViewChildResponse(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=node.id,
+        parent_taxonomy_node_id=node.parent_id,
+        name=node.name,
+        route_slug=node.route_slug,
+        route_path=route_path,
+        depth=node.depth,
+        node_kind=node_kind,
+        descendant_card_count=descendant_card_count,
+    )
+
+
+def _virtual_unclassified_child_response(
+    *,
+    parent: TaxonomyNodeRecord,
+    parent_route_path: str,
+    direct_card_count: int,
+) -> TaxonomyViewChildResponse:
+    return TaxonomyViewChildResponse(
+        scope_kind=VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
+        taxonomy_node_id=None,
+        parent_taxonomy_node_id=parent.id,
+        name=UNCLASSIFIED_NODE_NAME,
+        route_slug="unclassified",
+        route_path=join_taxonomy_route_path([parent_route_path, "unclassified"]),
+        depth=parent.depth + 1,
+        node_kind="card_scope",
+        descendant_card_count=direct_card_count,
+    )
+
+
+def _visible_child_ids(
+    *,
+    node_id: int,
+    child_ids_by_parent: dict[int | None, list[int]],
+    descendant_counts: dict[int, int],
+) -> list[int]:
+    return [
+        child_id
+        for child_id in sorted(child_ids_by_parent.get(node_id, []), key=lambda item: item)
+        if descendant_counts[child_id] > 0
     ]
 
 
@@ -985,6 +1215,77 @@ def _resolve_node_id_by_route_path(
     return cursor_id
 
 
+def _real_scope_from_node(
+    *,
+    node: TaxonomyNodeRecord,
+    tree_context: _TaxonomyTreeContext,
+) -> _ResolvedTaxonomyScope:
+    return _ResolvedTaxonomyScope(
+        identity=TaxonomyScopeIdentity(
+            scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+            taxonomy_node_id=node.id,
+        ),
+        current_scope=_view_scope_from_record(
+            node,
+            route_path=tree_context.route_paths_by_id[node.id],
+        ),
+        breadcrumb=[
+            _view_scope_from_record(
+                record,
+                route_path=tree_context.route_paths_by_id[record.id],
+            )
+            for record in _build_breadcrumb(
+                current_node_id=node.id,
+                node_by_id=tree_context.node_by_id,
+            )
+        ],
+    )
+
+
+async def _resolve_card_scope_visibility(
+    *,
+    service: TaxonomyService,
+    resolved_scope: _ResolvedTaxonomyScope,
+    tree_context: _TaxonomyTreeContext,
+) -> None:
+    current_node_id = resolved_scope.identity.taxonomy_node_id
+    descendant_counts = await service._load_descendant_card_counts(
+        node_by_id=tree_context.node_by_id,
+        child_ids_by_parent=tree_context.child_ids_by_parent,
+    )
+    direct_counts = await service._load_direct_card_counts(node_by_id=tree_context.node_by_id)
+    visible_child_ids = _visible_child_ids(
+        node_id=current_node_id,
+        child_ids_by_parent=tree_context.child_ids_by_parent,
+        descendant_counts=descendant_counts,
+    )
+    if resolved_scope.identity.scope_kind == VIRTUAL_UNCLASSIFIED_SCOPE_KIND:
+        if direct_counts[current_node_id] <= 0 or not visible_child_ids:
+            raise DomainError(
+                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                message=(
+                    f"Taxonomy route path {resolved_scope.current_scope.route_path!r} "
+                    "was not found."
+                ),
+                hint="Use an existing taxonomy route path and retry.",
+            )
+        return
+    if visible_child_ids:
+        raise ApplicationError(
+            code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
+            message="Card-scope request requires a card-scope route path.",
+            hint="Use a route path returned with node_kind card_scope and retry.",
+        )
+
+
+def _route_path_not_found(route_path: str) -> DomainError:
+    return DomainError(
+        code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+        message=f"Taxonomy route path {route_path!r} was not found.",
+        hint="Use an existing taxonomy route path and retry.",
+    )
+
+
 def _log_cache_failure(*, cache_name: str, operation: str, exc: Exception) -> None:
     logger.warning(
         "Taxonomy cache failure.",
@@ -996,19 +1297,19 @@ def _log_cache_failure(*, cache_name: str, operation: str, exc: Exception) -> No
     )
 
 
-def _layout_not_ready_error(*, leaf_id: int) -> ApplicationError:
+def _layout_not_ready_error(*, scope_identity: TaxonomyScopeIdentity) -> ApplicationError:
     return ApplicationError(
         code=ErrorCode.APPLICATION_TAXONOMY_LAYOUT_NOT_READY,
-        message="Taxonomy leaf layout is being prepared.",
+        message="Taxonomy card-scope layout is being prepared.",
         hint="Retry this request shortly.",
-        safe_details={"leaf_id": leaf_id},
+        safe_details=scope_identity.model_dump(mode="json"),
     )
 
 
 def _world_bounds_response_from_layout(
-    layout: TaxonomyLeafLayout,
-) -> TaxonomyLeafWorldBoundsResponse:
-    return TaxonomyLeafWorldBoundsResponse(
+    layout: TaxonomyCardScopeLayout,
+) -> TaxonomyCardScopeWorldBoundsResponse:
+    return TaxonomyCardScopeWorldBoundsResponse(
         min_x=layout.world_bounds.min_x,
         min_y=layout.world_bounds.min_y,
         max_x=layout.world_bounds.max_x,

@@ -37,7 +37,6 @@ class _FakeImportRepo:
         parent_id: int | None,
         name: str,
         depth: int,
-        is_leaf: bool,
     ) -> int:
         node_id = self.next_id
         self.next_id += 1
@@ -47,7 +46,6 @@ class _FakeImportRepo:
                 "parent_id": parent_id,
                 "name": name,
                 "depth": depth,
-                "is_leaf": is_leaf,
             }
         )
         return node_id
@@ -67,7 +65,7 @@ def test_slugify_taxonomy_route_segment_uses_readable_lcc_segments() -> None:
     assert slugify_taxonomy_route_segment("Science (General)") == "science-general"
 
 
-def test_parse_taxonomy_yaml_builds_depth_parent_path_and_leaf_flags() -> None:
+def test_parse_taxonomy_yaml_builds_depth_parent_path() -> None:
     nodes = parse_taxonomy_yaml(_SAMPLE_LCC_YAML)
 
     assert nodes == [
@@ -76,35 +74,30 @@ def test_parse_taxonomy_yaml_builds_depth_parent_path_and_leaf_flags() -> None:
             parent_path=None,
             name="Science",
             depth=0,
-            is_leaf=False,
         ),
         TaxonomyImportNode(
             path=("Science", "Mathematics"),
             parent_path=("Science",),
             name="Mathematics",
             depth=1,
-            is_leaf=False,
         ),
         TaxonomyImportNode(
             path=("Science", "Mathematics", "General"),
             parent_path=("Science", "Mathematics"),
             name="General",
             depth=2,
-            is_leaf=True,
         ),
         TaxonomyImportNode(
             path=("Science", "Mathematics", "Algebra"),
             parent_path=("Science", "Mathematics"),
             name="Algebra",
             depth=2,
-            is_leaf=True,
         ),
         TaxonomyImportNode(
             path=("Science", "Physics"),
             parent_path=("Science",),
             name="Physics",
             depth=1,
-            is_leaf=True,
         ),
     ]
 
@@ -149,11 +142,11 @@ async def test_import_yaml_rejects_names_that_cannot_form_route_slugs() -> None:
 
 
 @pytest.mark.anyio
-async def test_import_yaml_rejects_user_nodes_colliding_with_system_unclassified_slug() -> None:
+async def test_import_yaml_rejects_reserved_virtual_scope_name() -> None:
     repo = _FakeImportRepo()
     importer = TaxonomyImporter(repo=repo)
 
-    with pytest.raises(TaxonomyImportError, match="duplicate route slug"):
+    with pytest.raises(TaxonomyImportError, match="reserved virtual scope name"):
         await importer.import_yaml_text(
             """
 Unclassified: null

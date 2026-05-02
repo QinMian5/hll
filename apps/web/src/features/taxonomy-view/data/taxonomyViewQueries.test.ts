@@ -4,10 +4,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  type TaxonomyLeafLayoutSliceResponse,
-  taxonomyLeafLayoutSliceQueryOptions,
-  taxonomyLeafNodeDetailsQueryOptions,
-  taxonomyLeafNodeTitlesQueryOptions,
+  type TaxonomyCardScopeLayoutSliceResponse,
+  taxonomyCardScopeLayoutSliceQueryOptions,
+  taxonomyCardScopeNodeDetailsQueryOptions,
+  taxonomyCardScopeNodeTitlesQueryOptions,
   taxonomyNodeViewByPathQueryOptions,
   taxonomyNodeViewQueryOptions,
   taxonomyRootViewQueryOptions,
@@ -22,9 +22,9 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 async function runQuery<TResult>(
   queryOptions: ReturnType<
-    | typeof taxonomyLeafNodeDetailsQueryOptions
-    | typeof taxonomyLeafLayoutSliceQueryOptions
-    | typeof taxonomyLeafNodeTitlesQueryOptions
+    | typeof taxonomyCardScopeNodeDetailsQueryOptions
+    | typeof taxonomyCardScopeLayoutSliceQueryOptions
+    | typeof taxonomyCardScopeNodeTitlesQueryOptions
     | typeof taxonomyNodeViewByPathQueryOptions
     | typeof taxonomyNodeViewQueryOptions
     | typeof taxonomyRootViewQueryOptions
@@ -44,9 +44,9 @@ async function runQuery<TResult>(
   } as never)) as TResult;
 }
 
-const leafLayoutIdentity = {
+const cardScopeLayoutIdentity = {
   generatedAt: "2026-04-29T00:00:00Z",
-  layoutVersion: "taxonomy-leaf-layout-v3",
+  layoutVersion: "taxonomy-card-scope-layout-v1",
 };
 
 afterEach(() => {
@@ -108,14 +108,14 @@ describe("taxonomyNodeViewQueryOptions", () => {
   it("calls the same-origin BFF taxonomy path endpoint", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
-        current_node: {
+        current_scope: {
           depth: 1,
-          id: 42,
-          is_leaf: false,
           name: "Mathematics",
-          parent_id: 1,
+          parent_taxonomy_node_id: 1,
           route_path: "science/mathematics",
           route_slug: "mathematics",
+          scope_kind: "taxonomy_node",
+          taxonomy_node_id: 42,
         },
         node_kind: "branch",
       }),
@@ -134,14 +134,14 @@ describe("taxonomyNodeViewQueryOptions", () => {
       }),
     );
     expect(result).toMatchObject({
-      current_node: {
+      current_scope: {
         route_path: "science/mathematics",
       },
       node_kind: "branch",
     });
   });
 
-  it("calls the same-origin BFF leaf detail endpoint", async () => {
+  it("calls the same-origin BFF card-scope detail endpoint", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         nodes: [
@@ -157,13 +157,16 @@ describe("taxonomyNodeViewQueryOptions", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await runQuery(
-      taxonomyLeafNodeDetailsQueryOptions(59, [11, 10]),
+      taxonomyCardScopeNodeDetailsQueryOptions("science/mathematics", [11, 10]),
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/web-api/taxonomy/view/leaves/59/details",
+      "/web-api/taxonomy/view/card-scopes/details",
       expect.objectContaining({
-        body: JSON.stringify({ node_ids: [10, 11] }),
+        body: JSON.stringify({
+          node_ids: [10, 11],
+          route_path: "science/mathematics",
+        }),
         credentials: "include",
         method: "POST",
       }),
@@ -175,36 +178,38 @@ describe("taxonomyNodeViewQueryOptions", () => {
     });
   });
 
-  it("calls the same-origin BFF leaf layout endpoint with viewport bounds", async () => {
+  it("calls the same-origin BFF card-scope layout endpoint with viewport bounds", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         edges: [[10, 11, 0.8]],
-        layout_version: "taxonomy-leaf-layout-v3",
-        leaf_id: 59,
+        layout_version: "taxonomy-card-scope-layout-v1",
         nodes: [
           { id: 10, scope: "inner", x: 1.5, y: 2.5 },
           { id: 11, scope: "outer", x: 3.5, y: 4.5 },
         ],
+        route_path: "science/mathematics",
+        scope_kind: "taxonomy_node",
+        taxonomy_node_id: 59,
         requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await runQuery<TaxonomyLeafLayoutSliceResponse>(
-      taxonomyLeafLayoutSliceQueryOptions(
-        59,
+    const result = await runQuery<TaxonomyCardScopeLayoutSliceResponse>(
+      taxonomyCardScopeLayoutSliceQueryOptions(
+        "science/mathematics",
         {
           max_x: 100,
           max_y: 200,
           min_x: -100,
           min_y: -200,
         },
-        leafLayoutIdentity,
+        cardScopeLayoutIdentity,
       ),
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/web-api/taxonomy/view/leaves/59/layout?min_x=-100&min_y=-200&max_x=100&max_y=200",
+      "/web-api/taxonomy/view/card-scopes/layout?max_x=100&max_y=200&min_x=-100&min_y=-200&route_path=science%2Fmathematics",
       expect.objectContaining({
         credentials: "include",
         method: "GET",
@@ -212,41 +217,45 @@ describe("taxonomyNodeViewQueryOptions", () => {
     );
     expect(result).toEqual({
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-leaf-layout-v3",
-      leaf_id: 59,
+      layout_version: "taxonomy-card-scope-layout-v1",
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },
         { id: 11, scope: "outer", x: 3.5, y: 4.5 },
       ],
+      route_path: "science/mathematics",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 59,
       requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
     });
   });
 
-  it("keeps previous leaf layout data while fetching a new viewport tile", () => {
-    const options = taxonomyLeafLayoutSliceQueryOptions(
-      59,
+  it("keeps previous card-scope layout data while fetching a new viewport tile", () => {
+    const options = taxonomyCardScopeLayoutSliceQueryOptions(
+      "science/mathematics",
       {
         max_x: 100,
         max_y: 200,
         min_x: -100,
         min_y: -200,
       },
-      leafLayoutIdentity,
+      cardScopeLayoutIdentity,
     );
-    const previous: TaxonomyLeafLayoutSliceResponse = {
+    const previous: TaxonomyCardScopeLayoutSliceResponse = {
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-leaf-layout-v3",
-      leaf_id: 59,
+      layout_version: "taxonomy-card-scope-layout-v1",
       nodes: [{ id: 10, scope: "inner", x: 1.5, y: 2.5 }],
+      route_path: "math/algebra",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 59,
       requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
     };
     const placeholderData = options.placeholderData;
 
     expect(options.queryKey).toEqual([
       "taxonomy-view",
-      "leaf-layout",
-      59,
-      "taxonomy-leaf-layout-v3",
+      "card-scope-layout",
+      "science/mathematics",
+      "taxonomy-card-scope-layout-v1",
       "2026-04-29T00:00:00Z",
       -100,
       -200,
@@ -258,25 +267,27 @@ describe("taxonomyNodeViewQueryOptions", () => {
     expect(typeof placeholderData).toBe("function");
     if (typeof placeholderData !== "function") {
       throw new Error(
-        "Expected leaf layout placeholder data to be a function.",
+        "Expected card-scope layout placeholder data to be a function.",
       );
     }
-    expect(placeholderData(previous, undefined as never)).toBe(previous);
+    expect(placeholderData(previous as never, undefined as never)).toBe(
+      previous,
+    );
   });
 
   it("keeps layout slices distinct when backend layout identity changes", () => {
-    const first = taxonomyLeafLayoutSliceQueryOptions(
-      59,
+    const first = taxonomyCardScopeLayoutSliceQueryOptions(
+      "science/mathematics",
       {
         max_x: 100,
         max_y: 200,
         min_x: -100,
         min_y: -200,
       },
-      leafLayoutIdentity,
+      cardScopeLayoutIdentity,
     );
-    const second = taxonomyLeafLayoutSliceQueryOptions(
-      59,
+    const second = taxonomyCardScopeLayoutSliceQueryOptions(
+      "science/mathematics",
       {
         max_x: 100,
         max_y: 200,
@@ -285,14 +296,14 @@ describe("taxonomyNodeViewQueryOptions", () => {
       },
       {
         generatedAt: "2026-04-29T00:05:00Z",
-        layoutVersion: "taxonomy-leaf-layout-v3",
+        layoutVersion: "taxonomy-card-scope-layout-v1",
       },
     );
 
     expect(first.queryKey).not.toEqual(second.queryKey);
   });
 
-  it("calls the same-origin BFF leaf title endpoint", async () => {
+  it("calls the same-origin BFF card-scope title endpoint", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         nodes: [{ id: 10, title: "Card" }],
@@ -301,13 +312,16 @@ describe("taxonomyNodeViewQueryOptions", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const result = await runQuery(
-      taxonomyLeafNodeTitlesQueryOptions(59, [11, 10]),
+      taxonomyCardScopeNodeTitlesQueryOptions("science/mathematics", [11, 10]),
     );
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/web-api/taxonomy/view/leaves/59/titles",
+      "/web-api/taxonomy/view/card-scopes/titles",
       expect.objectContaining({
-        body: JSON.stringify({ node_ids: [10, 11] }),
+        body: JSON.stringify({
+          node_ids: [10, 11],
+          route_path: "science/mathematics",
+        }),
         credentials: "include",
         method: "POST",
       }),
@@ -317,35 +331,37 @@ describe("taxonomyNodeViewQueryOptions", () => {
     });
   });
 
-  it("normalizes leaf layout edge tuples from the generated client payload", async () => {
+  it("normalizes card-scope layout edge tuples from the generated client payload", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         edges: [
           [10, 11, 0.8],
           [11, 12, 0.6],
         ],
-        layout_version: "taxonomy-leaf-layout-v3",
-        leaf_id: 59,
+        layout_version: "taxonomy-card-scope-layout-v1",
         nodes: [
           { id: 10, scope: "inner", x: 1.5, y: 2.5 },
           { id: 11, scope: "outer", x: 3.5, y: 4.5 },
           { id: 12, scope: "outer", x: 5.5, y: 6.5 },
         ],
+        route_path: "science/mathematics",
+        scope_kind: "taxonomy_node",
+        taxonomy_node_id: 59,
         requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const result = await runQuery<TaxonomyLeafLayoutSliceResponse>(
-      taxonomyLeafLayoutSliceQueryOptions(
-        59,
+    const result = await runQuery<TaxonomyCardScopeLayoutSliceResponse>(
+      taxonomyCardScopeLayoutSliceQueryOptions(
+        "science/mathematics",
         {
           max_x: 100,
           max_y: 200,
           min_x: -100,
           min_y: -200,
         },
-        leafLayoutIdentity,
+        cardScopeLayoutIdentity,
       ),
     );
 
@@ -355,13 +371,15 @@ describe("taxonomyNodeViewQueryOptions", () => {
     ]);
   });
 
-  it("rejects malformed leaf layout edge payloads", async () => {
+  it("rejects malformed card-scope layout edge payloads", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         edges: [[10, 11]],
-        layout_version: "taxonomy-leaf-layout-v3",
-        leaf_id: 59,
+        layout_version: "taxonomy-card-scope-layout-v1",
         nodes: [{ id: 10, scope: "inner", x: 1.5, y: 2.5 }],
+        route_path: "science/mathematics",
+        scope_kind: "taxonomy_node",
+        taxonomy_node_id: 59,
         requested_bounds: { max_x: 100, max_y: 200, min_x: -100, min_y: -200 },
       }),
     );
@@ -369,19 +387,19 @@ describe("taxonomyNodeViewQueryOptions", () => {
 
     await expect(
       runQuery(
-        taxonomyLeafLayoutSliceQueryOptions(
-          59,
+        taxonomyCardScopeLayoutSliceQueryOptions(
+          "science/mathematics",
           {
             max_x: 100,
             max_y: 200,
             min_x: -100,
             min_y: -200,
           },
-          leafLayoutIdentity,
+          cardScopeLayoutIdentity,
         ),
       ),
     ).rejects.toThrow(
-      "Taxonomy leaf edge payload must contain 3 numeric values.",
+      "Taxonomy card-scope edge payload must contain 3 numeric values.",
     );
   });
 });

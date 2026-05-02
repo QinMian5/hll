@@ -124,7 +124,7 @@ def test_cli_forwards_scope_path(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.unit
-def test_cli_forwards_all_unclassified(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_forwards_all_direct_assignments(monkeypatch: pytest.MonkeyPatch) -> None:
     module = _load_script_module()
     captured: dict[str, TaxonomyClassificationSubmissionSelection | int | None] = {}
 
@@ -159,14 +159,14 @@ def test_cli_forwards_all_unclassified(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(module, "submit_refinement_jobs", _fake_runner)
 
-    result = CliRunner().invoke(module.cli, ["--all-unclassified"])
+    result = CliRunner().invoke(module.cli, ["--all-direct-assignments"])
 
     assert result.exit_code == 0
     assert "Skipped no children: 1" in result.output
     assert "Root / Science" not in result.output
     selection = captured["selection"]
     assert isinstance(selection, TaxonomyClassificationSubmissionSelection)
-    assert selection.kind == "all_unclassified"
+    assert selection.kind == "all_direct_assignments"
     assert captured["limit"] is None
     assert captured["batch_size"] == 1000
 
@@ -183,7 +183,7 @@ def test_cli_forwards_custom_batch_size(monkeypatch: pytest.MonkeyPatch) -> None
         batch_size: int,
         **_: object,
     ) -> TaxonomyClassificationSubmissionResult:
-        assert selection.kind == "all_unclassified"
+        assert selection.kind == "all_direct_assignments"
         assert limit is None
         captured["batch_size"] = batch_size
         return TaxonomyClassificationSubmissionResult(
@@ -196,7 +196,7 @@ def test_cli_forwards_custom_batch_size(monkeypatch: pytest.MonkeyPatch) -> None
 
     monkeypatch.setattr(module, "submit_refinement_jobs", _fake_runner)
 
-    result = CliRunner().invoke(module.cli, ["--all-unclassified", "--batch-size", "250"])
+    result = CliRunner().invoke(module.cli, ["--all-direct-assignments", "--batch-size", "250"])
 
     assert result.exit_code == 0
     assert captured["batch_size"] == 250
@@ -213,7 +213,7 @@ def test_cli_verbose_includes_scope_details(monkeypatch: pytest.MonkeyPatch) -> 
         batch_size: int,
         **_: object,
     ) -> TaxonomyClassificationSubmissionResult:
-        assert selection.kind == "all_unclassified"
+        assert selection.kind == "all_direct_assignments"
         assert limit is None
         assert batch_size == 1000
         return TaxonomyClassificationSubmissionResult(
@@ -237,7 +237,7 @@ def test_cli_verbose_includes_scope_details(monkeypatch: pytest.MonkeyPatch) -> 
 
     monkeypatch.setattr(module, "submit_refinement_jobs", _fake_runner)
 
-    result = CliRunner().invoke(module.cli, ["--all-unclassified", "--verbose"])
+    result = CliRunner().invoke(module.cli, ["--all-direct-assignments", "--verbose"])
 
     assert result.exit_code == 0
     assert "Scopes:" in result.output
@@ -248,7 +248,7 @@ def test_cli_verbose_includes_scope_details(monkeypatch: pytest.MonkeyPatch) -> 
 def test_cli_rejects_batch_size_above_job_queue_limit() -> None:
     module = _load_script_module()
 
-    result = CliRunner().invoke(module.cli, ["--all-unclassified", "--batch-size", "1001"])
+    result = CliRunner().invoke(module.cli, ["--all-direct-assignments", "--batch-size", "1001"])
 
     assert result.exit_code != 0
     assert "Invalid value for '--batch-size'" in result.output
@@ -260,7 +260,7 @@ def test_cli_rejects_multiple_scope_selectors() -> None:
 
     result = CliRunner().invoke(
         module.cli,
-        ["--scope-name", "Root", "--all-unclassified"],
+        ["--scope-name", "Root", "--all-direct-assignments"],
     )
 
     assert result.exit_code != 0

@@ -25,7 +25,7 @@ Science:
 @pytest.mark.integration
 @pytest.mark.db
 @pytest.mark.anyio
-async def test_importer_persists_depth_and_leaf_flags_into_empty_store(
+async def test_importer_persists_depth_and_route_slugs_into_empty_store(
     db_session: AsyncSession,
 ) -> None:
     importer = TaxonomyImporter(repo=TaxonomyRepo(session=db_session))
@@ -37,18 +37,13 @@ async def test_importer_persists_depth_and_leaf_flags_into_empty_store(
     )
     rows = list(result.scalars())
 
-    assert imported_count == 10
-    assert [(row.name, row.depth, row.is_leaf) for row in rows] == [
-        ("Root", 0, False),
-        ("Science", 1, False),
-        ("Unclassified", 1, True),
-        ("Mathematics", 2, False),
-        ("Unclassified", 2, True),
-        ("Algebra", 3, False),
-        ("General", 3, False),
-        ("Unclassified", 3, True),
-        ("Unclassified", 4, True),
-        ("Unclassified", 4, True),
+    assert imported_count == 5
+    assert [(row.name, row.depth, row.route_slug) for row in rows] == [
+        ("Root", 0, "root"),
+        ("Science", 1, "science"),
+        ("Mathematics", 2, "mathematics"),
+        ("Algebra", 3, "algebra"),
+        ("General", 3, "general"),
     ]
 
 
@@ -62,8 +57,8 @@ async def test_importer_fails_when_taxonomy_store_is_not_empty(
         TaxonomyNode(
             parent_id=None,
             name="Root",
+            route_slug="root",
             depth=0,
-            is_leaf=False,
         )
     )
     await db_session.flush()

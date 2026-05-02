@@ -23,22 +23,22 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Exposes suggested-edit creation ports consumed by private API orchestration.
 
 ### taxonomy
-- Owns persisted operator-managed taxonomy tree and current node-to-leaf assignment truth.
-- Owns the real single `Root` node and system-created `Unclassified` leaves.
+- Owns persisted operator-managed LCC taxonomy tree and current direct node-to-taxonomy assignment truth.
+- Owns the real single `Root` node and path-addressed virtual Unclassified view scopes.
 - Owns taxonomy import and operator structure mutation orchestration.
-- Owns default assignment of new knowledge nodes to `Root -> Unclassified`.
-- Owns assignment movement between valid taxonomy leaves.
+- Owns default assignment of new knowledge nodes directly to `Root`.
+- Owns assignment movement between valid real taxonomy nodes.
 - Owns taxonomy drill-down read orchestration:
   - `GET /api/v1/taxonomy/view/root`
   - `GET /api/v1/taxonomy/view/nodes/{node_id}`
   - `GET /api/v1/taxonomy/view/path/{route_path:path}`
-  - `GET /api/v1/taxonomy/view/leaves/{node_id}/layout`
-  - `POST /api/v1/taxonomy/view/leaves/{node_id}/titles`
-  - `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
-- Consumes `knowledge_graph` read ports for leaf-level layout, title, and detail payload shaping.
+  - `GET /api/v1/taxonomy/view/card-scopes/layout`
+  - `POST /api/v1/taxonomy/view/card-scopes/titles`
+  - `POST /api/v1/taxonomy/view/card-scopes/details`
+- Consumes `knowledge_graph` read ports for card-scope layout, title, and detail payload shaping.
 
 ### taxonomy_classification
-- Owns operator-triggered `taxonomy_classification` queue job submission for cards in selected scope `Unclassified` leaves.
+- Owns operator-triggered `taxonomy_classification` queue job submission for cards directly assigned to selected taxonomy scopes.
 - Owns background result consumption through notification-only webhooks plus lightweight polling/reconcile.
 - Submits one `job-queue-mcp` job per selected card.
 - Consumes `knowledge_graph` and `taxonomy` service ports only.
@@ -124,10 +124,10 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 ### Taxonomy Root View Endpoint
 - Route: `GET /api/v1/taxonomy/view/root`
 - Response:
-  - no `current_node` field
+  - no `current_scope` field
   - `breadcrumb=[]`
-  - `children[]` direct children of the real `Root` node whose descendant subtree contains at least one assigned card
-  - child item shape: `{id, parent_id, name, route_slug, route_path, depth, is_leaf, descendant_card_count}`
+  - `children[]` visible direct child scopes of the real `Root`
+  - child item shape includes explicit `scope_kind`, path identity, display fields, `node_kind`, and `descendant_card_count`
   - children ordering: `name ASC`, tie-break `id ASC`
 - Failure:
   - `404` when the real `Root` node is unavailable.
@@ -136,12 +136,12 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Route: `GET /api/v1/taxonomy/view/nodes/{node_id}`
 - Response:
   - common envelope:
-    - `node_kind`
-    - `current_node` `{id, parent_id, name, route_slug, route_path, depth, is_leaf}`
-    - `breadcrumb[]` ordered root-to-current with item shape `{id, parent_id, name, route_slug, route_path, depth, is_leaf}`
-  - branch payload includes `children[]` direct children filtered to descendants with assigned cards
-  - leaf metadata payload includes `layout_version`, `world_bounds`, `node_count`, `edge_count`, and `generated_at`
-  - leaf metadata payload excludes full graph nodes, graph edges, node titles, node content, and `current_version`
+    - `node_kind` with value `branch` or `card_scope`
+    - `current_scope` with explicit real taxonomy scope identity
+    - `breadcrumb[]` ordered root-to-current with explicit real taxonomy scope identity
+  - branch payload includes visible `children[]` direct child scopes
+  - card-scope metadata payload includes `layout_version`, `world_bounds`, `node_count`, `edge_count`, and `generated_at`
+  - card-scope metadata payload excludes full graph nodes, graph edges, node titles, node content, and `current_version`
 - Failure:
   - `404` when taxonomy node id is unknown.
   - `404` when taxonomy root is unavailable.
@@ -150,53 +150,56 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Route: `GET /api/v1/taxonomy/view/path/{route_path:path}`
 - Request:
   - `route_path` is a slash-joined canonical LCC slug path excluding the system `Root` segment.
+  - appending `/unclassified` addresses a visible virtual Unclassified card scope below the parent taxonomy route path.
 - Response:
-  - same response union as `GET /api/v1/taxonomy/view/nodes/{node_id}` for the resolved taxonomy node
+  - same response union as `GET /api/v1/taxonomy/view/nodes/{node_id}` for real taxonomy nodes
+  - card-scope metadata payload for resolved virtual Unclassified scopes
   - response nodes include `route_slug` and `route_path`
 - Failure:
   - `404` when any path segment does not resolve below its current parent.
+  - `404` when an `unclassified` segment does not resolve to a visible virtual Unclassified scope.
   - `404` when taxonomy root is unavailable.
 
-### Taxonomy Leaf Layout Viewport Endpoint
-- Route: `GET /api/v1/taxonomy/view/leaves/{node_id}/layout`
+### Taxonomy Card-Scope Layout Viewport Endpoint
+- Route: `GET /api/v1/taxonomy/view/card-scopes/layout`
 - Request:
+  - `route_path`
   - `min_x`, `min_y`, `max_x`, and `max_y` world-bound query parameters
 - Response:
-  - `leaf_id`
+  - explicit scope identity and `route_path`
   - `layout_version`
   - `requested_bounds`
   - `nodes[]` ordered by `id ASC`; each item has `id`, `scope`, `x`, and `y`
   - `edges[]` ordered by `(source_node_id ASC, target_node_id ASC)`; each item is `[source_node_id, target_node_id, strength]`
 - Failure:
-  - `404` when taxonomy leaf id is unknown.
+  - `404` when `route_path` does not resolve to a card scope.
   - `404` when taxonomy root is unavailable.
-  - `400` when `node_id` is not a leaf taxonomy node.
 
-### Taxonomy Leaf Titles Endpoint
-- Route: `POST /api/v1/taxonomy/view/leaves/{node_id}/titles`
+### Taxonomy Card-Scope Titles Endpoint
+- Route: `POST /api/v1/taxonomy/view/card-scopes/titles`
 - Request:
-  - `node_ids[]` non-empty array of unique positive integers scoped to the active leaf one-hop graph
+  - `route_path`
+  - `node_ids[]` non-empty array of unique positive integers scoped to the active card-scope one-hop graph
 - Response:
   - `nodes[]` ordered to match requested `node_ids`
   - node title item shape: `{id, title}`
 - Failure:
-  - `404` when taxonomy leaf id is unknown
+  - `404` when `route_path` does not resolve to a card scope
   - `404` when taxonomy root is unavailable
-  - `400` when `node_id` is not a leaf taxonomy node
-  - `400` when request `node_ids` is empty, contains duplicates, or references a node outside the active leaf one-hop graph
+  - `400` when request `node_ids` is empty, contains duplicates, or references a node outside the active card-scope one-hop graph
 
-### Taxonomy Leaf Detail Endpoint
-- Route: `POST /api/v1/taxonomy/view/leaves/{node_id}/details`
+### Taxonomy Card-Scope Detail Endpoint
+- Route: `POST /api/v1/taxonomy/view/card-scopes/details`
 - Request:
-  - `node_ids[]` non-empty array of unique positive integers scoped to the active leaf one-hop graph
+  - `route_path`
+  - `node_ids[]` non-empty array of unique positive integers scoped to the active card-scope one-hop graph
 - Response:
   - `nodes[]` ordered to match requested `node_ids`
   - node detail item shape: `{id, current_version, title, content}`
 - Failure:
-  - `404` when taxonomy leaf id is unknown
+  - `404` when `route_path` does not resolve to a card scope
   - `404` when taxonomy root is unavailable
-  - `400` when `node_id` is not a leaf taxonomy node
-  - `400` when request `node_ids` is empty, contains duplicates, or references a node outside the active leaf one-hop graph
+  - `400` when request `node_ids` is empty, contains duplicates, or references a node outside the active card-scope one-hop graph
 
 ## Async Processing Flow
 1. API validates ingestion request payload.
@@ -210,7 +213,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 9. Worker actor receives task and requests embedding from OpenAI Embeddings API (`text-embedding-3-small`).
 10. Worker persists node truth through `knowledge_graph` write service.
 11. Worker persists the node's formal initial card version and current version projection through `knowledge_graph` write service.
-12. Worker assigns the new node to `Root -> Unclassified` through taxonomy-owned assignment services.
+12. Worker assigns the new node directly to `Root` through taxonomy-owned assignment services.
 13. Worker builds title-mention edge candidates from existing card titles that are complete normalized phrase matches inside the new card content.
 14. Worker ranks title-mention candidates by embedding similarity descending and node id ascending, then persists at most the configured title-mention edge budget.
 15. Worker builds semantic edge candidates from embedding similarity, bounded by the configured semantic candidate limit.
@@ -237,19 +240,18 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 
 ## Taxonomy Bootstrap Flow
 1. Operator script creates or imports one authoritative tree rooted at the real `Root` node.
-2. Bootstrap creates `Root -> Unclassified`.
-3. Creating a regular taxonomy node creates that node's `Unclassified` child leaf.
-4. Taxonomy storage remains the authoritative structure truth.
+2. Creating a taxonomy node creates only the requested real LCC category node.
+3. Taxonomy storage remains the authoritative structure truth.
 
 ## Taxonomy Classification Flow
-1. Operator script resolves one scope by case-insensitive name or path, or scans all eligible scope `Unclassified` leaves.
-2. Operator script selects cards assigned to each selected scope's direct `Unclassified` leaf in deterministic order (`nodes.id ASC` within each scope).
+1. Operator script resolves one scope by case-insensitive name or path, or scans all eligible directly assigned scopes.
+2. Operator script selects cards directly assigned to each selected scope in deterministic order (`nodes.id ASC` within each scope).
 3. Operator script skips selected scopes that have no regular direct child categories.
 4. Operator script submits one `taxonomy_classification` queue job per selected card.
 5. `job-queue-mcp` delivers notification-only events for accepted results and terminal non-accepted outcomes.
-6. The local taxonomy-classification runtime persists webhook events idempotently and reads accepted result payloads through `GET /results/{job_id}`.
-7. Valid child targets move the card assignment to the selected child category's `Unclassified` leaf.
-8. Valid `unclassified` targets keep the card assignment at the current scope's `Unclassified` leaf.
+6. The local taxonomy-classification runtime persists webhook events idempotently and reads accepted result payloads through batch result-read requests.
+7. Valid child targets move the card assignment directly to the selected child category.
+8. Valid `unclassified` targets keep the card assignment at the current scope.
 9. Invalid accepted results and terminal non-accepted outcomes record local processing state without moving assignments.
 10. Lightweight polling/reconcile checks outstanding job links as a compensation path.
 
@@ -268,7 +270,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Invalid request payloads are client-visible as `4xx`.
 - Enqueue/worker/embedding/materialization failures for ingestion remain internal-only for endpoint behavior.
 - Internal failures must be logged with correlation/debug-friendly fields.
-- Taxonomy view endpoints expose backend-owned leaf layout coordinates only through the viewport-bounded leaf layout endpoint.
+- Taxonomy view endpoints expose backend-owned card-scope layout coordinates only through the viewport-bounded card-scope layout endpoint.
 - Taxonomy classification workers do not write knowledge APIs or databases.
 - Taxonomy classification result processing moves assignments only after local validation against current taxonomy truth.
 
@@ -289,7 +291,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
   - ingestion idempotency checks verifying same-key conflicting payload returns `409 Conflict`
   - ingestion idempotency checks verifying timeout or connection-loss retry after an already accepted original request converges through same-key replay
   - ingestion queue-failure checks verifying failed publish before accepted-request completion returns `503` and rolls back the accepted-request row
-  - ingestion worker checks verifying newly created nodes receive `Root -> Unclassified` assignment
+  - ingestion worker checks verifying newly created nodes receive direct `Root` assignment
   - ingestion edge-initialization checks verifying title-mention edge selection respects the configured title-mention budget
   - ingestion edge-initialization checks verifying title-mention candidates are ordered by embedding similarity with stable node-id tie-breaking
   - ingestion edge-initialization checks verifying semantic edge selection respects the configured semantic candidate limit and semantic edge budget
@@ -303,7 +305,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
   - suggested-edit checks verifying valid base-version submissions create pending suggestions
   - suggested-edit checks verifying unknown base versions, empty proposed values, and no-op suggestions are rejected
   - suggested-edit checks verifying stale but existing base versions are accepted
-  - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, `GET /api/v1/taxonomy/view/path/{route_path:path}`, `GET /api/v1/taxonomy/view/leaves/{id}/layout`, `POST /api/v1/taxonomy/view/leaves/{id}/titles`, and `POST /api/v1/taxonomy/view/leaves/{id}/details` contract checks
+  - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, `GET /api/v1/taxonomy/view/path/{route_path:path}`, `GET /api/v1/taxonomy/view/card-scopes/layout`, `POST /api/v1/taxonomy/view/card-scopes/titles`, and `POST /api/v1/taxonomy/view/card-scopes/details` contract checks
   - taxonomy classification queue-contract checks
   - taxonomy classification webhook/reconcile checks
   - taxonomy classification assignment-move checks

@@ -17,14 +17,14 @@ out_of_scope: Backend authoring validation, non-card prose styling, and raw HTML
 
 ## Constraint Projection
 - **Governing Constraints:** Frontend card rendering remains inside the unified web client, consumes contract-driven `title` and `content` data without transport-specific logic, preserves explicit shared-vs-feature module boundaries, and keeps behavior-changing rendering rules synchronized in active specs.
-- **Detail Commitments:** The web client owns one shared knowledge-card rich-text renderer built on `react-markdown`, `remark-math`, and `rehype-katex`. Upstream card text remains authored with inline LaTeX delimiters `\(...\)`, while the renderer normalizes those delimiters to `$...$` before the Markdown math pipeline executes. The renderer supports a controlled common-Markdown subset for card text, does not render raw HTML, and exposes separate presentation presets for titles and content while reusing one parsing pipeline. Search result cards, taxonomy leaf hover disclosure, taxonomy leaf selected disclosure, and any future DOM-hosted web knowledge-card title/content surfaces consume that shared renderer instead of rendering raw strings directly. Taxonomy leaf point-title labels render in deck.gl as plain text-layer labels and sit outside this DOM rich-text boundary.
+- **Detail Commitments:** The web client owns one shared knowledge-card rich-text renderer built on `react-markdown`, `remark-math`, and `rehype-katex`. Upstream card text remains authored with inline LaTeX delimiters `\(...\)`, while the renderer normalizes those delimiters to `$...$` before the Markdown math pipeline executes. The renderer supports a controlled common-Markdown subset for card text, does not render raw HTML, and exposes separate presentation presets for titles and content while reusing one parsing pipeline. Search result cards, taxonomy card-scope hover disclosure, taxonomy card-scope selected disclosure, and any future DOM-hosted web knowledge-card title/content surfaces consume that shared renderer instead of rendering raw strings directly. Taxonomy card-scope point-title labels render in deck.gl as plain text-layer labels and sit outside this DOM rich-text boundary.
 - **Update Rule:** Requirement-level repository and integration constraints remain stable while shared rich-text parsing, normalization, presentation presets, and consuming frontend surfaces are maintained in this design document.
 
 ## Inputs & Outputs
 - **Inputs:**
   - Contract-derived knowledge-card `title` strings.
   - Contract-derived knowledge-card `content` strings.
-  - Existing web feature surfaces that display DOM-hosted knowledge-card rich text, including Search results, taxonomy leaf hover disclosure, and taxonomy leaf selected disclosure.
+  - Existing web feature surfaces that display DOM-hosted knowledge-card rich text, including Search results, taxonomy card-scope hover disclosure, and taxonomy card-scope selected disclosure.
   - Global frontend stylesheet ownership in `apps/web/src/index.css`.
 - **Outputs:**
   - One shared renderer entrypoint for knowledge-card text.
@@ -54,7 +54,7 @@ out_of_scope: Backend authoring validation, non-card prose styling, and raw HTML
   - **Soft-failure rule:** Rendering failures must not break the page shell or remove card text entirely. If normalization or rich-text rendering fails for a card field, the frontend falls back to displaying the source text for that field.
   - **Surface adoption rule:** Any web surface that displays knowledge-card `title` or `content` must consume the shared renderer. Feature-specific raw-string rendering for those fields is not an accepted long-term pattern.
   - **DOM host rule:** Surfaces that need Markdown-plus-KaTeX card text must provide a DOM rendering host for the shared renderer. GPU text primitives that can only draw plain strings are not sufficient for adopted knowledge-card title/content rich-text surfaces.
-  - **Feature-boundary rule:** Search result cards, taxonomy leaf hover disclosure, and taxonomy leaf selected disclosure keep ownership of layout, spacing, scrolling, and interaction state. They do not own Markdown or KaTeX parsing policy.
+  - **Feature-boundary rule:** Search result cards, taxonomy card-scope hover disclosure, and taxonomy card-scope selected disclosure keep ownership of layout, spacing, scrolling, and interaction state. They do not own Markdown or KaTeX parsing policy.
 - **Interactions:**
   1. A web feature receives contract-derived card `title` and `content`.
   2. The feature passes each field into the shared knowledge-card renderer with the appropriate variant.
@@ -66,8 +66,8 @@ out_of_scope: Backend authoring validation, non-card prose styling, and raw HTML
 ## Validation
 - **Checks:**
   - Search result cards render knowledge-card `title` and `content` through the shared renderer rather than as raw strings.
-  - Taxonomy leaf hover disclosure renders card `title` and `content` through the shared renderer rather than as raw strings.
-  - Taxonomy leaf selected disclosure renders card `title` and `content` through the shared renderer rather than as raw strings.
+  - Taxonomy card-scope hover disclosure renders card `title` and `content` through the shared renderer rather than as raw strings.
+  - Taxonomy card-scope selected disclosure renders card `title` and `content` through the shared renderer rather than as raw strings.
   - Shared renderer normalization converts inline `\(...\)` segments into syntax that `remark-math` can parse without changing upstream payload ownership.
   - Title and content variants apply distinct typography/spacing rules while sharing one parsing pipeline.
   - Common Markdown constructs used by cards render correctly inside title/content constraints.

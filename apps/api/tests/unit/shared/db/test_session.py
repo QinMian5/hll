@@ -17,22 +17,38 @@ from core.config import Settings
 
 @pytest.fixture
 def runtime_settings(monkeypatch: pytest.MonkeyPatch) -> Settings:
-    monkeypatch.setenv(
-        "KNOWLEDGE_API_DATABASE_URL",
-        "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge",
-    )
-    monkeypatch.setenv("KNOWLEDGE_API_REDIS_URL", "redis://redis:6379/0")
-    monkeypatch.setenv("KNOWLEDGE_API_EMBEDDING_API_URL", "https://api.openai.com/v1/embeddings")
-    monkeypatch.setenv("KNOWLEDGE_API_EMBEDDING_MODEL", "text-embedding-3-small")
-    monkeypatch.setenv("KNOWLEDGE_API_EMBEDDING_API_KEY", "test-key")
-    monkeypatch.setenv("KNOWLEDGE_API_EMBEDDING_TIMEOUT_SECONDS", "10")
-    monkeypatch.setenv("KNOWLEDGE_API_SEARCH_MAX_MATCHED", "3")
-    monkeypatch.setenv("KNOWLEDGE_API_SEARCH_MAX_CONNECTED", "7")
-    monkeypatch.setenv("KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K", "2")
-    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K", "4")
-    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH", "0.61")
-    monkeypatch.setenv("KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT", "9")
-    monkeypatch.setenv("KNOWLEDGE_API_LOG_FILE_PATH", "logs/api/app.log")
+    for key, value in {
+        "KNOWLEDGE_API_DATABASE_URL": (
+            "postgresql+psycopg://knowledge_app:secret@postgres:5432/knowledge"
+        ),
+        "KNOWLEDGE_API_REDIS_URL": "redis://redis:6379/0",
+        "KNOWLEDGE_API_EMBEDDING_API_URL": "https://api.openai.com/v1/embeddings",
+        "KNOWLEDGE_API_EMBEDDING_MODEL": "text-embedding-3-small",
+        "KNOWLEDGE_API_EMBEDDING_API_KEY": "test-key",
+        "KNOWLEDGE_API_EMBEDDING_TIMEOUT_SECONDS": "10",
+        "KNOWLEDGE_API_SEARCH_MAX_MATCHED": "3",
+        "KNOWLEDGE_API_SEARCH_MAX_CONNECTED": "7",
+        "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS": "60",
+        "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS": "86400",
+        "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS": "60",
+        "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS": "600",
+        "KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K": "2",
+        "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K": "4",
+        "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH": "0.61",
+        "KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT": "9",
+        "KNOWLEDGE_API_LOG_LEVEL": "INFO",
+        "KNOWLEDGE_API_LOG_FILE_PATH": "logs/api/app.log",
+        "KNOWLEDGE_API_LOG_FILE_MAX_BYTES": "10485760",
+        "KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT": "5",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_COMMAND": "cursor-agent",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_WORKSPACE_ROOT": (
+            "/tmp/knowledge-api-taxonomy-classification"
+        ),
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_TIMEOUT_SECONDS": "180",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CURSOR_MAX_RETRIES": "3",
+        "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_MAX_WORKERS": "8",
+    }.items():
+        monkeypatch.setenv(key, value)
     return Settings()
 
 

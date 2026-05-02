@@ -31,7 +31,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `ingestion_requests`
 - `taxonomy_nodes`
 - `node_taxonomy_assignments`
-- `taxonomy_leaf_projection_edges`
+- `taxonomy_scope_projection_edges`
 - `taxonomy_classification_jobs`
 - `taxonomy_classification_webhook_events`
 - `taxonomy_classification_webhook_wakeups`
@@ -40,7 +40,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `scripts/export-prod-api-bootstrap-snapshot.sh` exports a production data-only snapshot for development bootstrap.
 - The export is read-only against production PostgreSQL and is scoped to the API tables listed in this section.
 - `alembic_version` is excluded; Alembic migrations remain the schema source of truth.
-- `scripts/bootstrap-dev-api-from-prod-snapshot.sh` targets `infra/env/.env.dev`, runs development migrations, stops development API writer services, truncates the scoped API tables with `RESTART IDENTITY CASCADE`, and restores the snapshot.
+- `scripts/bootstrap-dev-api-from-prod-snapshot.sh` targets `infra/env/.env.dev`, runs development migrations, stops development API writer and taxonomy layout services, truncates the scoped API tables with `RESTART IDENTITY CASCADE`, restores the snapshot, and clears Redis-derived read models.
 - The snapshot preserves current card IDs, titles, content, embeddings, edge relationships, taxonomy nodes, node taxonomy assignments, taxonomy projection edges, ingestion request rows, and taxonomy classification orchestration rows.
 
 ### Nodes
@@ -116,7 +116,6 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `parent_id`: nullable foreign key to `taxonomy_nodes.id`.
 - `name`: non-null text.
 - `depth`: non-null integer.
-- `is_leaf`: non-null boolean.
 - Required constraints:
   - `depth >= 0`
   - uniqueness over `(parent_id, name)`
@@ -126,8 +125,9 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
   - sibling rows selected with `ORDER BY name ASC`.
 - Root rule:
   - exactly one row represents the real `Root` node; storage enforces at most one root row and taxonomy bootstrap/service code ensures root availability.
-- System bucket rule:
-  - each regular taxonomy node has a direct child named `Unclassified` with `is_leaf = true`.
+- Persisted-node rule:
+  - taxonomy rows represent real LCC category nodes only.
+  - branch and card-scope behavior is derived by the taxonomy service from current child rows and current direct assignments.
 
 ### Node Taxonomy Assignments
 - `id`: integer primary key.
@@ -136,22 +136,20 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `assigned_at`: non-null timestamp.
 - Required constraints:
   - uniqueness over `node_id`.
-- Required trigger rule:
-  - insert/update rejected unless `taxonomy_node_id` points to `taxonomy_nodes.is_leaf = true`.
 - Write semantics:
   - inserts create the current assignment for a node.
   - updates move the current assignment for a node.
-- Trigger implementation rule:
-  - leaf-only assignment trigger is maintained through API Alembic migration DDL scoped to trigger/function integrity.
 
-### Taxonomy Leaf Projection Edges
-- Composite primary key: `(leaf_id, edge_id)`.
-- `leaf_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
+### Taxonomy Scope Projection Edges
+- Composite primary key: `(scope_kind, taxonomy_node_id, edge_id)`.
+- `scope_kind`: non-null text identifying whether the projection belongs to a real taxonomy node scope or a virtual Unclassified child scope.
+- `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
 - `edge_id`: non-null foreign key to `edges.id` with `ondelete="CASCADE"`.
 - Required indexes:
   - index on `edge_id`.
+  - index on `(scope_kind, taxonomy_node_id)`.
 - Projection rule:
-  - rows store leaf-edge membership only.
+  - rows store card-scope edge membership only.
   - mutable edge values are read from `edges`.
 
 ### Ingestion Requests
@@ -171,7 +169,6 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 ### Taxonomy Classification Jobs
 - `id`: integer primary key.
 - `scope_node_id`: non-null foreign key to `taxonomy_nodes.id`.
-- `source_unclassified_node_id`: non-null foreign key to `taxonomy_nodes.id`.
 - `node_id`: non-null foreign key to `nodes.id` with `ondelete="CASCADE"`.
 - `job_id`: nullable integer identifier assigned by `job-queue-mcp` after the local
   active submission intent is committed.
@@ -183,9 +180,9 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `updated_at`: non-null timestamp with timezone.
 - Required constraints:
   - partial unique index on `job_id` where `job_id IS NOT NULL`.
-  - partial uniqueness over `(scope_node_id, source_unclassified_node_id, node_id)` for active outstanding rows only, where `processed_at IS NULL` and `terminal_state IS NULL`.
+  - partial uniqueness over `(scope_node_id, node_id)` for active outstanding rows only, where `processed_at IS NULL` and `terminal_state IS NULL`.
 - Active-linkage rule:
-  - processed accepted results, invalid accepted results recorded as local processing errors, and terminal non-accepted rows do not block a later operator submission for the same scope/source/card.
+  - processed accepted results, invalid accepted results recorded as local processing errors, and terminal non-accepted rows do not block a later operator submission for the same scope/card.
 
 ### Taxonomy Classification Webhook Events
 - `id`: integer primary key.
@@ -216,6 +213,20 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - Required constraints:
   - uniqueness over `event_id`.
 
+### Taxonomy Classification Projection Refresh Requests
+- Composite primary key: `(scope_kind, taxonomy_node_id)`.
+- `scope_kind`: non-null text identifying whether the refresh belongs to a real taxonomy node scope or a virtual Unclassified child scope.
+- `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
+- `last_error`: nullable text.
+- `created_at`: non-null timestamp with timezone.
+- `updated_at`: non-null timestamp with timezone.
+- Required indexes:
+  - pending refresh lookup by `(updated_at, scope_kind, taxonomy_node_id)`.
+- Write semantics:
+  - assignment movement inserts or updates one dirty refresh request for each affected scope identity.
+  - successful refresh deletes only the refreshed scope request.
+  - failed refresh leaves the request retryable with `last_error` populated.
+
 ## Integrity and Coupling Rules
 - Persistence constraints enforce undirected edge semantics at storage level.
 - One canonical edge row exists for one unordered node pair.
@@ -226,9 +237,8 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 ## Validation
 - Metadata includes all accepted persistence models before migration autogeneration.
 - Generated/applied schema enforces all required constraints and indexes.
-- Generated/applied schema enforces taxonomy leaf-only assignment trigger.
 - Generated/applied schema enforces taxonomy root uniqueness.
 - Generated/applied schema enforces card version uniqueness, suggestion base-version references, and suggestion status values.
-- Generated/applied schema allows later classification resubmission after a previous job for the same scope/source/card is locally processed or terminal.
+- Generated/applied schema allows later classification resubmission after a previous job for the same scope/card is locally processed or terminal.
 - Vector type validity depends on PostgreSQL `vector` extension availability before dependent migration.
 - Migration ordering/lifecycle checks are governed by `10-migration-lifecycle-governance`.

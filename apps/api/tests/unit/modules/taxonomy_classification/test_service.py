@@ -42,7 +42,7 @@ class _StubTaxonomyStatusPort:
 @dataclass(slots=True)
 class _StubRunner:
     taxonomy_status_port: _StubTaxonomyStatusPort
-    assigned_leaf_id: int = 7
+    assigned_taxonomy_node_id: int = 7
     failed_node_ids: set[int] = field(default_factory=set)
 
     async def run_node_session(
@@ -56,12 +56,11 @@ class _StubRunner:
             id=node.node_id + 100,
             node_id=node.node_id,
             taxonomy_node=TaxonomyNodeRecord(
-                id=self.assigned_leaf_id,
+                id=self.assigned_taxonomy_node_id,
                 parent_id=1,
-                name="Leaf",
-                route_slug="leaf",
+                name="Science",
+                route_slug="science",
                 depth=2,
-                is_leaf=True,
             ),
             assigned_at=datetime.now(UTC),
         )

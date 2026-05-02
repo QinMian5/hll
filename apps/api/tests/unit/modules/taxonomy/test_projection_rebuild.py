@@ -1,5 +1,5 @@
 """
-Abstract: Unit tests for taxonomy leaf projection rebuild orchestration.
+Abstract: Unit tests for taxonomy card-scope projection rebuild orchestration.
 Out of scope: CLI wiring, migration execution, and SQL statement details.
 """
 
@@ -9,28 +9,47 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from modules.taxonomy.dto import TaxonomyNodeRecord
-from modules.taxonomy.projection_rebuild import rebuild_taxonomy_leaf_projection_edges
+from modules.taxonomy.dto import TaxonomyAssignmentCount, TaxonomyNodeRecord, TaxonomyScopeIdentity
+from modules.taxonomy.projection_rebuild import rebuild_taxonomy_scope_projection_edges
+from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND
 
 
 @dataclass(slots=True)
 class _StubRepo:
     tree_nodes: list[TaxonomyNodeRecord]
-    assigned_node_ids_by_leaf: dict[int, list[int]]
+    assignment_counts: list[TaxonomyAssignmentCount]
+    assigned_node_ids_by_scope: dict[tuple[str, int], list[int]]
     cleared: bool = False
-    add_calls: list[tuple[int, list[int]]] = field(default_factory=list)
+    add_calls: list[tuple[TaxonomyScopeIdentity, list[int]]] = field(default_factory=list)
 
     async def list_tree_nodes(self) -> list[TaxonomyNodeRecord]:
         return list(self.tree_nodes)
 
-    async def list_assigned_node_ids_for_leaf(self, *, leaf_id: int) -> list[int]:
-        return list(self.assigned_node_ids_by_leaf.get(leaf_id, []))
+    async def list_assignment_counts(self) -> list[TaxonomyAssignmentCount]:
+        return list(self.assignment_counts)
+
+    async def list_assigned_node_ids_for_scope(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> list[int]:
+        return list(
+            self.assigned_node_ids_by_scope.get(
+                (scope_identity.scope_kind, scope_identity.taxonomy_node_id),
+                [],
+            )
+        )
 
     async def clear_all_projected_edge_ids(self) -> None:
         self.cleared = True
 
-    async def add_projected_edge_ids_for_leaf(self, *, leaf_id: int, edge_ids: list[int]) -> None:
-        self.add_calls.append((leaf_id, list(edge_ids)))
+    async def add_projected_edge_ids_for_scope(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        edge_ids: list[int],
+    ) -> None:
+        self.add_calls.append((scope_identity, list(edge_ids)))
 
 
 @dataclass(slots=True)
@@ -44,9 +63,7 @@ class _StubProjectionPort:
 
 
 @pytest.mark.anyio
-async def test_rebuild_taxonomy_leaf_projection_edges_clears_then_repopulates_all_leaf_rows() -> (
-    None
-):
+async def test_rebuild_scope_projection_edges_repopulates_active_scope_rows() -> None:
     repo = _StubRepo(
         tree_nodes=[
             TaxonomyNodeRecord(
@@ -55,7 +72,6 @@ async def test_rebuild_taxonomy_leaf_projection_edges_clears_then_repopulates_al
                 name="Root",
                 route_slug="root",
                 depth=0,
-                is_leaf=False,
             ),
             TaxonomyNodeRecord(
                 id=2,
@@ -63,7 +79,6 @@ async def test_rebuild_taxonomy_leaf_projection_edges_clears_then_repopulates_al
                 name="Leaf A",
                 route_slug="leaf-a",
                 depth=1,
-                is_leaf=True,
             ),
             TaxonomyNodeRecord(
                 id=3,
@@ -71,12 +86,13 @@ async def test_rebuild_taxonomy_leaf_projection_edges_clears_then_repopulates_al
                 name="Leaf B",
                 route_slug="leaf-b",
                 depth=1,
-                is_leaf=True,
             ),
         ],
-        assigned_node_ids_by_leaf={
-            2: [11, 12],
-            3: [],
+        assignment_counts=[
+            TaxonomyAssignmentCount(taxonomy_node_id=2, card_count=2),
+        ],
+        assigned_node_ids_by_scope={
+            (TAXONOMY_NODE_SCOPE_KIND, 2): [11, 12],
         },
     )
     projection_port = _StubProjectionPort(
@@ -85,14 +101,16 @@ async def test_rebuild_taxonomy_leaf_projection_edges_clears_then_repopulates_al
             (): [],
         }
     )
-    await rebuild_taxonomy_leaf_projection_edges(
+    await rebuild_taxonomy_scope_projection_edges(
         repo=repo,
         projection_port=projection_port,
     )
 
     assert repo.cleared is True
-    assert projection_port.adjacent_requests == [[11, 12], []]
+    assert projection_port.adjacent_requests == [[11, 12]]
     assert repo.add_calls == [
-        (2, [501, 502]),
-        (3, []),
+        (
+            TaxonomyScopeIdentity(scope_kind=TAXONOMY_NODE_SCOPE_KIND, taxonomy_node_id=2),
+            [501, 502],
+        ),
     ]

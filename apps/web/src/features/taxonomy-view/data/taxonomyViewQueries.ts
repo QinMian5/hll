@@ -10,41 +10,42 @@ type TaxonomyRootViewContract =
   components["schemas"]["TaxonomyRootViewResponse"];
 type TaxonomyNodeViewContract =
   components["schemas"]["TaxonomyNodeViewResponse"];
-export type TaxonomyLeafViewContract = Extract<
+export type TaxonomyCardScopeViewContract = Extract<
   TaxonomyNodeViewContract,
-  { readonly node_kind: "leaf" }
+  { readonly node_kind: "card_scope" }
 >;
-export type TaxonomyLeafNodeDetailsRequest =
-  components["schemas"]["TaxonomyLeafNodeDetailsRequest"];
-export type TaxonomyLeafNodeDetailsResponse =
-  components["schemas"]["TaxonomyLeafNodeDetailsResponse"];
-export type TaxonomyLeafNodeDetailRecord =
-  TaxonomyLeafNodeDetailsResponse["nodes"][number];
-export type TaxonomyLeafLayoutSliceResponse =
-  components["schemas"]["TaxonomyLeafLayoutSliceResponse"];
-export type TaxonomyLeafLayoutNode =
-  TaxonomyLeafLayoutSliceResponse["nodes"][number];
-export type TaxonomyLeafNodeTitlesRequest =
-  components["schemas"]["TaxonomyLeafNodeTitlesRequest"];
-export type TaxonomyLeafNodeTitlesResponse =
-  components["schemas"]["TaxonomyLeafNodeTitlesResponse"];
-export type TaxonomyLeafNodeTitleRecord =
-  TaxonomyLeafNodeTitlesResponse["nodes"][number];
+export type TaxonomyCardScopeNodeDetailsRequest =
+  components["schemas"]["TaxonomyCardScopeNodeDetailsRequest"];
+export type TaxonomyCardScopeNodeDetailsResponse =
+  components["schemas"]["TaxonomyCardScopeNodeDetailsResponse"];
+export type TaxonomyCardScopeNodeDetailRecord =
+  TaxonomyCardScopeNodeDetailsResponse["nodes"][number];
+export type TaxonomyCardScopeLayoutSliceResponse =
+  components["schemas"]["TaxonomyCardScopeLayoutSliceResponse"];
+export type TaxonomyCardScopeLayoutNode =
+  TaxonomyCardScopeLayoutSliceResponse["nodes"][number];
+export type TaxonomyCardScopeNodeTitlesRequest =
+  components["schemas"]["TaxonomyCardScopeNodeTitlesRequest"];
+export type TaxonomyCardScopeNodeTitlesResponse =
+  components["schemas"]["TaxonomyCardScopeNodeTitlesResponse"];
+export type TaxonomyCardScopeNodeTitleRecord =
+  TaxonomyCardScopeNodeTitlesResponse["nodes"][number];
 export type TaxonomyRootView = TaxonomyRootViewContract;
-export type TaxonomyLeafView = TaxonomyLeafViewContract;
+export type TaxonomyCardScopeView = TaxonomyCardScopeViewContract;
 export type TaxonomyNodeView = TaxonomyNodeViewContract;
-type TaxonomyLeafEdgeTuple = TaxonomyLeafLayoutSliceResponse["edges"][number];
-const LEAF_LAYOUT_SLICE_STALE_TIME_MS = 5 * 60 * 1000;
-const LEAF_LAYOUT_SLICE_GC_TIME_MS = 30 * 60 * 1000;
+type TaxonomyCardScopeEdgeTuple =
+  TaxonomyCardScopeLayoutSliceResponse["edges"][number];
+const CARD_SCOPE_LAYOUT_SLICE_STALE_TIME_MS = 5 * 60 * 1000;
+const CARD_SCOPE_LAYOUT_SLICE_GC_TIME_MS = 30 * 60 * 1000;
 
-export interface TaxonomyLeafLayoutBounds {
+export interface TaxonomyCardScopeLayoutBounds {
   readonly min_x: number;
   readonly min_y: number;
   readonly max_x: number;
   readonly max_y: number;
 }
 
-export interface TaxonomyLeafLayoutIdentity {
+export interface TaxonomyCardScopeLayoutIdentity {
   readonly generatedAt: string;
   readonly layoutVersion: string;
 }
@@ -55,25 +56,31 @@ type HasProperty<
   PropertyName extends PropertyKey,
 > = PropertyName extends keyof T ? true : false;
 
-export type LeafLayoutNodeOmitsTitle = Assert<
-  HasProperty<TaxonomyLeafLayoutNode, "title"> extends false ? true : false
+export type CardScopeLayoutNodeOmitsTitle = Assert<
+  HasProperty<TaxonomyCardScopeLayoutNode, "title"> extends false ? true : false
 >;
-export type LeafLayoutNodeOmitsContent = Assert<
-  HasProperty<TaxonomyLeafLayoutNode, "content"> extends false ? true : false
+export type CardScopeLayoutNodeOmitsContent = Assert<
+  HasProperty<TaxonomyCardScopeLayoutNode, "content"> extends false
+    ? true
+    : false
 >;
-export type LeafEdgeTupleShape = Assert<
-  TaxonomyLeafEdgeTuple extends readonly [number, number, number] ? true : false
+export type CardScopeEdgeTupleShape = Assert<
+  TaxonomyCardScopeEdgeTuple extends readonly [number, number, number]
+    ? true
+    : false
 >;
-export type TaxonomyLeafContractChecks = [
-  LeafLayoutNodeOmitsTitle,
-  LeafLayoutNodeOmitsContent,
-  LeafEdgeTupleShape,
+export type TaxonomyCardScopeContractChecks = [
+  CardScopeLayoutNodeOmitsTitle,
+  CardScopeLayoutNodeOmitsContent,
+  CardScopeEdgeTupleShape,
 ];
 
-function normalizeLeafEdgeTuple(edge: unknown): TaxonomyLeafEdgeTuple {
+function normalizeCardScopeEdgeTuple(
+  edge: unknown,
+): TaxonomyCardScopeEdgeTuple {
   if (!Array.isArray(edge) || edge.length !== 3) {
     throw new Error(
-      "Taxonomy leaf edge payload must contain 3 numeric values.",
+      "Taxonomy card-scope edge payload must contain 3 numeric values.",
     );
   }
 
@@ -85,7 +92,7 @@ function normalizeLeafEdgeTuple(edge: unknown): TaxonomyLeafEdgeTuple {
     typeof strength !== "number"
   ) {
     throw new Error(
-      "Taxonomy leaf edge payload must contain 3 numeric values.",
+      "Taxonomy card-scope edge payload must contain 3 numeric values.",
     );
   }
 
@@ -103,24 +110,26 @@ function normalizeTaxonomyNodeViewPayload(data: unknown): TaxonomyNodeView {
     throw new Error("Taxonomy node view response was not a valid payload.");
   }
 
-  if (nodeView.node_kind !== "leaf") {
+  if (nodeView.node_kind !== "card_scope") {
     return nodeView;
   }
 
   return nodeView;
 }
 
-function normalizeTaxonomyLeafLayoutSlicePayload(
+function normalizeTaxonomyCardScopeLayoutSlicePayload(
   data: unknown,
-): TaxonomyLeafLayoutSliceResponse {
-  const layoutSlice = data as TaxonomyLeafLayoutSliceResponse;
+): TaxonomyCardScopeLayoutSliceResponse {
+  const layoutSlice = data as TaxonomyCardScopeLayoutSliceResponse;
 
   if (
     typeof layoutSlice !== "object" ||
     layoutSlice === null ||
     !("edges" in layoutSlice)
   ) {
-    throw new Error("Taxonomy leaf layout response was not a valid payload.");
+    throw new Error(
+      "Taxonomy card-scope layout response was not a valid payload.",
+    );
   }
 
   const rawEdges =
@@ -130,22 +139,22 @@ function normalizeTaxonomyLeafLayoutSlicePayload(
 
   return {
     ...layoutSlice,
-    edges: rawEdges.map(normalizeLeafEdgeTuple),
+    edges: rawEdges.map(normalizeCardScopeEdgeTuple),
   };
 }
 
 const taxonomyViewQueryKeys = {
-  leafDetails: (leafId: number, nodeIds: readonly number[]) =>
-    ["taxonomy-view", "leaf-details", leafId, ...nodeIds] as const,
-  leafLayoutSlice: (
-    leafId: number,
-    bounds: TaxonomyLeafLayoutBounds,
-    layoutIdentity: TaxonomyLeafLayoutIdentity,
+  cardScopeDetails: (routePath: string, nodeIds: readonly number[]) =>
+    ["taxonomy-view", "card-scope-details", routePath, ...nodeIds] as const,
+  cardScopeLayoutSlice: (
+    routePath: string,
+    bounds: TaxonomyCardScopeLayoutBounds,
+    layoutIdentity: TaxonomyCardScopeLayoutIdentity,
   ) =>
     [
       "taxonomy-view",
-      "leaf-layout",
-      leafId,
+      "card-scope-layout",
+      routePath,
       layoutIdentity.layoutVersion,
       layoutIdentity.generatedAt,
       bounds.min_x,
@@ -153,8 +162,8 @@ const taxonomyViewQueryKeys = {
       bounds.max_x,
       bounds.max_y,
     ] as const,
-  leafTitles: (leafId: number, nodeIds: readonly number[]) =>
-    ["taxonomy-view", "leaf-titles", leafId, ...nodeIds] as const,
+  cardScopeTitles: (routePath: string, nodeIds: readonly number[]) =>
+    ["taxonomy-view", "card-scope-titles", routePath, ...nodeIds] as const,
   node: (nodeId: number) => ["taxonomy-view", "node", nodeId] as const,
   path: (routePath: string) => ["taxonomy-view", "path", routePath] as const,
   root: ["taxonomy-view", "root"] as const,
@@ -188,51 +197,52 @@ async function fetchTaxonomyNodeViewByPath(
   return normalizeTaxonomyNodeViewPayload(result);
 }
 
-function normalizeLeafDetailNodeIds(nodeIds: readonly number[]) {
+function normalizeCardScopeDetailNodeIds(nodeIds: readonly number[]) {
   return [...nodeIds].sort((left, right) => left - right);
 }
 
-async function fetchTaxonomyLeafNodeDetails(
-  leafId: number,
+async function fetchTaxonomyCardScopeNodeDetails(
+  routePath: string,
   nodeIds: readonly number[],
-): Promise<TaxonomyLeafNodeDetailsResponse> {
-  const normalizedNodeIds = normalizeLeafDetailNodeIds(nodeIds);
-  return await fetchWebApiJson<TaxonomyLeafNodeDetailsResponse>(
-    `/web-api/taxonomy/view/leaves/${leafId}/details`,
+): Promise<TaxonomyCardScopeNodeDetailsResponse> {
+  const normalizedNodeIds = normalizeCardScopeDetailNodeIds(nodeIds);
+  return await fetchWebApiJson<TaxonomyCardScopeNodeDetailsResponse>(
+    "/web-api/taxonomy/view/card-scopes/details",
     {
-      body: { node_ids: normalizedNodeIds },
+      body: { node_ids: normalizedNodeIds, route_path: routePath },
       method: "POST",
     },
   );
 }
 
-async function fetchTaxonomyLeafLayoutSlice(
-  leafId: number,
-  bounds: TaxonomyLeafLayoutBounds,
-): Promise<TaxonomyLeafLayoutSliceResponse> {
+async function fetchTaxonomyCardScopeLayoutSlice(
+  routePath: string,
+  bounds: TaxonomyCardScopeLayoutBounds,
+): Promise<TaxonomyCardScopeLayoutSliceResponse> {
   const searchParams = new URLSearchParams({
-    min_x: String(bounds.min_x),
-    min_y: String(bounds.min_y),
     max_x: String(bounds.max_x),
     max_y: String(bounds.max_y),
+    min_x: String(bounds.min_x),
+    min_y: String(bounds.min_y),
+    route_path: routePath,
   });
 
   const result = await fetchWebApiJson<unknown>(
-    `/web-api/taxonomy/view/leaves/${leafId}/layout?${searchParams.toString()}`,
+    `/web-api/taxonomy/view/card-scopes/layout?${searchParams.toString()}`,
   );
 
-  return normalizeTaxonomyLeafLayoutSlicePayload(result);
+  return normalizeTaxonomyCardScopeLayoutSlicePayload(result);
 }
 
-async function fetchTaxonomyLeafNodeTitles(
-  leafId: number,
+async function fetchTaxonomyCardScopeNodeTitles(
+  routePath: string,
   nodeIds: readonly number[],
-): Promise<TaxonomyLeafNodeTitlesResponse> {
-  const normalizedNodeIds = normalizeLeafDetailNodeIds(nodeIds);
-  return await fetchWebApiJson<TaxonomyLeafNodeTitlesResponse>(
-    `/web-api/taxonomy/view/leaves/${leafId}/titles`,
+): Promise<TaxonomyCardScopeNodeTitlesResponse> {
+  const normalizedNodeIds = normalizeCardScopeDetailNodeIds(nodeIds);
+  return await fetchWebApiJson<TaxonomyCardScopeNodeTitlesResponse>(
+    "/web-api/taxonomy/view/card-scopes/titles",
     {
-      body: { node_ids: normalizedNodeIds },
+      body: { node_ids: normalizedNodeIds, route_path: routePath },
       method: "POST",
     },
   );
@@ -259,45 +269,53 @@ export function taxonomyNodeViewByPathQueryOptions(routePath: string) {
   });
 }
 
-export function taxonomyLeafNodeDetailsQueryOptions(
-  leafId: number,
+export function taxonomyCardScopeNodeDetailsQueryOptions(
+  routePath: string,
   nodeIds: readonly number[],
 ) {
-  const normalizedNodeIds = normalizeLeafDetailNodeIds(nodeIds);
+  const normalizedNodeIds = normalizeCardScopeDetailNodeIds(nodeIds);
 
   return queryOptions({
-    queryFn: () => fetchTaxonomyLeafNodeDetails(leafId, normalizedNodeIds),
-    queryKey: taxonomyViewQueryKeys.leafDetails(leafId, normalizedNodeIds),
+    queryFn: () =>
+      fetchTaxonomyCardScopeNodeDetails(routePath, normalizedNodeIds),
+    queryKey: taxonomyViewQueryKeys.cardScopeDetails(
+      routePath,
+      normalizedNodeIds,
+    ),
   });
 }
 
-export function taxonomyLeafLayoutSliceQueryOptions(
-  leafId: number,
-  bounds: TaxonomyLeafLayoutBounds,
-  layoutIdentity: TaxonomyLeafLayoutIdentity,
+export function taxonomyCardScopeLayoutSliceQueryOptions(
+  routePath: string,
+  bounds: TaxonomyCardScopeLayoutBounds,
+  layoutIdentity: TaxonomyCardScopeLayoutIdentity,
 ) {
   return queryOptions({
-    gcTime: LEAF_LAYOUT_SLICE_GC_TIME_MS,
+    gcTime: CARD_SCOPE_LAYOUT_SLICE_GC_TIME_MS,
     placeholderData: (previousData) => previousData,
-    queryFn: () => fetchTaxonomyLeafLayoutSlice(leafId, bounds),
-    queryKey: taxonomyViewQueryKeys.leafLayoutSlice(
-      leafId,
+    queryFn: () => fetchTaxonomyCardScopeLayoutSlice(routePath, bounds),
+    queryKey: taxonomyViewQueryKeys.cardScopeLayoutSlice(
+      routePath,
       bounds,
       layoutIdentity,
     ),
-    staleTime: LEAF_LAYOUT_SLICE_STALE_TIME_MS,
+    staleTime: CARD_SCOPE_LAYOUT_SLICE_STALE_TIME_MS,
   });
 }
 
-export function taxonomyLeafNodeTitlesQueryOptions(
-  leafId: number,
+export function taxonomyCardScopeNodeTitlesQueryOptions(
+  routePath: string,
   nodeIds: readonly number[],
 ) {
-  const normalizedNodeIds = normalizeLeafDetailNodeIds(nodeIds);
+  const normalizedNodeIds = normalizeCardScopeDetailNodeIds(nodeIds);
 
   return queryOptions({
-    queryFn: () => fetchTaxonomyLeafNodeTitles(leafId, normalizedNodeIds),
-    queryKey: taxonomyViewQueryKeys.leafTitles(leafId, normalizedNodeIds),
+    queryFn: () =>
+      fetchTaxonomyCardScopeNodeTitles(routePath, normalizedNodeIds),
+    queryKey: taxonomyViewQueryKeys.cardScopeTitles(
+      routePath,
+      normalizedNodeIds,
+    ),
   });
 }
 
@@ -330,36 +348,120 @@ export function useTaxonomyNodeViewByPathQuery(
   });
 }
 
-export function useTaxonomyLeafNodeDetailsQuery(
-  leafId: number,
+export function useTaxonomyCardScopeNodeDetailsQuery(
+  routePath: string,
   nodeIds: readonly number[],
   options: { readonly enabled?: boolean },
 ) {
   return useQuery({
-    ...taxonomyLeafNodeDetailsQueryOptions(leafId, nodeIds),
+    ...taxonomyCardScopeNodeDetailsQueryOptions(routePath, nodeIds),
     enabled: options.enabled ?? true,
   });
+}
+
+export function useTaxonomyCardScopeLayoutSliceQuery(
+  routePath: string,
+  bounds: TaxonomyCardScopeLayoutBounds,
+  layoutIdentity: TaxonomyCardScopeLayoutIdentity,
+  options: { readonly enabled?: boolean },
+) {
+  return useQuery({
+    ...taxonomyCardScopeLayoutSliceQueryOptions(
+      routePath,
+      bounds,
+      layoutIdentity,
+    ),
+    enabled: options.enabled ?? true,
+  });
+}
+
+export function useTaxonomyCardScopeNodeTitlesQuery(
+  routePath: string,
+  nodeIds: readonly number[],
+  options: { readonly enabled?: boolean },
+) {
+  return useQuery({
+    ...taxonomyCardScopeNodeTitlesQueryOptions(routePath, nodeIds),
+    enabled: options.enabled ?? true,
+  });
+}
+
+export type TaxonomyLeafView = TaxonomyCardScopeView;
+export type TaxonomyLeafLayoutBounds = TaxonomyCardScopeLayoutBounds;
+export type TaxonomyLeafLayoutIdentity = TaxonomyCardScopeLayoutIdentity;
+export type TaxonomyLeafLayoutSliceResponse =
+  TaxonomyCardScopeLayoutSliceResponse;
+export type TaxonomyLeafLayoutNode = TaxonomyCardScopeLayoutNode;
+export type TaxonomyLeafNodeDetailsRequest =
+  TaxonomyCardScopeNodeDetailsRequest;
+export type TaxonomyLeafNodeDetailsResponse =
+  TaxonomyCardScopeNodeDetailsResponse;
+export type TaxonomyLeafNodeDetailRecord = TaxonomyCardScopeNodeDetailRecord;
+export type TaxonomyLeafNodeTitlesRequest = TaxonomyCardScopeNodeTitlesRequest;
+export type TaxonomyLeafNodeTitlesResponse =
+  TaxonomyCardScopeNodeTitlesResponse;
+export type TaxonomyLeafNodeTitleRecord = TaxonomyCardScopeNodeTitleRecord;
+
+export function taxonomyLeafNodeDetailsQueryOptions(
+  routePath: number | string,
+  nodeIds: readonly number[],
+) {
+  return taxonomyCardScopeNodeDetailsQueryOptions(String(routePath), nodeIds);
+}
+
+export function taxonomyLeafLayoutSliceQueryOptions(
+  routePath: number | string,
+  bounds: TaxonomyCardScopeLayoutBounds,
+  layoutIdentity: TaxonomyCardScopeLayoutIdentity,
+) {
+  return taxonomyCardScopeLayoutSliceQueryOptions(
+    String(routePath),
+    bounds,
+    layoutIdentity,
+  );
+}
+
+export function taxonomyLeafNodeTitlesQueryOptions(
+  routePath: number | string,
+  nodeIds: readonly number[],
+) {
+  return taxonomyCardScopeNodeTitlesQueryOptions(String(routePath), nodeIds);
+}
+
+export function useTaxonomyLeafNodeDetailsQuery(
+  routePath: number | string,
+  nodeIds: readonly number[],
+  options: { readonly enabled?: boolean },
+) {
+  return useTaxonomyCardScopeNodeDetailsQuery(
+    String(routePath),
+    nodeIds,
+    options,
+  );
 }
 
 export function useTaxonomyLeafLayoutSliceQuery(
-  leafId: number,
-  bounds: TaxonomyLeafLayoutBounds,
-  layoutIdentity: TaxonomyLeafLayoutIdentity,
+  routePath: number | string,
+  bounds: TaxonomyCardScopeLayoutBounds,
+  layoutIdentity: TaxonomyCardScopeLayoutIdentity,
   options: { readonly enabled?: boolean },
 ) {
-  return useQuery({
-    ...taxonomyLeafLayoutSliceQueryOptions(leafId, bounds, layoutIdentity),
-    enabled: options.enabled ?? true,
-  });
+  return useTaxonomyCardScopeLayoutSliceQuery(
+    String(routePath),
+    bounds,
+    layoutIdentity,
+    options,
+  );
 }
 
 export function useTaxonomyLeafNodeTitlesQuery(
-  leafId: number,
+  routePath: number | string,
   nodeIds: readonly number[],
   options: { readonly enabled?: boolean },
 ) {
-  return useQuery({
-    ...taxonomyLeafNodeTitlesQueryOptions(leafId, nodeIds),
-    enabled: options.enabled ?? true,
-  });
+  return useTaxonomyCardScopeNodeTitlesQuery(
+    String(routePath),
+    nodeIds,
+    options,
+  );
 }

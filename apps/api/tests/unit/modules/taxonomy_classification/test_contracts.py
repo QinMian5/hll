@@ -31,12 +31,12 @@ def test_job_payload_carries_scope_path_card_and_child_names_without_ids() -> No
     assert [child.name for child in payload.children] == ["Mathematics", "Physics"]
 
 
-def test_job_payload_rejects_internal_ids_and_source_leaf_context() -> None:
+def test_job_payload_rejects_internal_ids_and_source_scope_context() -> None:
     with pytest.raises(ValueError, match=r"extra_forbidden"):
         TaxonomyClassificationJobPayload.model_validate(
             {
                 "scope_node": {"id": 10, "name": "Science"},
-                "source_unclassified_node": {"id": 11, "name": "Unclassified"},
+                "source_scope": {"id": 11, "name": "Science"},
                 "card": {"id": 41, "title": "Linear Algebra", "content": "Vector spaces"},
                 "children": [{"id": 20, "name": "Mathematics"}],
                 "allow_unclassified": True,

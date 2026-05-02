@@ -34,9 +34,8 @@ class TaxonomyClassificationJob(Base):
             postgresql_where=text("job_id IS NOT NULL"),
         ),
         Index(
-            "uq_taxonomy_classification_jobs_active_scope_source_node",
+            "uq_taxonomy_classification_jobs_active_scope_node",
             "scope_node_id",
-            "source_unclassified_node_id",
             "node_id",
             unique=True,
             postgresql_where=text("processed_at IS NULL AND terminal_state IS NULL"),
@@ -45,11 +44,6 @@ class TaxonomyClassificationJob(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     scope_node_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("taxonomy_nodes.id"),
-        nullable=False,
-    )
-    source_unclassified_node_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("taxonomy_nodes.id"),
         nullable=False,
@@ -135,11 +129,13 @@ class TaxonomyClassificationProjectionRefreshRequest(Base):
         Index(
             "ix_tax_cls_proj_refresh_updated_at",
             "updated_at",
-            "leaf_id",
+            "scope_kind",
+            "taxonomy_node_id",
         ),
     )
 
-    leaf_id: Mapped[int] = mapped_column(
+    scope_kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    taxonomy_node_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("taxonomy_nodes.id", ondelete="CASCADE"),
         primary_key=True,

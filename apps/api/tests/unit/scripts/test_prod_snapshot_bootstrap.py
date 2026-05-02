@@ -16,6 +16,9 @@ from entrypoints.ops.prod_snapshot_bootstrap import (
     build_truncate_sql,
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[5]
+DEV_BOOTSTRAP_SCRIPT = REPO_ROOT / "scripts" / "bootstrap-dev-api-from-prod-snapshot.sh"
+
 
 @pytest.mark.unit
 def test_api_bootstrap_tables_cover_prod_snapshot_closure() -> None:
@@ -31,7 +34,7 @@ def test_api_bootstrap_tables_cover_prod_snapshot_closure() -> None:
         "taxonomy_classification_webhook_wakeups",
         "adjacency",
         "card_suggested_edits",
-        "taxonomy_leaf_projection_edges",
+        "taxonomy_scope_projection_edges",
     )
     assert "alembic_version" not in API_BOOTSTRAP_TABLES
     assert len(set(API_BOOTSTRAP_TABLES)) == len(API_BOOTSTRAP_TABLES)
@@ -61,3 +64,29 @@ def test_dev_import_guard_accepts_only_dev_env_file() -> None:
 
     with pytest.raises(ValueError, match=r"\.env\.dev"):
         assert_development_env_file(Path("infra/env/.env.prod"))
+
+
+@pytest.mark.unit
+def test_dev_bootstrap_stops_api_database_and_layout_runtimes_before_restore() -> None:
+    script = DEV_BOOTSTRAP_SCRIPT.read_text(encoding="utf-8")
+    stop_index = script.index('docker compose "${compose_args[@]}" stop')
+    restore_index = script.index('} | docker compose "${compose_args[@]}" exec -T postgres')
+    stop_block = script[stop_index:restore_index]
+
+    for service_name in (
+        "api",
+        "worker",
+        "taxonomy_view_layout_runtime",
+        "taxonomy_classification_runtime",
+        "taxonomy_classification_webhook_receiver",
+    ):
+        assert service_name in stop_block
+
+
+@pytest.mark.unit
+def test_dev_bootstrap_flushes_redis_after_snapshot_restore() -> None:
+    script = DEV_BOOTSTRAP_SCRIPT.read_text(encoding="utf-8")
+    restore_index = script.index('} | docker compose "${compose_args[@]}" exec -T postgres')
+    redis_flush_index = script.index("redis-cli FLUSHDB")
+
+    assert restore_index < redis_flush_index

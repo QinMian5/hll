@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.taxonomy import repo as taxonomy_repo_module
+from modules.taxonomy.dto import TaxonomyScopeIdentity
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
     TaxonomyNode,
@@ -88,7 +89,6 @@ async def test_create_taxonomy_node_persists_canonical_route_slug() -> None:
         parent_id=1,
         name="Science (General)",
         depth=2,
-        is_leaf=False,
     )
 
     created_node = session.added[0]
@@ -109,7 +109,6 @@ async def test_list_tree_nodes_returns_record_models() -> None:
                         name="Science",
                         route_slug="science",
                         depth=0,
-                        is_leaf=False,
                     ),
                     TaxonomyNode(
                         id=2,
@@ -117,7 +116,6 @@ async def test_list_tree_nodes_returns_record_models() -> None:
                         name="Physics",
                         route_slug="physics",
                         depth=1,
-                        is_leaf=True,
                     ),
                 ]
             )
@@ -134,7 +132,6 @@ async def test_list_tree_nodes_returns_record_models() -> None:
             "name": "Science",
             "route_slug": "science",
             "depth": 0,
-            "is_leaf": False,
         },
         {
             "id": 2,
@@ -142,13 +139,12 @@ async def test_list_tree_nodes_returns_record_models() -> None:
             "name": "Physics",
             "route_slug": "physics",
             "depth": 1,
-            "is_leaf": True,
         },
     ]
 
 
 @pytest.mark.anyio
-async def test_get_assignment_for_node_returns_leaf_assignment_details() -> None:
+async def test_get_assignment_for_node_returns_taxonomy_assignment_details() -> None:
     assigned_at = datetime(2026, 4, 5, 1, 15, tzinfo=UTC)
     session = _StubSession(
         execute_results=[
@@ -166,7 +162,6 @@ async def test_get_assignment_for_node_returns_leaf_assignment_details() -> None
                         name="Algebra",
                         route_slug="algebra",
                         depth=2,
-                        is_leaf=True,
                     ),
                 )
             )
@@ -199,10 +194,9 @@ async def test_set_current_assignment_moves_existing_assignment() -> None:
                     TaxonomyNode(
                         id=8,
                         parent_id=3,
-                        name="Unclassified",
-                        route_slug="unclassified",
+                        name="Algebra",
+                        route_slug="algebra",
                         depth=2,
-                        is_leaf=True,
                     ),
                 )
             )
@@ -241,7 +235,6 @@ async def test_set_current_assignment_creates_when_assignment_missing() -> None:
                         name="General",
                         route_slug="general",
                         depth=2,
-                        is_leaf=True,
                     ),
                 )
             )
@@ -262,30 +255,30 @@ async def test_set_current_assignment_creates_when_assignment_missing() -> None:
 
 
 @pytest.mark.anyio
-async def test_list_final_assignments_returns_leaf_assignments() -> None:
+async def test_list_current_assignments_returns_taxonomy_node_assignments() -> None:
     class _AssignmentRow:
-        def __init__(self, node_id: int, taxonomy_leaf_id: int) -> None:
+        def __init__(self, node_id: int, taxonomy_node_id: int) -> None:
             self.node_id = node_id
-            self.taxonomy_leaf_id = taxonomy_leaf_id
+            self.taxonomy_node_id = taxonomy_node_id
 
     session = _StubSession(
         execute_results=[_StubExecuteResult(rows=[_AssignmentRow(3, 11), _AssignmentRow(9, 15)])]
     )
     repo = _repo_with_stub(session)
 
-    assignments = await repo.list_final_assignments()
+    assignments = await repo.list_current_assignments()
 
     assert [assignment.model_dump() for assignment in assignments] == [
-        {"node_id": 3, "taxonomy_leaf_id": 11},
-        {"node_id": 9, "taxonomy_leaf_id": 15},
+        {"node_id": 3, "taxonomy_node_id": 11},
+        {"node_id": 9, "taxonomy_node_id": 15},
     ]
 
 
 @pytest.mark.anyio
-async def test_list_leaf_assignment_counts_returns_grouped_leaf_counts() -> None:
+async def test_list_assignment_counts_returns_grouped_taxonomy_node_counts() -> None:
     class _AssignmentCountRow:
-        def __init__(self, taxonomy_leaf_id: int, card_count: int) -> None:
-            self.taxonomy_leaf_id = taxonomy_leaf_id
+        def __init__(self, taxonomy_node_id: int, card_count: int) -> None:
+            self.taxonomy_node_id = taxonomy_node_id
             self.card_count = card_count
 
     session = _StubSession(
@@ -300,34 +293,37 @@ async def test_list_leaf_assignment_counts_returns_grouped_leaf_counts() -> None
     )
     repo = _repo_with_stub(session)
 
-    counts = await repo.list_leaf_assignment_counts()
+    counts = await repo.list_assignment_counts()
 
     assert [count.model_dump() for count in counts] == [
-        {"taxonomy_leaf_id": 11, "card_count": 3},
-        {"taxonomy_leaf_id": 15, "card_count": 8},
+        {"taxonomy_node_id": 11, "card_count": 3},
+        {"taxonomy_node_id": 15, "card_count": 8},
     ]
 
 
 @pytest.mark.anyio
-async def test_list_assigned_node_ids_for_leaf_returns_sorted_node_ids_for_one_leaf() -> None:
-    class _LeafNodeRow:
+async def test_list_assigned_node_ids_for_scope_returns_sorted_node_ids() -> None:
+    class _AssignedNodeRow:
         def __init__(self, node_id: int) -> None:
             self.node_id = node_id
 
     session = _StubSession(
         execute_results=[
-            _StubExecuteResult(rows=[_LeafNodeRow(19), _LeafNodeRow(41), _LeafNodeRow(88)])
+            _StubExecuteResult(
+                rows=[_AssignedNodeRow(19), _AssignedNodeRow(41), _AssignedNodeRow(88)]
+            )
         ]
     )
     repo = _repo_with_stub(session)
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=44)
 
-    node_ids = await repo.list_assigned_node_ids_for_leaf(leaf_id=44)
+    node_ids = await repo.list_assigned_node_ids_for_scope(scope_identity=scope_identity)
 
     assert node_ids == [19, 41, 88]
 
 
 @pytest.mark.anyio
-async def test_list_projected_edge_ids_for_leaf_returns_sorted_edge_ids() -> None:
+async def test_list_projected_edge_ids_for_scope_returns_sorted_edge_ids() -> None:
     class _EdgeRow:
         def __init__(self, edge_id: int) -> None:
             self.edge_id = edge_id
@@ -338,25 +334,30 @@ async def test_list_projected_edge_ids_for_leaf_returns_sorted_edge_ids() -> Non
         ]
     )
     repo = _repo_with_stub(session)
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind="virtual_unclassified",
+        taxonomy_node_id=44,
+    )
 
-    edge_ids = await repo.list_projected_edge_ids_for_leaf(leaf_id=44)
+    edge_ids = await repo.list_projected_edge_ids_for_scope(scope_identity=scope_identity)
 
     assert edge_ids == [7, 18, 42]
 
 
 @pytest.mark.anyio
-async def test_add_projected_edge_ids_for_leaf_creates_projection_rows() -> None:
+async def test_add_projected_edge_ids_for_scope_creates_projection_rows() -> None:
     session = _StubSession()
     repo = _repo_with_stub(session)
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=44)
 
-    await repo.add_projected_edge_ids_for_leaf(leaf_id=44, edge_ids=[7, 18])
+    await repo.add_projected_edge_ids_for_scope(scope_identity=scope_identity, edge_ids=[7, 18])
 
     assert session.flushed is True
     assert session.executed_statements
 
 
 @pytest.mark.anyio
-async def test_add_projected_edge_ids_for_leaf_chunks_projection_rows(
+async def test_add_projected_edge_ids_for_scope_chunks_projection_rows(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
@@ -367,27 +368,31 @@ async def test_add_projected_edge_ids_for_leaf_chunks_projection_rows(
     )
     session = _StubSession()
     repo = _repo_with_stub(session)
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=44)
 
-    await repo.add_projected_edge_ids_for_leaf(leaf_id=44, edge_ids=[18, 7, 18, 42, 99, 100])
+    await repo.add_projected_edge_ids_for_scope(
+        scope_identity=scope_identity,
+        edge_ids=[18, 7, 18, 42, 99, 100],
+    )
 
     assert session.flushed is True
     assert len(session.executed_statements) == 3
 
 
 @pytest.mark.anyio
-async def test_list_leaf_ids_for_node_ids_returns_mapping_for_assigned_nodes() -> None:
-    class _LeafRow:
+async def test_list_taxonomy_node_ids_for_node_ids_returns_mapping_for_assigned_nodes() -> None:
+    class _AssignmentRow:
         def __init__(self, node_id: int, taxonomy_node_id: int) -> None:
             self.node_id = node_id
             self.taxonomy_node_id = taxonomy_node_id
 
     session = _StubSession(
         execute_results=[
-            _StubExecuteResult(rows=[_LeafRow(11, 2), _LeafRow(77, 9)]),
+            _StubExecuteResult(rows=[_AssignmentRow(11, 2), _AssignmentRow(77, 9)]),
         ]
     )
     repo = _repo_with_stub(session)
 
-    mapping = await repo.list_leaf_ids_for_node_ids(node_ids=[77, 11, 999])
+    mapping = await repo.list_taxonomy_node_ids_for_node_ids(node_ids=[77, 11, 999])
 
     assert mapping == {11: 2, 77: 9}

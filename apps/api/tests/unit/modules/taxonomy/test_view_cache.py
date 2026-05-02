@@ -10,22 +10,23 @@ from datetime import UTC, datetime
 import pytest
 
 from modules.taxonomy.dto import (
-    TaxonomyLeafLayout,
-    TaxonomyLeafLayoutEdge,
-    TaxonomyLeafLayoutNode,
-    TaxonomyLeafWorldBounds,
+    TaxonomyCardScopeLayout,
+    TaxonomyCardScopeLayoutEdge,
+    TaxonomyCardScopeLayoutNode,
+    TaxonomyCardScopeWorldBounds,
+    TaxonomyScopeIdentity,
 )
 from modules.taxonomy.schema import (
-    TaxonomyLeafWorldBoundsResponse,
+    TaxonomyCardScopeWorldBoundsResponse,
     TaxonomyNodeBranchViewResponse,
-    TaxonomyNodeLeafViewResponse,
+    TaxonomyNodeCardScopeViewResponse,
     TaxonomyRootViewResponse,
     TaxonomyViewChildResponse,
-    TaxonomyViewNodeResponse,
+    TaxonomyViewScopeResponse,
 )
 from modules.taxonomy.view_cache import (
+    TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS,
     TAXONOMY_VIEW_COUNT_CACHE_TTL_SECONDS,
-    TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS,
     TAXONOMY_VIEW_RESPONSE_CACHE_TTL_SECONDS,
     TaxonomyViewRedisCache,
 )
@@ -76,22 +77,22 @@ class _FakeRedis:
         return values.pop(0)
 
 
-def _view_node(
+def _view_scope(
     *,
     id: int,
     parent_id: int | None,
     name: str,
-    is_leaf: bool,
-) -> TaxonomyViewNodeResponse:
+    scope_kind: str = "taxonomy_node",
+) -> TaxonomyViewScopeResponse:
     route_path = "" if parent_id is None else name.lower()
-    return TaxonomyViewNodeResponse(
-        id=id,
-        parent_id=parent_id,
+    return TaxonomyViewScopeResponse(
+        scope_kind=scope_kind,
+        taxonomy_node_id=id,
+        parent_taxonomy_node_id=parent_id,
         name=name,
         route_slug=name.lower(),
         route_path=route_path,
         depth=0 if parent_id is None else 1,
-        is_leaf=is_leaf,
     )
 
 
@@ -100,13 +101,14 @@ def _root_view() -> TaxonomyRootViewResponse:
         breadcrumb=[],
         children=[
             TaxonomyViewChildResponse(
-                id=2,
-                parent_id=1,
+                scope_kind="taxonomy_node",
+                taxonomy_node_id=2,
+                parent_taxonomy_node_id=1,
                 name="Science",
                 route_slug="science",
                 route_path="science",
                 depth=1,
-                is_leaf=False,
+                node_kind="branch",
                 descendant_card_count=3,
             )
         ],
@@ -116,25 +118,25 @@ def _root_view() -> TaxonomyRootViewResponse:
 def _branch_view() -> TaxonomyNodeBranchViewResponse:
     return TaxonomyNodeBranchViewResponse(
         node_kind="branch",
-        current_node=_view_node(id=2, parent_id=1, name="Science", is_leaf=False),
+        current_scope=_view_scope(id=2, parent_id=1, name="Science"),
         breadcrumb=[
-            _view_node(id=1, parent_id=None, name="Root", is_leaf=False),
-            _view_node(id=2, parent_id=1, name="Science", is_leaf=False),
+            _view_scope(id=1, parent_id=None, name="Root"),
+            _view_scope(id=2, parent_id=1, name="Science"),
         ],
         children=[],
     )
 
 
-def _leaf_metadata_view() -> TaxonomyNodeLeafViewResponse:
-    return TaxonomyNodeLeafViewResponse(
-        node_kind="leaf",
-        current_node=_view_node(id=3, parent_id=1, name="Leaf", is_leaf=True),
+def _card_scope_metadata_view() -> TaxonomyNodeCardScopeViewResponse:
+    return TaxonomyNodeCardScopeViewResponse(
+        node_kind="card_scope",
+        current_scope=_view_scope(id=3, parent_id=1, name="Cards"),
         breadcrumb=[
-            _view_node(id=1, parent_id=None, name="Root", is_leaf=False),
-            _view_node(id=3, parent_id=1, name="Leaf", is_leaf=True),
+            _view_scope(id=1, parent_id=None, name="Root"),
+            _view_scope(id=3, parent_id=1, name="Cards"),
         ],
-        layout_version="taxonomy-leaf-layout-v3",
-        world_bounds=TaxonomyLeafWorldBoundsResponse(
+        layout_version="taxonomy-card-scope-layout-v1",
+        world_bounds=TaxonomyCardScopeWorldBoundsResponse(
             min_x=-1.0,
             min_y=-2.0,
             max_x=3.0,
@@ -161,17 +163,17 @@ async def test_root_view_response_cache_stores_and_reads_validated_payload() -> 
 
 
 @pytest.mark.anyio
-async def test_node_view_response_cache_supports_branch_and_leaf_payloads() -> None:
+async def test_node_view_response_cache_supports_branch_and_card_scope_payloads() -> None:
     redis = _FakeRedis()
     cache = TaxonomyViewRedisCache(redis=redis)
     branch_view = _branch_view()
-    leaf_view = _leaf_metadata_view()
+    card_scope_view = _card_scope_metadata_view()
 
     await cache.set_node_view(node_id=2, view=branch_view)
-    await cache.set_node_view(node_id=3, view=leaf_view)
+    await cache.set_node_view(node_id=3, view=card_scope_view)
 
     assert await cache.get_node_view(node_id=2) == branch_view
-    assert await cache.get_node_view(node_id=3) == leaf_view
+    assert await cache.get_node_view(node_id=3) == card_scope_view
     assert redis.set_calls[0][0] == "knowledge:api:taxonomy-view:v1:node:2"
     assert redis.set_calls[1][0] == "knowledge:api:taxonomy-view:v1:node:3"
     assert redis.set_calls[0][2] == TAXONOMY_VIEW_RESPONSE_CACHE_TTL_SECONDS
@@ -251,70 +253,90 @@ async def test_descendant_counts_lock_uses_single_flight_key() -> None:
 
 
 @pytest.mark.anyio
-async def test_leaf_layout_cache_stores_and_reads_layout_payload() -> None:
+async def test_card_scope_layout_cache_stores_and_reads_layout_payload() -> None:
     redis = _FakeRedis()
     cache = TaxonomyViewRedisCache(redis=redis)
-    layout = TaxonomyLeafLayout(
-        layout_version="taxonomy-leaf-layout-v3",
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
+    layout = TaxonomyCardScopeLayout(
+        layout_version="taxonomy-card-scope-layout-v1",
         generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
-        world_bounds=TaxonomyLeafWorldBounds(
+        world_bounds=TaxonomyCardScopeWorldBounds(
             min_x=-5.0,
             min_y=-7.0,
             max_x=11.0,
             max_y=13.0,
         ),
         nodes=[
-            TaxonomyLeafLayoutNode(id=11, scope="inner", x=1.5, y=2.5),
+            TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=1.5, y=2.5),
         ],
         edges=[
-            TaxonomyLeafLayoutEdge(source_node_id=11, target_node_id=77, strength=0.42),
+            TaxonomyCardScopeLayoutEdge(source_node_id=11, target_node_id=77, strength=0.42),
         ],
     )
 
-    await cache.set_leaf_layout(leaf_id=9, layout=layout)
-    cached = await cache.get_leaf_layout(leaf_id=9)
+    await cache.set_card_scope_layout(scope_identity=scope_identity, layout=layout)
+    cached = await cache.get_card_scope_layout(scope_identity=scope_identity)
 
     assert cached == layout
-    assert redis.set_calls[0][0] == "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9"
-    assert redis.set_calls[0][2] == TAXONOMY_VIEW_LEAF_LAYOUT_CACHE_TTL_SECONDS
+    assert (
+        redis.set_calls[0][0]
+        == "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9"
+    )
+    assert redis.set_calls[0][2] == TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS
 
 
 @pytest.mark.anyio
-async def test_leaf_layout_cache_rejects_malformed_payload() -> None:
+async def test_card_scope_layout_cache_rejects_malformed_payload() -> None:
     redis = _FakeRedis()
-    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9"] = '{"nodes":"bad"}'
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
+    redis.values[
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9"
+    ] = '{"nodes":"bad"}'
     cache = TaxonomyViewRedisCache(redis=redis)
 
-    with pytest.raises(ValueError, match="leaf layout cache payload"):
-        await cache.get_leaf_layout(leaf_id=9)
+    with pytest.raises(ValueError, match="card-scope layout cache payload"):
+        await cache.get_card_scope_layout(scope_identity=scope_identity)
 
 
 @pytest.mark.anyio
-async def test_leaf_layout_lock_uses_per_leaf_single_flight_key() -> None:
+async def test_card_scope_layout_lock_uses_per_scope_single_flight_key() -> None:
     redis = _FakeRedis()
     cache = TaxonomyViewRedisCache(redis=redis)
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
 
-    acquired = await cache.acquire_leaf_layout_lock(leaf_id=9)
+    acquired = await cache.acquire_card_scope_layout_lock(scope_identity=scope_identity)
 
     assert acquired is True
     assert redis.set_calls == [
-        ("taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:lock", "1", 30, True)
+        (
+            "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:"
+            "taxonomy_node:9:lock",
+            "1",
+            30,
+            True,
+        )
     ]
 
 
 @pytest.mark.anyio
-async def test_leaf_layout_compute_request_enqueues_each_leaf_once() -> None:
+async def test_card_scope_layout_compute_request_enqueues_each_scope_once() -> None:
     redis = _FakeRedis()
     cache = TaxonomyViewRedisCache(redis=redis)
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
 
-    first_requested = await cache.request_leaf_layout_compute(leaf_id=9)
-    second_requested = await cache.request_leaf_layout_compute(leaf_id=9)
+    first_requested = await cache.request_card_scope_layout_compute(scope_identity=scope_identity)
+    second_requested = await cache.request_card_scope_layout_compute(scope_identity=scope_identity)
 
     assert first_requested is True
     assert second_requested is False
-    assert redis.rpush_calls == [("taxonomy:view:v1:leaf-layout:requests", "9")]
+    assert redis.rpush_calls == [
+        (
+            "taxonomy:view:v1:card-scope-layout:requests",
+            '{"scope_kind":"taxonomy_node","taxonomy_node_id":9}',
+        )
+    ]
     assert (
-        "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:pending",
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:pending",
         "1",
         600,
         True,
@@ -322,50 +344,69 @@ async def test_leaf_layout_compute_request_enqueues_each_leaf_once() -> None:
 
 
 @pytest.mark.anyio
-async def test_leaf_layout_compute_request_skips_running_leaf() -> None:
+async def test_card_scope_layout_compute_request_skips_running_scope() -> None:
     redis = _FakeRedis()
-    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:running"] = "1"
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
+    redis.values[
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:running"
+    ] = "1"
     cache = TaxonomyViewRedisCache(redis=redis)
 
-    requested = await cache.request_leaf_layout_compute(leaf_id=9)
+    requested = await cache.request_card_scope_layout_compute(scope_identity=scope_identity)
 
     assert requested is False
     assert redis.rpush_calls == []
 
 
 @pytest.mark.anyio
-async def test_leaf_layout_compute_claim_marks_leaf_running_and_clears_pending() -> None:
+async def test_card_scope_layout_compute_claim_marks_scope_running_and_clears_pending() -> None:
     redis = _FakeRedis()
-    redis.lists["taxonomy:view:v1:leaf-layout:requests"] = ["9"]
+    redis.lists["taxonomy:view:v1:card-scope-layout:requests"] = [
+        '{"scope_kind":"taxonomy_node","taxonomy_node_id":9}'
+    ]
     cache = TaxonomyViewRedisCache(redis=redis)
 
-    leaf_id = await cache.claim_leaf_layout_compute()
+    scope_identity = await cache.claim_card_scope_layout_compute()
 
-    assert leaf_id == 9
+    assert scope_identity == TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
     assert (
-        "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:running",
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:running",
         "1",
         1800,
         True,
     ) in redis.set_calls
-    assert "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:pending" in redis.delete_calls
+    assert (
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:pending"
+        in redis.delete_calls
+    )
 
 
 @pytest.mark.anyio
-async def test_leaf_layout_compute_completion_clears_singleflight_state() -> None:
+async def test_card_scope_layout_compute_completion_clears_singleflight_state() -> None:
     redis = _FakeRedis()
-    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:pending"] = "1"
-    redis.values["taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:running"] = "1"
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
+    redis.values[
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:pending"
+    ] = "1"
+    redis.values[
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:running"
+    ] = "1"
     cache = TaxonomyViewRedisCache(redis=redis)
 
-    await cache.complete_leaf_layout_compute(leaf_id=9)
+    await cache.complete_card_scope_layout_compute(scope_identity=scope_identity)
 
-    assert "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:pending" in redis.delete_calls
-    assert "taxonomy:view:v1:leaf-layout:taxonomy-leaf-layout-v3:9:running" in redis.delete_calls
+    assert (
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:pending"
+        in redis.delete_calls
+    )
+    assert (
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:running"
+        in redis.delete_calls
+    )
 
 
 @pytest.mark.anyio
-async def test_leaf_layout_cache_does_not_expose_write_path_invalidation_api() -> None:
+async def test_card_scope_layout_cache_does_not_expose_write_path_invalidation_api() -> None:
     cache = TaxonomyViewRedisCache(redis=_FakeRedis())
 
-    assert not hasattr(cache, "invalidate_leaf_layout")
+    assert not hasattr(cache, "invalidate_card_scope_layout")

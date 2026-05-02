@@ -30,6 +30,7 @@ from modules.knowledge_graph.service import (
     CardVersionNotFoundError,
     KnowledgeGraphService,
 )
+from modules.taxonomy.dto import TaxonomyScopeIdentity
 
 
 @dataclass(slots=True)
@@ -282,8 +283,9 @@ class _StubRepo:
 
 @dataclass(slots=True)
 class _StubTaxonomyProjectionPort:
-    leaf_lookup_by_node_id: dict[int, int]
-    add_calls: list[tuple[int, list[int]]] = None  # type: ignore[assignment]
+    scope_lookup_by_node_id: dict[int, TaxonomyScopeIdentity]
+    root_taxonomy_node_id: int = 1
+    add_calls: list[tuple[TaxonomyScopeIdentity, list[int]]] = None  # type: ignore[assignment]
     root_assignment_calls: list[int] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
@@ -292,19 +294,28 @@ class _StubTaxonomyProjectionPort:
         if self.root_assignment_calls is None:
             self.root_assignment_calls = []
 
-    async def list_leaf_ids_for_node_ids(self, *, node_ids: list[int]) -> dict[int, int]:
+    async def list_scope_identities_for_node_ids(
+        self,
+        *,
+        node_ids: list[int],
+    ) -> dict[int, TaxonomyScopeIdentity]:
         return {
-            node_id: self.leaf_lookup_by_node_id[node_id]
+            node_id: self.scope_lookup_by_node_id[node_id]
             for node_id in node_ids
-            if node_id in self.leaf_lookup_by_node_id
+            if node_id in self.scope_lookup_by_node_id
         }
 
-    async def add_projected_edge_ids_for_leaf(self, *, leaf_id: int, edge_ids: list[int]) -> None:
-        self.add_calls.append((leaf_id, list(edge_ids)))
+    async def add_projected_edge_ids_for_scope(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        edge_ids: list[int],
+    ) -> None:
+        self.add_calls.append((scope_identity, list(edge_ids)))
 
-    async def assign_node_to_root_unclassified(self, *, node_id: int) -> int:
+    async def assign_node_to_root(self, *, node_id: int) -> int:
         self.root_assignment_calls.append(node_id)
-        return self.leaf_lookup_by_node_id[node_id]
+        return self.root_taxonomy_node_id
 
 
 @pytest.mark.anyio
@@ -791,7 +802,11 @@ async def test_materialize_card_from_ingestion_can_disable_each_candidate_pool()
 async def test_materialize_card_from_ingestion_creates_node_and_threshold_edges() -> None:
     repo = _StubRepo(created_nodes=[], created_edges=[])
     taxonomy_projection_port = _StubTaxonomyProjectionPort(
-        leaf_lookup_by_node_id={99: 4, 4: 8, 11: 4}
+        scope_lookup_by_node_id={
+            99: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1),
+            4: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=8),
+            11: TaxonomyScopeIdentity(scope_kind="virtual_unclassified", taxonomy_node_id=4),
+        }
     )
     service = KnowledgeGraphService(
         repo=repo,
@@ -816,9 +831,10 @@ async def test_materialize_card_from_ingestion_creates_node_and_threshold_edges(
         (99, 11, 0.5),
     ]
     assert taxonomy_projection_port.add_calls == [
-        (4, [500]),
-        (8, [500]),
-        (4, [501]),
+        (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1), [500]),
+        (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=8), [500]),
+        (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1), [501]),
+        (TaxonomyScopeIdentity(scope_kind="virtual_unclassified", taxonomy_node_id=4), [501]),
     ]
     assert repo.committed is True
     assert repo.rolled_back is False
@@ -832,7 +848,11 @@ async def test_materialize_card_from_ingestion_rolls_back_and_reraises() -> None
         fail_on_edge_for_node_id=11,
     )
     taxonomy_projection_port = _StubTaxonomyProjectionPort(
-        leaf_lookup_by_node_id={99: 4, 4: 8, 11: 4}
+        scope_lookup_by_node_id={
+            99: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1),
+            4: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=8),
+            11: TaxonomyScopeIdentity(scope_kind="virtual_unclassified", taxonomy_node_id=4),
+        }
     )
     service = KnowledgeGraphService(
         repo=repo,
@@ -854,6 +874,6 @@ async def test_materialize_card_from_ingestion_rolls_back_and_reraises() -> None
     assert repo.rolled_back is True
     assert taxonomy_projection_port.root_assignment_calls == [99]
     assert taxonomy_projection_port.add_calls == [
-        (4, [500]),
-        (8, [500]),
+        (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1), [500]),
+        (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=8), [500]),
     ]

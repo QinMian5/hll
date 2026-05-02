@@ -15,16 +15,16 @@ pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.anyio]
 
 
 async def test_storage_rejects_second_root_row(db_session: AsyncSession) -> None:
-    db_session.add(TaxonomyNode(parent_id=None, name="Root", depth=0, is_leaf=False))
+    db_session.add(TaxonomyNode(parent_id=None, name="Root", route_slug="root", depth=0))
     await db_session.flush()
 
-    db_session.add(TaxonomyNode(parent_id=None, name="Root", depth=0, is_leaf=False))
+    db_session.add(TaxonomyNode(parent_id=None, name="Root", route_slug="root", depth=0))
 
     with pytest.raises(DBAPIError):
         await db_session.flush()
 
 
 async def test_storage_leaves_root_shape_to_business_layer(db_session: AsyncSession) -> None:
-    db_session.add(TaxonomyNode(parent_id=None, name="Science", depth=0, is_leaf=False))
+    db_session.add(TaxonomyNode(parent_id=None, name="Science", route_slug="science", depth=0))
 
     await db_session.flush()

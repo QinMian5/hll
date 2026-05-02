@@ -11,8 +11,8 @@ from sqlalchemy import CheckConstraint, Index, Table, UniqueConstraint
 
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
-    TaxonomyLeafProjectionEdge,
     TaxonomyNode,
+    TaxonomyScopeProjectionEdge,
 )
 from shared.db.base import Base
 
@@ -22,16 +22,16 @@ def test_projection_registers_required_tables() -> None:
     assert {
         "taxonomy_nodes",
         "node_taxonomy_assignments",
-        "taxonomy_leaf_projection_edges",
+        "taxonomy_scope_projection_edges",
     } <= table_names
 
 
-def test_taxonomy_nodes_projection_contains_parent_depth_and_leaf_flag() -> None:
+def test_taxonomy_nodes_projection_contains_parent_and_depth_without_leaf_flag() -> None:
     table = cast(Table, TaxonomyNode.__table__)
 
     assert table.c.parent_id.nullable is True
     assert table.c.depth.nullable is False
-    assert table.c.is_leaf.nullable is False
+    assert "is_leaf" not in table.c
 
 
 def test_taxonomy_nodes_projection_contains_route_slug_contract() -> None:
@@ -93,7 +93,7 @@ def test_node_taxonomy_assignments_projection_contains_unique_node_constraint() 
     assert {"node_id"} in unique_column_sets
 
 
-def test_node_taxonomy_assignments_projection_contains_leaf_lookup_indexes() -> None:
+def test_node_taxonomy_assignments_projection_contains_scope_lookup_indexes() -> None:
     table = cast(Table, NodeTaxonomyAssignment.__table__)
     indexes = [constraint for constraint in table.indexes if isinstance(constraint, Index)]
     index_column_sets = [{column.name for column in index.columns} for index in indexes]
@@ -102,10 +102,15 @@ def test_node_taxonomy_assignments_projection_contains_leaf_lookup_indexes() -> 
     assert {"taxonomy_node_id", "node_id"} in index_column_sets
 
 
-def test_taxonomy_leaf_projection_edges_projection_contains_required_keys_and_indexes() -> None:
-    table = cast(Table, TaxonomyLeafProjectionEdge.__table__)
+def test_taxonomy_scope_projection_edges_projection_contains_required_keys_and_indexes() -> None:
+    table = cast(Table, TaxonomyScopeProjectionEdge.__table__)
     indexes = [constraint for constraint in table.indexes if isinstance(constraint, Index)]
     index_column_sets = [{column.name for column in index.columns} for index in indexes]
 
-    assert [column.name for column in table.primary_key.columns] == ["leaf_id", "edge_id"]
+    assert [column.name for column in table.primary_key.columns] == [
+        "scope_kind",
+        "taxonomy_node_id",
+        "edge_id",
+    ]
     assert {"edge_id"} in index_column_sets
+    assert {"scope_kind", "taxonomy_node_id"} in index_column_sets

@@ -16,7 +16,7 @@ from modules.knowledge_graph.edge_rebuild import (
     rebuild_knowledge_graph_edges_bulk,
 )
 from modules.knowledge_graph.repo import KnowledgeRepo
-from modules.taxonomy.projection_rebuild import rebuild_taxonomy_leaf_projection_edges
+from modules.taxonomy.projection_rebuild import rebuild_taxonomy_scope_projection_edges
 from modules.taxonomy.repo import TaxonomyRepo
 
 
@@ -56,7 +56,7 @@ async def run_rebuild(
                     edge_semantic_min_strength=min_strength,
                     edge_semantic_candidate_limit=(runtime.settings.edge_semantic_candidate_limit),
                 )
-                await rebuild_taxonomy_leaf_projection_edges(
+                await rebuild_taxonomy_scope_projection_edges(
                     repo=taxonomy_repo,
                     projection_port=knowledge_projection_port,
                 )

@@ -1,5 +1,5 @@
 """
-Abstract: Unit tests for root Unclassified taxonomy assignment backfill.
+Abstract: Unit tests for root taxonomy assignment backfill.
 Out of scope: SQL execution, CLI wiring, and migration behavior.
 """
 
@@ -9,10 +9,9 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from modules.taxonomy.dto import TaxonomyNodeRecord
-from modules.taxonomy.root_unclassified_backfill import (
-    TaxonomyRootUnclassifiedBackfillService,
-)
+from modules.taxonomy.dto import TaxonomyAssignmentCount, TaxonomyNodeRecord, TaxonomyScopeIdentity
+from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND
+from modules.taxonomy.root_assignment_backfill import TaxonomyRootAssignmentBackfillService
 
 
 @dataclass(slots=True)
@@ -21,26 +20,22 @@ class _StubRepo:
     assignment_count: int
     missing_counts: list[int]
     root: TaxonomyNodeRecord | None = None
-    root_unclassified: TaxonomyNodeRecord | None = None
-    inserted_assignments: int = 0
     ensure_calls: int = 0
     bulk_assign_calls: list[int] = field(default_factory=list)
     committed: bool = False
     rolled_back: bool = False
     tree_nodes: list[TaxonomyNodeRecord] = field(default_factory=list)
-    assigned_node_ids_by_leaf: dict[int, list[int]] = field(default_factory=dict)
+    assignment_counts: list[TaxonomyAssignmentCount] = field(default_factory=list)
+    assigned_node_ids_by_scope: dict[tuple[str, int], list[int]] = field(default_factory=dict)
     cleared_projection: bool = False
-    projection_batches: list[tuple[int, list[int]]] = field(default_factory=list)
+    projection_batches: list[tuple[TaxonomyScopeIdentity, list[int]]] = field(
+        default_factory=list
+    )
 
     async def get_root_node(self) -> TaxonomyNodeRecord | None:
         return self.root
 
-    async def get_child_by_name(self, *, parent_id: int, name: str) -> TaxonomyNodeRecord | None:
-        assert parent_id == 1
-        assert name == "Unclassified"
-        return self.root_unclassified
-
-    async def ensure_root_with_unclassified(self) -> tuple[TaxonomyNodeRecord, TaxonomyNodeRecord]:
+    async def ensure_root(self) -> TaxonomyNodeRecord:
         self.ensure_calls += 1
         self.root = TaxonomyNodeRecord(
             id=1,
@@ -48,17 +43,8 @@ class _StubRepo:
             name="Root",
             route_slug="root",
             depth=0,
-            is_leaf=False,
         )
-        self.root_unclassified = TaxonomyNodeRecord(
-            id=2,
-            parent_id=1,
-            name="Unclassified",
-            route_slug="unclassified",
-            depth=1,
-            is_leaf=True,
-        )
-        return self.root, self.root_unclassified
+        return self.root
 
     async def count_nodes(self) -> int:
         return self.total_nodes
@@ -69,20 +55,37 @@ class _StubRepo:
     async def count_nodes_missing_taxonomy_assignment(self) -> int:
         return self.missing_counts.pop(0)
 
-    async def assign_unassigned_nodes_to_leaf(self, *, leaf_id: int) -> None:
-        self.bulk_assign_calls.append(leaf_id)
+    async def assign_unassigned_nodes_to_taxonomy_node(self, *, taxonomy_node_id: int) -> None:
+        self.bulk_assign_calls.append(taxonomy_node_id)
 
     async def list_tree_nodes(self) -> list[TaxonomyNodeRecord]:
         return list(self.tree_nodes)
 
-    async def list_assigned_node_ids_for_leaf(self, *, leaf_id: int) -> list[int]:
-        return list(self.assigned_node_ids_by_leaf.get(leaf_id, []))
+    async def list_assignment_counts(self) -> list[TaxonomyAssignmentCount]:
+        return list(self.assignment_counts)
+
+    async def list_assigned_node_ids_for_scope(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> list[int]:
+        return list(
+            self.assigned_node_ids_by_scope.get(
+                (scope_identity.scope_kind, scope_identity.taxonomy_node_id),
+                [],
+            )
+        )
 
     async def clear_all_projected_edge_ids(self) -> None:
         self.cleared_projection = True
 
-    async def add_projected_edge_ids_for_leaf(self, *, leaf_id: int, edge_ids: list[int]) -> None:
-        self.projection_batches.append((leaf_id, list(edge_ids)))
+    async def add_projected_edge_ids_for_scope(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        edge_ids: list[int],
+    ) -> None:
+        self.projection_batches.append((scope_identity, list(edge_ids)))
 
     async def commit(self) -> None:
         self.committed = True
@@ -108,13 +111,12 @@ async def test_dry_run_reports_missing_assignments_without_writes() -> None:
         assignment_count=0,
         missing_counts=[10],
     )
-    service = TaxonomyRootUnclassifiedBackfillService(repo=repo)
+    service = TaxonomyRootAssignmentBackfillService(repo=repo)
 
     result = await service.run(apply=False)
 
     assert result.mode == "dry-run"
     assert result.root_id is None
-    assert result.root_unclassified_id is None
     assert result.total_cards == 10
     assert result.assigned_before == 0
     assert result.missing_before == 10
@@ -133,7 +135,6 @@ async def test_apply_backfills_missing_assignments_and_rebuilds_projection() -> 
         total_nodes=10,
         assignment_count=3,
         missing_counts=[7, 0],
-        inserted_assignments=7,
         tree_nodes=[
             TaxonomyNodeRecord(
                 id=1,
@@ -141,21 +142,15 @@ async def test_apply_backfills_missing_assignments_and_rebuilds_projection() -> 
                 name="Root",
                 route_slug="root",
                 depth=0,
-                is_leaf=False,
-            ),
-            TaxonomyNodeRecord(
-                id=2,
-                parent_id=1,
-                name="Unclassified",
-                route_slug="unclassified",
-                depth=1,
-                is_leaf=True,
             ),
         ],
-        assigned_node_ids_by_leaf={2: [11, 12]},
+        assignment_counts=[
+            TaxonomyAssignmentCount(taxonomy_node_id=1, card_count=7),
+        ],
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 1): [11, 12]},
     )
     projection_port = _StubProjectionPort(adjacent_edge_ids=[101, 102])
-    service = TaxonomyRootUnclassifiedBackfillService(
+    service = TaxonomyRootAssignmentBackfillService(
         repo=repo,
         knowledge_projection_port=projection_port,
     )
@@ -164,7 +159,6 @@ async def test_apply_backfills_missing_assignments_and_rebuilds_projection() -> 
 
     assert result.mode == "apply"
     assert result.root_id == 1
-    assert result.root_unclassified_id == 2
     assert result.total_cards == 10
     assert result.assigned_before == 3
     assert result.missing_before == 7
@@ -172,10 +166,15 @@ async def test_apply_backfills_missing_assignments_and_rebuilds_projection() -> 
     assert result.missing_after == 0
     assert result.projection_rebuilt is True
     assert repo.ensure_calls == 1
-    assert repo.bulk_assign_calls == [2]
+    assert repo.bulk_assign_calls == [1]
     assert repo.cleared_projection is True
     assert projection_port.requests == [[11, 12]]
-    assert repo.projection_batches == [(2, [101, 102])]
+    assert repo.projection_batches == [
+        (
+            TaxonomyScopeIdentity(scope_kind=TAXONOMY_NODE_SCOPE_KIND, taxonomy_node_id=1),
+            [101, 102],
+        )
+    ]
     assert repo.committed is True
     assert repo.rolled_back is False
 
@@ -183,7 +182,11 @@ async def test_apply_backfills_missing_assignments_and_rebuilds_projection() -> 
 @pytest.mark.anyio
 async def test_apply_rolls_back_when_backfill_fails() -> None:
     class _FailingRepo(_StubRepo):
-        async def assign_unassigned_nodes_to_leaf(self, *, leaf_id: int) -> None:
+        async def assign_unassigned_nodes_to_taxonomy_node(
+            self,
+            *,
+            taxonomy_node_id: int,
+        ) -> None:
             raise RuntimeError("bulk assignment failed")
 
     repo = _FailingRepo(
@@ -191,7 +194,7 @@ async def test_apply_rolls_back_when_backfill_fails() -> None:
         assignment_count=0,
         missing_counts=[10],
     )
-    service = TaxonomyRootUnclassifiedBackfillService(repo=repo)
+    service = TaxonomyRootAssignmentBackfillService(repo=repo)
 
     with pytest.raises(RuntimeError, match="bulk assignment failed"):
         await service.run(apply=True)

@@ -33,12 +33,12 @@ def test_taxonomy_view_openapi_includes_route_path_contract(
     response_schema = openapi["components"]["schemas"][response_schema_ref.rsplit("/", 1)[-1]]
     branch_schema_ref = response_schema["oneOf"][0]["$ref"]
     branch_schema = openapi["components"]["schemas"][branch_schema_ref.rsplit("/", 1)[-1]]
-    current_node_schema_name = branch_schema["properties"]["current_node"]["$ref"]
-    current_node_schema = openapi["components"]["schemas"][
-        current_node_schema_name.rsplit("/", 1)[-1]
+    current_scope_schema_name = branch_schema["properties"]["current_scope"]["$ref"]
+    current_scope_schema = openapi["components"]["schemas"][
+        current_scope_schema_name.rsplit("/", 1)[-1]
     ]
 
-    assert {"route_slug", "route_path"} <= set(current_node_schema["required"])
+    assert {"route_slug", "route_path"} <= set(current_scope_schema["required"])
 
 
 @pytest.mark.contract
