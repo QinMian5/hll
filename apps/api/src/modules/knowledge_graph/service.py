@@ -10,6 +10,8 @@ from collections.abc import Sequence
 from typing import Protocol
 
 from modules.knowledge_graph.dto import (
+    CardProposalRecord,
+    CardProposalType,
     CardSuggestedEditRecord,
     CardVersionSnapshot,
     ConnectedTitleCandidate,
@@ -23,6 +25,7 @@ from modules.knowledge_graph.dto import (
     VectorSearchCandidate,
 )
 from modules.taxonomy.dto import TaxonomyScopeIdentity
+from shared.integrations import EmbeddingClientPort
 
 RRF_K = 60
 
@@ -43,11 +46,41 @@ def _title_boost_tuple(candidate: LexicalSearchCandidate | None) -> tuple[int, i
     )
 
 
+def _payload_text(payload: dict[str, object], key: str) -> str:
+    value = payload.get(key)
+    if not isinstance(value, str) or value.strip() == "":
+        raise CardProposalValidationError(f"Proposal payload missing {key}.")
+    return value
+
+
+def _payload_int(payload: dict[str, object], key: str) -> int:
+    value = payload.get(key)
+    if not isinstance(value, int) or value < 1:
+        raise CardProposalValidationError(f"Proposal payload missing {key}.")
+    return value
+
+
 class CardVersionNotFoundError(ValueError):
     pass
 
 
 class CardSuggestedEditNoChangeError(ValueError):
+    pass
+
+
+class CardProposalNotFoundError(ValueError):
+    pass
+
+
+class CardProposalInvalidStateError(ValueError):
+    pass
+
+
+class CardProposalPermissionError(PermissionError):
+    pass
+
+
+class CardProposalValidationError(ValueError):
     pass
 
 
@@ -139,6 +172,70 @@ class KnowledgeGraphRepoProtocol(Protocol):
         suggested_by_user_id: str,
     ) -> CardSuggestedEditRecord: ...
 
+    async def create_card_proposal(
+        self,
+        *,
+        proposal_type: str,
+        submitted_by_user_id: str,
+        payload: dict[str, object],
+    ) -> CardProposalRecord: ...
+
+    async def fetch_card_proposal(self, *, proposal_id: int) -> CardProposalRecord | None: ...
+
+    async def list_card_proposals_for_user(self, *, user_id: str) -> list[CardProposalRecord]: ...
+
+    async def list_pending_card_proposals(self) -> list[CardProposalRecord]: ...
+
+    async def has_active_workspace_review_role(self, *, user_id: str) -> bool: ...
+
+    async def create_next_card_version(
+        self,
+        *,
+        node_id: int,
+        title: str,
+        content: str,
+        embedding: list[float],
+    ) -> int: ...
+
+    async def archive_node(self, *, node_id: int) -> None: ...
+
+    async def mark_card_proposal_accepted(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+        affected_node_ids: list[int],
+        created_versions: list[dict[str, int]],
+        archive_outcome: dict[str, object] | None,
+    ) -> CardProposalRecord: ...
+
+    async def mark_card_proposal_rejected(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+    ) -> CardProposalRecord: ...
+
+    async def mark_card_proposal_withdrawn(
+        self,
+        *,
+        proposal_id: int,
+    ) -> CardProposalRecord: ...
+
+    async def create_proposal_apply_audit(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        proposal_type: str,
+        affected_node_ids: list[int],
+        created_versions: list[dict[str, int]],
+        archive_outcome: dict[str, object] | None,
+        review_note: str | None,
+    ) -> None: ...
+
     async def search_similarity_candidates(
         self,
         *,
@@ -196,6 +293,7 @@ class KnowledgeGraphService:
         edge_semantic_min_strength: float,
         edge_semantic_candidate_limit: int,
         taxonomy_projection_port: KnowledgeGraphTaxonomyProjectionPort | None = None,
+        embedding_client: EmbeddingClientPort | None = None,
     ) -> None:
         self._repo = repo
         self._edge_title_mention_top_k = edge_title_mention_top_k
@@ -203,6 +301,7 @@ class KnowledgeGraphService:
         self._edge_semantic_min_strength = edge_semantic_min_strength
         self._edge_semantic_candidate_limit = edge_semantic_candidate_limit
         self._taxonomy_projection_port = taxonomy_projection_port
+        self._embedding_client = embedding_client
 
     async def search_searchable_cards(
         self,
@@ -391,6 +490,246 @@ class KnowledgeGraphService:
         except Exception:
             await self._repo.rollback()
             raise
+
+    async def submit_card_proposal(
+        self,
+        *,
+        proposal_type: CardProposalType,
+        submitted_by_user_id: str,
+        proposed_title: str | None = None,
+        proposed_content: str | None = None,
+        target_node_id: int | None = None,
+        base_version: int | None = None,
+        suggested_title: str | None = None,
+        suggested_content: str | None = None,
+        reason: str | None = None,
+    ) -> CardProposalRecord:
+        try:
+            payload = await self._build_proposal_payload(
+                proposal_type=proposal_type,
+                proposed_title=proposed_title,
+                proposed_content=proposed_content,
+                target_node_id=target_node_id,
+                base_version=base_version,
+                suggested_title=suggested_title,
+                suggested_content=suggested_content,
+                reason=reason,
+            )
+            record = await self._repo.create_card_proposal(
+                proposal_type=proposal_type,
+                submitted_by_user_id=submitted_by_user_id,
+                payload=payload,
+            )
+            await self._repo.commit()
+            return record
+        except Exception:
+            await self._repo.rollback()
+            raise
+
+    async def list_card_proposals_for_user(self, *, user_id: str) -> list[CardProposalRecord]:
+        return await self._repo.list_card_proposals_for_user(user_id=user_id)
+
+    async def list_pending_card_proposals_for_review(
+        self,
+        *,
+        reviewer_user_id: str,
+    ) -> list[CardProposalRecord]:
+        if not await self._repo.has_active_workspace_review_role(user_id=reviewer_user_id):
+            raise CardProposalPermissionError("Reviewer role is required.")
+        return await self._repo.list_pending_card_proposals()
+
+    async def reject_card_proposal(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+    ) -> CardProposalRecord:
+        try:
+            proposal = await self._fetch_pending_proposal(proposal_id=proposal_id)
+            if not await self._repo.has_active_workspace_review_role(user_id=reviewer_user_id):
+                raise CardProposalPermissionError("Reviewer role is required.")
+            record = await self._repo.mark_card_proposal_rejected(
+                proposal_id=proposal.id,
+                reviewer_user_id=reviewer_user_id,
+                review_note=review_note,
+            )
+            await self._repo.commit()
+            return record
+        except Exception:
+            await self._repo.rollback()
+            raise
+
+    async def withdraw_card_proposal(
+        self,
+        *,
+        proposal_id: int,
+        user_id: str,
+    ) -> CardProposalRecord:
+        try:
+            proposal = await self._fetch_pending_proposal(proposal_id=proposal_id)
+            if proposal.submitted_by_user_id != user_id:
+                raise CardProposalPermissionError("Only the submitter can withdraw this proposal.")
+            record = await self._repo.mark_card_proposal_withdrawn(proposal_id=proposal.id)
+            await self._repo.commit()
+            return record
+        except Exception:
+            await self._repo.rollback()
+            raise
+
+    async def accept_card_proposal(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+    ) -> CardProposalRecord:
+        try:
+            if not await self._repo.has_active_workspace_review_role(user_id=reviewer_user_id):
+                raise CardProposalPermissionError("Reviewer role is required.")
+            proposal = await self._fetch_pending_proposal(proposal_id=proposal_id)
+            affected_node_ids, created_versions, archive_outcome = await self._apply_proposal(
+                proposal=proposal
+            )
+            record = await self._repo.mark_card_proposal_accepted(
+                proposal_id=proposal.id,
+                reviewer_user_id=reviewer_user_id,
+                review_note=review_note,
+                affected_node_ids=affected_node_ids,
+                created_versions=created_versions,
+                archive_outcome=archive_outcome,
+            )
+            await self._repo.create_proposal_apply_audit(
+                proposal_id=proposal.id,
+                reviewer_user_id=reviewer_user_id,
+                proposal_type=proposal.proposal_type,
+                affected_node_ids=affected_node_ids,
+                created_versions=created_versions,
+                archive_outcome=archive_outcome,
+                review_note=review_note,
+            )
+            await self._repo.commit()
+            return record
+        except Exception:
+            await self._repo.rollback()
+            raise
+
+    async def _build_proposal_payload(
+        self,
+        *,
+        proposal_type: CardProposalType,
+        proposed_title: str | None,
+        proposed_content: str | None,
+        target_node_id: int | None,
+        base_version: int | None,
+        suggested_title: str | None,
+        suggested_content: str | None,
+        reason: str | None,
+    ) -> dict[str, object]:
+        if proposal_type == "create":
+            if proposed_title is None or proposed_content is None:
+                raise CardProposalValidationError("Create proposals require title and content.")
+            return {
+                "proposed_title": proposed_title,
+                "proposed_content": proposed_content,
+            }
+
+        if target_node_id is None or base_version is None:
+            raise CardProposalValidationError(
+                "Card proposal requires target node and base version."
+            )
+        base = await self._repo.fetch_card_version(node_id=target_node_id, version=base_version)
+        if base is None:
+            raise CardVersionNotFoundError("Card base version does not exist.")
+
+        if proposal_type == "edit":
+            if suggested_title is None or suggested_content is None:
+                raise CardProposalValidationError("Edit proposals require title and content.")
+            if suggested_title == base.title and suggested_content == base.content:
+                raise CardSuggestedEditNoChangeError("Suggested edit must change title or content.")
+            return {
+                "target_node_id": target_node_id,
+                "base_version": base_version,
+                "suggested_title": suggested_title,
+                "suggested_content": suggested_content,
+            }
+
+        if proposal_type == "delete":
+            if reason is None:
+                raise CardProposalValidationError("Delete proposals require a reason.")
+            return {
+                "target_node_id": target_node_id,
+                "base_version": base_version,
+                "reason": reason,
+            }
+
+        raise CardProposalValidationError("Unsupported proposal type.")
+
+    async def _fetch_pending_proposal(self, *, proposal_id: int) -> CardProposalRecord:
+        proposal = await self._repo.fetch_card_proposal(proposal_id=proposal_id)
+        if proposal is None:
+            raise CardProposalNotFoundError("Proposal does not exist.")
+        if proposal.status != "pending_review":
+            raise CardProposalInvalidStateError("Proposal is not pending review.")
+        return proposal
+
+    async def _apply_proposal(
+        self,
+        *,
+        proposal: CardProposalRecord,
+    ) -> tuple[list[int], list[dict[str, int]], dict[str, object] | None]:
+        proposal_type = proposal.proposal_type
+        if proposal_type == "create":
+            return await self._apply_create_proposal(proposal=proposal)
+        if proposal_type == "edit":
+            return await self._apply_edit_proposal(proposal=proposal)
+        if proposal_type == "delete":
+            return await self._apply_delete_proposal(proposal=proposal)
+        raise CardProposalValidationError("Unsupported proposal type.")
+
+    async def _apply_create_proposal(
+        self,
+        *,
+        proposal: CardProposalRecord,
+    ) -> tuple[list[int], list[dict[str, int]], None]:
+        title = _payload_text(proposal.payload, "proposed_title")
+        content = _payload_text(proposal.payload, "proposed_content")
+        embedding = await self._embed_card(title=title, content=content)
+        node_id = await self._repo.create_node(title=title, content=content, embedding=embedding)
+        if self._taxonomy_projection_port is not None:
+            await self._taxonomy_projection_port.assign_node_to_root(node_id=node_id)
+        return [node_id], [{"node_id": node_id, "version": 1}], None
+
+    async def _apply_edit_proposal(
+        self,
+        *,
+        proposal: CardProposalRecord,
+    ) -> tuple[list[int], list[dict[str, int]], None]:
+        node_id = _payload_int(proposal.payload, "target_node_id")
+        title = _payload_text(proposal.payload, "suggested_title")
+        content = _payload_text(proposal.payload, "suggested_content")
+        embedding = await self._embed_card(title=title, content=content)
+        version = await self._repo.create_next_card_version(
+            node_id=node_id,
+            title=title,
+            content=content,
+            embedding=embedding,
+        )
+        return [node_id], [{"node_id": node_id, "version": version}], None
+
+    async def _apply_delete_proposal(
+        self,
+        *,
+        proposal: CardProposalRecord,
+    ) -> tuple[list[int], list[dict[str, int]], dict[str, object]]:
+        node_id = _payload_int(proposal.payload, "target_node_id")
+        await self._repo.archive_node(node_id=node_id)
+        return [node_id], [], {"archived_node_id": node_id}
+
+    async def _embed_card(self, *, title: str, content: str) -> list[float]:
+        if self._embedding_client is None:
+            raise CardProposalValidationError("Embedding client is required to apply proposals.")
+        return await self._embedding_client.embed_text(f"{title}\n\n{content}")
 
     async def materialize_card_from_ingestion(
         self,

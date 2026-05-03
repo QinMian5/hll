@@ -36,7 +36,9 @@ def test_api_bootstrap_tables_cover_prod_snapshot_closure() -> None:
         "taxonomy_classification_continuation_requests",
         "taxonomy_classification_webhook_wakeups",
         "adjacency",
-        "card_suggested_edits",
+        "workspace_roles",
+        "card_proposals",
+        "proposal_apply_audits",
         "taxonomy_scope_projection_edges",
     )
     assert "alembic_version" not in API_BOOTSTRAP_TABLES

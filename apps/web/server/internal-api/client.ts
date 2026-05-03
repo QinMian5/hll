@@ -8,6 +8,14 @@ import type { WebServerConfig } from "../config.js";
 import { InternalApiError } from "./errors.js";
 
 export type SearchResponse = components["schemas"]["SearchResponse"];
+export type CardProposalCreateRequest =
+  components["schemas"]["CardProposalCreateRequest"];
+export type CardProposalListResponse =
+  components["schemas"]["CardProposalListResponse"];
+export type CardProposalResponse =
+  components["schemas"]["CardProposalResponse"];
+export type CardProposalReviewRequest =
+  components["schemas"]["CardProposalReviewRequest"];
 export type TaxonomyRootViewResponse =
   components["schemas"]["TaxonomyRootViewResponse"];
 export type SuggestedEditCreateRequest =
@@ -31,11 +39,35 @@ export interface TaxonomyCardScopeLayoutBounds {
 }
 
 export interface InternalApiClient {
+  readonly acceptCardProposal: (
+    proposalId: number,
+    payload: CardProposalReviewRequest,
+    actorUserId: string,
+  ) => Promise<CardProposalResponse>;
+  readonly createCardProposal: (
+    payload: CardProposalCreateRequest,
+    actorUserId: string,
+  ) => Promise<CardProposalResponse>;
   readonly createSuggestedEdit: (
     nodeId: number,
     payload: SuggestedEditCreateRequest,
     suggestedByUserId: string,
   ) => Promise<SuggestedEditCreateResponse>;
+  readonly listMyCardProposals: (
+    actorUserId: string,
+  ) => Promise<CardProposalListResponse>;
+  readonly listReviewQueue: (
+    actorUserId: string,
+  ) => Promise<CardProposalListResponse>;
+  readonly rejectCardProposal: (
+    proposalId: number,
+    payload: CardProposalReviewRequest,
+    actorUserId: string,
+  ) => Promise<CardProposalResponse>;
+  readonly withdrawCardProposal: (
+    proposalId: number,
+    actorUserId: string,
+  ) => Promise<CardProposalResponse>;
   readonly getTaxonomyCardScopeNodeDetails: (
     routePath: string,
     nodeIds: readonly number[],
@@ -149,6 +181,34 @@ export function createInternalApiClient(
   });
 
   return {
+    acceptCardProposal: async (proposalId, payload, actorUserId) => {
+      const result = await client.POST(
+        "/api/v1/card-proposals/{proposal_id}/accept",
+        {
+          body: payload,
+          params: {
+            header: {
+              "X-Knowledge-Actor-User-Id": actorUserId,
+            },
+            path: { proposal_id: proposalId },
+          },
+        },
+      );
+
+      return unwrapInternalApiData<CardProposalResponse>(result);
+    },
+    createCardProposal: async (payload, actorUserId) => {
+      const result = await client.POST("/api/v1/card-proposals", {
+        body: payload,
+        params: {
+          header: {
+            "X-Knowledge-Actor-User-Id": actorUserId,
+          },
+        },
+      });
+
+      return unwrapInternalApiData<CardProposalResponse>(result);
+    },
     createSuggestedEdit: async (nodeId, payload, suggestedByUserId) => {
       const result = await client.POST(
         "/api/v1/cards/{node_id}/suggested-edits",
@@ -164,6 +224,59 @@ export function createInternalApiClient(
       );
 
       return unwrapInternalApiData<SuggestedEditCreateResponse>(result);
+    },
+    listMyCardProposals: async (actorUserId) => {
+      const result = await client.GET("/api/v1/card-proposals/my", {
+        params: {
+          header: {
+            "X-Knowledge-Actor-User-Id": actorUserId,
+          },
+        },
+      });
+
+      return unwrapInternalApiData<CardProposalListResponse>(result);
+    },
+    listReviewQueue: async (actorUserId) => {
+      const result = await client.GET("/api/v1/card-proposals/review-queue", {
+        params: {
+          header: {
+            "X-Knowledge-Actor-User-Id": actorUserId,
+          },
+        },
+      });
+
+      return unwrapInternalApiData<CardProposalListResponse>(result);
+    },
+    rejectCardProposal: async (proposalId, payload, actorUserId) => {
+      const result = await client.POST(
+        "/api/v1/card-proposals/{proposal_id}/reject",
+        {
+          body: payload,
+          params: {
+            header: {
+              "X-Knowledge-Actor-User-Id": actorUserId,
+            },
+            path: { proposal_id: proposalId },
+          },
+        },
+      );
+
+      return unwrapInternalApiData<CardProposalResponse>(result);
+    },
+    withdrawCardProposal: async (proposalId, actorUserId) => {
+      const result = await client.POST(
+        "/api/v1/card-proposals/{proposal_id}/withdraw",
+        {
+          params: {
+            header: {
+              "X-Knowledge-Actor-User-Id": actorUserId,
+            },
+            path: { proposal_id: proposalId },
+          },
+        },
+      );
+
+      return unwrapInternalApiData<CardProposalResponse>(result);
     },
     getTaxonomyCardScopeNodeDetails: async (routePath, nodeIds) => {
       const result = await client.POST(

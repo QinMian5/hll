@@ -71,6 +71,7 @@ def get_embedding_client(
 def get_knowledge_graph_service(
     session: Annotated[AsyncSession, Depends(get_async_session)],
     settings: Annotated[Settings, Depends(get_settings)],
+    embedding_client: Annotated[EmbeddingClient, Depends(get_embedding_client)],
 ) -> KnowledgeGraphService:
     return build_knowledge_graph_service(
         session=session,
@@ -78,6 +79,7 @@ def get_knowledge_graph_service(
         edge_semantic_top_k=settings.edge_semantic_top_k,
         edge_semantic_min_strength=settings.edge_semantic_min_strength,
         edge_semantic_candidate_limit=settings.edge_semantic_candidate_limit,
+        embedding_client=embedding_client,
     )
 
 

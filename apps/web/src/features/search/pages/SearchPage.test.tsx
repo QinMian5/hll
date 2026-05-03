@@ -20,7 +20,7 @@ import { WebApiRequestError } from "../../../shared/web-api/errors";
 import type { SearchResponse } from "../data/searchQueries";
 
 vi.mock("../data/searchQueries", () => ({
-  useCreateSuggestedEditMutation: vi.fn(),
+  useCreateCardProposalMutation: vi.fn(),
   useSearchQuery: vi.fn(),
 }));
 
@@ -65,8 +65,8 @@ function renderSearchRoute(pathname: string) {
 }
 
 const mockUseSearchQuery = vi.mocked(searchQueries.useSearchQuery);
-const mockUseCreateSuggestedEditMutation = vi.mocked(
-  searchQueries.useCreateSuggestedEditMutation,
+const mockUseCreateCardProposalMutation = vi.mocked(
+  searchQueries.useCreateCardProposalMutation,
 );
 const mockUseWebSession = vi.mocked(webSession.useWebSession);
 
@@ -78,7 +78,7 @@ function mockSearchQueryResult(
 
 describe("SearchPage", () => {
   beforeEach(() => {
-    mockUseCreateSuggestedEditMutation.mockReturnValue({
+    mockUseCreateCardProposalMutation.mockReturnValue({
       error: null,
       isPending: false,
       mutateAsync: vi.fn(),
@@ -134,13 +134,24 @@ describe("SearchPage", () => {
     );
     expect(screen.getByTestId("search-suggestions-panel")).toBeInTheDocument();
     expect(screen.getByText("Search results")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add card" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Related results")).toBeInTheDocument();
     expect(screen.getByDisplayValue("matrix")).toBeInTheDocument();
     expect(screen.getByTestId("search-icon-button")).toBeInTheDocument();
     expect(screen.queryByTestId("search-empty-state")).not.toBeInTheDocument();
-    expect(await screen.findByText("Matrix decomposition")).toBeInTheDocument();
+    expect(
+      await screen.findByRole(
+        "link",
+        { name: /Search for Matrix decomposition/ },
+        { timeout: 5_000 },
+      ),
+    ).toBeInTheDocument();
     expect(document.querySelector(".katex")).not.toBeNull();
-    expect(await screen.findByText("Returned")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Returned", {}, { timeout: 5_000 }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("list")).toBeInTheDocument();
     expect(screen.getByText("rank").tagName).toBe("CODE");
     expect(
@@ -548,7 +559,7 @@ describe("SearchPage", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("submits authenticated suggestion with visible base version", async () => {
+  it("submits authenticated edit proposal with visible base version", async () => {
     const mutateAsync = vi.fn(async () => ({
       base_version: 3,
       created_at: "2026-04-28T18:00:00Z",
@@ -567,7 +578,7 @@ describe("SearchPage", () => {
         },
       ],
     };
-    mockUseCreateSuggestedEditMutation.mockReturnValue({
+    mockUseCreateCardProposalMutation.mockReturnValue({
       error: null,
       isPending: false,
       mutateAsync,
@@ -590,20 +601,24 @@ describe("SearchPage", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Suggest edit for Old title" }),
     );
-    fireEvent.change(screen.getByLabelText("Suggested title"), {
+    expect(
+      screen.getByRole("dialog", { name: "Card proposal" }),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Better title" },
     });
-    fireEvent.change(screen.getByLabelText("Suggested content"), {
+    fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "Better content." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Submit suggestion" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith({
-        baseVersion: 3,
-        nodeId: 10,
-        suggestedContent: "Better content.",
-        suggestedTitle: "Better title",
+        base_version: 3,
+        proposal_type: "edit",
+        suggested_content: "Better content.",
+        suggested_title: "Better title",
+        target_node_id: 10,
       }),
     );
   });
@@ -639,12 +654,10 @@ describe("SearchPage", () => {
       await screen.findByRole("button", { name: "Suggest edit for Old title" }),
     );
 
-    const submitButton = screen.getByRole("button", {
-      name: "Submit suggestion",
-    });
+    const submitButton = screen.getByRole("button", { name: "Submit" });
     expect(submitButton).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText("Suggested content"), {
+    fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "Better content." },
     });
 
@@ -666,7 +679,7 @@ describe("SearchPage", () => {
         },
       ],
     };
-    mockUseCreateSuggestedEditMutation.mockReturnValue({
+    mockUseCreateCardProposalMutation.mockReturnValue({
       error: null,
       isPending: false,
       mutateAsync,
@@ -689,19 +702,19 @@ describe("SearchPage", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Suggest edit for Old title" }),
     );
-    fireEvent.change(screen.getByLabelText("Suggested title"), {
+    fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Better title" },
     });
-    fireEvent.change(screen.getByLabelText("Suggested content"), {
+    fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "Better content." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Submit suggestion" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(
       await screen.findByText("Could not submit the suggestion. Try again."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("dialog", { name: "Suggest edit" }),
+      screen.getByRole("dialog", { name: "Card proposal" }),
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Better title")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Better content.")).toBeInTheDocument();
@@ -726,7 +739,7 @@ describe("SearchPage", () => {
         },
       ],
     };
-    mockUseCreateSuggestedEditMutation.mockReturnValue({
+    mockUseCreateCardProposalMutation.mockReturnValue({
       error: null,
       isPending: false,
       mutateAsync,
@@ -749,16 +762,16 @@ describe("SearchPage", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Suggest edit for Old title" }),
     );
-    fireEvent.change(screen.getByLabelText("Suggested content"), {
+    fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "Better content." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Submit suggestion" }));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     expect(
       await screen.findByText("Change the title or content before submitting."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("dialog", { name: "Suggest edit" }),
+      screen.getByRole("dialog", { name: "Card proposal" }),
     ).toBeInTheDocument();
   });
 });

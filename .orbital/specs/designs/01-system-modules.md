@@ -12,7 +12,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
 - **Scope/Boundaries:** Covers ownership for browser frontend, web BFF, MCP service, backend API, operator CLI, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, source_pipeline, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
-- **Related Requirements:** R-001, R-003, R-004, R-005, R-006, R-007.
+- **Related Requirements:** R-001, R-003, R-004, R-005, R-006, R-007, R-008.
 
 ## Module Responsibilities
 
@@ -24,8 +24,9 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Provide breadcrumb navigation for ancestor jumps.
   - Render the authenticated Dashboard token-management route for Logto personal access token lifecycle operations and MCP usage summaries.
   - Render authenticated Settings account profile surfaces from browser-safe BFF session/profile data.
-  - Consume Search, Graph View, Dashboard, and Settings account profile data through browser-visible web API adapters owned by `apps/web`.
-  - Render Search card edit affordances, authenticated suggestion submission UI, and anonymous sign-in-required UI through browser-visible web API adapters owned by `apps/web`.
+  - Consume Search, Graph View, Workspace, Dashboard, and Settings account profile data through browser-visible web API adapters owned by `apps/web`.
+  - Render Search card edit affordances, authenticated edit proposal submission UI, and anonymous sign-in-required UI through browser-visible web API adapters owned by `apps/web`.
+  - Render the Workspace route for proposal submission, current-user proposal tracking, reviewer queue access, and admin role-management placement.
   - Own graph layout calculation for branch and leaf views.
   - Render anonymous and logged-in session state exposed by the web BFF.
 - **Non-responsibilities:**
@@ -37,8 +38,9 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### Web BFF
 - **Responsibilities:**
   - Serve the public React web application.
-  - Own browser-visible web data endpoints for Search, Graph View, and Dashboard token management.
-  - Own browser-visible authenticated suggestion submission endpoints for Search card edit suggestions.
+  - Own browser-visible web data endpoints for Search, Graph View, Search proposal submission, Workspace proposal workflows, and Dashboard token management.
+  - Own browser-visible authenticated proposal submission endpoints for Search create, edit, and delete proposals.
+  - Enforce Knowledge-owned reviewer/admin role requirements for Workspace review and role-management actions at the web boundary.
   - Own server-side Logto session handling for web users.
   - Own server-side Logto Account API profile reads and updates for authenticated web Settings surfaces.
   - Own server-side Logto Management API orchestration for signed-in users' personal access token lifecycle operations.
@@ -75,7 +77,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### Backend API
 - **Responsibilities:**
   - Expose private V1 search read endpoint.
-  - Expose private V1 card suggested-edit creation endpoint.
+  - Expose private V1 unified proposal endpoints for human-originated card maintenance.
   - Expose private V1 taxonomy drill-down read endpoints.
   - Expose private V1 ingestion accept endpoint for accepted internal and operator workflows.
   - Validate request inputs and normalize response outputs.
@@ -106,7 +108,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### knowledge_graph Module
 - **Responsibilities:**
-  - Own `Node/Edge/Adjacency`, card version, and card suggested-edit domain semantics and persistence truth.
+  - Own `Node/Edge/Adjacency`, card version, unified proposal, and proposal apply-audit domain semantics and persistence truth.
   - Own repository/model access for graph persistence.
   - Own repository-backed search ranking primitives for vector retrieval, lexical retrieval, and fused candidate ordering.
   - Provide read/write service ports consumed by `search`, `ingestion`, and `taxonomy`.
@@ -248,5 +250,5 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `core` is inbound-only; it does not import `entrypoints/modules/shared`.
 
 ## V1 Boundary Summary
-- V1 delivers ingestion acceptance API, search read API, public MCP search, web dashboard token management, taxonomy drill-down read APIs, taxonomy-backed structure truth, local reviewed card submission CLI, versioned knowledge-card history, authenticated suggested-edit submission, project-owned source-processing pipeline orchestration, and leaf-level one-hop relation browsing.
+- V1 delivers ingestion acceptance API, search read API, public MCP search, web dashboard token management, taxonomy drill-down read APIs, taxonomy-backed structure truth, local reviewed card submission CLI, versioned knowledge-card history, authenticated Search proposal submission, project-owned source-processing pipeline orchestration, and leaf-level one-hop relation browsing.
 - V1 excludes semantic-map snapshot/tile browsing and excludes runtime cache/object-storage dependencies.

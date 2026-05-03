@@ -11,6 +11,7 @@ from modules.knowledge_graph.repo import KnowledgeRepo
 from modules.knowledge_graph.service import KnowledgeGraphService
 from modules.taxonomy.projection_port import TaxonomyProjectionPortAdapter
 from modules.taxonomy.repo import TaxonomyRepo
+from shared.integrations import EmbeddingClientPort
 
 
 def build_knowledge_graph_service(
@@ -20,6 +21,7 @@ def build_knowledge_graph_service(
     edge_semantic_top_k: int,
     edge_semantic_min_strength: float,
     edge_semantic_candidate_limit: int,
+    embedding_client: EmbeddingClientPort | None = None,
 ) -> KnowledgeGraphService:
     taxonomy_repo = TaxonomyRepo(session=session)
     taxonomy_projection_port = TaxonomyProjectionPortAdapter(repo=taxonomy_repo)
@@ -30,4 +32,5 @@ def build_knowledge_graph_service(
         edge_semantic_min_strength=edge_semantic_min_strength,
         edge_semantic_candidate_limit=edge_semantic_candidate_limit,
         taxonomy_projection_port=taxonomy_projection_port,
+        embedding_client=embedding_client,
     )

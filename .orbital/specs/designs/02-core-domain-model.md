@@ -1,6 +1,6 @@
 ---
-abstract: Core data and domain model definition for V1 Node-Edge knowledge network, card versions, suggested edits, and adjacency-index read optimization.
-out_of_scope: API endpoint contracts, SQL migration scripts, review-workbench UI, and large-scale partitioning strategy.
+abstract: Core data and domain model definition for V1 Node-Edge knowledge network, card versions, unified card proposals, reviewer apply audits, role-governed contribution, and adjacency-index read optimization.
+out_of_scope: API endpoint contracts, SQL migration scripts, Figma UI designs, notification workflows, and large-scale partitioning strategy.
 ---
 
 # Design: 02-core-domain-model
@@ -10,228 +10,106 @@ out_of_scope: API endpoint contracts, SQL migration scripts, review-workbench UI
 - Superseded modeling choices are removed from active text.
 
 ## Context
-- **Purpose:** Define the V1 persistent domain model for knowledge cards, card versions, suggested edits, and the read-optimized adjacency pattern.
-- **Scope/Boundaries:** Covers `Node`, `CardVersion`, `CardSuggestedEdit`, `Edge`, and `Adjacency` persistence semantics and read query shape.
-- **Related Requirements:** R-002, R-004, R-005, R-006.
+- **Purpose:** Define the V1 persistent domain model for knowledge cards, card versions, unified human proposals, Knowledge-owned contribution roles, reviewer apply audits, and the read-optimized adjacency pattern.
+- **Scope/Boundaries:** Covers `Node`, `CardVersion`, `CardProposal`, `WorkspaceRole`, `ProposalApplyAudit`, `Edge`, and `Adjacency` persistence semantics and read query shape.
+- **Related Requirements:** R-002, R-004, R-005, R-006, R-008.
 
-## Domain Model Definition (SQLAlchemy v2)
+## Domain Model Definition
 
-```python
-from __future__ import annotations
-
-from datetime import datetime
-
-from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, ForeignKeyConstraint, Index, Integer, Text, UniqueConstraint, text
-from pgvector.sqlalchemy import Vector
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-class Node(Base):
-    __tablename__ = "nodes"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    current_version: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
-    embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-    )
-
-    edges: Mapped[list["Edge"]] = relationship(
-        secondary="adjacency",
-        primaryjoin="Node.id == Adjacency.node_id",
-        secondaryjoin="Edge.id == Adjacency.edge_id",
-        viewonly=True,
-    )
-
-    __table_args__ = (
-        CheckConstraint("current_version >= 1", name="ck_nodes_current_version_positive"),
-    )
-
-
-class CardVersion(Base):
-    __tablename__ = "card_versions"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    node_id: Mapped[int] = mapped_column(
-        ForeignKey("nodes.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    version: Mapped[int] = mapped_column(Integer, nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    content: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-    )
-
-    __table_args__ = (
-        CheckConstraint("version >= 1", name="ck_card_versions_version_positive"),
-        UniqueConstraint("node_id", "version", name="uq_card_versions_node_version"),
-        Index("ix_card_versions_node_id", "node_id"),
-    )
-
-
-class CardSuggestedEdit(Base):
-    __tablename__ = "card_suggested_edits"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    node_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    base_version: Mapped[int] = mapped_column(Integer, nullable=False)
-    suggested_title: Mapped[str] = mapped_column(Text, nullable=False)
-    suggested_content: Mapped[str] = mapped_column(Text, nullable=False)
-    suggested_by_user_id: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pending'"))
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-    )
-
-    __table_args__ = (
-        ForeignKeyConstraint(
-            ["node_id", "base_version"],
-            ["card_versions.node_id", "card_versions.version"],
-            name="fk_card_suggested_edits_base_version",
-            ondelete="CASCADE",
-        ),
-        CheckConstraint("base_version >= 1", name="ck_card_suggested_edits_base_version_positive"),
-        CheckConstraint("status IN ('pending', 'accepted', 'rejected')", name="ck_card_suggested_edits_status"),
-        Index("ix_card_suggested_edits_node_id", "node_id"),
-        Index("ix_card_suggested_edits_suggested_by_user_id", "suggested_by_user_id"),
-        Index("ix_card_suggested_edits_status", "status"),
-    )
-
-
-class Edge(Base):
-    __tablename__ = "edges"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    node_a_id: Mapped[int] = mapped_column(
-        ForeignKey("nodes.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    node_b_id: Mapped[int] = mapped_column(
-        ForeignKey("nodes.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    strength: Mapped[float] = mapped_column(Float, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-    )
-
-    __table_args__ = (
-        CheckConstraint("node_a_id < node_b_id", name="ck_edges_canonical_pair"),
-        CheckConstraint("strength >= 0.0 AND strength <= 1.0", name="ck_edges_strength_range"),
-        UniqueConstraint("node_a_id", "node_b_id", name="uq_edges_unordered_pair"),
-    )
-
-
-class Adjacency(Base):
-    __tablename__ = "adjacency"
-
-    node_id: Mapped[int] = mapped_column(
-        ForeignKey("nodes.id", ondelete="CASCADE"),
-        primary_key=True,
-    )
-    edge_id: Mapped[int] = mapped_column(
-        ForeignKey("edges.id", ondelete="CASCADE"),
-        primary_key=True,
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=text("CURRENT_TIMESTAMP"),
-        nullable=False,
-    )
-
-    __table_args__ = (
-        Index("ix_adjacency_node_id", "node_id"),
-        Index("ix_adjacency_edge_id", "edge_id"),
-    )
-```
-
-## Semantic Rules
+### Node
 - `Node` is the atomic knowledge unit.
+- `Node` owns the current card projection: title, content, current version, embedding, lifecycle state, and timestamps.
 - `Node.current_version` is a positive integer and equals the highest formal card version for that node.
-- `CardVersion.version` is a positive integer scoped to one `Node`.
-- `CardVersion` stores formal card history for audit, diff, and rollback baselines.
-- `CardSuggestedEdit` stores proposed title/content values submitted by authenticated users.
-- `CardSuggestedEdit.base_version` references the formal card version the user saw when preparing the suggestion.
-- `CardSuggestedEdit.suggested_by_user_id` stores the authenticated Logto user id string.
-- `CardSuggestedEdit.status` is one of `pending`, `accepted`, or `rejected`.
+- Active nodes appear in ordinary Search and Graph View reads.
+- Archived nodes are hidden from ordinary Search and Graph View reads by default.
 - `Node.embedding` is required and uses fixed dimension `1536`.
+
+### CardVersion
+- `CardVersion` stores formal card history for audit, diff, review, and rollback baselines.
+- `CardVersion.version` is a positive integer scoped to one `Node`.
+- A card's first formal version is `1`.
+- Formal updates create a new `CardVersion` and update the owning `Node` current projection in the same accepted apply operation.
+- Pending proposals do not create card versions.
+
+### WorkspaceRole
+- `WorkspaceRole` stores Knowledge-owned contribution authorization keyed by Logto user id.
+- Default signed-in users are contributors without requiring an explicit role row.
+- Reviewer/admin grants are explicit Knowledge-owned records.
+- Role records carry grant metadata and revoke metadata when the role is inactive.
+- Logto remains the identity provider and does not own Workspace reviewer/admin governance.
+
+### CardProposal
+- `CardProposal` stores reviewable human-originated card maintenance requests.
+- Proposal type is one of `create`, `edit`, or `delete`.
+- Proposal status is one of `pending_review`, `accepted_applied`, `rejected`, or `withdrawn`.
+- Common proposal fields include submitted user id, reviewed user id, review note, created timestamp, updated timestamp, and reviewed timestamp.
+- Type-specific payloads carry:
+  - `create`: proposed title and proposed content.
+  - `edit`: target node id, base version, suggested title, and suggested content.
+  - `delete`: target node id, base version, and reason.
+- Proposals that reference existing cards bind to formal card versions as review baselines.
+
+### ProposalApplyAudit
+- `ProposalApplyAudit` stores the outcome of reviewer acceptance.
+- Each accepted-applied proposal has an independent apply audit record.
+- The audit record identifies the proposal, reviewer, proposal type, affected nodes, created formal versions, archive outcomes when present, reviewer note, and apply timestamp.
+- The audit record is written in the same accepted apply operation as the formal domain change and proposal status transition.
+
+### Edge
 - `Edge` is an undirected relation between two distinct nodes.
 - V1 stores one canonical edge per unordered node pair.
 - `Edge.strength` uses normalized range `[0, 1]`.
 - V1 initialization selects edges from title-mention and semantic candidate pools.
-- Title-mention candidates are existing nodes whose normalized title appears as a complete normalized phrase in the new card content.
+- Title-mention candidates are existing active nodes whose normalized title appears as a complete normalized phrase in the new card content.
 - Semantic candidates are selected by embedding similarity.
 - Candidate budgets, semantic candidate pool size, and semantic strength threshold are runtime policy.
 - V1 initialization rule for persisted strength is `strength = (dot_product + 1) / 2`.
 - Edge initialization policy is not persisted as a transport field.
 
+### Adjacency
+- `Adjacency` is the physical read-optimization table for node-to-edge traversal.
+- `Adjacency` does not change the canonical domain meaning of edges.
+- Neighbor-query path is `Node -> Adjacency(node_id index) -> Edge`.
+
+## Lifecycle And Apply Rules
+- Reviewer acceptance is the only proposal transition that applies formal knowledge changes.
+- `create` acceptance creates a new active `Node`, creates `CardVersion(version=1)`, and leaves taxonomy assignment to the existing Root/Unclassified default.
+- `edit` acceptance creates a new `CardVersion` and updates the target node projection.
+- `delete` acceptance marks the target node archived rather than physically deleting it.
+- `rejected` and `withdrawn` proposals do not change formal card state.
+
 ## Read Model
-- V1 read result model is `Subgraph`.
+- V1 graph read result model is `Subgraph`.
 - `Subgraph` contains only:
   - `nodes`
   - `edges`
+- Ordinary read models omit archived nodes by default.
 - `Subgraph` excludes `edge_threshold`, `anchor`, and `stats`.
 
 ## Design Decisions
 
 ### Why This Design
 - **Node + Edge as source of truth:** keeps domain semantics explicit and normalized.
-- **CardVersion as formal card history:** gives suggested edits, audit, and rollback flows a stable card-content baseline without duplicating original content on every suggestion.
-- **SuggestedEdit bound to `(node_id, base_version)`:** preserves the user's visible editing context while allowing the current card to advance independently.
+- **CardVersion as formal card history:** gives proposals, audit, and rollback flows a stable card-content baseline without duplicating original content on every review surface.
+- **Unified CardProposal:** keeps create, edit, and delete under one review queue and one lifecycle.
+- **Knowledge-owned WorkspaceRole:** keeps contribution governance under product ownership while using Logto only for identity.
+- **ProposalApplyAudit:** makes reviewer-applied outcomes independently auditable.
 - **Adjacency as physical index table:** optimizes read-heavy neighbor queries without changing domain truth.
-- **Canonical unordered edge pair (`node_a_id < node_b_id`):** prevents duplicate mirrored edges and enforces undirected semantics at storage level.
-- **Explicit `Node.edges` join through adjacency:** keeps query path deterministic and avoids ambiguous ORM join behavior.
+- **Canonical unordered edge pair:** prevents duplicate mirrored edges and enforces undirected semantics at storage level.
 
 ### Why Not Alternative Choices
-- **Not using `OR` query (`node_a_id = ? OR node_b_id = ?`) as primary path:** less predictable for large read-heavy workloads.
-- **Not storing mirrored directional rows:** duplicates relation meaning and weakens canonical integrity.
-- **Not keeping threshold as API/transport field:** threshold is internal selection policy, not returned domain payload in V1.
-- **Not storing user name/email snapshots on suggested edits:** user identity display data remains owned by Logto-backed identity lookup rather than duplicated inside card suggestion records.
+- **Not creating separate review systems per proposal type:** duplicates lifecycle, permission, and audit rules.
+- **Not physically deleting cards through reviewer apply:** weakens auditability and risks breaking historical references.
+- **Not storing user name/email snapshots on proposal records:** user display data remains owned by Logto-backed identity lookup rather than duplicated inside card governance records.
+- **Not using Logto roles as the Workspace authority:** reviewer certification is Knowledge product governance, not identity-provider tenancy.
 - **Not introducing partitioning/sharding or other large-scale mechanisms in V1:** exceeds MVP complexity goals.
 
 ## Validation
 - PostgreSQL extension `vector` is enabled before applying vector-backed schema.
 - Neighbor-query path can be expressed as `Node -> Adjacency(node_id index) -> Edge`.
-- Card suggestion diff path can be expressed as `CardSuggestedEdit -> CardVersion(node_id, base_version)`.
+- Proposal diff path can be expressed from proposal payload to the referenced formal `CardVersion` baseline.
 - Unordered-edge uniqueness and no-self-loop constraints are enforced by database constraints.
-- Card version uniqueness, positive versions, and suggestion status validity are enforced by database constraints.
+- Card version uniqueness, positive versions, proposal type values, proposal status values, and role values are enforced by database constraints or equivalent schema validation.
+- Accepted proposal apply writes the formal domain change, final proposal status, and apply audit in one service operation.
+- Ordinary Search and Graph View reads omit archived nodes by default.
 - V1 documents only accepted current state and omits migration narration.

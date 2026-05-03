@@ -73,3 +73,11 @@ file paths, and implementation-facing decisions are projected into design docume
 1. The system SHALL expose external user and programmatic capabilities only through explicitly designated public surfaces.
 2. Internal service APIs SHALL remain private implementation interfaces rather than public product interfaces.
 3. Public access surfaces SHALL own authentication, session, and quota enforcement appropriate to their audience.
+
+### R-008 Role-Governed Knowledge Contribution
+**User Story:** As a knowledge-base operator, I want human contributions governed by explicit roles and review outcomes so that accepted changes remain trustworthy and auditable.
+
+#### Acceptance Criteria (EARS)
+1. The system SHALL separate ordinary contribution capability from review and role-administration capability.
+2. Human-originated knowledge changes SHALL pass through a reviewable contribution record before they affect the formal knowledge graph.
+3. Accepted human-originated knowledge changes SHALL leave auditable records that identify the reviewed contribution, the reviewer, and the applied outcome.

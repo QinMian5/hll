@@ -10,10 +10,10 @@ import json
 import shutil
 from pathlib import Path
 from textwrap import dedent
-from typing import Any
+from typing import Any, cast
 
 SEARCH_PATH = "/api/v1/search"
-SUGGESTED_EDIT_PATH = "/api/v1/cards/{node_id}/suggested-edits"
+CARD_PROPOSAL_PATH = "/api/v1/card-proposals"
 
 
 def main() -> None:
@@ -24,7 +24,7 @@ def main() -> None:
 
     openapi = _load_openapi(args.openapi)
     _validate_search_contract(openapi)
-    _validate_suggested_edit_contract(openapi)
+    _validate_card_proposal_contract(openapi)
     _write_generated_package(args.output_dir)
 
 
@@ -56,9 +56,7 @@ def _validate_search_contract(openapi: dict[str, Any]) -> None:
 
     query_schema = _require_mapping(query_parameter, "schema")
     if query_schema.get("type") != "string" or query_schema.get("minLength") != 1:
-        raise SystemExit(
-            f"{SEARCH_PATH} query parameter must be a string with minLength=1."
-        )
+        raise SystemExit(f"{SEARCH_PATH} query parameter must be a string with minLength=1.")
 
     responses = _require_mapping(search_get, "responses")
     response_200 = _require_mapping(responses, "200")
@@ -81,8 +79,9 @@ def _find_query_parameter(parameters: list[object]) -> dict[str, Any]:
     for parameter in parameters:
         if not isinstance(parameter, dict):
             continue
-        if parameter.get("in") == "query" and parameter.get("name") == "query":
-            return parameter
+        mapping = cast(dict[str, Any], parameter)
+        if mapping.get("in") == "query" and mapping.get("name") == "query":
+            return mapping
 
     raise SystemExit(f"{SEARCH_PATH} must define required query parameter 'query'.")
 
@@ -101,9 +100,7 @@ def _validate_search_response_schema(schema: dict[str, Any]) -> None:
     matched_cards = _require_mapping(properties, "matched_cards")
     matched_items = _require_mapping(matched_cards, "items")
     if matched_items.get("$ref") != "#/components/schemas/MatchedCardResponse":
-        raise SystemExit(
-            "SearchResponse.matched_cards must contain MatchedCardResponse items."
-        )
+        raise SystemExit("SearchResponse.matched_cards must contain MatchedCardResponse items.")
 
     connected_titles = _require_mapping(properties, "connected_titles")
     connected_items = _require_mapping(connected_titles, "items")
@@ -133,48 +130,47 @@ def _validate_matched_card_schema(schema: dict[str, Any]) -> None:
             raise SystemExit(f"MatchedCardResponse.{field_name} must be a string.")
 
 
-def _validate_suggested_edit_contract(openapi: dict[str, Any]) -> None:
+def _validate_card_proposal_contract(openapi: dict[str, Any]) -> None:
     paths = _require_mapping(openapi, "paths")
-    suggested_edit_path = _require_mapping(paths, SUGGESTED_EDIT_PATH)
-    suggested_edit_post = _require_mapping(suggested_edit_path, "post")
+    card_proposal_path = _require_mapping(paths, CARD_PROPOSAL_PATH)
+    card_proposal_post = _require_mapping(card_proposal_path, "post")
 
-    request_body = _require_mapping(suggested_edit_post, "requestBody")
+    request_body = _require_mapping(card_proposal_post, "requestBody")
     request_content = _require_mapping(request_body, "content")
     request_json_content = _require_mapping(request_content, "application/json")
     request_schema_ref = _require_mapping(request_json_content, "schema").get("$ref")
-    if request_schema_ref != "#/components/schemas/SuggestedEditCreateRequest":
+    if request_schema_ref != "#/components/schemas/CardProposalCreateRequest":
         raise SystemExit(
-            f"{SUGGESTED_EDIT_PATH} request body must reference SuggestedEditCreateRequest."
+            f"{CARD_PROPOSAL_PATH} request body must reference CardProposalCreateRequest."
         )
 
-    responses = _require_mapping(suggested_edit_post, "responses")
+    responses = _require_mapping(card_proposal_post, "responses")
     response_201 = _require_mapping(responses, "201")
     response_content = _require_mapping(response_201, "content")
     response_json_content = _require_mapping(response_content, "application/json")
     response_schema_ref = _require_mapping(response_json_content, "schema").get("$ref")
-    if response_schema_ref != "#/components/schemas/SuggestedEditCreateResponse":
-        raise SystemExit(
-            f"{SUGGESTED_EDIT_PATH} 201 response must reference SuggestedEditCreateResponse."
-        )
+    if response_schema_ref != "#/components/schemas/CardProposalResponse":
+        raise SystemExit(f"{CARD_PROPOSAL_PATH} 201 response must reference CardProposalResponse.")
 
     components = _require_mapping(openapi, "components")
     schemas = _require_mapping(components, "schemas")
-    request_schema = _require_mapping(schemas, "SuggestedEditCreateRequest")
-    response_schema = _require_mapping(schemas, "SuggestedEditCreateResponse")
-    if request_schema.get("required") != [
-        "base_version",
-        "suggested_title",
-        "suggested_content",
-    ]:
-        raise SystemExit("SuggestedEditCreateRequest required fields are not current.")
+    request_schema = _require_mapping(schemas, "CardProposalCreateRequest")
+    response_schema = _require_mapping(schemas, "CardProposalResponse")
+    if request_schema.get("required") != ["proposal_type"]:
+        raise SystemExit("CardProposalCreateRequest required fields are not current.")
     if response_schema.get("required") != [
         "id",
-        "node_id",
-        "base_version",
+        "proposal_type",
         "status",
+        "submitted_by_user_id",
+        "reviewed_by_user_id",
+        "review_note",
+        "payload",
         "created_at",
+        "updated_at",
+        "reviewed_at",
     ]:
-        raise SystemExit("SuggestedEditCreateResponse required fields are not current.")
+        raise SystemExit("CardProposalResponse required fields are not current.")
 
 
 def _require_mapping(parent: dict[str, Any], key: str) -> dict[str, Any]:

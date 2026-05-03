@@ -5,6 +5,7 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   BookOpen,
   ChevronRight,
+  Gauge,
   House,
   LayoutDashboard,
   LogOut,
@@ -22,11 +23,18 @@ import type { WebSessionResponse } from "../shared/web-api/session";
 import { useWebSessionQuery } from "../shared/web-api/sessionQueries";
 
 type AppRoute = "/overview" | "/graph" | "/search" | "/docs";
+type AccountRoute = "/dashboard" | "/workspace" | "/settings";
 
 interface NavItem {
   readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
   readonly label: string;
   readonly to: AppRoute;
+}
+
+interface AccountMenuLinkItem {
+  readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
+  readonly label: string;
+  readonly to: AccountRoute;
 }
 
 interface UserProfile {
@@ -40,6 +48,12 @@ const navItems: readonly NavItem[] = [
   { icon: Network, label: "Graph View", to: "/graph" },
   { icon: SearchIcon, label: "Search", to: "/search" },
   { icon: BookOpen, label: "Docs", to: "/docs" },
+];
+
+const accountMenuItems: readonly AccountMenuLinkItem[] = [
+  { icon: Gauge, label: "Dashboard", to: "/dashboard" },
+  { icon: LayoutDashboard, label: "Workspace", to: "/workspace" },
+  { icon: Settings, label: "Settings", to: "/settings" },
 ];
 
 function isNavigationItemActive(pathname: string, itemTo: AppRoute): boolean {
@@ -156,29 +170,66 @@ function NavigationItems({
 }) {
   return (
     <div className="flex w-full flex-1 flex-col gap-2 overflow-hidden">
-      {navItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = isNavigationItemActive(pathname, item.to);
-
-        return (
-          <Link
-            className={cn(
-              "flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-[14px] leading-5 no-underline transition-colors",
-              isActive
-                ? "bg-[#eff6ff] font-medium text-[#131c2d]"
-                : "font-medium text-[#606e87] hover:bg-[#f1f5f9] hover:text-[#131c2d]",
-            )}
-            data-nav-state={isActive ? "active" : "inactive"}
-            key={item.to}
-            onClick={onNavigate}
-            to={item.to}
-          >
-            <Icon aria-hidden="true" className="size-4 shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-          </Link>
-        );
-      })}
+      {navItems.map((item) => (
+        <NavigationItem
+          isActive={isNavigationItemActive(pathname, item.to)}
+          item={item}
+          key={item.to}
+          onNavigate={onNavigate}
+        />
+      ))}
     </div>
+  );
+}
+
+function NavigationItem({
+  isActive,
+  item,
+  onNavigate,
+}: {
+  readonly isActive: boolean;
+  readonly item: NavItem;
+  readonly onNavigate?: () => void;
+}) {
+  const Icon = item.icon;
+
+  return (
+    <Link
+      className={cn(
+        "flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-[14px] leading-5 no-underline transition-colors",
+        isActive
+          ? "bg-[#eff6ff] font-medium text-[#131c2d]"
+          : "font-medium text-[#606e87] hover:bg-[#f1f5f9] hover:text-[#131c2d]",
+      )}
+      data-nav-state={isActive ? "active" : "inactive"}
+      onClick={onNavigate}
+      to={item.to}
+    >
+      <Icon aria-hidden="true" className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+    </Link>
+  );
+}
+
+function AccountMenuLink({
+  item,
+  onNavigate,
+}: {
+  readonly item: AccountMenuLinkItem;
+  readonly onNavigate?: () => void;
+}) {
+  const Icon = item.icon;
+
+  return (
+    <Link
+      className={menuItemClasses}
+      onClick={onNavigate}
+      role="menuitem"
+      to={item.to}
+    >
+      <Icon aria-hidden="true" className={menuIconClasses} />
+      <span>{item.label}</span>
+    </Link>
   );
 }
 
@@ -195,24 +246,9 @@ function AccountMenu({
       ref={menuRef}
       role="menu"
     >
-      <Link
-        className={menuItemClasses}
-        onClick={onNavigate}
-        role="menuitem"
-        to="/dashboard"
-      >
-        <LayoutDashboard aria-hidden="true" className={menuIconClasses} />
-        <span>Dashboard</span>
-      </Link>
-      <Link
-        className={menuItemClasses}
-        onClick={onNavigate}
-        role="menuitem"
-        to="/settings"
-      >
-        <Settings aria-hidden="true" className={menuIconClasses} />
-        <span>Settings</span>
-      </Link>
+      {accountMenuItems.map((item) => (
+        <AccountMenuLink item={item} key={item.to} onNavigate={onNavigate} />
+      ))}
       <form action="/web-api/auth/sign-out" className="w-full" method="post">
         <button className={menuItemClasses} role="menuitem" type="submit">
           <LogOut aria-hidden="true" className={menuIconClasses} />

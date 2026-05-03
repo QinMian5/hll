@@ -717,16 +717,6 @@ INSERT INTO public.card_versions (id, node_id, version, title, content, created_
 ALTER TABLE public.card_versions ENABLE TRIGGER ALL;
 
 --
--- Data for Name: card_suggested_edits; Type: TABLE DATA; Schema: public; Owner: -
---
-
-ALTER TABLE public.card_suggested_edits DISABLE TRIGGER ALL;
-
-
-
-ALTER TABLE public.card_suggested_edits ENABLE TRIGGER ALL;
-
---
 -- Data for Name: ingestion_requests; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -1044,13 +1034,6 @@ ALTER TABLE public.taxonomy_classification_webhook_wakeups DISABLE TRIGGER ALL;
 ALTER TABLE public.taxonomy_classification_webhook_wakeups ENABLE TRIGGER ALL;
 
 --
-
---
--- Name: card_suggested_edits_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
---
-
-SELECT pg_catalog.setval('public.card_suggested_edits_id_seq', 1, false);
-
 
 --
 -- Name: card_versions_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -

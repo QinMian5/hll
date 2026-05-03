@@ -1,6 +1,6 @@
 ---
-abstract: Module-level orchestration design for knowledge core ownership, card versions, suggested-edit submission, ingestion async write pipeline, cache-backed hybrid search read flow, and taxonomy drill-down reads.
-out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, ingestion status APIs, and distributed multi-region queue reliability.
+abstract: Module-level orchestration design for knowledge core ownership, card versions, unified proposal submission/review, ingestion async write pipeline, cache-backed hybrid search read flow, and taxonomy drill-down reads.
+out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace construction, notification workflows, ingestion status APIs, and distributed multi-region queue reliability.
 ---
 
 # Design: knowledge-ingestion-search-orchestration
@@ -10,17 +10,17 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 - Remove superseded decisions instead of keeping deprecation narratives.
 
 ## Context
-- **Purpose:** Define accepted V1 orchestration for `knowledge_graph`, `taxonomy`, `taxonomy_classification`, `ingestion`, `search`, and card suggestion submission under async ingestion with Redis/Dramatiq and API-owned read-model caches.
-- **Scope/Boundaries:** Covers module ownership, endpoint contracts, async processing flow, card version/suggestion submission rules, taxonomy bootstrap/classification boundaries, taxonomy drill-down read rules, cache-backed Search orchestration, and runtime observability obligations.
-- **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006.
+- **Purpose:** Define accepted V1 orchestration for `knowledge_graph`, `taxonomy`, `taxonomy_classification`, `ingestion`, `search`, and unified Workspace proposal submission/review under async ingestion with Redis/Dramatiq and API-owned read-model caches.
+- **Scope/Boundaries:** Covers module ownership, endpoint contracts, async processing flow, card version/proposal rules, taxonomy bootstrap/classification boundaries, taxonomy drill-down read rules, cache-backed Search orchestration, and runtime observability obligations.
+- **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006, R-008.
 
 ## Module Ownership
 
 ### knowledge_graph
-- Owns persistent domain truth for `Node`, `CardVersion`, `CardSuggestedEdit`, `Edge`, and `Adjacency`.
+- Owns persistent domain truth for `Node`, `CardVersion`, `CardProposal`, `WorkspaceRole`, `ProposalApplyAudit`, `Edge`, and `Adjacency`.
 - Is the only module allowed to own/access graph persistence models and repositories.
 - Exposes read/write service ports consumed by `search`, `ingestion`, and `taxonomy`.
-- Exposes suggested-edit creation ports consumed by private API orchestration.
+- Exposes proposal creation, proposal listing, proposal withdrawal, proposal rejection, proposal accept/apply, role-read, and role-management ports consumed by private API orchestration.
 
 ### taxonomy
 - Owns persisted operator-managed LCC taxonomy tree and current direct node-to-taxonomy assignment truth.
@@ -98,28 +98,29 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
   - `matched_cards` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_MATCHED`
   - `connected_titles` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_CONNECTED`
 
-### Card Suggested Edit Endpoint
-- Route: `POST /api/v1/cards/{node_id}/suggested-edits`
-- Request fields:
-  - `base_version`
-  - `suggested_title`
-  - `suggested_content`
-  - `suggested_by_user_id`
+### Workspace Proposal Endpoints
+- Private API endpoints support proposal creation, current-user proposal listing, reviewer pending-queue listing, withdrawal, rejection, and accept/apply.
+- Proposal creation request fields:
+  - `proposal_type`
+  - type-specific proposal payload
+  - acting user id supplied through trusted BFF context
+- Proposal review request fields:
+  - proposal id
+  - reviewer decision
+  - optional review note
+  - acting reviewer user id supplied through trusted BFF context
 - Response:
-  - valid authenticated BFF-originated submission: `201 Created`
-  - unknown card, unknown base version, invalid proposed values, or no-op suggestion: `4xx` via global error-governance mapping
-- Response fields:
-  - `id`
-  - `node_id`
-  - `base_version`
-  - `status`
-  - `created_at`
+  - valid authenticated BFF-originated proposal creation: created proposal response
+  - valid reviewer acceptance: accepted-applied proposal response and apply audit identity
+  - valid reviewer rejection: rejected proposal response
+  - unknown card, unknown base version, invalid proposed values, no-op edit proposal, invalid role, or invalid state transition: `4xx` via global error-governance mapping
 - Rules:
-  - `suggested_by_user_id` is a Logto user id supplied by the BFF from the authenticated server-side session.
-  - `(node_id, base_version)` must identify an existing formal card version.
-  - proposed title/content must differ from the referenced base version.
-  - a stale but existing `base_version` is accepted as the user's visible editing baseline.
-  - created suggestions have status `pending`.
+  - acting user ids are supplied by the BFF from authenticated server-side sessions.
+  - browser payloads do not supply user identity or role fields.
+  - proposals that reference existing cards bind to formal card versions.
+  - a stale but existing base version is accepted as the user's visible proposal baseline.
+  - created proposals have status `pending_review`.
+  - reviewer acceptance applies the formal domain change, transitions the proposal to `accepted_applied`, and writes an apply audit record.
 
 ### Taxonomy Root View Endpoint
 - Route: `GET /api/v1/taxonomy/view/root`
@@ -236,7 +237,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
 
 ## Card Version Rollout Invariant
 - New ingested nodes create `nodes.current_version = 1` and `card_versions(version = 1)` in the same write path.
-- Existing nodes must be backfilled to the same invariant before authenticated suggested-edit submission is enabled, so every submitted `(node_id, base_version)` can reference `card_versions(node_id, version)`.
+- Existing nodes must be backfilled to the same invariant before authenticated edit or delete proposal submission is enabled, so every submitted `(node_id, base_version)` can reference `card_versions(node_id, version)`.
 
 ## Taxonomy Bootstrap Flow
 1. Operator script creates or imports one authoritative tree rooted at the real `Root` node.
@@ -304,10 +305,12 @@ out_of_scope: LLM reranking, cross-encoder reranking, suggestion review UI, inge
   - search ranking checks verifying exact-title and title-token lexical matches rank ahead of content-only matches
   - search ranking checks verifying semantic vector candidates remain eligible when lexical matches are absent
   - search ranking checks verifying reciprocal-rank fusion produces deterministic ordering and tie-breaking
-  - `POST /api/v1/cards/{node_id}/suggested-edits` contract checks
-  - suggested-edit checks verifying valid base-version submissions create pending suggestions
-  - suggested-edit checks verifying unknown base versions, empty proposed values, and no-op suggestions are rejected
-  - suggested-edit checks verifying stale but existing base versions are accepted
+  - Workspace proposal creation contract checks
+  - Workspace proposal checks verifying valid create/edit submissions create pending proposals
+  - Workspace proposal checks verifying unknown base versions, empty proposed values, and no-op edit proposals are rejected
+  - Workspace proposal checks verifying stale but existing base versions are accepted
+  - Workspace review checks verifying reviewer acceptance applies the formal domain change, transitions the proposal, and writes an apply audit
+  - Workspace review checks verifying unauthorized reviewer/admin actions are rejected
   - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, `GET /api/v1/taxonomy/view/path/{route_path:path}`, `GET /api/v1/taxonomy/view/card-scopes/layout`, `POST /api/v1/taxonomy/view/card-scopes/titles`, and `POST /api/v1/taxonomy/view/card-scopes/details` contract checks
   - taxonomy view checks verifying direct taxonomy-node assignments are exposed through visible virtual `Unclassified` card scopes without materializing real `Unclassified` taxonomy nodes or buckets
   - taxonomy classification queue-contract checks

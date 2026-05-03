@@ -83,6 +83,15 @@ const dashboardRoute = createRoute({
   path: "dashboard",
 });
 
+const workspaceRoute = createRoute({
+  component: lazyRouteComponent(
+    () => import("../features/workspace/pages"),
+    "WorkspacePage",
+  ),
+  getParentRoute: () => rootRoute,
+  path: "workspace",
+});
+
 const settingsRoute = createRoute({
   component: lazyRouteComponent(
     () => import("../features/settings/pages"),
@@ -100,6 +109,7 @@ const routeTree = rootRoute.addChildren([
   searchRoute,
   docsRoute,
   dashboardRoute,
+  workspaceRoute,
   settingsRoute,
 ]);
 

@@ -22,7 +22,12 @@ async def test_card_version_tables_and_constraints_exist_after_migration(
                 SELECT tablename
                 FROM pg_tables
                 WHERE schemaname = 'public'
-                  AND tablename IN ('card_versions', 'card_suggested_edits')
+                  AND tablename IN (
+                    'card_versions',
+                    'workspace_roles',
+                    'card_proposals',
+                    'proposal_apply_audits'
+                  )
                 ORDER BY tablename
                 """
             )
@@ -36,11 +41,13 @@ async def test_card_version_tables_and_constraints_exist_after_migration(
                 FROM pg_constraint
                 WHERE conname IN (
                     'ck_nodes_current_version_positive',
+                    'ck_nodes_lifecycle_state',
                     'ck_card_versions_version_positive',
                     'uq_card_versions_node_version',
-                    'fk_card_suggested_edits_base_version',
-                    'ck_card_suggested_edits_base_version_positive',
-                    'ck_card_suggested_edits_status'
+                    'ck_workspace_roles_role',
+                    'ck_card_proposals_proposal_type',
+                    'ck_card_proposals_status',
+                    'fk_proposal_apply_audits_proposal_id_card_proposals'
                 )
                 ORDER BY conname
                 """
@@ -48,14 +55,21 @@ async def test_card_version_tables_and_constraints_exist_after_migration(
         )
     ).scalars()
 
-    assert set(table_rows.all()) == {"card_versions", "card_suggested_edits"}
+    assert set(table_rows.all()) == {
+        "card_versions",
+        "workspace_roles",
+        "card_proposals",
+        "proposal_apply_audits",
+    }
     assert set(constraint_rows.all()) == {
         "ck_nodes_current_version_positive",
+        "ck_nodes_lifecycle_state",
         "ck_card_versions_version_positive",
         "uq_card_versions_node_version",
-        "fk_card_suggested_edits_base_version",
-        "ck_card_suggested_edits_base_version_positive",
-        "ck_card_suggested_edits_status",
+        "ck_workspace_roles_role",
+        "ck_card_proposals_proposal_type",
+        "ck_card_proposals_status",
+        "fk_proposal_apply_audits_proposal_id_card_proposals",
     }
 
 

@@ -8,16 +8,32 @@ from __future__ import annotations
 from typing import cast
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import CheckConstraint, DateTime, ForeignKeyConstraint, Table, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, Table, UniqueConstraint
 from sqlalchemy.dialects.postgresql import TSVECTOR
 
-from modules.knowledge_graph.model import Adjacency, CardSuggestedEdit, CardVersion, Edge, Node
+from modules.knowledge_graph.model import (
+    Adjacency,
+    CardProposal,
+    CardVersion,
+    Edge,
+    Node,
+    ProposalApplyAudit,
+    WorkspaceRole,
+)
 from shared.db.base import Base
 
 
 def test_projection_registers_required_tables() -> None:
     table_names = set(Base.metadata.tables)
-    assert {"nodes", "card_versions", "card_suggested_edits", "edges", "adjacency"} <= table_names
+    assert {
+        "nodes",
+        "card_versions",
+        "workspace_roles",
+        "card_proposals",
+        "proposal_apply_audits",
+        "edges",
+        "adjacency",
+    } <= table_names
 
 
 def test_nodes_embedding_is_vector_1536() -> None:
@@ -38,12 +54,22 @@ def test_nodes_projection_contains_weighted_search_vector() -> None:
 
 
 def test_nodes_current_version_is_required_positive_integer() -> None:
-    current_version = Node.__table__.c.current_version
+    table = cast(Table, Node.__table__)
+    current_version = table.c.current_version
     assert current_version.nullable is False
     assert isinstance(current_version.type, type(Edge.__table__.c.id.type))
 
-    constraint_names = {constraint.name for constraint in Node.__table__.constraints}
+    constraint_names = {constraint.name for constraint in table.constraints}
     assert "ck_nodes_current_version_positive" in constraint_names
+
+
+def test_nodes_projection_contains_active_archive_lifecycle_state() -> None:
+    table = cast(Table, Node.__table__)
+    lifecycle_state = table.c.lifecycle_state
+    constraint_names = {constraint.name for constraint in table.constraints}
+
+    assert lifecycle_state.nullable is False
+    assert "ck_nodes_lifecycle_state" in constraint_names
 
 
 def test_card_versions_projection_contains_history_fields_and_constraints() -> None:
@@ -73,34 +99,76 @@ def test_card_versions_projection_contains_history_fields_and_constraints() -> N
     assert foreign_keys[0].ondelete == "CASCADE"
 
 
-def test_card_suggested_edits_projection_contains_status_and_base_version_constraints() -> None:
-    table = cast(Table, CardSuggestedEdit.__table__)
+def test_workspace_roles_projection_contains_role_constraints() -> None:
+    table = cast(Table, WorkspaceRole.__table__)
     constraint_names = {constraint.name for constraint in table.constraints}
     index_names = {index.name for index in table.indexes}
-    composite_foreign_keys = [
-        constraint
-        for constraint in table.constraints
-        if isinstance(constraint, ForeignKeyConstraint)
-        and constraint.name == "fk_card_suggested_edits_base_version"
-    ]
 
     assert {
         "id",
-        "node_id",
-        "base_version",
-        "suggested_title",
-        "suggested_content",
-        "suggested_by_user_id",
-        "status",
+        "user_id",
+        "role",
+        "granted_by_user_id",
+        "granted_at",
+        "revoked_by_user_id",
+        "revoked_at",
         "created_at",
         "updated_at",
     } <= {column.name for column in table.c}
-    assert "ck_card_suggested_edits_base_version_positive" in constraint_names
-    assert "ck_card_suggested_edits_status" in constraint_names
-    assert {"ix_card_suggested_edits_node_id", "ix_card_suggested_edits_status"} <= index_names
-    assert "ix_card_suggested_edits_suggested_by_user_id" in index_names
-    assert len(composite_foreign_keys) == 1
-    assert composite_foreign_keys[0].ondelete == "CASCADE"
+    assert "ck_workspace_roles_role" in constraint_names
+    assert {"ix_workspace_roles_user_id", "ix_workspace_roles_role"} <= index_names
+
+
+def test_card_proposals_projection_contains_unified_status_and_type_constraints() -> None:
+    table = cast(Table, CardProposal.__table__)
+    constraint_names = {constraint.name for constraint in table.constraints}
+    index_names = {index.name for index in table.indexes}
+
+    assert {
+        "id",
+        "proposal_type",
+        "status",
+        "submitted_by_user_id",
+        "reviewed_by_user_id",
+        "review_note",
+        "payload",
+        "created_at",
+        "updated_at",
+        "reviewed_at",
+    } <= {column.name for column in table.c}
+    assert "ck_card_proposals_proposal_type" in constraint_names
+    assert "ck_card_proposals_status" in constraint_names
+    assert {
+        "ix_card_proposals_submitted_by_user_id",
+        "ix_card_proposals_reviewed_by_user_id",
+        "ix_card_proposals_status",
+        "ix_card_proposals_proposal_type",
+    } <= index_names
+
+
+def test_proposal_apply_audits_projection_contains_acceptance_outcome_fields() -> None:
+    table = cast(Table, ProposalApplyAudit.__table__)
+    index_names = {index.name for index in table.indexes}
+
+    assert {
+        "id",
+        "proposal_id",
+        "reviewer_user_id",
+        "proposal_type",
+        "affected_node_ids",
+        "created_versions",
+        "archive_outcome",
+        "review_note",
+        "applied_at",
+    } <= {column.name for column in table.c}
+    assert {
+        "ix_proposal_apply_audits_proposal_id",
+        "ix_proposal_apply_audits_reviewer_user_id",
+    } <= (index_names)
+
+    proposal_foreign_keys = list(table.c.proposal_id.foreign_keys)
+    assert len(proposal_foreign_keys) == 1
+    assert proposal_foreign_keys[0].target_fullname == "card_proposals.id"
 
 
 def test_edges_constraints_present() -> None:

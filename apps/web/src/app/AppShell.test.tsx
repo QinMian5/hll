@@ -27,6 +27,12 @@ vi.mock("../features/docs/pages", () => ({
   DocsPage: () => <div data-testid="mock-docs-page">Docs page</div>,
 }));
 
+vi.mock("../features/workspace/pages", () => ({
+  WorkspacePage: () => (
+    <div data-testid="mock-workspace-page">Workspace page</div>
+  ),
+}));
+
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
     headers: { "Content-Type": "application/json" },
@@ -310,13 +316,23 @@ describe("AppShell", () => {
     });
 
     expect(dashboardMenuItem).toHaveAttribute("href", "/dashboard");
+    const workspaceMenuItem = screen.getByRole("menuitem", {
+      name: "Workspace",
+    });
+
+    expect(workspaceMenuItem).toHaveAttribute("href", "/workspace");
     const settingsMenuItem = screen.getByRole("menuitem", { name: "Settings" });
 
     expect(settingsMenuItem).toHaveAttribute("href", "/settings");
     const signOutButton = screen.getByRole("menuitem", { name: "Sign out" });
 
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual(["Dashboard", "Workspace", "Settings", "Sign out"]);
+
     for (const menuItem of [
       dashboardMenuItem,
+      workspaceMenuItem,
       settingsMenuItem,
       signOutButton,
     ]) {

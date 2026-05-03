@@ -7,6 +7,10 @@ import { queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import { fetchWebApiJson } from "../../../shared/web-api/client";
 
 export type SearchResponse = components["schemas"]["SearchResponse"];
+export type CardProposalCreateRequest =
+  components["schemas"]["CardProposalCreateRequest"];
+export type CardProposalResponse =
+  components["schemas"]["CardProposalResponse"];
 export type SuggestedEditCreateResponse =
   components["schemas"]["SuggestedEditCreateResponse"];
 
@@ -16,6 +20,8 @@ export interface CreateSuggestedEditPayload {
   readonly suggestedContent: string;
   readonly suggestedTitle: string;
 }
+
+export type CreateCardProposalPayload = CardProposalCreateRequest;
 
 const searchQueryKeys = {
   query: (query: string) => ["search", query] as const,
@@ -43,6 +49,18 @@ export async function createSuggestedEdit(
   );
 }
 
+export async function createCardProposal(
+  payload: CreateCardProposalPayload,
+): Promise<CardProposalResponse> {
+  return await fetchWebApiJson<CardProposalResponse>(
+    "/web-api/card-proposals",
+    {
+      body: payload,
+      method: "POST",
+    },
+  );
+}
+
 export function searchQueryOptions(query: string) {
   return queryOptions({
     queryFn: () => fetchSearchResults(query),
@@ -63,5 +81,11 @@ export function useSearchQuery(
 export function useCreateSuggestedEditMutation() {
   return useMutation({
     mutationFn: createSuggestedEdit,
+  });
+}
+
+export function useCreateCardProposalMutation() {
+  return useMutation({
+    mutationFn: createCardProposal,
   });
 }

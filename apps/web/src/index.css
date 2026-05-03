@@ -120,7 +120,20 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-docs-step-row-gap: 16px;
   --spacing-docs-terminal-header-height: 36px;
   --spacing-docs-terminal-padding: 12px;
-  --spacing-knowledge-dialog-padding: 24px;
+  --spacing-knowledge-dialog-padding: 16px;
+  --spacing-knowledge-dialog-content-gap: 16px;
+  --spacing-knowledge-dialog-field-gap: 8px;
+  --spacing-knowledge-dialog-footer-gap: 8px;
+  --spacing-knowledge-dialog-footer-height: 40px;
+  --spacing-knowledge-dialog-header-height: 32px;
+  --spacing-knowledge-dialog-input-padding-x: 12px;
+  --spacing-knowledge-dialog-input-padding-y: 8px;
+  --spacing-knowledge-dialog-lg-height-desktop: 480px;
+  --spacing-knowledge-dialog-lg-height-mobile: 640px;
+  --spacing-knowledge-dialog-lg-width-desktop: 640px;
+  --spacing-knowledge-dialog-lg-width-mobile: 400px;
+  --spacing-knowledge-dialog-mode-tab-padding-x: 8px;
+  --spacing-knowledge-dialog-textarea-min-height: 80px;
   --spacing-knowledge-icon-action: 24px;
   --spacing-knowledge-leaf-disclosure-content-height-2xl: 144px;
   --spacing-knowledge-leaf-disclosure-content-height-lg: 112px;
@@ -178,12 +191,12 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-dashboard-table-row-padding-y: 8px;
   --spacing-knowledge-dashboard-toolbar-height: 40px;
 
-  --spacing-account-menu-height: 140px;
+  --spacing-account-menu-height: 184px;
   --spacing-account-menu-icon-size: 16px;
-  --spacing-account-menu-item-gap: 10px;
+  --spacing-account-menu-item-gap: 8px;
   --spacing-account-menu-item-height: 44px;
   --spacing-account-menu-item-x: 12px;
-  --spacing-account-menu-offset-y: 92px;
+  --spacing-account-menu-offset-y: 192px;
 
   --radius-knowledge-control: 8px;
   --radius-docs-icon-button: 4px;

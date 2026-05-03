@@ -4,6 +4,108 @@
  */
 
 export interface paths {
+  "/api/v1/card-proposals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Card Proposal */
+    post: operations["create_card_proposal_api_v1_card_proposals_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/card-proposals/my": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List My Card Proposals */
+    get: operations["list_my_card_proposals_api_v1_card_proposals_my_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/card-proposals/review-queue": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Card Proposals For Review */
+    get: operations["list_card_proposals_for_review_api_v1_card_proposals_review_queue_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/card-proposals/{proposal_id}/accept": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Accept Card Proposal */
+    post: operations["accept_card_proposal_api_v1_card_proposals__proposal_id__accept_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/card-proposals/{proposal_id}/reject": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reject Card Proposal */
+    post: operations["reject_card_proposal_api_v1_card_proposals__proposal_id__reject_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/card-proposals/{proposal_id}/withdraw": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Withdraw Card Proposal */
+    post: operations["withdraw_card_proposal_api_v1_card_proposals__proposal_id__withdraw_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/cards": {
     parameters: {
       query?: never;
@@ -161,6 +263,75 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** CardProposalCreateRequest */
+    CardProposalCreateRequest: {
+      /** Base Version */
+      base_version?: number | null;
+      /**
+       * Proposal Type
+       * @enum {string}
+       */
+      proposal_type: "create" | "edit" | "delete";
+      /** Proposed Content */
+      proposed_content?: string | null;
+      /** Proposed Title */
+      proposed_title?: string | null;
+      /** Reason */
+      reason?: string | null;
+      /** Suggested Content */
+      suggested_content?: string | null;
+      /** Suggested Title */
+      suggested_title?: string | null;
+      /** Target Node Id */
+      target_node_id?: number | null;
+    };
+    /** CardProposalListResponse */
+    CardProposalListResponse: {
+      /** Proposals */
+      proposals: components["schemas"]["CardProposalResponse"][];
+    };
+    /** CardProposalResponse */
+    CardProposalResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: number;
+      /** Payload */
+      payload: {
+        [key: string]: unknown;
+      };
+      /**
+       * Proposal Type
+       * @enum {string}
+       */
+      proposal_type: "create" | "edit" | "delete";
+      /** Review Note */
+      review_note: string | null;
+      /** Reviewed At */
+      reviewed_at: string | null;
+      /** Reviewed By User Id */
+      reviewed_by_user_id: string | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "pending_review" | "accepted_applied" | "rejected" | "withdrawn";
+      /** Submitted By User Id */
+      submitted_by_user_id: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** CardProposalReviewRequest */
+    CardProposalReviewRequest: {
+      /** Review Note */
+      review_note?: string | null;
+    };
     /**
      * ErrorCode
      * @enum {string}
@@ -172,6 +343,7 @@ export interface components {
       | "APPLICATION_TAXONOMY_INPUT_INVALID"
       | "layout_not_ready"
       | "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND"
+      | "DOMAIN_KNOWLEDGE_PERMISSION_DENIED"
       | "DOMAIN_KNOWLEDGE_RULE_VIOLATION"
       | "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND"
       | "APPLICATION_SEARCH_STATE_CONFLICT"
@@ -470,6 +642,282 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  create_card_proposal_api_v1_card_proposals_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Knowledge-Actor-User-Id": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CardProposalCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CardProposalResponse"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Unprocessable Content */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  list_my_card_proposals_api_v1_card_proposals_my_get: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Knowledge-Actor-User-Id": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CardProposalListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_card_proposals_for_review_api_v1_card_proposals_review_queue_get: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Knowledge-Actor-User-Id": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CardProposalListResponse"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  accept_card_proposal_api_v1_card_proposals__proposal_id__accept_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Knowledge-Actor-User-Id": string;
+      };
+      path: {
+        proposal_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CardProposalReviewRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CardProposalResponse"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Unprocessable Content */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  reject_card_proposal_api_v1_card_proposals__proposal_id__reject_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Knowledge-Actor-User-Id": string;
+      };
+      path: {
+        proposal_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CardProposalReviewRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CardProposalResponse"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Unprocessable Content */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
+  withdraw_card_proposal_api_v1_card_proposals__proposal_id__withdraw_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Knowledge-Actor-User-Id": string;
+      };
+      path: {
+        proposal_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CardProposalResponse"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+      /** @description Unprocessable Content */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorEnvelope"];
+        };
+      };
+    };
+  };
   create_ingestion_api_v1_cards_post: {
     parameters: {
       query?: never;

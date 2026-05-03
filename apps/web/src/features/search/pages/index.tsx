@@ -2,16 +2,20 @@
 // out_of_scope: Backend search integration and ranking semantics.
 
 import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
 import { type FormEvent, lazy, Suspense, useState } from "react";
 import { WebApiRequestError } from "../../../shared/web-api/errors";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
 import { RelatedResultItem } from "../components/RelatedResultItem";
+import {
+  SearchCardProposalDialog,
+  type SearchCardProposalSubmitPayload,
+} from "../components/SearchCardProposalDialog";
 import { SearchField } from "../components/SearchField";
 import type { SearchResultCardEditPayload } from "../components/SearchResultCard";
 import { SignInRequiredDialog } from "../components/SignInRequiredDialog";
-import { SuggestEditDialog } from "../components/SuggestEditDialog";
 import {
-  useCreateSuggestedEditMutation,
+  useCreateCardProposalMutation,
   useSearchQuery,
 } from "../data/searchQueries";
 import { suggestedEditErrorMessage } from "../suggestedEditErrors";
@@ -52,10 +56,12 @@ export function SearchPage() {
   const searchQuery = useSearchQuery(query, {
     enabled: hasQuery,
   });
-  const createSuggestedEditMutation = useCreateSuggestedEditMutation();
-  const [editingCard, setEditingCard] =
-    useState<SearchResultCardEditPayload | null>(null);
-  const [suggestionError, setSuggestionError] = useState<string | undefined>();
+  const createCardProposalMutation = useCreateCardProposalMutation();
+  const [proposalDialog, setProposalDialog] = useState<{
+    readonly card?: SearchResultCardEditPayload;
+    readonly mode: "create" | "edit";
+  } | null>(null);
+  const [proposalError, setProposalError] = useState<string | undefined>();
   const [isSignInDialogOpen, setIsSignInDialogOpen] = useState(false);
   const matchedCards = searchQuery.data?.matched_cards ?? [];
   const connectedTitles = searchQuery.data?.connected_titles ?? [];
@@ -85,7 +91,10 @@ export function SearchPage() {
     navigateToSearchQuery(nextQuery);
   }
 
-  function handleSuggestEdit(card: SearchResultCardEditPayload) {
+  function openProposalDialog(nextDialog: {
+    readonly card?: SearchResultCardEditPayload;
+    readonly mode: "create" | "edit";
+  }) {
     if (session.status === "loading") {
       return;
     }
@@ -95,29 +104,43 @@ export function SearchPage() {
       return;
     }
 
-    setEditingCard(card);
-    setSuggestionError(undefined);
+    setProposalDialog(nextDialog);
+    setProposalError(undefined);
   }
 
-  async function handleSubmitSuggestion(payload: {
-    readonly suggestedContent: string;
-    readonly suggestedTitle: string;
-  }) {
-    if (editingCard === null) {
-      return;
-    }
-
+  async function handleSubmitProposal(
+    payload: SearchCardProposalSubmitPayload,
+  ) {
     try {
-      await createSuggestedEditMutation.mutateAsync({
-        baseVersion: editingCard.currentVersion,
-        nodeId: editingCard.nodeId,
-        suggestedContent: payload.suggestedContent,
-        suggestedTitle: payload.suggestedTitle,
-      });
-      setEditingCard(null);
-      setSuggestionError(undefined);
+      if (payload.mode === "create") {
+        await createCardProposalMutation.mutateAsync({
+          proposal_type: "create",
+          proposed_content: payload.content,
+          proposed_title: payload.title,
+        });
+      } else if (payload.mode === "edit" && proposalDialog?.card) {
+        await createCardProposalMutation.mutateAsync({
+          base_version: proposalDialog.card.currentVersion,
+          proposal_type: "edit",
+          suggested_content: payload.content,
+          suggested_title: payload.title,
+          target_node_id: proposalDialog.card.nodeId,
+        });
+      } else if (payload.mode === "delete" && proposalDialog?.card) {
+        await createCardProposalMutation.mutateAsync({
+          base_version: proposalDialog.card.currentVersion,
+          proposal_type: "delete",
+          reason: payload.reason,
+          target_node_id: proposalDialog.card.nodeId,
+        });
+      } else {
+        setProposalError("Choose a search result card before submitting.");
+        return;
+      }
+      setProposalDialog(null);
+      setProposalError(undefined);
     } catch (error) {
-      setSuggestionError(suggestedEditErrorMessage(error));
+      setProposalError(suggestedEditErrorMessage(error));
     }
   }
 
@@ -160,9 +183,21 @@ export function SearchPage() {
             data-testid="search-results-section"
           >
             <section className="flex min-h-0 min-w-0 flex-col gap-2 lg:h-full lg:gap-4">
-              <h1 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
-                Search results
-              </h1>
+              <div className="flex h-12 w-full shrink-0 items-center justify-between bg-white">
+                <h1 className="m-0 min-w-0 flex-1 text-[20px] leading-7 font-semibold text-knowledge-text-default md:text-[32px] md:leading-[46px]">
+                  Search results
+                </h1>
+                <button
+                  className="inline-flex h-9 w-[116px] shrink-0 items-center justify-center gap-2 rounded-knowledge-control bg-knowledge-brand px-[14px] text-knowledge-button font-medium text-knowledge-text-inverse transition-colors hover:bg-knowledge-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
+                  onClick={() => {
+                    openProposalDialog({ mode: "create" });
+                  }}
+                  type="button"
+                >
+                  <Plus aria-hidden="true" className="size-4" />
+                  Add card
+                </button>
+              </div>
               <div
                 className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pt-4 pr-4 pb-1 pl-2 [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-results-scroll-area"
@@ -193,7 +228,12 @@ export function SearchPage() {
                           key={card.node_id}
                           nodeId={card.node_id}
                           onSearchTitle={navigateToSearchQuery}
-                          onSuggestEdit={handleSuggestEdit}
+                          onSuggestEdit={(selectedCard) => {
+                            openProposalDialog({
+                              card: selectedCard,
+                              mode: "edit",
+                            });
+                          }}
                           title={card.title}
                         />
                       ))}
@@ -225,16 +265,17 @@ export function SearchPage() {
           </div>
         </div>
       )}
-      {editingCard ? (
-        <SuggestEditDialog
-          card={editingCard}
-          errorMessage={suggestionError}
-          isSubmitting={createSuggestedEditMutation.isPending}
+      {proposalDialog ? (
+        <SearchCardProposalDialog
+          card={proposalDialog.card}
+          errorMessage={proposalError}
+          initialMode={proposalDialog.mode}
+          isSubmitting={createCardProposalMutation.isPending}
           onClose={() => {
-            setEditingCard(null);
-            setSuggestionError(undefined);
+            setProposalDialog(null);
+            setProposalError(undefined);
           }}
-          onSubmit={handleSubmitSuggestion}
+          onSubmit={handleSubmitProposal}
         />
       ) : null}
       {isSignInDialogOpen ? (

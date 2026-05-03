@@ -17,6 +17,7 @@ import { createMcpQuotaSummaryClient } from "./dashboard/mcpQuotaSummary.js";
 import { createMcpUsageSummaryClient } from "./dashboard/mcpUsageSummary.js";
 import { requestServiceAccessToken } from "./dashboard/serviceAccessToken.js";
 import { createInternalApiClient } from "./internal-api/client.js";
+import { createCardProposalsRouter } from "./routes/cardProposals.js";
 import { createCardSuggestedEditsRouter } from "./routes/cardSuggestedEdits.js";
 import { createDashboardQuotaRouter } from "./routes/dashboardQuota.js";
 import { createDashboardTokensRouter } from "./routes/dashboardTokens.js";
@@ -115,6 +116,14 @@ async function main(): Promise<void> {
         await logtoClientFactory(request, response).getSession(),
       mcpQuotaClient: mcpQuotaSummary,
       quotaMiddleware: createRouteQuotaMiddleware("dashboard-quota"),
+    }),
+  );
+  webApiRouter.use(
+    "/card-proposals",
+    createCardProposalsRouter({
+      getSession: async (request, response) =>
+        await logtoClientFactory(request, response).getSession(),
+      internalApi,
     }),
   );
   webApiRouter.use(

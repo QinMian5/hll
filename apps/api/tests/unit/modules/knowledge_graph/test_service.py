@@ -9,10 +9,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 
 from modules.knowledge_graph.dto import (
+    CardProposalRecord,
+    CardProposalType,
     CardSuggestedEditRecord,
     CardVersionSnapshot,
     ConnectedTitleCandidate,
@@ -26,8 +29,10 @@ from modules.knowledge_graph.dto import (
     VectorSearchCandidate,
 )
 from modules.knowledge_graph.service import (
+    CardProposalPermissionError,
     CardSuggestedEditNoChangeError,
     CardVersionNotFoundError,
+    KnowledgeGraphRepoProtocol,
     KnowledgeGraphService,
 )
 from modules.taxonomy.dto import TaxonomyScopeIdentity
@@ -227,6 +232,81 @@ class _StubRepo:
         self.next_suggested_edit_id += 1
         return record
 
+    async def create_card_proposal(
+        self,
+        *,
+        proposal_type: str,
+        submitted_by_user_id: str,
+        payload: dict[str, object],
+    ) -> CardProposalRecord:
+        raise AssertionError("Proposal writes are not expected in this test.")
+
+    async def fetch_card_proposal(self, *, proposal_id: int) -> CardProposalRecord | None:
+        raise AssertionError("Proposal reads are not expected in this test.")
+
+    async def list_card_proposals_for_user(self, *, user_id: str) -> list[CardProposalRecord]:
+        raise AssertionError("Proposal lists are not expected in this test.")
+
+    async def list_pending_card_proposals(self) -> list[CardProposalRecord]:
+        raise AssertionError("Proposal review lists are not expected in this test.")
+
+    async def has_active_workspace_review_role(self, *, user_id: str) -> bool:
+        raise AssertionError("Reviewer role checks are not expected in this test.")
+
+    async def create_next_card_version(
+        self,
+        *,
+        node_id: int,
+        title: str,
+        content: str,
+        embedding: list[float],
+    ) -> int:
+        raise AssertionError("Proposal apply writes are not expected in this test.")
+
+    async def archive_node(self, *, node_id: int) -> None:
+        raise AssertionError("Proposal archive writes are not expected in this test.")
+
+    async def mark_card_proposal_accepted(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+        affected_node_ids: list[int],
+        created_versions: list[dict[str, int]],
+        archive_outcome: dict[str, object] | None,
+    ) -> CardProposalRecord:
+        raise AssertionError("Proposal acceptance is not expected in this test.")
+
+    async def mark_card_proposal_rejected(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+    ) -> CardProposalRecord:
+        raise AssertionError("Proposal rejection is not expected in this test.")
+
+    async def mark_card_proposal_withdrawn(
+        self,
+        *,
+        proposal_id: int,
+    ) -> CardProposalRecord:
+        raise AssertionError("Proposal withdrawal is not expected in this test.")
+
+    async def create_proposal_apply_audit(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        proposal_type: str,
+        affected_node_ids: list[int],
+        created_versions: list[dict[str, int]],
+        archive_outcome: dict[str, object] | None,
+        review_note: str | None,
+    ) -> None:
+        raise AssertionError("Proposal audits are not expected in this test.")
+
     async def search_similarity_candidates(
         self,
         *,
@@ -279,6 +359,203 @@ class _StubRepo:
 
     async def rollback(self) -> None:
         self.rolled_back = True
+
+
+@dataclass(slots=True)
+class _ProposalRepo:
+    card_versions_by_key: dict[tuple[int, int], CardVersionSnapshot] = field(default_factory=dict)
+    proposals_by_id: dict[int, CardProposalRecord] = field(default_factory=dict)
+    reviewer_user_ids: set[str] = field(default_factory=set)
+    created_proposals: list[tuple[CardProposalType, str, dict[str, object]]] = field(
+        default_factory=list
+    )
+    accepted_proposals: list[
+        tuple[int, str, str | None, list[int], list[dict[str, int]], dict[str, object] | None]
+    ] = field(default_factory=list)
+    created_audits: list[
+        tuple[int, str, str, list[int], list[dict[str, int]], dict[str, object] | None, str | None]
+    ] = field(default_factory=list)
+    updated_versions: list[tuple[int, str, str, list[float]]] = field(default_factory=list)
+    archived_nodes: list[int] = field(default_factory=list)
+    next_proposal_id: int = 900
+    committed: bool = False
+    rolled_back: bool = False
+
+    async def fetch_card_version(
+        self,
+        *,
+        node_id: int,
+        version: int,
+    ) -> CardVersionSnapshot | None:
+        return self.card_versions_by_key.get((node_id, version))
+
+    async def create_card_proposal(
+        self,
+        *,
+        proposal_type: CardProposalType,
+        submitted_by_user_id: str,
+        payload: dict[str, object],
+    ) -> CardProposalRecord:
+        self.created_proposals.append((proposal_type, submitted_by_user_id, payload))
+        record = CardProposalRecord(
+            id=self.next_proposal_id,
+            proposal_type=proposal_type,
+            status="pending_review",
+            submitted_by_user_id=submitted_by_user_id,
+            reviewed_by_user_id=None,
+            review_note=None,
+            payload=payload,
+            created_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
+            updated_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
+            reviewed_at=None,
+        )
+        self.next_proposal_id += 1
+        self.proposals_by_id[record.id] = record
+        return record
+
+    async def fetch_card_proposal(self, *, proposal_id: int) -> CardProposalRecord | None:
+        return self.proposals_by_id.get(proposal_id)
+
+    async def list_card_proposals_for_user(self, *, user_id: str) -> list[CardProposalRecord]:
+        return [
+            proposal
+            for proposal in self.proposals_by_id.values()
+            if proposal.submitted_by_user_id == user_id
+        ]
+
+    async def list_pending_card_proposals(self) -> list[CardProposalRecord]:
+        return [
+            proposal
+            for proposal in self.proposals_by_id.values()
+            if proposal.status == "pending_review"
+        ]
+
+    async def has_active_workspace_review_role(self, *, user_id: str) -> bool:
+        return user_id in self.reviewer_user_ids
+
+    async def create_next_card_version(
+        self,
+        *,
+        node_id: int,
+        title: str,
+        content: str,
+        embedding: list[float],
+    ) -> int:
+        self.updated_versions.append((node_id, title, content, embedding))
+        return 4
+
+    async def archive_node(self, *, node_id: int) -> None:
+        self.archived_nodes.append(node_id)
+
+    async def mark_card_proposal_accepted(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+        affected_node_ids: list[int],
+        created_versions: list[dict[str, int]],
+        archive_outcome: dict[str, object] | None,
+    ) -> CardProposalRecord:
+        self.accepted_proposals.append(
+            (
+                proposal_id,
+                reviewer_user_id,
+                review_note,
+                affected_node_ids,
+                created_versions,
+                archive_outcome,
+            )
+        )
+        record = self.proposals_by_id[proposal_id].model_copy(
+            update={
+                "status": "accepted_applied",
+                "reviewed_by_user_id": reviewer_user_id,
+                "review_note": review_note,
+                "reviewed_at": datetime(2026, 4, 28, 19, 0, tzinfo=UTC),
+            }
+        )
+        self.proposals_by_id[proposal_id] = record
+        return record
+
+    async def mark_card_proposal_rejected(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+    ) -> CardProposalRecord:
+        record = self.proposals_by_id[proposal_id].model_copy(
+            update={
+                "status": "rejected",
+                "reviewed_by_user_id": reviewer_user_id,
+                "review_note": review_note,
+                "reviewed_at": datetime(2026, 4, 28, 19, 0, tzinfo=UTC),
+            }
+        )
+        self.proposals_by_id[proposal_id] = record
+        return record
+
+    async def mark_card_proposal_withdrawn(
+        self,
+        *,
+        proposal_id: int,
+    ) -> CardProposalRecord:
+        record = self.proposals_by_id[proposal_id].model_copy(update={"status": "withdrawn"})
+        self.proposals_by_id[proposal_id] = record
+        return record
+
+    async def create_proposal_apply_audit(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        proposal_type: str,
+        affected_node_ids: list[int],
+        created_versions: list[dict[str, int]],
+        archive_outcome: dict[str, object] | None,
+        review_note: str | None,
+    ) -> None:
+        self.created_audits.append(
+            (
+                proposal_id,
+                reviewer_user_id,
+                proposal_type,
+                affected_node_ids,
+                created_versions,
+                archive_outcome,
+                review_note,
+            )
+        )
+
+    async def commit(self) -> None:
+        self.committed = True
+
+    async def rollback(self) -> None:
+        self.rolled_back = True
+
+
+class _ProposalEmbeddingClient:
+    def __init__(self) -> None:
+        self.texts: list[str] = []
+
+    async def embed_text(self, text: str) -> list[float]:
+        self.texts.append(text)
+        return [0.4, 0.3, 0.2]
+
+
+def _proposal_service(
+    repo: _ProposalRepo,
+    embedding_client: _ProposalEmbeddingClient | None = None,
+) -> KnowledgeGraphService:
+    return KnowledgeGraphService(
+        repo=cast(KnowledgeGraphRepoProtocol, repo),
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=0,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=0,
+        embedding_client=embedding_client,
+    )
 
 
 @dataclass(slots=True)
@@ -838,6 +1115,178 @@ async def test_materialize_card_from_ingestion_creates_node_and_threshold_edges(
     ]
     assert repo.committed is True
     assert repo.rolled_back is False
+
+
+@pytest.mark.anyio
+async def test_submit_edit_card_proposal_stores_unified_pending_payload() -> None:
+    repo = _ProposalRepo(
+        card_versions_by_key={
+            (10, 3): CardVersionSnapshot(
+                node_id=10,
+                version=3,
+                title="Old title",
+                content="Old content",
+            )
+        }
+    )
+    service = _proposal_service(repo)
+
+    record = await service.submit_card_proposal(
+        proposal_type="edit",
+        submitted_by_user_id="logto-user-123",
+        target_node_id=10,
+        base_version=3,
+        suggested_title="Better title",
+        suggested_content="Better content",
+    )
+
+    assert record.status == "pending_review"
+    assert repo.created_proposals == [
+        (
+            "edit",
+            "logto-user-123",
+            {
+                "target_node_id": 10,
+                "base_version": 3,
+                "suggested_title": "Better title",
+                "suggested_content": "Better content",
+            },
+        )
+    ]
+    assert repo.committed is True
+
+
+@pytest.mark.anyio
+async def test_accept_edit_card_proposal_requires_reviewer_role() -> None:
+    repo = _ProposalRepo(
+        proposals_by_id={
+            900: CardProposalRecord(
+                id=900,
+                proposal_type="edit",
+                status="pending_review",
+                submitted_by_user_id="contributor",
+                reviewed_by_user_id=None,
+                review_note=None,
+                payload={
+                    "target_node_id": 10,
+                    "base_version": 3,
+                    "suggested_title": "Better title",
+                    "suggested_content": "Better content",
+                },
+                created_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
+                reviewed_at=None,
+            )
+        }
+    )
+    service = _proposal_service(repo, _ProposalEmbeddingClient())
+
+    with pytest.raises(CardProposalPermissionError):
+        await service.accept_card_proposal(
+            proposal_id=900,
+            reviewer_user_id="ordinary-user",
+            review_note="Looks good.",
+        )
+
+    assert repo.accepted_proposals == []
+    assert repo.rolled_back is True
+
+
+@pytest.mark.anyio
+async def test_accept_edit_card_proposal_applies_version_and_audit_atomically() -> None:
+    embedding_client = _ProposalEmbeddingClient()
+    repo = _ProposalRepo(
+        proposals_by_id={
+            900: CardProposalRecord(
+                id=900,
+                proposal_type="edit",
+                status="pending_review",
+                submitted_by_user_id="contributor",
+                reviewed_by_user_id=None,
+                review_note=None,
+                payload={
+                    "target_node_id": 10,
+                    "base_version": 3,
+                    "suggested_title": "Better title",
+                    "suggested_content": "Better content",
+                },
+                created_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
+                reviewed_at=None,
+            )
+        },
+        reviewer_user_ids={"reviewer"},
+    )
+    service = _proposal_service(repo, embedding_client)
+
+    record = await service.accept_card_proposal(
+        proposal_id=900,
+        reviewer_user_id="reviewer",
+        review_note="Looks good.",
+    )
+
+    assert record.status == "accepted_applied"
+    assert embedding_client.texts == ["Better title\n\nBetter content"]
+    assert repo.updated_versions == [(10, "Better title", "Better content", [0.4, 0.3, 0.2])]
+    assert repo.accepted_proposals == [
+        (900, "reviewer", "Looks good.", [10], [{"node_id": 10, "version": 4}], None)
+    ]
+    assert repo.created_audits == [
+        (900, "reviewer", "edit", [10], [{"node_id": 10, "version": 4}], None, "Looks good.")
+    ]
+    assert repo.committed is True
+
+
+@pytest.mark.anyio
+async def test_accept_delete_card_proposal_archives_node_and_records_outcome() -> None:
+    repo = _ProposalRepo(
+        proposals_by_id={
+            901: CardProposalRecord(
+                id=901,
+                proposal_type="delete",
+                status="pending_review",
+                submitted_by_user_id="contributor",
+                reviewed_by_user_id=None,
+                review_note=None,
+                payload={"target_node_id": 11, "base_version": 2, "reason": "Duplicate card"},
+                created_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
+                updated_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
+                reviewed_at=None,
+            )
+        },
+        reviewer_user_ids={"reviewer"},
+    )
+    service = _proposal_service(repo, _ProposalEmbeddingClient())
+
+    record = await service.accept_card_proposal(
+        proposal_id=901,
+        reviewer_user_id="reviewer",
+        review_note="Archive duplicate.",
+    )
+
+    assert record.status == "accepted_applied"
+    assert repo.archived_nodes == [11]
+    assert repo.accepted_proposals == [
+        (
+            901,
+            "reviewer",
+            "Archive duplicate.",
+            [11],
+            [],
+            {"archived_node_id": 11},
+        )
+    ]
+    assert repo.created_audits == [
+        (
+            901,
+            "reviewer",
+            "delete",
+            [11],
+            [],
+            {"archived_node_id": 11},
+            "Archive duplicate.",
+        )
+    ]
 
 
 @pytest.mark.anyio

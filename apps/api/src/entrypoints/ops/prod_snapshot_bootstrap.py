@@ -21,7 +21,9 @@ API_BOOTSTRAP_TABLES: tuple[str, ...] = (
     "taxonomy_classification_continuation_requests",
     "taxonomy_classification_webhook_wakeups",
     "adjacency",
-    "card_suggested_edits",
+    "workspace_roles",
+    "card_proposals",
+    "proposal_apply_audits",
     "taxonomy_scope_projection_edges",
 )
 

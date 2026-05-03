@@ -1,6 +1,243 @@
 {
   "components": {
     "schemas": {
+      "CardProposalCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "base_version": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          },
+          "proposal_type": {
+            "enum": [
+              "create",
+              "edit",
+              "delete"
+            ],
+            "title": "Proposal Type",
+            "type": "string"
+          },
+          "proposed_content": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Content"
+          },
+          "proposed_title": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Title"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "suggested_content": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Content"
+          },
+          "suggested_title": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Title"
+          },
+          "target_node_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Node Id"
+          }
+        },
+        "required": [
+          "proposal_type"
+        ],
+        "title": "CardProposalCreateRequest",
+        "type": "object"
+      },
+      "CardProposalListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/CardProposalResponse"
+            },
+            "title": "Proposals",
+            "type": "array"
+          }
+        },
+        "required": [
+          "proposals"
+        ],
+        "title": "CardProposalListResponse",
+        "type": "object"
+      },
+      "CardProposalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Id",
+            "type": "integer"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "proposal_type": {
+            "enum": [
+              "create",
+              "edit",
+              "delete"
+            ],
+            "title": "Proposal Type",
+            "type": "string"
+          },
+          "review_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          },
+          "reviewed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed At"
+          },
+          "reviewed_by_user_id": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed By User Id"
+          },
+          "status": {
+            "enum": [
+              "pending_review",
+              "accepted_applied",
+              "rejected",
+              "withdrawn"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "submitted_by_user_id": {
+            "minLength": 1,
+            "title": "Submitted By User Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "proposal_type",
+          "status",
+          "submitted_by_user_id",
+          "reviewed_by_user_id",
+          "review_note",
+          "payload",
+          "created_at",
+          "updated_at",
+          "reviewed_at"
+        ],
+        "title": "CardProposalResponse",
+        "type": "object"
+      },
+      "CardProposalReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "review_note": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Note"
+          }
+        },
+        "title": "CardProposalReviewRequest",
+        "type": "object"
+      },
       "ErrorCode": {
         "enum": [
           "APPLICATION_API_INPUT_INVALID",
@@ -9,6 +246,7 @@
           "APPLICATION_TAXONOMY_INPUT_INVALID",
           "layout_not_ready",
           "DOMAIN_KNOWLEDGE_RESOURCE_NOT_FOUND",
+          "DOMAIN_KNOWLEDGE_PERMISSION_DENIED",
           "DOMAIN_KNOWLEDGE_RULE_VIOLATION",
           "DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND",
           "APPLICATION_SEARCH_STATE_CONFLICT",
@@ -858,6 +1096,404 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/card-proposals": {
+      "post": {
+        "operationId": "create_card_proposal_api_v1_card_proposals_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Knowledge-Actor-User-Id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Knowledge-Actor-User-Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardProposalCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Create Card Proposal",
+        "tags": [
+          "knowledge-graph"
+        ]
+      }
+    },
+    "/api/v1/card-proposals/my": {
+      "get": {
+        "operationId": "list_my_card_proposals_api_v1_card_proposals_my_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Knowledge-Actor-User-Id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Knowledge-Actor-User-Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardProposalListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List My Card Proposals",
+        "tags": [
+          "knowledge-graph"
+        ]
+      }
+    },
+    "/api/v1/card-proposals/review-queue": {
+      "get": {
+        "operationId": "list_card_proposals_for_review_api_v1_card_proposals_review_queue_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Knowledge-Actor-User-Id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Knowledge-Actor-User-Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardProposalListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Card Proposals For Review",
+        "tags": [
+          "knowledge-graph"
+        ]
+      }
+    },
+    "/api/v1/card-proposals/{proposal_id}/accept": {
+      "post": {
+        "operationId": "accept_card_proposal_api_v1_card_proposals__proposal_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "title": "Proposal Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Knowledge-Actor-User-Id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Knowledge-Actor-User-Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardProposalReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Accept Card Proposal",
+        "tags": [
+          "knowledge-graph"
+        ]
+      }
+    },
+    "/api/v1/card-proposals/{proposal_id}/reject": {
+      "post": {
+        "operationId": "reject_card_proposal_api_v1_card_proposals__proposal_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "title": "Proposal Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Knowledge-Actor-User-Id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Knowledge-Actor-User-Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CardProposalReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Reject Card Proposal",
+        "tags": [
+          "knowledge-graph"
+        ]
+      }
+    },
+    "/api/v1/card-proposals/{proposal_id}/withdraw": {
+      "post": {
+        "operationId": "withdraw_card_proposal_api_v1_card_proposals__proposal_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposal_id",
+            "required": true,
+            "schema": {
+              "exclusiveMinimum": 0,
+              "title": "Proposal Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Knowledge-Actor-User-Id",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "X-Knowledge-Actor-User-Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Withdraw Card Proposal",
+        "tags": [
+          "knowledge-graph"
+        ]
+      }
+    },
     "/api/v1/cards": {
       "post": {
         "operationId": "create_ingestion_api_v1_cards_post",

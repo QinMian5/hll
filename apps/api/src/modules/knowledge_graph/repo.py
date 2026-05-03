@@ -7,12 +7,16 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import cast
 
-from sqlalchemy import case, column, delete, func, insert, select, table
+from sqlalchemy import case, column, delete, func, insert, select, table, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.knowledge_graph.dto import (
+    CardProposalRecord,
+    CardProposalStatus,
+    CardProposalType,
     CardSuggestedEditRecord,
     CardSuggestedEditStatus,
     CardVersionSnapshot,
@@ -27,7 +31,15 @@ from modules.knowledge_graph.dto import (
     VectorSearchCandidate,
 )
 from modules.knowledge_graph.edge_rebuild import PlannedEdge, RebuildNodeEmbedding
-from modules.knowledge_graph.model import Adjacency, CardSuggestedEdit, CardVersion, Edge, Node
+from modules.knowledge_graph.model import (
+    Adjacency,
+    CardProposal,
+    CardVersion,
+    Edge,
+    Node,
+    ProposalApplyAudit,
+    WorkspaceRole,
+)
 
 _NODE_TAXONOMY_ASSIGNMENTS = table(
     "node_taxonomy_assignments",
@@ -73,6 +85,21 @@ def _title_match_boost(*, title: str, query_text: str) -> tuple[int, int, int]:
     )
 
 
+def _proposal_record(proposal: CardProposal) -> CardProposalRecord:
+    return CardProposalRecord(
+        id=proposal.id,
+        proposal_type=cast(CardProposalType, proposal.proposal_type),
+        status=cast(CardProposalStatus, proposal.status),
+        submitted_by_user_id=proposal.submitted_by_user_id,
+        reviewed_by_user_id=proposal.reviewed_by_user_id,
+        review_note=proposal.review_note,
+        payload=proposal.payload,
+        created_at=proposal.created_at,
+        updated_at=proposal.updated_at,
+        reviewed_at=proposal.reviewed_at,
+    )
+
+
 class KnowledgeRepo:
     def __init__(self, *, session: AsyncSession) -> None:
         self._session = session
@@ -106,6 +133,7 @@ class KnowledgeRepo:
         cosine_distance = Node.embedding.cosine_distance(query_embedding)
         statement = (
             select(Node.id, Node.current_version, Node.title, Node.content)
+            .where(Node.lifecycle_state == "active")
             .order_by(cosine_distance.asc(), Node.id.asc())
             .limit(limit)
         )
@@ -153,6 +181,7 @@ class KnowledgeRepo:
                 title_phrase_match,
                 title_all_tokens_match,
             )
+            .where(Node.lifecycle_state == "active")
             .where(Node.search_vector.op("@@")(ts_query))
             .order_by(
                 exact_title_match.desc(),
@@ -197,6 +226,7 @@ class KnowledgeRepo:
             .join(Edge, Edge.id == Adjacency.edge_id)
             .join(Node, Node.id == neighbor_node_id)
             .where(Adjacency.node_id.in_(matched_node_ids))
+            .where(Node.lifecycle_state == "active")
             .where(neighbor_node_id.not_in(matched_node_ids))
             .order_by(Adjacency.node_id.asc(), neighbor_node_id.asc(), Node.title.asc())
         )
@@ -217,6 +247,7 @@ class KnowledgeRepo:
             await self._session.execute(
                 select(Node.id, Node.current_version, Node.title, Node.content)
                 .where(Node.id.in_(node_ids))
+                .where(Node.lifecycle_state == "active")
                 .order_by(Node.id.asc())
             )
         ).all()
@@ -240,7 +271,10 @@ class KnowledgeRepo:
 
         rows = (
             await self._session.execute(
-                select(Node.id, Node.title).where(Node.id.in_(node_ids)).order_by(Node.id.asc())
+                select(Node.id, Node.title)
+                .where(Node.id.in_(node_ids))
+                .order_by(Node.id.asc())
+                .where(Node.lifecycle_state == "active")
             )
         ).all()
         return [
@@ -356,6 +390,7 @@ class KnowledgeRepo:
                 _NODE_TAXONOMY_ASSIGNMENTS.c.node_id == Node.id,
             )
             .where(_NODE_TAXONOMY_ASSIGNMENTS.c.node_id.is_(None))
+            .where(Node.lifecycle_state == "active")
             .order_by(Node.id.asc())
         )
         if limit is not None:
@@ -429,26 +464,214 @@ class KnowledgeRepo:
         suggested_content: str,
         suggested_by_user_id: str,
     ) -> CardSuggestedEditRecord:
-        suggestion = CardSuggestedEdit(
+        proposal = CardProposal(
+            proposal_type="edit",
+            submitted_by_user_id=suggested_by_user_id,
+            payload={
+                "target_node_id": node_id,
+                "base_version": base_version,
+                "suggested_title": suggested_title,
+                "suggested_content": suggested_content,
+            },
+            status="pending_review",
+        )
+        self._session.add(proposal)
+        await self._session.flush()
+        return CardSuggestedEditRecord(
+            id=proposal.id,
             node_id=node_id,
             base_version=base_version,
             suggested_title=suggested_title,
             suggested_content=suggested_content,
             suggested_by_user_id=suggested_by_user_id,
-            status="pending",
+            status=cast(CardSuggestedEditStatus, "pending"),
+            created_at=proposal.created_at,
         )
-        self._session.add(suggestion)
+
+    async def create_card_proposal(
+        self,
+        *,
+        proposal_type: str,
+        submitted_by_user_id: str,
+        payload: dict[str, object],
+    ) -> CardProposalRecord:
+        proposal = CardProposal(
+            proposal_type=proposal_type,
+            submitted_by_user_id=submitted_by_user_id,
+            payload=payload,
+            status="pending_review",
+        )
+        self._session.add(proposal)
         await self._session.flush()
-        return CardSuggestedEditRecord(
-            id=suggestion.id,
-            node_id=suggestion.node_id,
-            base_version=suggestion.base_version,
-            suggested_title=suggestion.suggested_title,
-            suggested_content=suggestion.suggested_content,
-            suggested_by_user_id=suggestion.suggested_by_user_id,
-            status=cast(CardSuggestedEditStatus, suggestion.status),
-            created_at=suggestion.created_at,
+        return _proposal_record(proposal)
+
+    async def fetch_card_proposal(self, *, proposal_id: int) -> CardProposalRecord | None:
+        proposal = await self._session.scalar(
+            select(CardProposal).where(CardProposal.id == proposal_id).limit(1)
         )
+        if proposal is None:
+            return None
+        return _proposal_record(proposal)
+
+    async def list_card_proposals_for_user(self, *, user_id: str) -> list[CardProposalRecord]:
+        proposals = (
+            await self._session.scalars(
+                select(CardProposal)
+                .where(CardProposal.submitted_by_user_id == user_id)
+                .order_by(CardProposal.created_at.desc(), CardProposal.id.desc())
+            )
+        ).all()
+        return [_proposal_record(proposal) for proposal in proposals]
+
+    async def list_pending_card_proposals(self) -> list[CardProposalRecord]:
+        proposals = (
+            await self._session.scalars(
+                select(CardProposal)
+                .where(CardProposal.status == "pending_review")
+                .order_by(CardProposal.created_at.asc(), CardProposal.id.asc())
+            )
+        ).all()
+        return [_proposal_record(proposal) for proposal in proposals]
+
+    async def has_active_workspace_review_role(self, *, user_id: str) -> bool:
+        role = await self._session.scalar(
+            select(WorkspaceRole.id)
+            .where(WorkspaceRole.user_id == user_id)
+            .where(WorkspaceRole.role.in_(("reviewer", "admin")))
+            .where(WorkspaceRole.revoked_at.is_(None))
+            .limit(1)
+        )
+        return role is not None
+
+    async def create_next_card_version(
+        self,
+        *,
+        node_id: int,
+        title: str,
+        content: str,
+        embedding: list[float],
+    ) -> int:
+        node = await self._session.scalar(
+            select(Node).where(Node.id == node_id).where(Node.lifecycle_state == "active").limit(1)
+        )
+        if node is None:
+            raise ValueError("Target node does not exist.")
+
+        next_version = node.current_version + 1
+        node.title = title
+        node.content = content
+        node.embedding = embedding
+        node.current_version = next_version
+        self._session.add(
+            CardVersion(
+                node_id=node.id,
+                version=next_version,
+                title=title,
+                content=content,
+            )
+        )
+        await self._session.flush()
+        return next_version
+
+    async def archive_node(self, *, node_id: int) -> None:
+        await self._session.execute(
+            update(Node)
+            .where(Node.id == node_id)
+            .where(Node.lifecycle_state == "active")
+            .values(lifecycle_state="archived")
+        )
+        await self._session.flush()
+
+    async def mark_card_proposal_accepted(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+        affected_node_ids: list[int],
+        created_versions: list[dict[str, int]],
+        archive_outcome: dict[str, object] | None,
+    ) -> CardProposalRecord:
+        proposal = await self._transition_card_proposal(
+            proposal_id=proposal_id,
+            status="accepted_applied",
+            reviewer_user_id=reviewer_user_id,
+            review_note=review_note,
+        )
+        return _proposal_record(proposal)
+
+    async def mark_card_proposal_rejected(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        review_note: str | None,
+    ) -> CardProposalRecord:
+        proposal = await self._transition_card_proposal(
+            proposal_id=proposal_id,
+            status="rejected",
+            reviewer_user_id=reviewer_user_id,
+            review_note=review_note,
+        )
+        return _proposal_record(proposal)
+
+    async def mark_card_proposal_withdrawn(
+        self,
+        *,
+        proposal_id: int,
+    ) -> CardProposalRecord:
+        proposal = await self._transition_card_proposal(
+            proposal_id=proposal_id,
+            status="withdrawn",
+            reviewer_user_id=None,
+            review_note=None,
+        )
+        return _proposal_record(proposal)
+
+    async def _transition_card_proposal(
+        self,
+        *,
+        proposal_id: int,
+        status: str,
+        reviewer_user_id: str | None,
+        review_note: str | None,
+    ) -> CardProposal:
+        proposal = await self._session.scalar(
+            select(CardProposal).where(CardProposal.id == proposal_id).limit(1)
+        )
+        if proposal is None:
+            raise ValueError("Proposal does not exist.")
+        now = datetime.now(UTC)
+        proposal.status = status
+        proposal.reviewed_by_user_id = reviewer_user_id
+        proposal.review_note = review_note
+        proposal.reviewed_at = now
+        await self._session.flush()
+        return proposal
+
+    async def create_proposal_apply_audit(
+        self,
+        *,
+        proposal_id: int,
+        reviewer_user_id: str,
+        proposal_type: str,
+        affected_node_ids: list[int],
+        created_versions: list[dict[str, int]],
+        archive_outcome: dict[str, object] | None,
+        review_note: str | None,
+    ) -> None:
+        self._session.add(
+            ProposalApplyAudit(
+                proposal_id=proposal_id,
+                reviewer_user_id=reviewer_user_id,
+                proposal_type=proposal_type,
+                affected_node_ids=affected_node_ids,
+                created_versions=created_versions,
+                archive_outcome=archive_outcome,
+                review_note=review_note,
+            )
+        )
+        await self._session.flush()
 
     async def fetch_node_ids_in_rebuild_order(self) -> list[int]:
         rows = (await self._session.execute(select(Node.id).order_by(Node.id.asc()))).all()

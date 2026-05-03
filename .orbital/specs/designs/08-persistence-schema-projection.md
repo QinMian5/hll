@@ -12,7 +12,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 ## Context
 - **Purpose:** Project accepted domain-module semantics into concrete persistence structures.
 - **Scope/Boundaries:** Covers table/column mapping, constraints, indexes, triggers, and vector semantics for persistence.
-- **Related Requirements:** R-002, R-004, R-005, R-006.
+- **Related Requirements:** R-002, R-004, R-005, R-006, R-008.
 - **Upstream Design Dependency:** `02-core-domain-model` is semantic source of truth.
 
 ## Projection Boundary
@@ -25,7 +25,9 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 ### Tables
 - `nodes`
 - `card_versions`
-- `card_suggested_edits`
+- `workspace_roles`
+- `card_proposals`
+- `proposal_apply_audits`
 - `edges`
 - `adjacency`
 - `ingestion_requests`
@@ -51,6 +53,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `content`: non-null text.
 - `current_version`: non-null integer, server default `1`.
 - `embedding`: non-null `Vector(1536)`.
+- `lifecycle_state`: non-null text identifying active or archived card state.
 - `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
 - `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
 - Required constraints:
@@ -72,24 +75,57 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
   - `version` is scoped to one node.
   - `nodes.current_version` equals the highest `card_versions.version` for that node.
 
-### Card Suggested Edits
+### Workspace Roles
 - `id`: integer primary key.
-- `node_id`: non-null integer participating in the base-version foreign key.
-- `base_version`: non-null integer.
-- `suggested_title`: non-null text.
-- `suggested_content`: non-null text.
-- `suggested_by_user_id`: non-null text containing the authenticated Logto user id.
-- `status`: non-null text, server default `pending`.
+- `user_id`: non-null text containing the Logto user id.
+- `role`: non-null text.
+- `granted_by_user_id`: non-null text containing the granting Logto user id or operator principal.
+- `granted_at`: non-null timestamp with timezone.
+- `revoked_by_user_id`: nullable text containing the revoking Logto user id or operator principal.
+- `revoked_at`: nullable timestamp with timezone.
 - `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
 - `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
 - Required constraints:
-  - composite foreign key `(node_id, base_version)` to `card_versions(node_id, version)` with `ondelete="CASCADE"`
-  - `base_version >= 1`
-  - status in `pending`, `accepted`, `rejected`
+  - role in `reviewer`, `admin`
+  - active role uniqueness for `(user_id, role)` where `revoked_at IS NULL`
 - Required indexes:
-  - index on `node_id`
-  - index on `suggested_by_user_id`
+  - index on `user_id`
+  - index on `role`
+
+### Card Proposals
+- `id`: integer primary key.
+- `proposal_type`: non-null text.
+- `status`: non-null text.
+- `submitted_by_user_id`: non-null text containing the authenticated Logto user id.
+- `reviewed_by_user_id`: nullable text containing the reviewer Logto user id.
+- `review_note`: nullable text.
+- `payload`: non-null structured proposal payload.
+- `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
+- `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
+- `reviewed_at`: nullable timestamp with timezone.
+- Required constraints:
+  - proposal type in `create`, `edit`, `delete`
+  - status in `pending_review`, `accepted_applied`, `rejected`, `withdrawn`
+- Required indexes:
+  - index on `submitted_by_user_id`
+  - index on `reviewed_by_user_id`
   - index on `status`
+  - index on `proposal_type`
+
+### Proposal Apply Audits
+- `id`: integer primary key.
+- `proposal_id`: non-null foreign key to `card_proposals.id`.
+- `reviewer_user_id`: non-null text containing the reviewer Logto user id.
+- `proposal_type`: non-null text.
+- `affected_node_ids`: non-null structured list of affected node ids.
+- `created_versions`: non-null structured list of formal card versions created by the apply operation.
+- `archive_outcome`: nullable structured outcome for archive operations.
+- `review_note`: nullable text.
+- `applied_at`: non-null timestamp with timezone.
+- Required indexes:
+  - index on `proposal_id`
+  - index on `reviewer_user_id`
+  - index on `proposal_type`
 
 ### Edges
 - `id`: integer primary key.
@@ -250,7 +286,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 ## Integrity and Coupling Rules
 - Persistence constraints enforce undirected edge semantics at storage level.
 - One canonical edge row exists for one unordered node pair.
-- Card current projection, formal version history, and suggested edits remain inside `knowledge_graph` table ownership.
+- Card current projection, formal version history, Workspace roles, unified proposals, and apply audits remain inside `knowledge_graph` table ownership.
 - Taxonomy tree truth, current assignment truth, and taxonomy classification orchestration state remain outside `knowledge_graph` table ownership.
 - Constraint and index naming follows shared SQLAlchemy metadata conventions unless fixed semantic names are explicitly required.
 
@@ -258,7 +294,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - Metadata includes all accepted persistence models before migration autogeneration.
 - Generated/applied schema enforces all required constraints and indexes.
 - Generated/applied schema enforces taxonomy root uniqueness.
-- Generated/applied schema enforces card version uniqueness, suggestion base-version references, and suggestion status values.
+- Generated/applied schema enforces card version uniqueness, proposal type values, proposal status values, role values, and apply-audit references.
 - Generated/applied schema allows later classification resubmission after a previous job for the same scope/card is locally processed or terminal.
 - Vector type validity depends on PostgreSQL `vector` extension availability before dependent migration.
 - Migration ordering/lifecycle checks are governed by `10-migration-lifecycle-governance`.

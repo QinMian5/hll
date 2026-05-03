@@ -12,6 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 
 NonEmptyString = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 CardSuggestedEditStatus = Literal["pending", "accepted", "rejected"]
+CardProposalType = Literal["create", "edit", "delete"]
+CardProposalStatus = Literal["pending_review", "accepted_applied", "rejected", "withdrawn"]
 
 
 class KnowledgeCardMatch(BaseModel):
@@ -67,6 +69,21 @@ class CardSuggestedEditRecord(BaseModel):
     suggested_by_user_id: NonEmptyString
     status: CardSuggestedEditStatus
     created_at: datetime
+
+
+class CardProposalRecord(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    id: int = Field(gt=0)
+    proposal_type: CardProposalType
+    status: CardProposalStatus
+    submitted_by_user_id: NonEmptyString
+    reviewed_by_user_id: NonEmptyString | None
+    review_note: str | None
+    payload: dict[str, object]
+    created_at: datetime
+    updated_at: datetime
+    reviewed_at: datetime | None
 
 
 class ConnectedTitleCandidate(BaseModel):
