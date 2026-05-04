@@ -82,10 +82,10 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --text-knowledge-page-subtitle--line-height: 18px;
   --text-knowledge-dialog-title: 18px;
   --text-knowledge-dialog-title--line-height: 24px;
-  --text-knowledge-search-results-title: 20px;
-  --text-knowledge-search-results-title--line-height: 28px;
-  --text-knowledge-search-results-title-desktop: 36px;
-  --text-knowledge-search-results-title-desktop--line-height: 48px;
+  --text-knowledge-search-section-title: 16px;
+  --text-knowledge-search-section-title--line-height: 24px;
+  --text-knowledge-search-section-title-desktop: 18px;
+  --text-knowledge-search-section-title-desktop--line-height: 48px;
   --text-knowledge-dashboard-page-title: 24px;
   --text-knowledge-dashboard-page-title--line-height: 24px;
   --text-knowledge-dashboard-page-title-desktop: 24px;

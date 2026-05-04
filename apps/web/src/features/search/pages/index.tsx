@@ -188,7 +188,7 @@ export function SearchPage() {
                 className="flex h-12 w-full shrink-0 items-center justify-between"
                 data-testid="search-results-header"
               >
-                <h1 className="m-0 min-w-0 flex-1 text-knowledge-search-results-title font-semibold text-knowledge-text-default lg:text-knowledge-search-results-title-desktop">
+                <h1 className="m-0 min-w-0 flex-1 text-knowledge-search-section-title font-semibold text-knowledge-text-default lg:text-knowledge-search-section-title-desktop">
                   Search results
                 </h1>
                 <button
@@ -250,7 +250,7 @@ export function SearchPage() {
               className="flex h-[200px] min-h-0 min-w-0 flex-col gap-2 lg:h-full lg:gap-4"
               data-testid="search-suggestions-panel"
             >
-              <h2 className="m-0 flex h-6 w-full shrink-0 items-center text-[16px] leading-6 font-semibold text-[#131c2d] md:h-12 md:text-[18px] md:leading-[48px]">
+              <h2 className="m-0 flex h-6 w-full shrink-0 items-center text-knowledge-search-section-title font-semibold text-knowledge-text-default lg:h-12 lg:text-knowledge-search-section-title-desktop">
                 Related results
               </h2>
               <div

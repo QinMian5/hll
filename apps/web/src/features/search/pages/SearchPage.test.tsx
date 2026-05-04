@@ -248,8 +248,16 @@ describe("SearchPage", () => {
       "bg-white",
     );
     expect(screen.getByText("Search results")).toHaveClass(
+      "text-knowledge-search-section-title",
+      "lg:text-knowledge-search-section-title-desktop",
+    );
+    expect(screen.getByText("Search results")).not.toHaveClass(
       "text-knowledge-search-results-title",
       "lg:text-knowledge-search-results-title-desktop",
+    );
+    expect(screen.getByText("Related results")).toHaveClass(
+      "text-knowledge-search-section-title",
+      "lg:text-knowledge-search-section-title-desktop",
     );
     expect(screen.getByTestId("search-results-grid")).toHaveClass(
       "group/search-results-grid",
