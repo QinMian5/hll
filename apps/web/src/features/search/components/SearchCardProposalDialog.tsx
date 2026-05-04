@@ -5,13 +5,13 @@ import { SquarePen, Trash2, X } from "lucide-react";
 import {
   type ComponentType,
   type FormEvent,
-  type ReactNode,
   type SVGProps,
   useEffect,
   useState,
 } from "react";
 
 import { Button } from "../../../shared/ui/button";
+import { FieldControl } from "../../../shared/ui/field-control";
 import { Input } from "../../../shared/ui/input";
 import { ScrollArea } from "../../../shared/ui/scroll-area";
 import { Textarea } from "../../../shared/ui/textarea";
@@ -72,25 +72,6 @@ function FieldLabel({
     >
       {children}
     </label>
-  );
-}
-
-function ControlFrame({
-  children,
-  className,
-}: {
-  readonly children: ReactNode;
-  readonly className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex w-full items-center rounded-knowledge-control border border-knowledge-border-control bg-white/80 px-knowledge-dialog-input-padding-x py-knowledge-dialog-input-padding-y shadow-knowledge-input",
-        className,
-      )}
-    >
-      {children}
-    </div>
   );
 }
 
@@ -210,26 +191,26 @@ export function SearchCardProposalDialog({
                       <FieldLabel htmlFor="card-proposal-delete-title">
                         Title
                       </FieldLabel>
-                      <ControlFrame>
+                      <FieldControl>
                         <Input
                           id="card-proposal-delete-title"
                           readOnly
                           value={card.title}
                         />
-                      </ControlFrame>
+                      </FieldControl>
                     </div>
                     <div className="flex flex-col gap-knowledge-dialog-field-gap">
                       <FieldLabel htmlFor="card-proposal-delete-content">
                         Content
                       </FieldLabel>
-                      <ControlFrame className="items-start">
+                      <FieldControl className="items-start">
                         <Textarea
                           id="card-proposal-delete-content"
                           readOnly
                           rows={1}
                           value={card.content}
                         />
-                      </ControlFrame>
+                      </FieldControl>
                     </div>
                   </>
                 ) : (
@@ -237,20 +218,20 @@ export function SearchCardProposalDialog({
                     <FieldLabel htmlFor="card-proposal-delete-title">
                       Title
                     </FieldLabel>
-                    <ControlFrame>
+                    <FieldControl>
                       <Input
                         id="card-proposal-delete-title"
                         readOnly
                         value=""
                       />
-                    </ControlFrame>
+                    </FieldControl>
                   </div>
                 )}
                 <div className="flex flex-col gap-knowledge-dialog-field-gap">
                   <FieldLabel htmlFor="card-proposal-delete-reason">
                     Reason
                   </FieldLabel>
-                  <ControlFrame className="items-start">
+                  <FieldControl className="items-start">
                     <Textarea
                       id="card-proposal-delete-reason"
                       onChange={(event) => {
@@ -260,14 +241,14 @@ export function SearchCardProposalDialog({
                       rows={1}
                       value={reason}
                     />
-                  </ControlFrame>
+                  </FieldControl>
                 </div>
               </div>
             ) : (
               <div className="flex flex-col gap-knowledge-dialog-content-gap">
                 <div className="flex flex-col gap-knowledge-dialog-field-gap">
                   <FieldLabel htmlFor="card-proposal-title">Title</FieldLabel>
-                  <ControlFrame>
+                  <FieldControl>
                     <Input
                       id="card-proposal-title"
                       onChange={(event) => {
@@ -276,13 +257,13 @@ export function SearchCardProposalDialog({
                       placeholder="New knowledge card title"
                       value={title}
                     />
-                  </ControlFrame>
+                  </FieldControl>
                 </div>
                 <div className="flex flex-col gap-knowledge-dialog-field-gap">
                   <FieldLabel htmlFor="card-proposal-content">
                     Content
                   </FieldLabel>
-                  <ControlFrame className="items-start">
+                  <FieldControl className="items-start">
                     <Textarea
                       id="card-proposal-content"
                       onChange={(event) => {
@@ -296,13 +277,13 @@ export function SearchCardProposalDialog({
                       rows={1}
                       value={content}
                     />
-                  </ControlFrame>
+                  </FieldControl>
                 </div>
                 <div className="flex flex-col gap-knowledge-dialog-field-gap">
                   <FieldLabel htmlFor="card-proposal-rationale">
                     Rationale
                   </FieldLabel>
-                  <ControlFrame className="items-start">
+                  <FieldControl className="items-start">
                     <Textarea
                       id="card-proposal-rationale"
                       onChange={(event) => {
@@ -316,7 +297,7 @@ export function SearchCardProposalDialog({
                       rows={1}
                       value={rationale}
                     />
-                  </ControlFrame>
+                  </FieldControl>
                 </div>
               </div>
             )}

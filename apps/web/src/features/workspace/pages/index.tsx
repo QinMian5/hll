@@ -11,10 +11,15 @@ import {
   SquarePen,
   Trash2,
 } from "lucide-react";
-import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
-import { Input, PageHeader, ScrollArea, Textarea } from "../../../shared/ui";
+import {
+  FieldControl,
+  Input,
+  PageHeader,
+  ScrollArea,
+  Textarea,
+} from "../../../shared/ui";
 import { cn } from "../../../shared/utils";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
 import type { CardProposalResponse } from "../data/workspaceQueries";
@@ -183,14 +188,6 @@ function EmptyPanel({ label }: { readonly label: string }) {
   );
 }
 
-function ControlFrame({ children }: { readonly children: ReactNode }) {
-  return (
-    <div className="flex w-full flex-col items-start justify-center rounded-knowledge-control border border-knowledge-border-control bg-white/80 px-knowledge-dialog-input-padding-x py-knowledge-dialog-input-padding-y shadow-knowledge-input">
-      {children}
-    </div>
-  );
-}
-
 function FieldLabel({
   children,
   htmlFor,
@@ -222,13 +219,13 @@ function ReadOnlyField({
   return (
     <div className="flex w-full shrink-0 flex-col gap-knowledge-dialog-field-gap">
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <ControlFrame>
+      <FieldControl className="flex-col items-start">
         {multiline ? (
           <Textarea id={id} readOnly rows={1} value={value} />
         ) : (
           <Input id={id} readOnly value={value} />
         )}
-      </ControlFrame>
+      </FieldControl>
     </div>
   );
 }

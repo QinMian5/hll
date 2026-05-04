@@ -85,6 +85,7 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - Workspace is a working product surface, not a landing page.
 - Workspace page headers use the shared routed-page header tokens defined by the app shell: `layout/page/header-height`, `typography/page/title/font-size`, `typography/page/title/line-height`, `typography/page/subtitle/font-size`, `typography/page/subtitle/line-height`, and `layout/page/header-title-gap`.
 - The `My Proposals` Workspace header does not render a top-right `Contributor` role badge. Contributor access is implied by the current view and server-side permissions.
+- Proposal detail fields use shared Input/Textarea components in the `ReadOnly` state rather than `Disabled`, so submitted proposal content remains selectable and copyable while visually distinct from editable form fields.
 - Visual language follows the existing app shell, Search, Dashboard, Docs, and Settings style: restrained, business-like, high-frequency maintenance oriented, and aligned with existing Tailwind/shadcn-style primitives.
 
 ## Validation
@@ -106,6 +107,7 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
   - Search delete submission creates the unified `delete` proposal type.
   - Workspace desktop and mobile page headers use the shared routed-page header height, title typography, subtitle typography, and title-gap tokens.
   - Workspace `My Proposals` desktop and mobile headers do not show a top-right `Contributor` role badge.
+  - Workspace proposal detail fields render with shared `ReadOnly` input and textarea state, not disabled state.
   - Frontend Workspace API integration consumes generated contracts rather than handwritten backend schemas.
 - **Evidence:**
   - Active specs describe one proposal model and one review/apply path for human-originated card maintenance.

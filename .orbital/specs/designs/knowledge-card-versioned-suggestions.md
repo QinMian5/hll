@@ -132,6 +132,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 - Authenticated Search request-deletion activation opens the delete mode of the Search Card Proposal Dialog for the selected card.
 - Anonymous Search proposal activation opens the sign-in-required dialog.
 - Search proposal submission uses the unified proposal contracts.
+- Search Card Proposal Dialog delete mode renders the selected card title and content through shared Input/Textarea `ReadOnly` states rather than disabled controls, preserving selectable content while distinguishing it from editable Reason input.
 - Workspace does not expose contributor-facing create/edit/delete proposal forms.
 - Workspace `My Proposals` shows the current user's proposal status.
 - Workspace does not render `Review Queue` or `Role Management`.
@@ -150,6 +151,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
   - Delete acceptance soft-archives the target card.
   - Apply acceptance writes an independent audit record.
   - Contract generation and drift checks cover changed Search and proposal API shapes.
+  - Search delete proposal fields for the existing card use shared `ReadOnly` input and textarea state, not disabled state.
 - **Evidence:**
   - Passing backend repository/service/API tests for card version and proposal persistence.
   - Passing BFF route and internal API adapter tests for proposal flows and role enforcement.

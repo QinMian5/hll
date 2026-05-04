@@ -11,7 +11,7 @@ export function Input({ className, type = "text", ...props }: InputProps) {
   return (
     <input
       className={cn(
-        "flex w-full min-w-0 border-none bg-transparent text-[14px] leading-5 text-knowledge-text-default outline-none placeholder:text-knowledge-text-muted disabled:cursor-not-allowed disabled:opacity-100",
+        "flex w-full min-w-0 border-none bg-transparent text-[14px] leading-5 text-knowledge-text-default outline-none placeholder:text-knowledge-text-muted read-only:cursor-text read-only:text-knowledge-text-default disabled:cursor-not-allowed disabled:opacity-100",
         className,
       )}
       type={type}

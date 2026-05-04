@@ -26,9 +26,12 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --color-knowledge-surface-control-hover: rgb(241 245 251 / 72%);
   --color-knowledge-surface-dialog: #ffffff;
   --color-knowledge-surface-hover: rgb(226 234 246 / 58%);
+  --color-knowledge-surface-input: rgb(255 255 255 / 82%);
+  --color-knowledge-surface-input-readonly: rgb(248 250 252 / 94%);
   --color-knowledge-border-card: rgb(214 227 247 / 86%);
   --color-knowledge-border-control: rgb(214 227 247 / 96%);
   --color-knowledge-border-input: #e5e5e5;
+  --color-knowledge-border-input-readonly: rgb(209 221 238 / 86%);
   --color-knowledge-border-subtle: #e0e4eb;
   --color-knowledge-divider-subtle: rgb(214 227 247 / 74%);
   --color-docs-border-accent: rgb(147 197 253 / 90%);

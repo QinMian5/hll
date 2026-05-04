@@ -3,6 +3,7 @@
 
 export * from "./button";
 export * from "./card";
+export * from "./field-control";
 export * from "./input";
 export * from "./knowledge-rich-text";
 export * from "./page-header";
