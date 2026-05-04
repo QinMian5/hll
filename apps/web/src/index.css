@@ -224,58 +224,60 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --drop-shadow-account-menu: 0 12px 12px rgb(38 51 82 / 12%);
 }
 
-:root {
-  color: #10233b;
-  font-family: var(--font-knowledge-geist);
-  font-synthesis: none;
-  line-height: 1.5;
-  font-weight: 400;
-  --scroll-area-thumb-color: var(--color-docs-scrollbar-thumb);
-  --scroll-area-track-color: var(--color-docs-scrollbar-track);
-  --knowledge-dashboard-table-grid-mobile: repeat(2, minmax(0, 1fr));
-  --knowledge-dashboard-table-grid-desktop: minmax(0, 3fr) minmax(0, 5fr)
-    minmax(0, 1.5fr) minmax(0, 2fr)
-    var(--spacing-knowledge-dashboard-table-action-width);
-  --knowledge-dashboard-table-row-template-mobile: 20px 24px 20px;
-  --knowledge-dashboard-table-row-template-desktop: repeat(1, minmax(0, 1fr));
-  --knowledge-dashboard-quota-grid: minmax(0, 1fr) 1px minmax(0, 1fr);
-  text-rendering: optimizeLegibility;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-font-smoothing: antialiased;
-}
+@layer base {
+  :root {
+    color: #10233b;
+    font-family: var(--font-knowledge-geist);
+    font-synthesis: none;
+    line-height: 1.5;
+    font-weight: 400;
+    --scroll-area-thumb-color: var(--color-docs-scrollbar-thumb);
+    --scroll-area-track-color: var(--color-docs-scrollbar-track);
+    --knowledge-dashboard-table-grid-mobile: repeat(2, minmax(0, 1fr));
+    --knowledge-dashboard-table-grid-desktop: minmax(0, 3fr) minmax(0, 5fr)
+      minmax(0, 1.5fr) minmax(0, 2fr)
+      var(--spacing-knowledge-dashboard-table-action-width);
+    --knowledge-dashboard-table-row-template-mobile: 20px 24px 20px;
+    --knowledge-dashboard-table-row-template-desktop: repeat(1, minmax(0, 1fr));
+    --knowledge-dashboard-quota-grid: minmax(0, 1fr) 1px minmax(0, 1fr);
+    text-rendering: optimizeLegibility;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+  }
 
-*,
-::before,
-::after {
-  box-sizing: border-box;
-  font-family: inherit;
-}
+  *,
+  ::before,
+  ::after {
+    box-sizing: border-box;
+    font-family: inherit;
+  }
 
-html,
-body,
-#root {
-  min-height: 100%;
-}
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background: #ffffff;
-}
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #ffffff;
+  }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 
-.taxonomy-flow-shell {
-  height: 100%;
-  min-height: 0;
-}
+  .taxonomy-flow-shell {
+    height: 100%;
+    min-height: 0;
+  }
 
-.taxonomy-flow-shell > .react-flow,
-.taxonomy-flow-shell > [data-testid="reactflow-mock"] {
-  height: 100%;
+  .taxonomy-flow-shell > .react-flow,
+  .taxonomy-flow-shell > [data-testid="reactflow-mock"] {
+    height: 100%;
+  }
 }
