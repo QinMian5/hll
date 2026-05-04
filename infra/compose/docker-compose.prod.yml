@@ -137,8 +137,8 @@ services:
 
   web:
     image: knowledge-web:prod
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 1024m
+    memswap_limit: 1024m
     cpus: 0.75
     pids_limit: 128
     environment:
@@ -160,7 +160,7 @@ services:
       mcp:
         condition: service_healthy
       web:
-        condition: service_started
+        condition: service_healthy
       source_pipeline_webhook_receiver:
         condition: service_started
       taxonomy_classification_webhook_receiver:

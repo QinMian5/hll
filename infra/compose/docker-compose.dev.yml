@@ -189,8 +189,8 @@ services:
     build:
       target: dev
     image: knowledge-web:dev
-    mem_limit: 384m
-    memswap_limit: 384m
+    mem_limit: 1024m
+    memswap_limit: 1024m
     cpus: 0.5
     pids_limit: 128
     environment:

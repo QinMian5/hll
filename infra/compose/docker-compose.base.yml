@@ -592,6 +592,18 @@ services:
       KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_BURST_WINDOW_SECONDS: "${KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_BURST_WINDOW_SECONDS:?KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_BURST_WINDOW_SECONDS is required}"
       KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_LIMIT: "${KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_LIMIT:?KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_LIMIT is required}"
       KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_WINDOW_SECONDS: "${KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_WINDOW_SECONDS:?KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_WINDOW_SECONDS is required}"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:5173/', (response) => process.exit(response.statusCode && response.statusCode >= 200 && response.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     networks:
       - backend
       - edge

@@ -1,6 +1,6 @@
 """
-Abstract: Unit tests enforcing Docker Compose naming and ownership conventions.
-Out of scope: Container startup, image build behavior, and runtime health checks.
+Abstract: Unit tests enforcing Docker Compose naming, ownership, and health-check conventions.
+Out of scope: Container startup and image build behavior.
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ EXPECTED_PROD_RESOURCE_BUDGETS = {
         "cpus": 0.5,
         "pids_limit": 128,
     },
-    "web": {"mem_limit": "512m", "memswap_limit": "512m", "cpus": 0.75, "pids_limit": 128},
+    "web": {"mem_limit": "1024m", "memswap_limit": "1024m", "cpus": 0.75, "pids_limit": 128},
     "logto": {"mem_limit": "768m", "memswap_limit": "768m", "cpus": 0.75, "pids_limit": 128},
     "nginx": {"mem_limit": "128m", "memswap_limit": "128m", "cpus": 0.25, "pids_limit": 64},
 }
@@ -114,7 +114,7 @@ EXPECTED_DEV_RESOURCE_BUDGETS = {
         "pids_limit": 128,
     },
     "mcp": {"mem_limit": "384m", "memswap_limit": "384m", "cpus": 0.5, "pids_limit": 128},
-    "web": {"mem_limit": "384m", "memswap_limit": "384m", "cpus": 0.5, "pids_limit": 128},
+    "web": {"mem_limit": "1024m", "memswap_limit": "1024m", "cpus": 0.5, "pids_limit": 128},
     "logto": {"mem_limit": "512m", "memswap_limit": "512m", "cpus": 0.5, "pids_limit": 128},
 }
 
@@ -305,6 +305,23 @@ def test_prod_compose_defines_resource_budgets_for_long_running_services() -> No
 
 def test_dev_compose_defines_resource_budgets_for_long_running_services() -> None:
     _assert_resource_budget(DEV_COMPOSE, EXPECTED_DEV_RESOURCE_BUDGETS)
+
+
+def test_base_compose_defines_web_healthcheck() -> None:
+    web = _service_data(BASE_COMPOSE, "web")
+
+    assert web["healthcheck"] == {
+        "test": [
+            "CMD",
+            "node",
+            "-e",
+            "require('http').get('http://127.0.0.1:5173/', (response) => process.exit(response.statusCode && response.statusCode >= 200 && response.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))",
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 6,
+        "start_period": "10s",
+    }
 
 
 def test_base_compose_leaves_volume_and_network_names_to_environment_overlays() -> None:
@@ -790,6 +807,7 @@ def test_dev_and_prod_compose_define_mcp_image_and_ingress_dependencies() -> Non
     assert dev_mcp["ports"] == ["8002:8080"]
     assert prod_mcp["image"] == "knowledge-mcp:prod"
     assert "mcp" in prod_nginx["depends_on"]
+    assert prod_nginx["depends_on"]["web"] == {"condition": "service_healthy"}
 
 
 def test_prod_nginx_config_is_packaged_in_image_not_bind_mounted() -> None:
