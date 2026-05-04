@@ -8,6 +8,7 @@ import express, {
   type Router,
 } from "express";
 
+import { injectBrowserRuntimeConfig } from "./browserRuntimeConfig.js";
 import type { WebServerConfig } from "./config.js";
 
 export interface ProductionRuntime {
@@ -69,7 +70,11 @@ export async function createApp(options: CreateAppOptions): Promise<Express> {
         return;
       }
 
-      response.type("html").send(runtime.indexHtml);
+      const html = injectBrowserRuntimeConfig(
+        runtime.indexHtml,
+        options.config,
+      );
+      response.type("html").send(html);
     });
 
     return app;
@@ -83,7 +88,10 @@ export async function createApp(options: CreateAppOptions): Promise<Express> {
     }
 
     try {
-      const html = await runtime.renderIndexHtml(request.originalUrl);
+      const html = injectBrowserRuntimeConfig(
+        await runtime.renderIndexHtml(request.originalUrl),
+        options.config,
+      );
       response.type("html").send(html);
     } catch (error) {
       next(error);

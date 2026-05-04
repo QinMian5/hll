@@ -37,6 +37,7 @@ export function createWebServerTestEnv(
     KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_RESOURCE: "https://knowledge-mcp.internal",
     KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_SCOPES: "usage:read",
     KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL: "http://logto:3001/oidc/token",
+    KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL: "http://localhost:8002/mcp",
     KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET:
       "test-pat-fingerprint-secret-with-enough-length",
     KNOWLEDGE_WEB_PUBLIC_BASE_URL: "http://localhost:5173",

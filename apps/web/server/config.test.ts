@@ -36,6 +36,26 @@ describe("web server config", () => {
     );
   });
 
+  it("loads the public MCP endpoint for browser Docs commands", () => {
+    const config = loadWebServerConfig({
+      ...TEST_ENV,
+      KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL: "http://localhost:8002/mcp",
+    });
+
+    expect(config.mcpPublicBaseUrl).toBe("http://localhost:8002/mcp");
+  });
+
+  it("requires an explicit public MCP endpoint", () => {
+    const env = createWebServerTestEnv({
+      KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL: "http://localhost:8002/mcp",
+    });
+    const { KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL, ...envWithoutPublicMcpUrl } =
+      env;
+
+    expect(() => loadWebServerConfig(envWithoutPublicMcpUrl)).toThrow();
+    expect(KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL).toBeDefined();
+  });
+
   it("requires a PAT fingerprint secret", () => {
     const { KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET, ...env } = TEST_ENV;
 

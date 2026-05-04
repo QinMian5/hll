@@ -4,6 +4,7 @@
 import { Copy } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { resolveBrowserRuntimeConfig } from "../../../shared/config";
 import { PageHeader, ScrollArea } from "../../../shared/ui";
 import { cn } from "../../../shared/utils";
 
@@ -25,96 +26,108 @@ interface DocsClient {
   readonly steps: readonly DocsSetupStep[];
 }
 
-const docsClients: readonly DocsClient[] = [
-  {
-    configurationTitle: "Codex Configuration",
-    iconSrc: "/docs-clients/codex-icon.png",
-    id: "codex",
-    name: "Codex",
-    panelTitle: "Connect Knowledge to Codex",
-    steps: [
-      {
-        command: "codex mcp add knowledge --url https://<your-host>/mcp",
-        description: "Add the Knowledge MCP server to Codex.",
-        label: "Terminal",
-        title: "Add the MCP server",
-      },
-      {
-        command: "codex mcp login knowledge",
-        description:
-          "Open the browser-based OAuth flow and authorize Codex to access your Knowledge account.",
-        label: "Terminal",
-        title: "Authenticate with OAuth",
-      },
-      {
-        command: "codex mcp list",
-        description: "Confirm Knowledge appears as a registered MCP server.",
-        label: "Terminal",
-        title: "Verify the connection",
-      },
-    ],
-  },
-  {
-    configurationTitle: "Claude Code Configuration",
-    iconSrc: "/docs-clients/claudecode-icon.png",
-    id: "claude-code",
-    name: "Claude Code",
-    panelTitle: "Connect Knowledge to Claude Code",
-    steps: [
-      {
-        command:
-          "claude mcp add --transport http knowledge https://<your-host>/mcp",
-        description:
-          "Add the Knowledge MCP server to Claude Code using HTTP transport.",
-        label: "Terminal",
-        title: "Add the MCP server",
-      },
-      {
-        command: "/mcp",
-        description:
-          "Run the MCP menu command in Claude Code and follow the browser sign-in flow.",
-        label: "Claude Code",
-        title: "Authenticate with OAuth",
-      },
-      {
-        command: "claude mcp list",
-        description:
-          "Confirm Knowledge appears in Claude Code's MCP server list.",
-        label: "Terminal",
-        title: "Verify the connection",
-      },
-    ],
-  },
-  {
-    configurationTitle: "OpenClaw Configuration",
-    iconSrc: "/docs-clients/openclaw-icon.png",
-    id: "openclaw",
-    name: "OpenClaw",
-    panelTitle: "Connect Knowledge to OpenClaw",
-    steps: [
-      {
-        command: `openclaw mcp set knowledge '{"url":"https://<your-host>/mcp"}'`,
-        description:
-          "Register the Knowledge MCP server in OpenClaw's client-side MCP registry.",
-        label: "Terminal",
-        title: "Save the MCP server",
-      },
-      {
-        command: "openclaw mcp show knowledge --json",
-        description:
-          "Review the saved server definition before using it from an OpenClaw runtime.",
-        label: "Terminal",
-        title: "Inspect the saved configuration",
-      },
-      {
-        command: "openclaw mcp list",
-        description: "Confirm Knowledge appears in the OpenClaw MCP registry.",
-        label: "Terminal",
-        title: "Verify the registry entry",
-      },
-    ],
-  },
-];
+interface BrowserRuntimeConfigWindow extends Window {
+  readonly __KNOWLEDGE_RUNTIME_CONFIG__?: Record<string, unknown>;
+}
+
+function readBrowserRuntimeConfig(): Record<string, unknown> {
+  return (
+    (window as BrowserRuntimeConfigWindow).__KNOWLEDGE_RUNTIME_CONFIG__ ?? {}
+  );
+}
+
+function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
+  return [
+    {
+      configurationTitle: "Codex Configuration",
+      iconSrc: "/docs-clients/codex-icon.png",
+      id: "codex",
+      name: "Codex",
+      panelTitle: "Connect Knowledge to Codex",
+      steps: [
+        {
+          command: `codex mcp add knowledge --url ${mcpPublicBaseUrl}`,
+          description: "Add the Knowledge MCP server to Codex.",
+          label: "Terminal",
+          title: "Add the MCP server",
+        },
+        {
+          command: "codex mcp login knowledge",
+          description:
+            "Open the browser-based OAuth flow and authorize Codex to access your Knowledge account.",
+          label: "Terminal",
+          title: "Authenticate with OAuth",
+        },
+        {
+          command: "codex mcp list",
+          description: "Confirm Knowledge appears as a registered MCP server.",
+          label: "Terminal",
+          title: "Verify the connection",
+        },
+      ],
+    },
+    {
+      configurationTitle: "Claude Code Configuration",
+      iconSrc: "/docs-clients/claudecode-icon.png",
+      id: "claude-code",
+      name: "Claude Code",
+      panelTitle: "Connect Knowledge to Claude Code",
+      steps: [
+        {
+          command: `claude mcp add --transport http knowledge ${mcpPublicBaseUrl}`,
+          description:
+            "Add the Knowledge MCP server to Claude Code using HTTP transport.",
+          label: "Terminal",
+          title: "Add the MCP server",
+        },
+        {
+          command: "/mcp",
+          description:
+            "Run the MCP menu command in Claude Code and follow the browser sign-in flow.",
+          label: "Claude Code",
+          title: "Authenticate with OAuth",
+        },
+        {
+          command: "claude mcp list",
+          description:
+            "Confirm Knowledge appears in Claude Code's MCP server list.",
+          label: "Terminal",
+          title: "Verify the connection",
+        },
+      ],
+    },
+    {
+      configurationTitle: "OpenClaw Configuration",
+      iconSrc: "/docs-clients/openclaw-icon.png",
+      id: "openclaw",
+      name: "OpenClaw",
+      panelTitle: "Connect Knowledge to OpenClaw",
+      steps: [
+        {
+          command: `openclaw mcp set knowledge '{"url":"${mcpPublicBaseUrl}"}'`,
+          description:
+            "Register the Knowledge MCP server in OpenClaw's client-side MCP registry.",
+          label: "Terminal",
+          title: "Save the MCP server",
+        },
+        {
+          command: "openclaw mcp show knowledge --json",
+          description:
+            "Review the saved server definition before using it from an OpenClaw runtime.",
+          label: "Terminal",
+          title: "Inspect the saved configuration",
+        },
+        {
+          command: "openclaw mcp list",
+          description:
+            "Confirm Knowledge appears in the OpenClaw MCP registry.",
+          label: "Terminal",
+          title: "Verify the registry entry",
+        },
+      ],
+    },
+  ];
+}
 
 const scrollAreaTheme =
   "[--scroll-area-padding-right:var(--spacing-docs-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-docs-scrollbar-width)] [--scroll-area-thumb-color:var(--color-docs-scrollbar-thumb)] [--scroll-area-track-color:var(--color-docs-scrollbar-track)]";
@@ -225,12 +238,17 @@ function SetupStep({
 export function DocsPage() {
   const [selectedClientId, setSelectedClientId] =
     useState<DocsClientId>("codex");
-  const selectedClient = useMemo(
-    () =>
-      docsClients.find((client) => client.id === selectedClientId) ??
-      docsClients[0],
-    [selectedClientId],
+  const browserRuntimeConfig = useMemo(
+    () => resolveBrowserRuntimeConfig(readBrowserRuntimeConfig()),
+    [],
   );
+  const docsClients = useMemo(
+    () => createDocsClients(browserRuntimeConfig.mcpPublicBaseUrl),
+    [browserRuntimeConfig.mcpPublicBaseUrl],
+  );
+  const selectedClient =
+    docsClients.find((client) => client.id === selectedClientId) ??
+    docsClients[0];
 
   return (
     <main

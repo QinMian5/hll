@@ -42,6 +42,7 @@ const WebServerEnvSchema = z.object({
   KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_SCOPES: z.string().trim().min(1),
   KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL: z.string().trim().url(),
   KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET: z.string().min(32),
+  KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL: z.string().trim().url(),
   KNOWLEDGE_WEB_PUBLIC_BASE_URL: z.string().trim().url(),
   KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX: z.string().trim().min(1),
   KNOWLEDGE_WEB_REDIS_URL: z.string().trim().url(),
@@ -130,6 +131,7 @@ export interface WebServerConfig {
   readonly mcpUsageSummaryTokenUrl: string;
   readonly nodeEnv: "development" | "production" | "test";
   readonly patFingerprintSecret: string;
+  readonly mcpPublicBaseUrl: string;
   readonly port: number;
   readonly publicBaseUrl: string;
   readonly quotaRedisPrefix: string;
@@ -202,6 +204,7 @@ export function loadWebServerConfig(
     mcpUsageSummaryTokenUrl: parsed.KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_TOKEN_URL,
     nodeEnv: parsed.NODE_ENV,
     patFingerprintSecret: parsed.KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET,
+    mcpPublicBaseUrl: parsed.KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL,
     port: 5173,
     publicBaseUrl: parsed.KNOWLEDGE_WEB_PUBLIC_BASE_URL,
     quotaRedisPrefix: parsed.KNOWLEDGE_WEB_QUOTA_REDIS_PREFIX,

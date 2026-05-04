@@ -10,12 +10,22 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DocsPage } from ".";
 
+const MCP_PUBLIC_BASE_URL = "http://localhost:8002/mcp";
+
+beforeEach(() => {
+  Object.defineProperty(window, "__KNOWLEDGE_RUNTIME_CONFIG__", {
+    configurable: true,
+    value: { mcpPublicBaseUrl: MCP_PUBLIC_BASE_URL },
+  });
+});
+
 afterEach(() => {
   cleanup();
+  Reflect.deleteProperty(window, "__KNOWLEDGE_RUNTIME_CONFIG__");
 });
 
 describe("DocsPage", () => {
@@ -73,7 +83,7 @@ describe("DocsPage", () => {
     );
     expect(
       screen.getByRole("button", {
-        name: "Copy command: codex mcp add knowledge --url https://<your-host>/mcp",
+        name: `Copy command: codex mcp add knowledge --url ${MCP_PUBLIC_BASE_URL}`,
       }),
     ).toHaveClass(
       "size-docs-icon-button-size",
@@ -102,8 +112,8 @@ describe("DocsPage", () => {
       "true",
     );
     expect(
-      screen.getByText("codex mcp add knowledge --url https://<your-host>/mcp"),
-    ).toBeInTheDocument();
+      screen.getByText(`codex mcp add knowledge --url ${MCP_PUBLIC_BASE_URL}`),
+    ).toHaveClass("font-mono");
     expect(screen.queryByText("/mcp")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Claude Code" }));
@@ -119,9 +129,9 @@ describe("DocsPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "claude mcp add --transport http knowledge https://<your-host>/mcp",
+        `claude mcp add --transport http knowledge ${MCP_PUBLIC_BASE_URL}`,
       ),
-    ).toBeInTheDocument();
+    ).toHaveClass("font-mono");
     expect(screen.getByText("/mcp")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "OpenClaw" }));
@@ -134,9 +144,9 @@ describe("DocsPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        `openclaw mcp set knowledge '{"url":"https://<your-host>/mcp"}'`,
+        `openclaw mcp set knowledge '{"url":"${MCP_PUBLIC_BASE_URL}"}'`,
       ),
-    ).toBeInTheDocument();
+    ).toHaveClass("font-mono");
     expect(
       screen.getByText("openclaw mcp show knowledge --json"),
     ).toBeInTheDocument();
@@ -157,7 +167,7 @@ describe("DocsPage", () => {
 
     expect(
       screen.getByRole("button", {
-        name: "Copy command: codex mcp add knowledge --url https://<your-host>/mcp",
+        name: `Copy command: codex mcp add knowledge --url ${MCP_PUBLIC_BASE_URL}`,
       }),
     ).toBeInTheDocument();
   });

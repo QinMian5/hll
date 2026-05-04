@@ -48,6 +48,31 @@ describe("createApp", () => {
     expect(response.status).toBe(200);
     expect(response.type).toBe("text/html");
     expect(response.text).toContain("Knowledge App");
+    expect(response.text).toContain(
+      'window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp"}',
+    );
+  });
+
+  it("injects browser runtime config into development HTML fallbacks", async () => {
+    const app = await createApp({
+      config: loadWebServerConfig(TEST_ENV),
+      runtime: {
+        kind: "development",
+        renderIndexHtml: async () =>
+          '<html><body><div id="root">Knowledge Dev</div></body></html>',
+        viteMiddlewares: (_request, _response, next) => {
+          next();
+        },
+      },
+    });
+
+    const response = await request(app).get("/docs");
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain("Knowledge Dev");
+    expect(response.text).toContain(
+      'window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp"}',
+    );
   });
 });
 
