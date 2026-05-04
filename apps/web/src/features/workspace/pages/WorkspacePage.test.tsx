@@ -3,7 +3,7 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CardProposalResponse } from "../data/workspaceQueries";
@@ -14,6 +14,7 @@ vi.mock("../../../shared/web-api/useWebSession", () => ({
 
 vi.mock("../data/workspaceQueries", () => ({
   useMyProposalsQuery: vi.fn(),
+  useWithdrawCardProposalMutation: vi.fn(),
 }));
 
 import * as webSession from "../../../shared/web-api/useWebSession";
@@ -41,11 +42,25 @@ const proposal: CardProposalResponse = {
 
 const mockUseWebSession = vi.mocked(webSession.useWebSession);
 const mockUseMyProposalsQuery = vi.mocked(workspaceQueries.useMyProposalsQuery);
+const mockUseWithdrawCardProposalMutation = vi.mocked(
+  workspaceQueries.useWithdrawCardProposalMutation,
+);
 
 function queryResult(
   value: Partial<ReturnType<typeof workspaceQueries.useMyProposalsQuery>>,
 ) {
   return value as ReturnType<typeof workspaceQueries.useMyProposalsQuery>;
+}
+
+function mutationResult(
+  value: Pick<
+    ReturnType<typeof workspaceQueries.useWithdrawCardProposalMutation>,
+    "isPending" | "mutate"
+  >,
+) {
+  return value as unknown as ReturnType<
+    typeof workspaceQueries.useWithdrawCardProposalMutation
+  >;
 }
 
 afterEach(() => {
@@ -54,6 +69,12 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  mockUseWithdrawCardProposalMutation.mockReturnValue(
+    mutationResult({
+      isPending: false,
+      mutate: vi.fn(),
+    }),
+  );
   mockUseWebSession.mockReturnValue({
     status: "authenticated",
     user: {
@@ -107,8 +128,50 @@ describe("WorkspacePage", () => {
       screen.getByDisplayValue("Clarifies the linear algebra explanation."),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Reason")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Cancel Proposal" }),
+    ).toBeEnabled();
     expect(screen.queryByLabelText("Rationale")).not.toBeInTheDocument();
     expect(mockUseMyProposalsQuery).toHaveBeenCalledWith(true);
+  });
+
+  it("withdraws the selected pending proposal from the fixed action bar", () => {
+    const mutate = vi.fn();
+    mockUseWithdrawCardProposalMutation.mockReturnValue(
+      mutationResult({
+        isPending: false,
+        mutate,
+      }),
+    );
+
+    render(<WorkspacePage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel Proposal" }));
+
+    expect(mutate).toHaveBeenCalledWith(42);
+  });
+
+  it("disables proposal cancellation after review is complete", () => {
+    mockUseMyProposalsQuery.mockReturnValue(
+      queryResult({
+        data: {
+          proposals: [
+            {
+              ...proposal,
+              status: "accepted_applied",
+            },
+          ],
+        },
+        error: null,
+        isError: false,
+      }),
+    );
+
+    render(<WorkspacePage />);
+
+    expect(
+      screen.getByRole("button", { name: "Cancel Proposal" }),
+    ).toBeDisabled();
   });
 
   it("renders an empty state when the current user has no proposals", () => {
@@ -124,6 +187,9 @@ describe("WorkspacePage", () => {
 
     expect(screen.getByText("No Proposals Yet")).toBeInTheDocument();
     expect(screen.getByText("No Proposal Selected")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Cancel Proposal" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText("Proposals from Search will appear here."),
     ).not.toBeInTheDocument();

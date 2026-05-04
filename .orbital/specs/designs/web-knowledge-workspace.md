@@ -88,6 +88,7 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - The `My Proposals` Workspace header does not render a top-right `Contributor` role badge. Contributor access is implied by the current view and server-side permissions.
 - When the current user has no proposals, the Workspace split view keeps the same `Proposals` rail and `Proposal Detail` panel structure. The rail renders the centered `No Proposals Yet` empty state, and the detail panel renders the centered `No Proposal Selected` empty state. Empty states do not render subtitles, add icons, or contributor actions.
 - Proposal detail fields use shared Input/Textarea components in the `ReadOnly` state rather than `Disabled`, so submitted proposal content remains selectable and copyable while visually distinct from editable form fields.
+- The populated proposal detail panel uses a fixed bottom action bar. The action bar contains a secondary `Cancel Proposal` button with the shared Lucide `X` icon. The button is enabled only for the submitter's own `pending_review` proposals and calls the Workspace withdrawal flow; reviewed or withdrawn proposals render the same control in a disabled state.
 - Visual language follows the existing app shell, Search, Dashboard, Docs, and Settings style: restrained, business-like, high-frequency maintenance oriented, and aligned with existing Tailwind/shadcn-style primitives.
 
 ## Validation
@@ -111,6 +112,8 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
   - Workspace `My Proposals` desktop and mobile headers do not show a top-right `Contributor` role badge.
   - Workspace with no current-user proposals renders the Figma-approved `No Proposals Yet` rail empty state and vertically centered `No Proposal Selected` detail-panel empty state without subtitles or add icons.
   - Workspace proposal detail fields render with shared `ReadOnly` input and textarea state, not disabled state.
+  - Workspace populated proposal details render a fixed bottom action bar with a secondary `Cancel Proposal` button using the shared Lucide `X` icon.
+  - Workspace cancellation is enabled only for current-user `pending_review` proposals and uses the BFF-mediated withdrawal endpoint.
   - Frontend Workspace API integration consumes generated contracts rather than handwritten backend schemas.
 - **Evidence:**
   - Active specs describe one proposal model and one review/apply path for human-originated card maintenance.

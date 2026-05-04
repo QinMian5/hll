@@ -10,6 +10,7 @@ import {
   Plus,
   SquarePen,
   Trash2,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -20,10 +21,14 @@ import {
   ScrollArea,
   Textarea,
 } from "../../../shared/ui";
+import { Button } from "../../../shared/ui/button";
 import { cn } from "../../../shared/utils";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
 import type { CardProposalResponse } from "../data/workspaceQueries";
-import { useMyProposalsQuery } from "../data/workspaceQueries";
+import {
+  useMyProposalsQuery,
+  useWithdrawCardProposalMutation,
+} from "../data/workspaceQueries";
 
 const scrollAreaTheme =
   "[--scroll-area-padding-right:var(--spacing-docs-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-docs-scrollbar-width)] [--scroll-area-thumb-color:var(--color-docs-scrollbar-thumb)] [--scroll-area-track-color:var(--color-docs-scrollbar-track)]";
@@ -272,8 +277,12 @@ function SummaryCell({
 }
 
 function ProposalDetail({
+  isCancellingProposal,
+  onCancelProposal,
   proposal,
 }: {
+  readonly isCancellingProposal: boolean;
+  readonly onCancelProposal: (proposal: CardProposalResponse) => void;
   readonly proposal: CardProposalResponse | undefined;
 }) {
   if (!proposal) {
@@ -286,47 +295,70 @@ function ProposalDetail({
 
   const typeMeta = proposalTypeMeta[proposal.proposal_type];
   const statusMeta = proposalStatusMeta[proposal.status];
+  const isCancelDisabled =
+    proposal.status !== "pending_review" || isCancellingProposal;
 
   return (
-    <div className="flex min-h-0 w-full flex-1 items-start gap-knowledge-dialog-form-scrollbar-gap overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-knowledge-dialog-padding">
-      <ScrollArea
-        className={cn("h-full min-w-0 flex-1", scrollAreaTheme)}
-        viewportClassName="flex h-full flex-col gap-knowledge-dialog-form-gap overflow-y-auto overflow-x-clip"
-      >
-        <div className="grid w-full shrink-0 grid-cols-2 gap-2 overflow-hidden">
-          <SummaryCell
-            Icon={typeMeta.Icon}
-            label="Proposal Type"
-            value={typeMeta.label}
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-knowledge-dialog-form-gap overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-knowledge-dialog-padding">
+      <div className="flex min-h-0 w-full flex-1 items-start gap-knowledge-dialog-form-scrollbar-gap overflow-hidden">
+        <ScrollArea
+          className={cn("h-full min-w-0 flex-1", scrollAreaTheme)}
+          viewportClassName="flex h-full flex-col gap-knowledge-dialog-form-gap overflow-y-auto overflow-x-clip"
+        >
+          <div className="grid w-full shrink-0 grid-cols-2 gap-2 overflow-hidden">
+            <SummaryCell
+              Icon={typeMeta.Icon}
+              label="Proposal Type"
+              value={typeMeta.label}
+            />
+            <SummaryCell
+              Icon={statusMeta.Icon}
+              label="Status"
+              value={
+                proposal.status === "pending_review"
+                  ? "Pending Review"
+                  : statusMeta.label
+              }
+            />
+          </div>
+          <ReadOnlyField
+            id="workspace-proposal-title"
+            label="Title"
+            value={proposalDisplayTitle(proposal)}
           />
-          <SummaryCell
-            Icon={statusMeta.Icon}
-            label="Status"
-            value={
-              proposal.status === "pending_review"
-                ? "Pending Review"
-                : statusMeta.label
+          <ReadOnlyField
+            id="workspace-proposal-content"
+            label="Content"
+            multiline
+            value={proposalDisplayContent(proposal)}
+          />
+          <ReadOnlyField
+            id="workspace-proposal-reason"
+            label="Reason"
+            multiline
+            value={proposalDisplayReason(proposal)}
+          />
+        </ScrollArea>
+      </div>
+      <div className="flex h-knowledge-control w-full shrink-0 items-center justify-end">
+        <Button
+          disabled={isCancelDisabled}
+          onClick={() => {
+            if (isCancelDisabled) {
+              return;
             }
+            onCancelProposal(proposal);
+          }}
+          variant="secondary"
+        >
+          <X
+            aria-hidden="true"
+            className="size-knowledge-action-button-icon shrink-0"
+            strokeWidth={2}
           />
-        </div>
-        <ReadOnlyField
-          id="workspace-proposal-title"
-          label="Title"
-          value={proposalDisplayTitle(proposal)}
-        />
-        <ReadOnlyField
-          id="workspace-proposal-content"
-          label="Content"
-          multiline
-          value={proposalDisplayContent(proposal)}
-        />
-        <ReadOnlyField
-          id="workspace-proposal-reason"
-          label="Reason"
-          multiline
-          value={proposalDisplayReason(proposal)}
-        />
-      </ScrollArea>
+          Cancel Proposal
+        </Button>
+      </div>
     </div>
   );
 }
@@ -335,6 +367,7 @@ export function WorkspacePage() {
   const session = useWebSession();
   const isAuthenticated = session.status === "authenticated";
   const myProposals = useMyProposalsQuery(isAuthenticated);
+  const withdrawProposalMutation = useWithdrawCardProposalMutation();
   const proposals = useMemo(
     () => myProposals.data?.proposals ?? [],
     [myProposals.data?.proposals],
@@ -395,7 +428,13 @@ export function WorkspacePage() {
           <h2 className="m-0 h-knowledge-split-view-panel-title w-full shrink-0 text-knowledge-split-view-panel-title font-semibold text-knowledge-text-default">
             Proposal Detail
           </h2>
-          <ProposalDetail proposal={selectedProposal} />
+          <ProposalDetail
+            isCancellingProposal={withdrawProposalMutation.isPending}
+            onCancelProposal={(proposal) => {
+              withdrawProposalMutation.mutate(proposal.id);
+            }}
+            proposal={selectedProposal}
+          />
         </section>
       </div>
     </main>

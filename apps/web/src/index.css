@@ -134,6 +134,8 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --text-account-menu-item--font-weight: 400;
 
   --spacing-knowledge-action-button-x: 16px;
+  --spacing-knowledge-action-button-content-gap: 8px;
+  --spacing-knowledge-action-button-icon: 16px;
   --spacing-knowledge-control: 40px;
   --spacing-knowledge-dialog-width: 480px;
   --spacing-docs-client-icon-size: 36px;

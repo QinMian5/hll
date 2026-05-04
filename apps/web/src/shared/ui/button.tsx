@@ -13,7 +13,7 @@ const buttonVariantClasses = {
   ghost:
     "bg-transparent text-knowledge-text-muted hover:bg-knowledge-surface-hover hover:text-knowledge-text-default disabled:hover:bg-transparent",
   secondary:
-    "border border-knowledge-border-control bg-knowledge-surface-control text-knowledge-text-default hover:bg-knowledge-surface-control-hover disabled:hover:bg-knowledge-surface-control",
+    "border border-knowledge-border-control bg-knowledge-surface-control text-knowledge-text-default hover:border-docs-border-accent hover:bg-knowledge-surface-hover disabled:border-knowledge-border-subtle disabled:text-knowledge-text-muted disabled:hover:border-knowledge-border-subtle disabled:hover:bg-knowledge-surface-control",
 } as const;
 
 const buttonSizeClasses = {
@@ -40,7 +40,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-100",
+        "inline-flex items-center justify-center gap-knowledge-action-button-content-gap font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand disabled:cursor-not-allowed disabled:opacity-100",
         buttonVariantClasses[variant],
         buttonSizeClasses[size],
         className,
