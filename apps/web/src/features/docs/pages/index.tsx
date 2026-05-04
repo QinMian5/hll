@@ -356,9 +356,9 @@ export function DocsPage() {
             Clients
           </h2>
           <ScrollArea
-            className={cn("min-h-0 flex-1", scrollAreaTheme)}
+            className={cn("min-h-0 w-full flex-1", scrollAreaTheme)}
             data-testid="docs-client-scroll-area"
-            viewportClassName="flex min-h-full flex-col gap-4"
+            viewportClassName="flex min-h-full w-full flex-col gap-4"
           >
             {docsClients.map((client) => (
               <ClientRow
@@ -396,9 +396,9 @@ export function DocsPage() {
             </div>
             <div className="h-px w-full shrink-0 bg-knowledge-divider-subtle" />
             <ScrollArea
-              className={cn("min-h-0 flex-1", scrollAreaTheme)}
+              className={cn("min-h-0 w-full flex-1", scrollAreaTheme)}
               data-testid="docs-steps-scroll-area"
-              viewportClassName="flex min-h-full flex-col gap-4"
+              viewportClassName="flex min-h-full w-full flex-col gap-4"
             >
               {selectedClient.steps.map((step, index) => (
                 <SetupStep

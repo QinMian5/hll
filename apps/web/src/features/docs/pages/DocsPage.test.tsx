@@ -125,11 +125,13 @@ describe("DocsPage", () => {
 
     expect(screen.getByTestId("docs-client-scroll-area")).toHaveClass(
       "min-h-0",
+      "w-full",
       "flex-1",
       "overflow-hidden",
     );
     expect(screen.getByTestId("docs-steps-scroll-area")).toHaveClass(
       "min-h-0",
+      "w-full",
       "flex-1",
       "overflow-hidden",
     );
@@ -205,6 +207,8 @@ describe("DocsPage", () => {
 
     expect(clientViewport).toHaveClass("overflow-auto");
     expect(stepsViewport).toHaveClass("overflow-auto");
+    expect(clientViewport).toHaveClass("w-full");
+    expect(stepsViewport).toHaveClass("w-full");
 
     expect(
       screen.getByRole("button", {
