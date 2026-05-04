@@ -1,12 +1,11 @@
-// abstract: Route-level tests for Workspace proposal lists and reviewer actions.
-// out_of_scope: Backend authorization and card proposal application behavior.
+// abstract: Route-level tests for current-user Workspace proposal tracking.
+// out_of_scope: Backend authorization and proposal review behavior.
 
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { WebApiRequestError } from "../../../shared/web-api/errors";
 import type { CardProposalResponse } from "../data/workspaceQueries";
 
 vi.mock("../../../shared/web-api/useWebSession", () => ({
@@ -15,8 +14,6 @@ vi.mock("../../../shared/web-api/useWebSession", () => ({
 
 vi.mock("../data/workspaceQueries", () => ({
   useMyProposalsQuery: vi.fn(),
-  useProposalActionMutation: vi.fn(),
-  useReviewQueueQuery: vi.fn(),
 }));
 
 import * as webSession from "../../../shared/web-api/useWebSession";
@@ -28,6 +25,8 @@ const proposal: CardProposalResponse = {
   id: 42,
   payload: {
     base_version: 2,
+    reason: "Clarifies the linear algebra explanation.",
+    suggested_content: "Updated matrix decomposition content.",
     suggested_title: "Better matrix card",
     target_node_id: 10,
   },
@@ -42,10 +41,6 @@ const proposal: CardProposalResponse = {
 
 const mockUseWebSession = vi.mocked(webSession.useWebSession);
 const mockUseMyProposalsQuery = vi.mocked(workspaceQueries.useMyProposalsQuery);
-const mockUseReviewQueueQuery = vi.mocked(workspaceQueries.useReviewQueueQuery);
-const mockUseProposalActionMutation = vi.mocked(
-  workspaceQueries.useProposalActionMutation,
-);
 
 function queryResult(
   value: Partial<ReturnType<typeof workspaceQueries.useMyProposalsQuery>>,
@@ -74,17 +69,6 @@ beforeEach(() => {
       isError: false,
     }),
   );
-  mockUseReviewQueueQuery.mockReturnValue(
-    queryResult({
-      data: { proposals: [proposal] },
-      error: null,
-      isError: false,
-    }),
-  );
-  mockUseProposalActionMutation.mockReturnValue({
-    isError: false,
-    mutate: vi.fn(),
-  } as never);
 });
 
 describe("WorkspacePage", () => {
@@ -95,61 +79,47 @@ describe("WorkspacePage", () => {
 
     expect(screen.getByText("Sign in to open Workspace.")).toBeInTheDocument();
     expect(mockUseMyProposalsQuery).toHaveBeenCalledWith(false);
-    expect(mockUseReviewQueueQuery).toHaveBeenCalledWith(false);
   });
 
-  it("renders My proposals and Review queue from the unified proposal model", () => {
+  it("renders only current-user proposals from the unified proposal model", () => {
     render(<WorkspacePage />);
 
     expect(
       screen.getByRole("heading", { name: "Workspace" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "My proposals" }),
+      screen.getByRole("heading", { name: "Proposals" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "Review queue" }),
+      screen.getByRole("heading", { name: "Proposal Detail" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByText("edit · pending_review")).toHaveLength(2);
-    expect(screen.getAllByText("Better matrix card")).toHaveLength(2);
+    expect(screen.queryByText("Review Queue")).not.toBeInTheDocument();
+    expect(screen.queryByText("Role Management")).not.toBeInTheDocument();
+    expect(screen.getByText("Edit Card")).toBeInTheDocument();
+    expect(screen.getByText("Pending")).toBeInTheDocument();
+    expect(screen.getByText("Pending Review")).toBeInTheDocument();
+    expect(screen.getByText("Better matrix card")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Better matrix card")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Updated matrix decomposition content."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("Clarifies the linear algebra explanation."),
+    ).toBeInTheDocument();
     expect(mockUseMyProposalsQuery).toHaveBeenCalledWith(true);
-    expect(mockUseReviewQueueQuery).toHaveBeenCalledWith(true);
   });
 
-  it("submits reviewer accept and reject actions from the review queue", () => {
-    const mutate = vi.fn();
-    mockUseProposalActionMutation.mockReturnValue({
-      isError: false,
-      mutate,
-    } as never);
-
-    render(<WorkspacePage />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Accept proposal 42" }));
-    fireEvent.click(screen.getByRole("button", { name: "Reject proposal 42" }));
-
-    expect(mutate).toHaveBeenCalledWith({ action: "accept", proposalId: 42 });
-    expect(mutate).toHaveBeenCalledWith({ action: "reject", proposalId: 42 });
-  });
-
-  it("keeps reviewer-only access distinct from contributor proposal tracking", () => {
-    mockUseReviewQueueQuery.mockReturnValue(
+  it("renders an empty state when the current user has no proposals", () => {
+    mockUseMyProposalsQuery.mockReturnValue(
       queryResult({
-        data: undefined,
-        error: new WebApiRequestError({
-          code: "DOMAIN_KNOWLEDGE_PERMISSION_DENIED",
-          message: "Reviewer role is required.",
-          status: 403,
-        }),
-        isError: true,
+        data: { proposals: [] },
+        error: null,
+        isError: false,
       }),
     );
 
     render(<WorkspacePage />);
 
-    expect(screen.getByText("Better matrix card")).toBeInTheDocument();
-    expect(
-      screen.getByText("Reviewer access is required."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No proposals submitted yet.")).toBeInTheDocument();
   });
 });

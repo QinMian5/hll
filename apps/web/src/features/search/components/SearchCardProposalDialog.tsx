@@ -205,30 +205,59 @@ export function SearchCardProposalDialog({
             {mode === "delete" ? (
               <div className="flex flex-col gap-knowledge-dialog-content-gap">
                 {card ? (
-                  <div className="flex w-full flex-col gap-2 rounded-knowledge-control border border-knowledge-border-subtle bg-knowledge-surface-control p-3">
-                    <p className="m-0 text-[12px] leading-[17px] font-medium text-knowledge-text-muted">
-                      Current card
-                    </p>
-                    <p className="m-0 text-knowledge-button font-semibold text-knowledge-text-default">
-                      {card.title}
-                    </p>
-                    <p className="m-0 text-[13px] leading-[19px] text-knowledge-text-muted">
-                      {card.content}
-                    </p>
+                  <>
+                    <div className="flex flex-col gap-knowledge-dialog-field-gap">
+                      <FieldLabel htmlFor="card-proposal-delete-title">
+                        Title
+                      </FieldLabel>
+                      <ControlFrame>
+                        <Input
+                          id="card-proposal-delete-title"
+                          readOnly
+                          value={card.title}
+                        />
+                      </ControlFrame>
+                    </div>
+                    <div className="flex flex-col gap-knowledge-dialog-field-gap">
+                      <FieldLabel htmlFor="card-proposal-delete-content">
+                        Content
+                      </FieldLabel>
+                      <ControlFrame className="items-start">
+                        <Textarea
+                          id="card-proposal-delete-content"
+                          readOnly
+                          rows={1}
+                          value={card.content}
+                        />
+                      </ControlFrame>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-knowledge-dialog-field-gap">
+                    <FieldLabel htmlFor="card-proposal-delete-title">
+                      Title
+                    </FieldLabel>
+                    <ControlFrame>
+                      <Input
+                        id="card-proposal-delete-title"
+                        readOnly
+                        value=""
+                      />
+                    </ControlFrame>
                   </div>
-                ) : null}
+                )}
                 <div className="flex flex-col gap-knowledge-dialog-field-gap">
                   <FieldLabel htmlFor="card-proposal-delete-reason">
                     Reason
                   </FieldLabel>
-                  <ControlFrame className="min-h-knowledge-dialog-textarea-min-height items-start">
+                  <ControlFrame className="items-start">
                     <Textarea
                       id="card-proposal-delete-reason"
                       onChange={(event) => {
                         setReason(event.currentTarget.value);
                       }}
                       placeholder="Explain why you recommend deleting this card."
-                      rows={3}
+                      rows={1}
                       value={reason}
                     />
                   </ControlFrame>
@@ -253,7 +282,7 @@ export function SearchCardProposalDialog({
                   <FieldLabel htmlFor="card-proposal-content">
                     Content
                   </FieldLabel>
-                  <ControlFrame className="min-h-knowledge-dialog-textarea-min-height items-start">
+                  <ControlFrame className="items-start">
                     <Textarea
                       id="card-proposal-content"
                       onChange={(event) => {
@@ -264,7 +293,7 @@ export function SearchCardProposalDialog({
                           ? "Write the proposed card content."
                           : "Write the revised card content."
                       }
-                      rows={3}
+                      rows={1}
                       value={content}
                     />
                   </ControlFrame>
@@ -273,7 +302,7 @@ export function SearchCardProposalDialog({
                   <FieldLabel htmlFor="card-proposal-rationale">
                     Rationale
                   </FieldLabel>
-                  <ControlFrame className="min-h-knowledge-dialog-textarea-min-height items-start">
+                  <ControlFrame className="items-start">
                     <Textarea
                       id="card-proposal-rationale"
                       onChange={(event) => {
@@ -284,7 +313,7 @@ export function SearchCardProposalDialog({
                           ? "Explain why you recommend adding this card."
                           : "Explain what changed and why."
                       }
-                      rows={3}
+                      rows={1}
                       value={rationale}
                     />
                   </ControlFrame>

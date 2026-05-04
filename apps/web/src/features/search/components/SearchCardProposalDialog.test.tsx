@@ -95,7 +95,13 @@ describe("SearchCardProposalDialog", () => {
     expect(
       within(tabs).getByRole("button", { name: "Delete" }),
     ).toHaveAttribute("aria-pressed", "true");
-    expect(within(dialog).getByText("Current card")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Current card")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Title")).toHaveValue(
+      "Singular value decomposition",
+    );
+    expect(screen.getByLabelText("Title")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Content")).toHaveValue(card.content);
+    expect(screen.getByLabelText("Content")).toHaveAttribute("readonly");
     expect(screen.getByLabelText("Reason")).toHaveAttribute(
       "placeholder",
       "Explain why you recommend deleting this card.",
@@ -150,6 +156,12 @@ describe("SearchCardProposalDialog", () => {
     );
     expect(contentTextarea).toHaveClass("overflow-hidden");
     expect(rationaleTextarea).toHaveClass("overflow-hidden");
+    expect(contentTextarea.closest("div")).not.toHaveClass(
+      "min-h-knowledge-dialog-textarea-min-height",
+    );
+    expect(rationaleTextarea.closest("div")).not.toHaveClass(
+      "min-h-knowledge-dialog-textarea-min-height",
+    );
     expect(contentTextarea).not.toHaveClass("overflow-y-auto");
     expect(rationaleTextarea).not.toHaveClass("overflow-y-auto");
   });

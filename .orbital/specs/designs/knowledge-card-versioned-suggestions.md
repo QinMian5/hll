@@ -17,7 +17,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 
 ## Constraint Projection
 - **Governing Constraints:** Knowledge-card proposals preserve an auditable relationship to the card versions visible to users, browser data access remains BFF-mediated, reviewer/admin authorization is Knowledge-owned, private API contracts remain generated and synchronized, and behavior-changing data-model/UI decisions stay reflected in active specs.
-- **Detail Commitments:** Formal card content is versioned per node. Human-originated maintenance actions are represented as unified proposals with `create`, `edit`, and `delete` types. Proposals are submitted by authenticated users, reviewed by Knowledge-authorized reviewers, and applied immediately on acceptance. Search creates lightweight `create`, `edit`, and `delete` proposals. Workspace tracks submitted proposals and exposes role-gated review/admin surfaces. Reviewer acceptance writes the formal domain change, final proposal state, and an independent apply audit record.
+- **Detail Commitments:** Formal card content is versioned per node. Human-originated maintenance actions are represented as unified proposals with `create`, `edit`, and `delete` types. Proposals are submitted by authenticated users, reviewed by Knowledge-authorized reviewers, and applied immediately on acceptance. Search creates lightweight `create`, `edit`, and `delete` proposals. Workspace tracks the current user's submitted proposals through `My Proposals` only. Reviewer acceptance writes the formal domain change, final proposal state, and an independent apply audit record.
 - **Update Rule:** Requirement-level governance remains stable while versioning, proposal persistence, endpoint contracts, and Search/Workspace UI behavior are maintained in this design document and related module projection documents.
 
 ## Inputs & Outputs
@@ -118,7 +118,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 
 ## Web BFF Contract Direction
 - Browser-side code calls BFF-owned `/web-api/*` routes for Search and Workspace proposal behavior.
-- The BFF requires authenticated Logto-backed web sessions for proposal submission, withdrawal, review, apply, and role-management actions.
+- The BFF requires authenticated Logto-backed web sessions for proposal submission, withdrawal, review, and apply actions.
 - The BFF derives the acting user id from the authenticated session.
 - Browser requests must not provide user identity or role fields.
 - Reviewer/admin actions require Knowledge-owned role authorization.
@@ -133,9 +133,8 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 - Anonymous Search proposal activation opens the sign-in-required dialog.
 - Search proposal submission uses the unified proposal contracts.
 - Workspace does not expose contributor-facing create/edit/delete proposal forms.
-- Workspace `My proposals` shows the current user's proposal status.
-- Workspace `Review queue` shows reviewer-visible pending proposals and supports accept/apply and reject.
-- Workspace `Role management` is admin-gated and may be implemented after operator-managed role seeding.
+- Workspace `My Proposals` shows the current user's proposal status.
+- Workspace does not render `Review Queue` or `Role Management`.
 
 ## Validation
 - **Checks:**
@@ -154,5 +153,5 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 - **Evidence:**
   - Passing backend repository/service/API tests for card version and proposal persistence.
   - Passing BFF route and internal API adapter tests for proposal flows and role enforcement.
-  - Passing frontend component/page tests for Search proposal interactions and Workspace role-gated views.
+  - Passing frontend component/page tests for Search proposal interactions and Workspace current-user proposal tracking.
   - Visual inspection confirms the approved Figma Workspace and Search Card Proposal Dialog frames.

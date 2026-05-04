@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;900&family=Geist+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;900&display=swap");
 @import "tailwindcss";
 
 /*
@@ -8,9 +8,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
 
 @theme {
   --font-knowledge-geist: "Geist", sans-serif;
-  --font-mono:
-    "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Consolas,
-    "Liberation Mono", Menlo, monospace;
+  --font-mono: var(--font-knowledge-geist);
   --font-sans: var(--font-knowledge-geist);
   --font-serif: var(--font-knowledge-geist);
 
@@ -49,6 +47,11 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --color-knowledge-overlay-scrim: rgb(0 0 0 / 32%);
   --color-knowledge-warning-surface: rgb(255 244 229 / 78%);
   --color-knowledge-warning-text: #8a5a00;
+  --color-knowledge-status-accepted: #16a34a;
+  --color-knowledge-status-cancelled: #606e87;
+  --color-knowledge-status-pending: #d97706;
+  --color-knowledge-status-rejected: #d83232;
+  --color-knowledge-workspace-action-icon: #8bc1ff;
 
   --color-account-menu-border: #e0e4eb;
   --color-account-menu-focus: #006bff;
@@ -86,6 +89,16 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --text-knowledge-page-subtitle--line-height: 18px;
   --text-knowledge-dialog-title: 18px;
   --text-knowledge-dialog-title--line-height: 24px;
+  --text-knowledge-dialog-field-label: 13px;
+  --text-knowledge-dialog-field-label--line-height: 19px;
+  --text-knowledge-split-view-panel-title: 20px;
+  --text-knowledge-split-view-panel-title--line-height: 28px;
+  --text-knowledge-workspace-proposal-entry-title: 13px;
+  --text-knowledge-workspace-proposal-entry-title--line-height: 18px;
+  --text-knowledge-workspace-proposal-summary-label: 12px;
+  --text-knowledge-workspace-proposal-summary-label--line-height: 16px;
+  --text-knowledge-workspace-proposal-summary-value: 14px;
+  --text-knowledge-workspace-proposal-summary-value--line-height: 20px;
   --text-knowledge-search-section-title: 16px;
   --text-knowledge-search-section-title--line-height: 24px;
   --text-knowledge-search-section-title-desktop: 18px;
@@ -149,8 +162,16 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-dialog-lg-width-mobile: 400px;
   --spacing-knowledge-dialog-mode-tab-padding-x: 8px;
   --spacing-knowledge-dialog-scrollbar-gap: 8px;
-  --spacing-knowledge-dialog-textarea-min-height: 80px;
+  --spacing-knowledge-dialog-form-gap: 16px;
+  --spacing-knowledge-dialog-form-scrollbar-gap: 8px;
   --spacing-knowledge-icon-action: 24px;
+  --spacing-knowledge-page-content-gap: 20px;
+  --spacing-knowledge-page-padding-bottom: 16px;
+  --spacing-knowledge-page-padding-bottom-desktop: 32px;
+  --spacing-knowledge-page-padding-top: 16px;
+  --spacing-knowledge-page-padding-top-desktop: 24px;
+  --spacing-knowledge-page-padding-x: 16px;
+  --spacing-knowledge-page-padding-x-desktop: 32px;
   --spacing-knowledge-leaf-disclosure-content-height-2xl: 144px;
   --spacing-knowledge-leaf-disclosure-content-height-lg: 112px;
   --spacing-knowledge-leaf-disclosure-content-height-md: 96px;
@@ -168,6 +189,18 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-surface-padding: 24px;
   --spacing-knowledge-page-header-height: 48px;
   --spacing-knowledge-page-header-title-gap: 4px;
+  --spacing-knowledge-split-view-panel-title: 28px;
+  --spacing-knowledge-split-view-rail-width: 320px;
+  --spacing-knowledge-split-view-section-gap: 16px;
+  --spacing-knowledge-workspace-proposal-entry-gap: 12px;
+  --spacing-knowledge-workspace-proposal-entry-padding-x: 12px;
+  --spacing-knowledge-workspace-proposal-entry-padding-y: 16px;
+  --spacing-knowledge-workspace-proposal-icon-container: 24px;
+  --spacing-knowledge-workspace-proposal-icon: 20px;
+  --spacing-knowledge-workspace-proposal-list-gap: 12px;
+  --spacing-knowledge-workspace-proposal-status-dot: 8px;
+  --spacing-knowledge-workspace-proposal-status-gap: 6px;
+  --spacing-knowledge-workspace-proposal-status-slot: 80px;
   --spacing-search-related-result-gap: 8px;
   --spacing-search-related-result-icon-size: 24px;
   --spacing-search-related-result-padding-x: 12px;

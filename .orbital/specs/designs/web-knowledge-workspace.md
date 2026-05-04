@@ -1,6 +1,6 @@
 ---
-abstract: Role-governed web Workspace design for human knowledge-card proposals, reviewer apply flows, proposal tracking, and admin role boundaries.
-out_of_scope: Figma canvas construction, implementation plan steps, notification workflows, collaborative change-request threads, billing, and Logto tenant administration.
+abstract: Web Workspace design for current-user human knowledge-card proposal tracking and Search proposal integration.
+out_of_scope: Figma canvas construction, implementation plan steps, notification workflows, collaborative change-request threads, reviewer queue UI, role-management UI, billing, and Logto tenant administration.
 ---
 
 # Design: web-knowledge-workspace
@@ -11,30 +11,27 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - If decision status is unclear, require clarification before finalizing updates.
 
 ## Context
-- **Purpose:** Define the web Workspace product surface and supporting domain behavior for role-governed human maintenance of the knowledge graph.
-- **Scope/Boundaries:** Covers Workspace information architecture, Knowledge-owned contribution roles, unified proposal types, proposal lifecycle states, reviewer accept/apply semantics, audit expectations, Search proposal integration, and first-version phasing. Excludes Figma drawing execution, detailed implementation planning, notification systems, comment threads, billing, and Logto operational setup.
+- **Purpose:** Define the web Workspace product surface for current-user tracking of role-governed human maintenance proposals.
+- **Scope/Boundaries:** Covers Workspace information architecture, Knowledge-owned contribution roles, unified proposal types, proposal lifecycle states, reviewer accept/apply semantics, audit expectations, Search proposal integration, and first-version phasing. Excludes Figma drawing execution, detailed implementation planning, notification systems, comment threads, reviewer queue UI, role-management UI, billing, and Logto operational setup.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-006, R-007, R-008.
 
 ## Constraint Projection
 - **Governing Constraints:** Human-originated knowledge changes remain role-governed, reviewable, and auditable. Public browser access remains BFF-mediated. Internal API access remains contract-driven through generated artifacts. Active specs stay synchronized with accepted behavior.
-- **Detail Commitments:** The web client exposes `Workspace` as an authenticated account-menu route inside the existing app shell. Search owns lightweight proposal entry for adding cards, editing cards, and requesting card deletion. Workspace owns proposal tracking, reviewer queue access, and admin role-management placement. Search-submitted records use the same unified proposal model that Workspace tracks and reviewers apply. Reviewer acceptance applies the formal knowledge-graph change immediately and writes an independent audit record. Knowledge owns reviewer/admin authorization using Logto user ids as identity keys; Logto remains the identity provider rather than the contribution-role store.
+- **Detail Commitments:** The web client exposes `Workspace` as an authenticated account-menu route inside the existing app shell. Search owns lightweight proposal entry for adding cards, editing cards, and requesting card deletion. Workspace owns current-user proposal tracking through `My Proposals` only. Workspace does not expose contributor-facing create/edit/delete forms, `Review Queue`, or `Role Management`. Search-submitted records use the same unified proposal model that Workspace tracks and reviewers apply through role-governed service flows outside the Workspace route. Reviewer acceptance applies the formal knowledge-graph change immediately and writes an independent audit record. Knowledge owns reviewer/admin authorization using Logto user ids as identity keys; Logto remains the identity provider rather than the contribution-role store.
 - **Update Rule:** Requirement-level role-governance constraints remain stable in `requirements.md`; Workspace route structure, proposal behavior, role ownership, and apply/audit semantics stay in this design document and related web/BFF/domain design documents.
 
 ## Product Model
 - **Contributor:** A signed-in user without explicit reviewer/admin grant. Contributors can submit proposals and withdraw their own pending proposals.
-- **Reviewer:** A Knowledge-authorized user who can review pending proposals and accept/apply or reject them.
-- **Admin:** A Knowledge-authorized user who can manage reviewer authorization. The first implementation phase may rely on operator-managed role seeding while the product design preserves the admin role-management surface.
+- **Reviewer:** A Knowledge-authorized user who can review pending proposals and accept/apply or reject them through role-governed service flows outside the Workspace route.
+- **Admin:** A Knowledge-authorized user who can manage reviewer authorization outside the current Workspace route. The first implementation phase may rely on operator-managed role seeding.
 - **Anonymous user:** A user without a signed-in web session. Anonymous users can browse permitted public surfaces but cannot submit, review, withdraw, or administer proposals.
 
 ## Workspace Information Architecture
 - `Workspace` is reached from the authenticated account menu between `Dashboard` and `Settings`.
-- The Workspace route contains three product views:
-  - `My Proposals`: contributor-facing status tracking for proposals submitted by the current user.
-  - `Review Queue`: reviewer/admin-facing pending proposal review and accept/reject actions.
-  - `Role Management`: admin-facing reviewer authorization management. First-phase implementation may defer this view while keeping the route and permission boundary explicit in design.
-- Ordinary contributors see `My Proposals`.
-- Reviewers see `My Proposals` plus `Review Queue`.
-- Admins see contributor views, `Review Queue`, and `Role Management`.
+- The Workspace route contains one product view:
+  - `My Proposals`: status tracking for proposals submitted by the current signed-in user.
+- Ordinary contributors, reviewers, and admins see the same Workspace route shape: `My Proposals` only.
+- Workspace does not render view tabs when only `My Proposals` exists.
 
 ## Unified Proposal Model
 - The system uses one proposal model for all human-originated card maintenance actions.
@@ -66,27 +63,28 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - The Search Card Proposal Dialog exposes create, edit, and request-deletion modes.
 - Search-submitted proposals use the same unified proposal model tracked by Workspace.
 - Workspace does not expose contributor-facing create/edit/delete proposal forms.
-- A proposal submitted from Search appears in `My Proposals` and is reviewed through the same `Review Queue` as every other pending proposal.
+- A proposal submitted from Search appears in `My Proposals` and is reviewed through role-governed service flows outside the Workspace route.
 
 ## Access Boundary And Data Flow
 - Browser code calls only BFF-owned `/web-api/*` endpoints for Workspace behavior.
 - The BFF resolves the Logto-backed web session and uses the authenticated user id as the principal.
-- Knowledge-owned roles determine which Workspace views and actions are allowed.
-- Role and action authorization is enforced server-side. Frontend visibility is a convenience, not the security boundary.
+- Workspace frontend behavior requests only the current user's proposal list.
+- Knowledge-owned roles determine which review, apply, and administration actions are allowed outside the current Workspace route.
+- Role and action authorization is enforced server-side.
 - The BFF calls private FastAPI endpoints through generated internal API contracts.
 - FastAPI owns proposal persistence, role persistence, proposal state transitions, apply services, and audit writes.
 - Frontend code consumes generated contract artifacts rather than handwritten backend schemas.
 
 ## First-Version Phasing
-- Phase 1 covers Knowledge-owned roles, Search create proposals, Search edit proposals, Search delete proposals, `My Proposals`, `Review Queue`, accept/apply, reject, withdraw, audit records, and Search integration with the unified proposal model.
-- Phase 2 covers the admin Role Management UI. Operator-managed reviewer/admin seeding is acceptable before the Role Management UI is implemented.
+- Phase 1 covers Knowledge-owned roles, Search create proposals, Search edit proposals, Search delete proposals, `My Proposals`, accept/apply service behavior, reject service behavior, withdraw service behavior, audit records, and Search integration with the unified proposal model.
+- Role-management UI is outside the current Workspace route. Operator-managed reviewer/admin seeding is acceptable while no role-management product surface exists.
 
 ## Figma-First UI Projection
 - Workspace UI is designed in Figma before frontend code implementation.
-- Figma coverage includes desktop and mobile frames for Workspace inside the existing app shell, `My Proposals`, `Review Queue`, `Role Management`, and Search lightweight entry into the unified proposal model.
+- Figma coverage includes desktop and mobile frames for Workspace inside the existing app shell, `My Proposals`, and Search lightweight entry into the unified proposal model.
 - Workspace is a working product surface, not a landing page.
 - Workspace page headers use the shared routed-page header tokens defined by the app shell: `layout/page/header-height`, `typography/page/title/font-size`, `typography/page/title/line-height`, `typography/page/subtitle/font-size`, `typography/page/subtitle/line-height`, and `layout/page/header-title-gap`.
-- The `My Proposals` Workspace header does not render a top-right `Contributor` role badge. Contributor access is implied by the current view and server-side permissions, while reviewer/admin-specific indicators remain scoped to privileged views where they add decision value.
+- The `My Proposals` Workspace header does not render a top-right `Contributor` role badge. Contributor access is implied by the current view and server-side permissions.
 - Visual language follows the existing app shell, Search, Dashboard, Docs, and Settings style: restrained, business-like, high-frequency maintenance oriented, and aligned with existing Tailwind/shadcn-style primitives.
 
 ## Validation
@@ -95,8 +93,9 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
   - Anonymous users cannot submit, withdraw, review, apply, reject, or administer proposals.
   - Signed-in contributors can submit proposals and view their own proposals.
   - Contributors can withdraw their own pending proposals and cannot withdraw reviewed proposals.
-  - Reviewers can access pending proposals in `Review Queue`.
-  - Reviewers can reject pending proposals with reviewer notes.
+  - Workspace does not render `Review Queue` or `Role Management`.
+  - Workspace does not render view tabs while `My Proposals` is the only Workspace view.
+  - Reviewers can reject pending proposals with reviewer notes through role-governed service flows outside the Workspace route.
   - Reviewer acceptance applies the formal domain change and transitions the proposal to `accepted_applied`.
   - Reviewer acceptance writes an independent audit record.
   - Create acceptance creates a formal card and uses the existing Root/Unclassified taxonomy default.
@@ -111,4 +110,4 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - **Evidence:**
   - Active specs describe one proposal model and one review/apply path for human-originated card maintenance.
   - Figma frames capture the accepted Workspace page structure before frontend implementation begins.
-  - Future implementation verification covers backend proposal services, BFF role enforcement, frontend route visibility, and Search-to-proposal integration.
+  - Future implementation verification covers backend proposal services, BFF role enforcement, Workspace current-user proposal tracking, and Search-to-proposal integration.
