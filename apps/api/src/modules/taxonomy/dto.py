@@ -54,6 +54,7 @@ class TaxonomyAssignmentRecord(BaseModel):
 
 
 TaxonomyScopeKind = Literal["taxonomy_node", "virtual_unclassified"]
+TaxonomyCardScopeLayoutStatus = Literal["ready", "refreshing"]
 
 
 class TaxonomyScopeIdentity(BaseModel):
@@ -119,6 +120,20 @@ class TaxonomyCardScopeLayout(BaseModel):
     @property
     def edge_count(self) -> int:
         return len(self.edges)
+
+
+class TaxonomyCardScopeLayoutReadModel(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    input_fingerprint: str = Field(min_length=1)
+    layout: TaxonomyCardScopeLayout
+
+
+class TaxonomyCardScopeLayoutComputeClaim(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    scope_identity: TaxonomyScopeIdentity
+    input_fingerprint: str = Field(min_length=1)
 
 
 class TaxonomyCardScopeLayoutSlice(BaseModel):

@@ -24,7 +24,6 @@ def _settings() -> SimpleNamespace:
         search_embedding_cache_ttl_seconds=86400,
         embedding_model="text-embedding-3-small",
         taxonomy_view_cache_ttl_seconds=60,
-        taxonomy_card_scope_layout_cache_ttl_seconds=600,
     )
 
 

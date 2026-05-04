@@ -88,6 +88,7 @@ describe("createSuggestedEdit", () => {
     const result = await createSuggestedEdit({
       baseVersion: 2,
       nodeId: 10,
+      reason: "The current card needs clearer wording.",
       suggestedContent: "Better content",
       suggestedTitle: "Better title",
     });
@@ -97,6 +98,7 @@ describe("createSuggestedEdit", () => {
       expect.objectContaining({
         body: JSON.stringify({
           base_version: 2,
+          reason: "The current card needs clearer wording.",
           suggested_content: "Better content",
           suggested_title: "Better title",
         }),

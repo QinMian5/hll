@@ -5,6 +5,7 @@ Out of scope: SQL query details, trigger enforcement, and HTTP transport.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -12,11 +13,13 @@ import pytest
 
 from core.errors import ApplicationError, ErrorCode
 from modules.knowledge_graph.dto import ProjectionEdge
+from modules.taxonomy import service as taxonomy_service_module
 from modules.taxonomy.dto import (
     TaxonomyAssignmentCount,
     TaxonomyAssignmentRecord,
     TaxonomyCardScopeLayout,
     TaxonomyCardScopeLayoutNode,
+    TaxonomyCardScopeLayoutReadModel,
     TaxonomyCardScopeWorldBounds,
     TaxonomyNodeRecord,
     TaxonomyScopeIdentity,
@@ -26,11 +29,22 @@ from modules.taxonomy.service import TaxonomyService
 
 
 @dataclass(slots=True)
+class _StoredLayout:
+    input_fingerprint: str
+    layout: TaxonomyCardScopeLayout
+
+
+@dataclass(slots=True)
 class _StubRepo:
     tree_nodes: list[TaxonomyNodeRecord] = field(default_factory=list)
     assignment_counts: list[TaxonomyAssignmentCount] = field(default_factory=list)
     assigned_node_ids_by_scope: dict[tuple[str, int], list[int]] = field(default_factory=dict)
     projected_edge_ids: list[int] = field(default_factory=list)
+    stored_layout: _StoredLayout | None = None
+    requested_layout_computes: list[tuple[TaxonomyScopeIdentity, str]] = field(default_factory=list)
+    stored_layout_writes: list[tuple[TaxonomyScopeIdentity, str, TaxonomyCardScopeLayout]] = field(
+        default_factory=list
+    )
     scope_identity_by_node_id_calls: list[list[int]] = field(default_factory=list)
     scope_identity_results: list[dict[int, TaxonomyScopeIdentity]] = field(default_factory=list)
     cleared_scope_identities: list[TaxonomyScopeIdentity] = field(default_factory=list)
@@ -78,6 +92,34 @@ class _StubRepo:
         scope_identity: TaxonomyScopeIdentity,
     ) -> list[int]:
         return list(self.projected_edge_ids)
+
+    async def get_card_scope_layout_read_model(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+    ) -> _StoredLayout | None:
+        return self.stored_layout
+
+    async def upsert_card_scope_layout_read_model(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        input_fingerprint: str,
+        layout: TaxonomyCardScopeLayout,
+    ) -> None:
+        self.stored_layout_writes.append((scope_identity, input_fingerprint, layout))
+        self.stored_layout = _StoredLayout(input_fingerprint=input_fingerprint, layout=layout)
+
+    async def request_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+        input_fingerprint: str,
+    ) -> bool:
+        self.requested_layout_computes.append((scope_identity, input_fingerprint))
+        return True
 
     async def add_projected_edge_ids_for_scope(
         self,
@@ -161,6 +203,7 @@ class _StubProjectionPort:
 @dataclass(slots=True)
 class _StubViewCache:
     layout: TaxonomyCardScopeLayout | None = None
+    input_fingerprint: str = "cached-fingerprint"
 
     async def get_root_view(self) -> None:
         return None
@@ -193,23 +236,23 @@ class _StubViewCache:
         self,
         *,
         scope_identity: TaxonomyScopeIdentity,
-    ) -> TaxonomyCardScopeLayout | None:
-        return self.layout
+    ) -> TaxonomyCardScopeLayoutReadModel | None:
+        if self.layout is None:
+            return None
+        return TaxonomyCardScopeLayoutReadModel(
+            input_fingerprint=self.input_fingerprint,
+            layout=self.layout,
+        )
 
     async def set_card_scope_layout(
         self,
         *,
         scope_identity: TaxonomyScopeIdentity,
+        input_fingerprint: str,
         layout: TaxonomyCardScopeLayout,
     ) -> None:
         self.layout = layout
-
-    async def acquire_card_scope_layout_lock(
-        self,
-        *,
-        scope_identity: TaxonomyScopeIdentity,
-    ) -> bool:
-        return True
+        self.input_fingerprint = input_fingerprint
 
     async def request_card_scope_layout_compute(
         self,
@@ -233,6 +276,15 @@ def _layout() -> TaxonomyCardScopeLayout:
         world_bounds=TaxonomyCardScopeWorldBounds(min_x=0, min_y=0, max_x=1, max_y=1),
         nodes=[TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=0.0, y=0.0)],
         edges=[],
+    )
+
+
+def _fingerprint_for_inner_nodes(node_ids: list[int]) -> str:
+    return taxonomy_service_module._card_scope_layout_input_fingerprint(
+        taxonomy_service_module._CardScopeGraphProjection(
+            edges=[],
+            scope_by_node_id=dict.fromkeys(node_ids, "inner"),
+        )
     )
 
 
@@ -262,8 +314,16 @@ async def test_node_view_for_scope_with_only_cards_returns_card_scope_payload() 
     repo = _StubRepo(
         tree_nodes=_tree(),
         assignment_counts=[TaxonomyAssignmentCount(taxonomy_node_id=2, card_count=5)],
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 2): [11]},
     )
-    service = TaxonomyService(repo=repo, view_cache=_StubViewCache(layout=_layout()))
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=_StubViewCache(
+            layout=_layout(),
+            input_fingerprint=_fingerprint_for_inner_nodes([11]),
+        ),
+    )
 
     view = await service.get_node_view(node_id=2)
 
@@ -279,7 +339,11 @@ async def test_card_scope_without_cached_layout_raises_layout_not_ready() -> Non
         tree_nodes=_tree(),
         assignment_counts=[TaxonomyAssignmentCount(taxonomy_node_id=2, card_count=5)],
     )
-    service = TaxonomyService(repo=repo, view_cache=_StubViewCache(layout=None))
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=_StubViewCache(layout=None),
+    )
 
     with pytest.raises(ApplicationError) as exc_info:
         await service.get_node_view(node_id=2)
@@ -289,6 +353,124 @@ async def test_card_scope_without_cached_layout_raises_layout_not_ready() -> Non
         "scope_kind": TAXONOMY_NODE_SCOPE_KIND,
         "taxonomy_node_id": 2,
     }
+
+
+@pytest.mark.anyio
+async def test_card_scope_serves_stored_stale_layout_and_requests_refresh() -> None:
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=2,
+    )
+    repo = _StubRepo(
+        tree_nodes=_tree(),
+        assignment_counts=[TaxonomyAssignmentCount(taxonomy_node_id=2, card_count=5)],
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 2): [11, 12]},
+        stored_layout=_StoredLayout(input_fingerprint="old-fingerprint", layout=_layout()),
+    )
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=_StubViewCache(layout=None),
+    )
+
+    view = await service.get_node_view(node_id=2)
+
+    assert view.node_kind == "card_scope"
+    assert view.layout_status == "refreshing"
+    assert view.node_count == 1
+    assert len(repo.requested_layout_computes) == 1
+    assert repo.requested_layout_computes[0][0] == scope_identity
+    assert repo.requested_layout_computes[0][1] != "old-fingerprint"
+
+
+@pytest.mark.anyio
+async def test_card_scope_serves_cached_stale_layout_and_requests_refresh() -> None:
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=2,
+    )
+    repo = _StubRepo(
+        tree_nodes=_tree(),
+        assignment_counts=[TaxonomyAssignmentCount(taxonomy_node_id=2, card_count=5)],
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 2): [11, 12]},
+    )
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=_StubViewCache(
+            layout=_layout(),
+            input_fingerprint="old-fingerprint",
+        ),
+    )
+
+    view = await service.get_node_view(node_id=2)
+
+    assert view.node_kind == "card_scope"
+    assert view.layout_status == "refreshing"
+    assert view.node_count == 1
+    assert len(repo.requested_layout_computes) == 1
+    assert repo.requested_layout_computes[0][0] == scope_identity
+    assert repo.requested_layout_computes[0][1] != "old-fingerprint"
+
+
+@pytest.mark.anyio
+async def test_build_and_cache_card_scope_layout_persists_durable_read_model() -> None:
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=2,
+    )
+    repo = _StubRepo(
+        tree_nodes=_tree(),
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 2): [11]},
+    )
+    cache = _StubViewCache()
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=cache,
+    )
+
+    layout = await service.build_and_cache_card_scope_layout(scope_identity=scope_identity)
+
+    assert repo.stored_layout_writes == [(scope_identity, repo.stored_layout_writes[0][1], layout)]
+    assert len(repo.stored_layout_writes[0][1]) == 64
+    assert cache.layout == layout
+    assert repo.committed is True
+
+
+@pytest.mark.anyio
+async def test_build_and_cache_card_scope_layout_offloads_sync_layout_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[Callable[..., object]] = []
+
+    async def fake_to_thread(
+        func: Callable[..., object],
+        /,
+        *args: object,
+        **kwargs: object,
+    ) -> object:
+        calls.append(func)
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(taxonomy_service_module.asyncio, "to_thread", fake_to_thread)
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=2,
+    )
+    repo = _StubRepo(
+        tree_nodes=_tree(),
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 2): [11]},
+    )
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=_StubViewCache(),
+    )
+
+    await service.build_and_cache_card_scope_layout(scope_identity=scope_identity)
+
+    assert calls == [taxonomy_service_module._build_card_scope_layout_from_graph]
 
 
 @pytest.mark.anyio
@@ -306,20 +488,20 @@ async def test_set_current_assignment_refreshes_previous_and_current_scope_ident
         assigned_node_ids_by_scope={
             (VIRTUAL_UNCLASSIFIED_SCOPE_KIND, 1): [11],
             (TAXONOMY_NODE_SCOPE_KIND, 2): [41],
-            },
-            set_result=TaxonomyAssignmentRecord(
-                id=7,
-                node_id=41,
-                taxonomy_node=TaxonomyNodeRecord(
-                    id=2,
+        },
+        set_result=TaxonomyAssignmentRecord(
+            id=7,
+            node_id=41,
+            taxonomy_node=TaxonomyNodeRecord(
+                id=2,
                 parent_id=1,
                 name="Science",
-                    route_slug="science",
-                    depth=1,
-                ),
-                assigned_at=datetime(2026, 5, 2, 12, 0, tzinfo=UTC),
+                route_slug="science",
+                depth=1,
             ),
-        )
+            assigned_at=datetime(2026, 5, 2, 12, 0, tzinfo=UTC),
+        ),
+    )
     projection_port = _StubProjectionPort(adjacent_edge_ids=[101])
     service = TaxonomyService(repo=repo, knowledge_projection_port=projection_port)
 

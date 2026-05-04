@@ -11,6 +11,8 @@ from sqlalchemy import CheckConstraint, Index, Table, UniqueConstraint
 
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
+    TaxonomyCardScopeLayout,
+    TaxonomyCardScopeLayoutComputeRequest,
     TaxonomyNode,
     TaxonomyScopeProjectionEdge,
 )
@@ -23,6 +25,8 @@ def test_projection_registers_required_tables() -> None:
         "taxonomy_nodes",
         "node_taxonomy_assignments",
         "taxonomy_scope_projection_edges",
+        "taxonomy_card_scope_layouts",
+        "taxonomy_card_scope_layout_compute_requests",
     } <= table_names
 
 
@@ -113,4 +117,41 @@ def test_taxonomy_scope_projection_edges_projection_contains_required_keys_and_i
         "edge_id",
     ]
     assert {"edge_id"} in index_column_sets
+    assert {"scope_kind", "taxonomy_node_id"} in index_column_sets
+
+
+def test_taxonomy_card_scope_layout_projection_contains_durable_read_model_key() -> None:
+    table = cast(Table, TaxonomyCardScopeLayout.__table__)
+    unique_constraints = [
+        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
+    ]
+    indexes = [constraint for constraint in table.indexes if isinstance(constraint, Index)]
+    unique_column_sets = [
+        {column.name for column in constraint.columns} for constraint in unique_constraints
+    ]
+    index_column_sets = [{column.name for column in index.columns} for index in indexes]
+
+    assert {"scope_kind", "taxonomy_node_id", "layout_version"} in unique_column_sets
+    assert table.c.input_fingerprint.nullable is False
+    assert table.c.layout_payload.nullable is False
+    assert {"scope_kind", "taxonomy_node_id"} in index_column_sets
+    assert {"input_fingerprint"} in index_column_sets
+
+
+def test_taxonomy_card_scope_layout_compute_requests_projection_contains_singleflight_key() -> None:
+    table = cast(Table, TaxonomyCardScopeLayoutComputeRequest.__table__)
+    unique_constraints = [
+        constraint for constraint in table.constraints if isinstance(constraint, UniqueConstraint)
+    ]
+    indexes = [constraint for constraint in table.indexes if isinstance(constraint, Index)]
+    unique_column_sets = [
+        {column.name for column in constraint.columns} for constraint in unique_constraints
+    ]
+    index_column_sets = [{column.name for column in index.columns} for index in indexes]
+
+    assert {"scope_kind", "taxonomy_node_id", "layout_version"} in unique_column_sets
+    assert table.c.input_fingerprint.nullable is False
+    assert table.c.status.nullable is False
+    assert table.c.attempt_count.nullable is False
+    assert {"status", "requested_at"} in index_column_sets
     assert {"scope_kind", "taxonomy_node_id"} in index_column_sets

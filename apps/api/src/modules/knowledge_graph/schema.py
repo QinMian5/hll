@@ -19,6 +19,7 @@ class SuggestedEditCreateRequest(BaseModel):
     base_version: int = Field(gt=0)
     suggested_title: NonEmptyString
     suggested_content: NonEmptyString
+    reason: NonEmptyString
 
 
 class SuggestedEditCreateResponse(BaseModel):
@@ -39,13 +40,13 @@ class CardProposalCreateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     proposal_type: CardProposalType
+    reason: NonEmptyString
     proposed_title: NonEmptyString | None = None
     proposed_content: NonEmptyString | None = None
     target_node_id: int | None = Field(default=None, gt=0)
     base_version: int | None = Field(default=None, gt=0)
     suggested_title: NonEmptyString | None = None
     suggested_content: NonEmptyString | None = None
-    reason: NonEmptyString | None = None
 
     @model_validator(mode="after")
     def validate_payload_for_type(self) -> CardProposalCreateRequest:
@@ -62,8 +63,6 @@ class CardProposalCreateRequest(BaseModel):
                 raise ValueError("Edit proposals require suggested_title and suggested_content.")
             return self
 
-        if self.reason is None:
-            raise ValueError("Delete proposals require reason.")
         return self
 
 
@@ -78,6 +77,7 @@ class CardProposalResponse(BaseModel):
 
     id: int = Field(gt=0)
     proposal_type: CardProposalType
+    reason: NonEmptyString
     status: CardProposalStatus
     submitted_by_user_id: NonEmptyString
     reviewed_by_user_id: NonEmptyString | None

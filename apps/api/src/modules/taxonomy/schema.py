@@ -101,6 +101,7 @@ class TaxonomyNodeCardScopeViewResponse(TaxonomyViewResponseModel):
     current_scope: TaxonomyViewScopeResponse
     breadcrumb: list[TaxonomyViewScopeResponse]
     layout_version: str = Field(min_length=1)
+    layout_status: Literal["ready", "refreshing"]
     world_bounds: TaxonomyCardScopeWorldBoundsResponse
     node_count: int = Field(ge=0)
     edge_count: int = Field(ge=0)
@@ -113,6 +114,7 @@ class TaxonomyCardScopeLayoutSliceResponse(TaxonomyViewResponseModel):
     parent_taxonomy_node_id: int | None = Field(default=None, gt=0)
     route_path: str
     layout_version: str = Field(min_length=1)
+    layout_status: Literal["ready", "refreshing"]
     requested_bounds: TaxonomyCardScopeWorldBoundsResponse
     nodes: list[TaxonomyCardScopeLayoutNodeResponse]
     edges: list[TaxonomyCardScopeGraphEdgeResponse]

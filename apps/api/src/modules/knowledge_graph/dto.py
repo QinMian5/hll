@@ -76,6 +76,7 @@ class CardProposalRecord(BaseModel):
 
     id: int = Field(gt=0)
     proposal_type: CardProposalType
+    reason: NonEmptyString
     status: CardProposalStatus
     submitted_by_user_id: NonEmptyString
     reviewed_by_user_id: NonEmptyString | None

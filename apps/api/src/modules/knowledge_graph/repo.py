@@ -89,6 +89,7 @@ def _proposal_record(proposal: CardProposal) -> CardProposalRecord:
     return CardProposalRecord(
         id=proposal.id,
         proposal_type=cast(CardProposalType, proposal.proposal_type),
+        reason=proposal.reason,
         status=cast(CardProposalStatus, proposal.status),
         submitted_by_user_id=proposal.submitted_by_user_id,
         reviewed_by_user_id=proposal.reviewed_by_user_id,
@@ -463,10 +464,12 @@ class KnowledgeRepo:
         suggested_title: str,
         suggested_content: str,
         suggested_by_user_id: str,
+        reason: str,
     ) -> CardSuggestedEditRecord:
         proposal = CardProposal(
             proposal_type="edit",
             submitted_by_user_id=suggested_by_user_id,
+            reason=reason,
             payload={
                 "target_node_id": node_id,
                 "base_version": base_version,
@@ -493,11 +496,13 @@ class KnowledgeRepo:
         *,
         proposal_type: str,
         submitted_by_user_id: str,
+        reason: str,
         payload: dict[str, object],
     ) -> CardProposalRecord:
         proposal = CardProposal(
             proposal_type=proposal_type,
             submitted_by_user_id=submitted_by_user_id,
+            reason=reason,
             payload=payload,
             status="pending_review",
         )

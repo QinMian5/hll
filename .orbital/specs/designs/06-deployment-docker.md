@@ -33,12 +33,12 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Production MCP search chain is `shared proxy -> nginx -> mcp -> api -> egress -> OpenAI Embeddings API + db`, with `mcp -> logto` for PAT token exchange and access-token validation metadata.
 - Production Dashboard token-management chain is `shared proxy -> nginx -> web BFF -> logto` for personal access token lifecycle operations and `web BFF -> mcp` over the backend network for usage summaries.
 - Production ingestion write chain is `api -> redis -> worker -> egress -> OpenAI Embeddings API + db`.
-- Production card-scope layout compute chain is `api -> redis -> taxonomy_view_layout_runtime -> db + redis`.
+- Production card-scope layout compute chain is `api -> db compute request + db durable layout + redis hot cache -> taxonomy_view_layout_runtime -> db durable layout + redis hot cache`.
 - Development search read chain is `web BFF -> api -> OpenAI Embeddings API + db`.
 - Development MCP search chain is `mcp -> api -> OpenAI Embeddings API + db`, with `mcp -> logto` for PAT token exchange and access-token validation metadata.
 - Development Dashboard token-management chain is `web BFF -> logto` for personal access token lifecycle operations and `web BFF -> mcp` over the backend network for usage summaries.
 - Development ingestion write chain is `api -> redis -> worker -> OpenAI Embeddings API + db`.
-- Development card-scope layout compute chain is `api -> redis -> taxonomy_view_layout_runtime -> db + redis`.
+- Development card-scope layout compute chain is `api -> db compute request + db durable layout + redis hot cache -> taxonomy_view_layout_runtime -> db durable layout + redis hot cache`.
 - Migration is a dedicated one-shot job and not part of API startup.
 
 ## Network Boundaries

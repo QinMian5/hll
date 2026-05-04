@@ -35,13 +35,13 @@ export type SearchCardProposalSubmitPayload =
   | {
       readonly content: string;
       readonly mode: "create";
-      readonly rationale: string;
+      readonly reason: string;
       readonly title: string;
     }
   | {
       readonly content: string;
       readonly mode: "edit";
-      readonly rationale: string;
+      readonly reason: string;
       readonly title: string;
     }
   | {
@@ -90,17 +90,16 @@ export function SearchCardProposalDialog({
   const [content, setContent] = useState(
     initialMode === "edit" && card ? card.content : "",
   );
-  const [rationale, setRationale] = useState("");
   const [reason, setReason] = useState("");
 
   useEffect(() => {
     setMode(initialMode);
     setTitle(initialMode === "edit" && card ? card.title : "");
     setContent(initialMode === "edit" && card ? card.content : "");
-    setRationale("");
     setReason("");
   }, [card, initialMode]);
 
+  const isReasonEmpty = reason.trim() === "";
   const isEditNoop =
     mode === "edit" &&
     card !== undefined &&
@@ -108,9 +107,10 @@ export function SearchCardProposalDialog({
     content.trim() === card.content.trim();
   const isSubmitDisabled =
     isSubmitting ||
-    (mode === "create" && (title.trim() === "" || content.trim() === "")) ||
+    (mode === "create" &&
+      (title.trim() === "" || content.trim() === "" || isReasonEmpty)) ||
     isEditNoop ||
-    (mode === "delete" && reason.trim() === "");
+    (mode !== "create" && isReasonEmpty);
   const dialogTitle =
     mode === "create" ? "Card Proposal - Add Card" : "Card Proposal";
 
@@ -121,7 +121,7 @@ export function SearchCardProposalDialog({
       return;
     }
 
-    await onSubmit({ content, mode, rationale, title });
+    await onSubmit({ content, mode, reason, title });
   }
 
   return (
@@ -168,6 +168,7 @@ export function SearchCardProposalDialog({
                     key={item.mode}
                     onClick={() => {
                       setMode(item.mode);
+                      setReason("");
                     }}
                     type="button"
                   >
@@ -280,22 +281,20 @@ export function SearchCardProposalDialog({
                   </FieldControl>
                 </div>
                 <div className="flex flex-col gap-knowledge-dialog-field-gap">
-                  <FieldLabel htmlFor="card-proposal-rationale">
-                    Rationale
-                  </FieldLabel>
+                  <FieldLabel htmlFor="card-proposal-reason">Reason</FieldLabel>
                   <FieldControl className="items-start">
                     <Textarea
-                      id="card-proposal-rationale"
+                      id="card-proposal-reason"
                       onChange={(event) => {
-                        setRationale(event.currentTarget.value);
+                        setReason(event.currentTarget.value);
                       }}
                       placeholder={
                         mode === "create"
                           ? "Explain why you recommend adding this card."
-                          : "Explain what changed and why."
+                          : "Explain why you recommend editing this card."
                       }
                       rows={1}
-                      value={rationale}
+                      value={reason}
                     />
                   </FieldControl>
                 </div>

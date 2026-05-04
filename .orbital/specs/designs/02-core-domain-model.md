@@ -42,11 +42,11 @@ out_of_scope: API endpoint contracts, SQL migration scripts, Figma UI designs, n
 - `CardProposal` stores reviewable human-originated card maintenance requests.
 - Proposal type is one of `create`, `edit`, or `delete`.
 - Proposal status is one of `pending_review`, `accepted_applied`, `rejected`, or `withdrawn`.
-- Common proposal fields include submitted user id, reviewed user id, review note, created timestamp, updated timestamp, and reviewed timestamp.
+- Common proposal fields include submitted user id, reason, reviewed user id, review note, created timestamp, updated timestamp, and reviewed timestamp.
 - Type-specific payloads carry:
   - `create`: proposed title and proposed content.
   - `edit`: target node id, base version, suggested title, and suggested content.
-  - `delete`: target node id, base version, and reason.
+  - `delete`: target node id and base version.
 - Proposals that reference existing cards bind to formal card versions as review baselines.
 
 ### ProposalApplyAudit

@@ -12,6 +12,7 @@ interface SuggestEditDialogProps {
   readonly isSubmitting: boolean;
   readonly onClose: () => void;
   readonly onSubmit: (payload: {
+    readonly reason: string;
     readonly suggestedContent: string;
     readonly suggestedTitle: string;
   }) => Promise<void>;
@@ -26,20 +27,23 @@ export function SuggestEditDialog({
 }: SuggestEditDialogProps) {
   const [suggestedTitle, setSuggestedTitle] = useState(card.title);
   const [suggestedContent, setSuggestedContent] = useState(card.content);
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     setSuggestedTitle(card.title);
     setSuggestedContent(card.content);
+    setReason("");
   }, [card]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await onSubmit({ suggestedContent, suggestedTitle });
+    await onSubmit({ reason, suggestedContent, suggestedTitle });
   }
 
   const isNoop =
     suggestedTitle.trim() === card.title.trim() &&
     suggestedContent.trim() === card.content.trim();
+  const isReasonEmpty = reason.trim() === "";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.22)] px-4">
@@ -83,6 +87,17 @@ export function SuggestEditDialog({
               value={suggestedContent}
             />
           </label>
+          <label className="flex flex-col gap-1 text-[13px] leading-[18px] font-medium text-[#131c2d]">
+            Reason
+            <textarea
+              className="min-h-[80px] resize-y rounded-lg border border-[#d6e3f7] px-3 py-2 text-[14px] leading-5 font-normal text-[#131c2d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+              onChange={(event) => {
+                setReason(event.currentTarget.value);
+              }}
+              placeholder="Explain why you recommend editing this card."
+              value={reason}
+            />
+          </label>
           {errorMessage ? (
             <p className="m-0 rounded-md bg-[#fff1f2] px-3 py-2 text-[13px] leading-[18px] font-medium text-[#be123c]">
               {errorMessage}
@@ -98,7 +113,7 @@ export function SuggestEditDialog({
             </button>
             <button
               className="h-10 rounded-lg bg-[#006bff] px-4 text-[14px] leading-5 font-medium text-white hover:bg-[#005fe0] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
-              disabled={isSubmitting || isNoop}
+              disabled={isSubmitting || isNoop || isReasonEmpty}
               type="submit"
             >
               Submit suggestion

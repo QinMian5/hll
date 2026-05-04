@@ -102,6 +102,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
 - Private API endpoints support proposal creation, current-user proposal listing, reviewer pending-queue listing, withdrawal, rejection, and accept/apply.
 - Proposal creation request fields:
   - `proposal_type`
+  - `reason`
   - type-specific proposal payload
   - acting user id supplied through trusted BFF context
 - Proposal review request fields:

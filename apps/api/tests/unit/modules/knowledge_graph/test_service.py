@@ -30,6 +30,7 @@ from modules.knowledge_graph.dto import (
 )
 from modules.knowledge_graph.service import (
     CardProposalPermissionError,
+    CardProposalValidationError,
     CardSuggestedEditNoChangeError,
     CardVersionNotFoundError,
     KnowledgeGraphRepoProtocol,
@@ -43,7 +44,7 @@ class _StubRepo:
     created_nodes: list[tuple[str, str, list[float]]] | None = None
     created_edges: list[tuple[int, int, float]] | None = None
     card_versions_by_key: dict[tuple[int, int], CardVersionSnapshot] | None = None
-    created_suggested_edits: list[tuple[int, int, str, str, str]] | None = None
+    created_suggested_edits: list[tuple[int, int, str, str, str, str]] | None = None
     vector_candidates: list[VectorSearchCandidate] | None = None
     lexical_candidates: list[LexicalSearchCandidate] | None = None
     title_mention_candidates: list[SimilarNodeCandidate] | None = None
@@ -214,10 +215,18 @@ class _StubRepo:
         suggested_title: str,
         suggested_content: str,
         suggested_by_user_id: str,
+        reason: str,
     ) -> CardSuggestedEditRecord:
         assert self.created_suggested_edits is not None
         self.created_suggested_edits.append(
-            (node_id, base_version, suggested_title, suggested_content, suggested_by_user_id)
+            (
+                node_id,
+                base_version,
+                suggested_title,
+                suggested_content,
+                suggested_by_user_id,
+                reason,
+            )
         )
         record = CardSuggestedEditRecord(
             id=self.next_suggested_edit_id,
@@ -237,6 +246,7 @@ class _StubRepo:
         *,
         proposal_type: str,
         submitted_by_user_id: str,
+        reason: str,
         payload: dict[str, object],
     ) -> CardProposalRecord:
         raise AssertionError("Proposal writes are not expected in this test.")
@@ -366,7 +376,7 @@ class _ProposalRepo:
     card_versions_by_key: dict[tuple[int, int], CardVersionSnapshot] = field(default_factory=dict)
     proposals_by_id: dict[int, CardProposalRecord] = field(default_factory=dict)
     reviewer_user_ids: set[str] = field(default_factory=set)
-    created_proposals: list[tuple[CardProposalType, str, dict[str, object]]] = field(
+    created_proposals: list[tuple[CardProposalType, str, str, dict[str, object]]] = field(
         default_factory=list
     )
     accepted_proposals: list[
@@ -394,12 +404,14 @@ class _ProposalRepo:
         *,
         proposal_type: CardProposalType,
         submitted_by_user_id: str,
+        reason: str,
         payload: dict[str, object],
     ) -> CardProposalRecord:
-        self.created_proposals.append((proposal_type, submitted_by_user_id, payload))
+        self.created_proposals.append((proposal_type, submitted_by_user_id, reason, payload))
         record = CardProposalRecord(
             id=self.next_proposal_id,
             proposal_type=proposal_type,
+            reason=reason,
             status="pending_review",
             submitted_by_user_id=submitted_by_user_id,
             reviewed_by_user_id=None,
@@ -770,12 +782,20 @@ async def test_submit_card_suggested_edit_stores_pending_suggestion_against_base
         suggested_title="Better title",
         suggested_content="Better content",
         suggested_by_user_id="logto-user-123",
+        reason="The current card needs clearer wording.",
     )
 
     assert record.id == 700
     assert record.status == "pending"
     assert repo.created_suggested_edits == [
-        (1, 2, "Better title", "Better content", "logto-user-123")
+        (
+            1,
+            2,
+            "Better title",
+            "Better content",
+            "logto-user-123",
+            "The current card needs clearer wording.",
+        )
     ]
     assert repo.committed is True
     assert repo.rolled_back is False
@@ -799,6 +819,7 @@ async def test_submit_card_suggested_edit_rejects_unknown_base_version() -> None
             suggested_title="Better title",
             suggested_content="Better content",
             suggested_by_user_id="logto-user-123",
+            reason="The current card needs clearer wording.",
         )
 
     assert repo.created_suggested_edits == []
@@ -834,6 +855,7 @@ async def test_submit_card_suggested_edit_rejects_noop_against_base_version() ->
             suggested_title="Same title",
             suggested_content="Same content",
             suggested_by_user_id="logto-user-123",
+            reason="The current card needs clearer wording.",
         )
 
     assert repo.created_suggested_edits == []
@@ -868,11 +890,19 @@ async def test_submit_card_suggested_edit_accepts_stale_existing_base_version() 
         suggested_title="Better title",
         suggested_content="Version one content",
         suggested_by_user_id="logto-user-123",
+        reason="The current card needs clearer wording.",
     )
 
     assert record.base_version == 1
     assert repo.created_suggested_edits == [
-        (1, 1, "Better title", "Version one content", "logto-user-123")
+        (
+            1,
+            1,
+            "Better title",
+            "Version one content",
+            "logto-user-123",
+            "The current card needs clearer wording.",
+        )
     ]
 
 
@@ -1138,6 +1168,7 @@ async def test_submit_edit_card_proposal_stores_unified_pending_payload() -> Non
         base_version=3,
         suggested_title="Better title",
         suggested_content="Better content",
+        reason="The current card needs clearer wording.",
     )
 
     assert record.status == "pending_review"
@@ -1145,6 +1176,7 @@ async def test_submit_edit_card_proposal_stores_unified_pending_payload() -> Non
         (
             "edit",
             "logto-user-123",
+            "The current card needs clearer wording.",
             {
                 "target_node_id": 10,
                 "base_version": 3,
@@ -1157,12 +1189,42 @@ async def test_submit_edit_card_proposal_stores_unified_pending_payload() -> Non
 
 
 @pytest.mark.anyio
+async def test_submit_card_proposal_requires_common_reason() -> None:
+    repo = _ProposalRepo(
+        card_versions_by_key={
+            (10, 3): CardVersionSnapshot(
+                node_id=10,
+                version=3,
+                title="Old title",
+                content="Old content",
+            )
+        }
+    )
+    service = _proposal_service(repo)
+
+    with pytest.raises(CardProposalValidationError, match="reason"):
+        await service.submit_card_proposal(
+            proposal_type="edit",
+            submitted_by_user_id="logto-user-123",
+            reason=" ",
+            target_node_id=10,
+            base_version=3,
+            suggested_title="Better title",
+            suggested_content="Better content",
+        )
+
+    assert repo.created_proposals == []
+    assert repo.rolled_back is True
+
+
+@pytest.mark.anyio
 async def test_accept_edit_card_proposal_requires_reviewer_role() -> None:
     repo = _ProposalRepo(
         proposals_by_id={
             900: CardProposalRecord(
                 id=900,
                 proposal_type="edit",
+                reason="The current card needs clearer wording.",
                 status="pending_review",
                 submitted_by_user_id="contributor",
                 reviewed_by_user_id=None,
@@ -1200,6 +1262,7 @@ async def test_accept_edit_card_proposal_applies_version_and_audit_atomically() 
             900: CardProposalRecord(
                 id=900,
                 proposal_type="edit",
+                reason="The current card needs clearer wording.",
                 status="pending_review",
                 submitted_by_user_id="contributor",
                 reviewed_by_user_id=None,
@@ -1244,11 +1307,12 @@ async def test_accept_delete_card_proposal_archives_node_and_records_outcome() -
             901: CardProposalRecord(
                 id=901,
                 proposal_type="delete",
+                reason="Duplicate card",
                 status="pending_review",
                 submitted_by_user_id="contributor",
                 reviewed_by_user_id=None,
                 review_note=None,
-                payload={"target_node_id": 11, "base_version": 2, "reason": "Duplicate card"},
+                payload={"target_node_id": 11, "base_version": 2},
                 created_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
                 updated_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
                 reviewed_at=None,

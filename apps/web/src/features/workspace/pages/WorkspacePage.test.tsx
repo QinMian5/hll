@@ -25,12 +25,12 @@ const proposal: CardProposalResponse = {
   id: 42,
   payload: {
     base_version: 2,
-    reason: "Clarifies the linear algebra explanation.",
     suggested_content: "Updated matrix decomposition content.",
     suggested_title: "Better matrix card",
     target_node_id: 10,
   },
   proposal_type: "edit",
+  reason: "Clarifies the linear algebra explanation.",
   review_note: null,
   reviewed_at: null,
   reviewed_by_user_id: null,
@@ -106,6 +106,8 @@ describe("WorkspacePage", () => {
     expect(
       screen.getByDisplayValue("Clarifies the linear algebra explanation."),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Reason")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Rationale")).not.toBeInTheDocument();
     expect(mockUseMyProposalsQuery).toHaveBeenCalledWith(true);
   });
 

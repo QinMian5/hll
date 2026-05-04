@@ -79,6 +79,7 @@ export function createCardSuggestedEditsRouter(
           request.body?.base_version,
           "base_version",
         ),
+        reason: readNonEmptyString(request.body?.reason, "reason"),
         suggested_content: readNonEmptyString(
           request.body?.suggested_content,
           "suggested_content",

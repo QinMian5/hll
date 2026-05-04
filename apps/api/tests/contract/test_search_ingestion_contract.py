@@ -27,9 +27,9 @@ def test_taxonomy_view_openapi_includes_route_path_contract(
 ) -> None:
     openapi = client.app.openapi()
     operation = openapi["paths"]["/api/v1/taxonomy/view/path/{route_path}"]["get"]
-    response_schema_ref = operation["responses"]["200"]["content"]["application/json"][
-        "schema"
-    ]["$ref"]
+    response_schema_ref = operation["responses"]["200"]["content"]["application/json"]["schema"][
+        "$ref"
+    ]
     response_schema = openapi["components"]["schemas"][response_schema_ref.rsplit("/", 1)[-1]]
     branch_schema_ref = response_schema["oneOf"][0]["$ref"]
     branch_schema = openapi["components"]["schemas"][branch_schema_ref.rsplit("/", 1)[-1]]
@@ -39,6 +39,20 @@ def test_taxonomy_view_openapi_includes_route_path_contract(
     ]
 
     assert {"route_slug", "route_path"} <= set(current_scope_schema["required"])
+
+
+@pytest.mark.contract
+def test_taxonomy_card_scope_openapi_includes_layout_status(
+    client: TestClient,
+) -> None:
+    openapi = client.app.openapi()
+    card_scope_schema = openapi["components"]["schemas"]["TaxonomyNodeCardScopeViewResponse"]
+    layout_slice_schema = openapi["components"]["schemas"]["TaxonomyCardScopeLayoutSliceResponse"]
+
+    assert "layout_status" in card_scope_schema["required"]
+    assert card_scope_schema["properties"]["layout_status"]["enum"] == ["ready", "refreshing"]
+    assert "layout_status" in layout_slice_schema["required"]
+    assert layout_slice_schema["properties"]["layout_status"]["enum"] == ["ready", "refreshing"]
 
 
 @pytest.mark.contract
@@ -70,7 +84,7 @@ def test_suggested_edit_openapi_includes_create_contract(
     ]
     request_schema = openapi["components"]["schemas"][request_schema_name.rsplit("/", 1)[-1]]
     response_schema = openapi["components"]["schemas"][response_schema_name.rsplit("/", 1)[-1]]
-    assert {"base_version", "suggested_title", "suggested_content"} <= set(
+    assert {"base_version", "suggested_title", "suggested_content", "reason"} <= set(
         request_schema["required"]
     )
     assert "suggested_by_user_id" not in request_schema["properties"]

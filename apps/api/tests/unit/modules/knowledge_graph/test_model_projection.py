@@ -129,6 +129,7 @@ def test_card_proposals_projection_contains_unified_status_and_type_constraints(
         "proposal_type",
         "status",
         "submitted_by_user_id",
+        "reason",
         "reviewed_by_user_id",
         "review_note",
         "payload",
@@ -136,8 +137,10 @@ def test_card_proposals_projection_contains_unified_status_and_type_constraints(
         "updated_at",
         "reviewed_at",
     } <= {column.name for column in table.c}
+    assert table.c.reason.nullable is False
     assert "ck_card_proposals_proposal_type" in constraint_names
     assert "ck_card_proposals_status" in constraint_names
+    assert "ck_card_proposals_reason_nonempty" in constraint_names
     assert {
         "ix_card_proposals_submitted_by_user_id",
         "ix_card_proposals_reviewed_by_user_id",

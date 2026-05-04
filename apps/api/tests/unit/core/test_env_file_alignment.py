@@ -43,7 +43,6 @@ def test_tracked_env_example_contains_api_cache_ttl_keys() -> None:
         "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS",
         "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS",
         "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS",
-        "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS",
     ):
         assert key in keys
 

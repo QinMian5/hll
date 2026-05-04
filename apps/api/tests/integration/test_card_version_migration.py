@@ -47,6 +47,7 @@ async def test_card_version_tables_and_constraints_exist_after_migration(
                     'ck_workspace_roles_role',
                     'ck_card_proposals_proposal_type',
                     'ck_card_proposals_status',
+                    'ck_card_proposals_reason_nonempty',
                     'fk_proposal_apply_audits_proposal_id_card_proposals'
                 )
                 ORDER BY conname
@@ -69,6 +70,7 @@ async def test_card_version_tables_and_constraints_exist_after_migration(
         "ck_workspace_roles_role",
         "ck_card_proposals_proposal_type",
         "ck_card_proposals_status",
+        "ck_card_proposals_reason_nonempty",
         "fk_proposal_apply_audits_proposal_id_card_proposals",
     }
 

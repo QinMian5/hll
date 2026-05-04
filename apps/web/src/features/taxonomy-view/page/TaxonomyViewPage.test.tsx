@@ -267,6 +267,7 @@ function makeLeafNodeView(
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",
     layout_version: "taxonomy-card-scope-layout-v1",
+    layout_status: "ready",
     node_kind: "card_scope",
     node_count: 2,
     world_bounds: { max_x: 744, max_y: 484, min_x: 696, min_y: 446 },
@@ -741,9 +742,16 @@ describe("TaxonomyViewPage", () => {
     expect(within(dialog).getByLabelText("Suggested content")).toHaveValue(
       "Leaf content",
     );
+    expect(within(dialog).getByLabelText("Reason")).toHaveAttribute(
+      "placeholder",
+      "Explain why you recommend editing this card.",
+    );
 
     fireEvent.change(within(dialog).getByLabelText("Suggested content"), {
       target: { value: "Updated leaf content" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Reason"), {
+      target: { value: "The current card needs clearer wording." },
     });
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Submit suggestion" }),
@@ -752,6 +760,7 @@ describe("TaxonomyViewPage", () => {
     expect(mutateSuggestedEdit).toHaveBeenCalledWith({
       baseVersion: 4,
       nodeId: 10,
+      reason: "The current card needs clearer wording.",
       suggestedContent: "Updated leaf content",
       suggestedTitle: "Leaf card",
     });
@@ -782,6 +791,9 @@ describe("TaxonomyViewPage", () => {
     const dialog = await screen.findByRole("dialog", { name: "Suggest edit" });
     fireEvent.change(within(dialog).getByLabelText("Suggested content"), {
       target: { value: "Updated leaf content" },
+    });
+    fireEvent.change(within(dialog).getByLabelText("Reason"), {
+      target: { value: "The current card needs clearer wording." },
     });
     fireEvent.click(
       within(dialog).getByRole("button", { name: "Submit suggestion" }),

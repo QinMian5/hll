@@ -25,6 +25,7 @@ API_BOOTSTRAP_TABLES: tuple[str, ...] = (
     "card_proposals",
     "proposal_apply_audits",
     "taxonomy_scope_projection_edges",
+    "taxonomy_card_scope_layouts",
 )
 
 

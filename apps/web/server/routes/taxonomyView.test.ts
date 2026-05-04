@@ -20,6 +20,7 @@ function createClient(overrides: Partial<TaxonomyViewInternalApi> = {}) {
     getTaxonomyCardScopeLayoutSlice: vi.fn(async () => ({
       edges: [[10, 11, 0.8]],
       layout_version: "taxonomy-card-scope-layout-v1",
+      layout_status: "ready",
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },
         { id: 11, scope: "outer", x: 3.5, y: 4.5 },
@@ -269,6 +270,7 @@ describe("taxonomy view route", () => {
     expect(response.body).toEqual({
       edges: [[10, 11, 0.8]],
       layout_version: "taxonomy-card-scope-layout-v1",
+      layout_status: "ready",
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },
         { id: 11, scope: "outer", x: 3.5, y: 4.5 },

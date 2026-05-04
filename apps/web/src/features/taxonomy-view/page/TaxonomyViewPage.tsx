@@ -286,6 +286,7 @@ export function TaxonomyViewPage() {
   }
 
   async function handleSubmitSuggestion(payload: {
+    readonly reason: string;
     readonly suggestedContent: string;
     readonly suggestedTitle: string;
   }) {
@@ -297,6 +298,7 @@ export function TaxonomyViewPage() {
       await createSuggestedEditMutation.mutateAsync({
         baseVersion: editingCard.currentVersion,
         nodeId: editingCard.nodeId,
+        reason: payload.reason,
         suggestedContent: payload.suggestedContent,
         suggestedTitle: payload.suggestedTitle,
       });

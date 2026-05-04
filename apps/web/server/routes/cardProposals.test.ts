@@ -49,6 +49,7 @@ describe("card proposal routes", () => {
         target_node_id: 10,
       },
       proposal_type: "edit" as const,
+      reason: "This improves the card explanation.",
       reviewed_at: null,
       reviewed_by_user_id: null,
       review_note: null,
@@ -74,6 +75,7 @@ describe("card proposal routes", () => {
     const response = await request(app).post("/web-api/card-proposals").send({
       base_version: 3,
       proposal_type: "edit",
+      reason: "This improves the card explanation.",
       suggested_by_user_id: "browser-controlled",
       suggested_content: "Better content",
       suggested_title: "Better title",
@@ -86,12 +88,46 @@ describe("card proposal routes", () => {
       {
         base_version: 3,
         proposal_type: "edit",
+        reason: "This improves the card explanation.",
         suggested_content: "Better content",
         suggested_title: "Better title",
         target_node_id: 10,
       },
       "logto-user-123",
     );
+  });
+
+  it("rejects authenticated proposal submissions without a reason", async () => {
+    const createCardProposal = vi.fn();
+    const app = await createTestApp({
+      client: {
+        acceptCardProposal: vi.fn(),
+        createCardProposal,
+        listMyCardProposals: vi.fn(),
+        listReviewQueue: vi.fn(),
+        rejectCardProposal: vi.fn(),
+        withdrawCardProposal: vi.fn(),
+      },
+      session: {
+        status: "authenticated",
+        user: { id: "logto-user-123" },
+      },
+    });
+
+    const response = await request(app).post("/web-api/card-proposals").send({
+      base_version: 3,
+      proposal_type: "edit",
+      suggested_content: "Better content",
+      suggested_title: "Better title",
+      target_node_id: 10,
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatchObject({
+      code: "invalid_request",
+      message: "reason must be a non-empty string.",
+    });
+    expect(createCardProposal).not.toHaveBeenCalled();
   });
 
   it("rejects anonymous proposal submission before calling the internal API", async () => {
@@ -130,6 +166,7 @@ describe("card proposal routes", () => {
       id: 199,
       payload: { target_node_id: 10 },
       proposal_type: "delete" as const,
+      reason: "Duplicate card.",
       reviewed_at: "2026-04-28T19:00:00Z",
       reviewed_by_user_id: "reviewer-user",
       review_note: "Archive duplicate.",

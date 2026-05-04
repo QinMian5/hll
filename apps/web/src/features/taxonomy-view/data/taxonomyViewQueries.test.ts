@@ -3,6 +3,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { WebApiRequestError } from "../../../shared/web-api/errors";
 import {
   type TaxonomyCardScopeLayoutSliceResponse,
   taxonomyCardScopeLayoutSliceQueryOptions,
@@ -141,6 +142,48 @@ describe("taxonomyNodeViewQueryOptions", () => {
     });
   });
 
+  it("auto-retries cold card-scope layout preparation errors", () => {
+    const options = taxonomyNodeViewByPathQueryOptions("science/mathematics");
+    const error = new WebApiRequestError({
+      code: "layout_not_ready",
+      message: "Taxonomy layout is being prepared.",
+      retryAfterSeconds: 2,
+      status: 503,
+    });
+
+    expect(typeof options.retry).toBe("function");
+    expect(typeof options.retryDelay).toBe("function");
+    if (
+      typeof options.retry !== "function" ||
+      typeof options.retryDelay !== "function"
+    ) {
+      throw new Error("Expected taxonomy node view query retry functions.");
+    }
+    expect(options.retry(0, error)).toBe(true);
+    expect(options.retryDelay(0, error)).toBe(2000);
+  });
+
+  it("polls card-scope metadata while the durable layout is refreshing", () => {
+    const options = taxonomyNodeViewByPathQueryOptions("science/mathematics");
+
+    expect(typeof options.refetchInterval).toBe("function");
+    if (typeof options.refetchInterval !== "function") {
+      throw new Error("Expected taxonomy node view query refetch interval.");
+    }
+    expect(
+      options.refetchInterval({
+        state: {
+          data: {
+            generated_at: "2026-04-29T00:00:00Z",
+            layout_status: "refreshing",
+            layout_version: "taxonomy-card-scope-layout-v1",
+            node_kind: "card_scope",
+          },
+        },
+      } as never),
+    ).toBe(3000);
+  });
+
   it("calls the same-origin BFF taxonomy path endpoint for the empty root route path", async () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
@@ -217,6 +260,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
       jsonResponse({
         edges: [[10, 11, 0.8]],
         layout_version: "taxonomy-card-scope-layout-v1",
+        layout_status: "ready",
         nodes: [
           { id: 10, scope: "inner", x: 1.5, y: 2.5 },
           { id: 11, scope: "outer", x: 3.5, y: 4.5 },
@@ -252,6 +296,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     expect(result).toEqual({
       edges: [[10, 11, 0.8]],
       layout_version: "taxonomy-card-scope-layout-v1",
+      layout_status: "ready",
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },
         { id: 11, scope: "outer", x: 3.5, y: 4.5 },
@@ -277,6 +322,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     const previous: TaxonomyCardScopeLayoutSliceResponse = {
       edges: [[10, 11, 0.8]],
       layout_version: "taxonomy-card-scope-layout-v1",
+      layout_status: "ready",
       nodes: [{ id: 10, scope: "inner", x: 1.5, y: 2.5 }],
       route_path: "math/algebra",
       scope_kind: "taxonomy_node",
@@ -373,6 +419,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
           [11, 12, 0.6],
         ],
         layout_version: "taxonomy-card-scope-layout-v1",
+        layout_status: "ready",
         nodes: [
           { id: 10, scope: "inner", x: 1.5, y: 2.5 },
           { id: 11, scope: "outer", x: 3.5, y: 4.5 },
@@ -410,6 +457,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
       jsonResponse({
         edges: [[10, 11]],
         layout_version: "taxonomy-card-scope-layout-v1",
+        layout_status: "ready",
         nodes: [{ id: 10, scope: "inner", x: 1.5, y: 2.5 }],
         route_path: "science/mathematics",
         scope_kind: "taxonomy_node",

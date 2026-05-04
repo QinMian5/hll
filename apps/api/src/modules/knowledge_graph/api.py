@@ -276,6 +276,7 @@ def build_router(*, get_knowledge_graph_service: KnowledgeGraphServiceProvider) 
                 suggested_title=payload.suggested_title,
                 suggested_content=payload.suggested_content,
                 suggested_by_user_id=suggested_by_user_id,
+                reason=payload.reason,
             )
         except CardVersionNotFoundError as exc:
             raise DomainError(

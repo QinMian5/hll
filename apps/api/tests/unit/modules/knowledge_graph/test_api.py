@@ -31,7 +31,7 @@ DependencyOverrides = dict[Callable[..., Any], Callable[..., Any]]
 
 @dataclass(slots=True)
 class _FakeKnowledgeGraphService:
-    seen_payload: tuple[int, int, str, str, str] | None = None
+    seen_payload: tuple[int, int, str, str, str, str] | None = None
     seen_proposal_payload: dict[str, object | None] | None = None
     seen_accept_payload: tuple[int, str, str | None] | None = None
     raise_not_found: bool = False
@@ -46,6 +46,7 @@ class _FakeKnowledgeGraphService:
         suggested_title: str,
         suggested_content: str,
         suggested_by_user_id: str,
+        reason: str,
     ) -> CardSuggestedEditRecord:
         if self.raise_not_found:
             raise CardVersionNotFoundError("missing")
@@ -57,6 +58,7 @@ class _FakeKnowledgeGraphService:
             suggested_title,
             suggested_content,
             suggested_by_user_id,
+            reason,
         )
         return CardSuggestedEditRecord(
             id=99,
@@ -80,7 +82,7 @@ class _FakeKnowledgeGraphService:
         base_version: int | None,
         suggested_title: str | None,
         suggested_content: str | None,
-        reason: str | None,
+        reason: str,
     ) -> CardProposalRecord:
         if self.raise_not_found:
             raise CardVersionNotFoundError("missing")
@@ -100,11 +102,12 @@ class _FakeKnowledgeGraphService:
         response_payload = {
             key: value
             for key, value in self.seen_proposal_payload.items()
-            if key not in {"proposal_type", "submitted_by_user_id"} and value is not None
+            if key not in {"proposal_type", "submitted_by_user_id", "reason"} and value is not None
         }
         return CardProposalRecord(
             id=199,
             proposal_type=proposal_type,
+            reason=reason,
             status="pending_review",
             submitted_by_user_id=submitted_by_user_id,
             reviewed_by_user_id=None,
@@ -128,6 +131,7 @@ class _FakeKnowledgeGraphService:
         return CardProposalRecord(
             id=proposal_id,
             proposal_type="edit",
+            reason="The current card needs clearer wording.",
             status="accepted_applied",
             submitted_by_user_id="contributor",
             reviewed_by_user_id=reviewer_user_id,
@@ -163,6 +167,7 @@ async def test_create_suggested_edit_returns_pending_response(
             "base_version": 2,
             "suggested_title": "Better title",
             "suggested_content": "Better content",
+            "reason": "The current card needs clearer wording.",
         },
         headers={"X-Knowledge-Suggested-By-User-Id": "logto-user-123"},
     )
@@ -182,6 +187,7 @@ async def test_create_suggested_edit_returns_pending_response(
         "Better title",
         "Better content",
         "logto-user-123",
+        "The current card needs clearer wording.",
     )
 
 
@@ -196,6 +202,7 @@ async def test_create_suggested_edit_rejects_missing_server_user_identity(
             "base_version": 2,
             "suggested_title": "Better title",
             "suggested_content": "Better content",
+            "reason": "The current card needs clearer wording.",
         },
     )
 
@@ -219,6 +226,7 @@ async def test_create_suggested_edit_returns_404_for_unknown_base_version(
             "base_version": 9,
             "suggested_title": "Better title",
             "suggested_content": "Better content",
+            "reason": "The current card needs clearer wording.",
         },
         headers={"X-Knowledge-Suggested-By-User-Id": "logto-user-123"},
     )
@@ -242,6 +250,7 @@ async def test_create_suggested_edit_returns_422_for_noop_suggestion(
             "base_version": 1,
             "suggested_title": "Same title",
             "suggested_content": "Same content",
+            "reason": "The current card needs clearer wording.",
         },
         headers={"X-Knowledge-Suggested-By-User-Id": "logto-user-123"},
     )
@@ -263,6 +272,7 @@ async def test_create_card_proposal_uses_actor_header_identity(
             "base_version": 2,
             "suggested_title": "Better title",
             "suggested_content": "Better content",
+            "reason": "The current card needs clearer wording.",
         },
         headers={"X-Knowledge-Actor-User-Id": "logto-user-123"},
     )
@@ -272,6 +282,7 @@ async def test_create_card_proposal_uses_actor_header_identity(
     assert response.json() == {
         "id": 199,
         "proposal_type": "edit",
+        "reason": "The current card needs clearer wording.",
         "status": "pending_review",
         "submitted_by_user_id": "logto-user-123",
         "reviewed_by_user_id": None,
@@ -295,8 +306,30 @@ async def test_create_card_proposal_uses_actor_header_identity(
         "base_version": 2,
         "suggested_title": "Better title",
         "suggested_content": "Better content",
-        "reason": None,
+        "reason": "The current card needs clearer wording.",
     }
+
+
+@pytest.mark.anyio
+async def test_create_card_proposal_rejects_missing_common_reason(
+    async_client: AsyncClient,
+    dependency_overrides: DependencyOverrides,
+) -> None:
+    response = await async_client.post(
+        "/api/v1/card-proposals",
+        json={
+            "proposal_type": "edit",
+            "target_node_id": 1,
+            "base_version": 2,
+            "suggested_title": "Better title",
+            "suggested_content": "Better content",
+        },
+        headers={"X-Knowledge-Actor-User-Id": "logto-user-123"},
+    )
+
+    fake_service = dependency_overrides[api_providers.get_knowledge_graph_service]()
+    assert response.status_code == 422
+    assert fake_service.seen_proposal_payload is None
 
 
 @pytest.mark.anyio

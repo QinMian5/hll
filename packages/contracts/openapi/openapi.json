@@ -50,16 +50,9 @@
             "title": "Proposed Title"
           },
           "reason": {
-            "anyOf": [
-              {
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
           },
           "suggested_content": {
             "anyOf": [
@@ -99,7 +92,8 @@
           }
         },
         "required": [
-          "proposal_type"
+          "proposal_type",
+          "reason"
         ],
         "title": "CardProposalCreateRequest",
         "type": "object"
@@ -146,6 +140,11 @@
               "delete"
             ],
             "title": "Proposal Type",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
             "type": "string"
           },
           "review_note": {
@@ -207,6 +206,7 @@
         "required": [
           "id",
           "proposal_type",
+          "reason",
           "status",
           "submitted_by_user_id",
           "reviewed_by_user_id",
@@ -423,6 +423,11 @@
             "title": "Base Version",
             "type": "integer"
           },
+          "reason": {
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
           "suggested_content": {
             "minLength": 1,
             "title": "Suggested Content",
@@ -437,7 +442,8 @@
         "required": [
           "base_version",
           "suggested_title",
-          "suggested_content"
+          "suggested_content",
+          "reason"
         ],
         "title": "SuggestedEditCreateRequest",
         "type": "object"
@@ -549,6 +555,14 @@
             "title": "Edges",
             "type": "array"
           },
+          "layout_status": {
+            "enum": [
+              "ready",
+              "refreshing"
+            ],
+            "title": "Layout Status",
+            "type": "string"
+          },
           "layout_version": {
             "minLength": 1,
             "title": "Layout Version",
@@ -605,6 +619,7 @@
           "scope_kind",
           "route_path",
           "layout_version",
+          "layout_status",
           "requested_bounds",
           "nodes",
           "edges"
@@ -829,6 +844,14 @@
             "title": "Generated At",
             "type": "string"
           },
+          "layout_status": {
+            "enum": [
+              "ready",
+              "refreshing"
+            ],
+            "title": "Layout Status",
+            "type": "string"
+          },
           "layout_version": {
             "minLength": 1,
             "title": "Layout Version",
@@ -853,6 +876,7 @@
           "current_scope",
           "breadcrumb",
           "layout_version",
+          "layout_status",
           "world_bounds",
           "node_count",
           "edge_count",

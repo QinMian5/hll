@@ -64,6 +64,7 @@ describe("card suggested edit route", () => {
       .post("/web-api/cards/1/suggested-edits")
       .send({
         base_version: 1,
+        reason: "The current card needs clearer wording.",
         suggested_content: "Better content",
         suggested_title: "Better title",
       });
@@ -80,11 +81,38 @@ describe("card suggested edit route", () => {
       1,
       {
         base_version: 1,
+        reason: "The current card needs clearer wording.",
         suggested_content: "Better content",
         suggested_title: "Better title",
       },
       "logto-user-123",
     );
+  });
+
+  it("rejects authenticated suggestions without a reason", async () => {
+    const createSuggestedEdit = vi.fn();
+    const app = await createTestApp({
+      client: { createSuggestedEdit },
+      session: {
+        status: "authenticated",
+        user: { id: "logto-user-123" },
+      },
+    });
+
+    const response = await request(app)
+      .post("/web-api/cards/1/suggested-edits")
+      .send({
+        base_version: 1,
+        suggested_content: "Better content",
+        suggested_title: "Better title",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatchObject({
+      code: "invalid_request",
+      message: "reason must be a non-empty string.",
+    });
+    expect(createSuggestedEdit).not.toHaveBeenCalled();
   });
 
   it("rejects anonymous suggestions before calling the internal API", async () => {
@@ -130,6 +158,7 @@ describe("card suggested edit route", () => {
 
     await request(app).post("/web-api/cards/1/suggested-edits").send({
       base_version: 1,
+      reason: "The current card needs clearer wording.",
       suggested_by_user_id: "browser-controlled-user",
       suggested_content: "Better content",
       suggested_title: "Better title",
@@ -139,6 +168,7 @@ describe("card suggested edit route", () => {
       1,
       {
         base_version: 1,
+        reason: "The current card needs clearer wording.",
         suggested_content: "Better content",
         suggested_title: "Better title",
       },
@@ -165,6 +195,7 @@ describe("card suggested edit route", () => {
       .post("/web-api/cards/1/suggested-edits")
       .send({
         base_version: 1,
+        reason: "The current card needs clearer wording.",
         suggested_content: "Same content",
         suggested_title: "Same title",
       });

@@ -5,6 +5,9 @@ Out of scope: HTTP endpoint wiring and LLM classification orchestration.
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
+import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -17,8 +20,11 @@ from modules.taxonomy.dto import (
     TaxonomyAssignmentCount,
     TaxonomyAssignmentRecord,
     TaxonomyCardScopeLayout,
+    TaxonomyCardScopeLayoutComputeClaim,
     TaxonomyCardScopeLayoutEdge,
     TaxonomyCardScopeLayoutNode,
+    TaxonomyCardScopeLayoutReadModel,
+    TaxonomyCardScopeLayoutStatus,
     TaxonomyNodeRecord,
     TaxonomyScopeAssignment,
     TaxonomyScopeIdentity,
@@ -78,6 +84,48 @@ class TaxonomyRepoProtocol(Protocol):
         *,
         scope_identity: TaxonomyScopeIdentity,
     ) -> list[int]: ...
+
+    async def get_card_scope_layout_read_model(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+    ) -> TaxonomyCardScopeLayoutReadModel | None: ...
+
+    async def upsert_card_scope_layout_read_model(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        input_fingerprint: str,
+        layout: TaxonomyCardScopeLayout,
+    ) -> None: ...
+
+    async def request_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+        input_fingerprint: str,
+    ) -> bool: ...
+
+    async def claim_card_scope_layout_compute(
+        self,
+    ) -> TaxonomyCardScopeLayoutComputeClaim | None: ...
+
+    async def complete_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+    ) -> None: ...
+
+    async def fail_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+        error_message: str,
+    ) -> None: ...
 
     async def add_projected_edge_ids_for_scope(
         self,
@@ -191,32 +239,27 @@ class TaxonomyViewCachePort(Protocol):
         self,
         *,
         scope_identity: TaxonomyScopeIdentity,
-    ) -> TaxonomyCardScopeLayout | None: ...
+    ) -> TaxonomyCardScopeLayoutReadModel | None: ...
 
     async def set_card_scope_layout(
         self,
         *,
         scope_identity: TaxonomyScopeIdentity,
+        input_fingerprint: str,
         layout: TaxonomyCardScopeLayout,
     ) -> None: ...
-
-    async def acquire_card_scope_layout_lock(
-        self,
-        *,
-        scope_identity: TaxonomyScopeIdentity,
-    ) -> bool: ...
-
-    async def request_card_scope_layout_compute(
-        self,
-        *,
-        scope_identity: TaxonomyScopeIdentity,
-    ) -> bool: ...
 
 
 @dataclass(slots=True)
 class _CardScopeGraphProjection:
     edges: list[ProjectionEdge]
     scope_by_node_id: dict[int, Literal["inner", "outer"]]
+
+
+@dataclass(slots=True, frozen=True)
+class _ResolvedCardScopeLayout:
+    layout: TaxonomyCardScopeLayout
+    status: TaxonomyCardScopeLayoutStatus
 
 
 @dataclass(slots=True)
@@ -344,7 +387,7 @@ class TaxonomyService:
 
     async def get_node_view(self, *, node_id: int) -> TaxonomyNodeViewResponse:
         cached_view = await self._get_cached_node_view(node_id=node_id)
-        if cached_view is not None:
+        if cached_view is not None and cached_view.node_kind == "branch":
             return cached_view
 
         tree_context = await self._load_tree_context()
@@ -362,12 +405,13 @@ class TaxonomyService:
             ),
             tree_context=tree_context,
         )
-        await self._set_cached_node_view(node_id=node_id, view=view)
+        if view.node_kind == "branch":
+            await self._set_cached_node_view(node_id=node_id, view=view)
         return view
 
     async def get_node_view_by_route_path(self, *, route_path: str) -> TaxonomyNodeViewResponse:
         cached_view = await self._get_cached_path_view(route_path=route_path)
-        if cached_view is not None:
+        if cached_view is not None and cached_view.node_kind == "branch":
             return cached_view
 
         tree_context = await self._load_tree_context()
@@ -379,7 +423,8 @@ class TaxonomyService:
             resolved_scope=resolved_scope,
             tree_context=tree_context,
         )
-        await self._set_cached_path_view(route_path=route_path, view=view)
+        if view.node_kind == "branch":
+            await self._set_cached_path_view(route_path=route_path, view=view)
         return view
 
     async def _resolve_card_scope_by_route_path(
@@ -590,16 +635,17 @@ class TaxonomyService:
                 children=children,
             )
 
-        layout = await self._load_ready_card_scope_layout(scope_identity=resolved_scope.identity)
+        resolved_layout = await self._load_card_scope_layout(scope_identity=resolved_scope.identity)
         return TaxonomyNodeCardScopeViewResponse(
             node_kind="card_scope",
             current_scope=resolved_scope.current_scope,
             breadcrumb=resolved_scope.breadcrumb,
             layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
-            world_bounds=_world_bounds_response_from_layout(layout),
-            node_count=layout.node_count,
-            edge_count=layout.edge_count,
-            generated_at=layout.generated_at,
+            layout_status=resolved_layout.status,
+            world_bounds=_world_bounds_response_from_layout(resolved_layout.layout),
+            node_count=resolved_layout.layout.node_count,
+            edge_count=resolved_layout.layout.edge_count,
+            generated_at=resolved_layout.layout.generated_at,
         )
 
     async def get_card_scope_layout_slice(
@@ -619,9 +665,9 @@ class TaxonomyService:
             )
 
         resolved_scope = await self._resolve_card_scope_by_route_path(route_path=route_path)
-        layout = await self._load_ready_card_scope_layout(scope_identity=resolved_scope.identity)
+        resolved_layout = await self._load_card_scope_layout(scope_identity=resolved_scope.identity)
         layout_slice = slice_card_scope_layout(
-            layout,
+            resolved_layout.layout,
             min_x=min_x,
             min_y=min_y,
             max_x=max_x,
@@ -633,6 +679,7 @@ class TaxonomyService:
             parent_taxonomy_node_id=resolved_scope.current_scope.parent_taxonomy_node_id,
             route_path=resolved_scope.current_scope.route_path,
             layout_version=layout_slice.layout_version,
+            layout_status=resolved_layout.status,
             requested_bounds=TaxonomyCardScopeWorldBoundsResponse(
                 min_x=layout_slice.requested_bounds.min_x,
                 min_y=layout_slice.requested_bounds.min_y,
@@ -927,28 +974,74 @@ class TaxonomyService:
         *,
         scope_identity: TaxonomyScopeIdentity,
     ) -> TaxonomyCardScopeLayout:
-        current_node = await self._repo.get_node_by_id(node_id=scope_identity.taxonomy_node_id)
-        if current_node is None:
-            raise DomainError(
-                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
-                message=f"Taxonomy node {scope_identity.taxonomy_node_id} was not found.",
-                hint="Use an existing taxonomy node id and retry.",
+        try:
+            current_node = await self._repo.get_node_by_id(node_id=scope_identity.taxonomy_node_id)
+            if current_node is None:
+                raise DomainError(
+                    code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
+                    message=f"Taxonomy node {scope_identity.taxonomy_node_id} was not found.",
+                    hint="Use an existing taxonomy node id and retry.",
+                )
+
+            graph = await self._build_card_scope_graph_projection(scope_identity=scope_identity)
+            input_fingerprint = _card_scope_layout_input_fingerprint(graph)
+            layout = await asyncio.to_thread(_build_card_scope_layout_from_graph, graph=graph)
+            await self._repo.upsert_card_scope_layout_read_model(
+                scope_identity=scope_identity,
+                input_fingerprint=input_fingerprint,
+                layout=layout,
             )
+            await self._set_cached_card_scope_layout(
+                scope_identity=scope_identity,
+                input_fingerprint=input_fingerprint,
+                layout=layout,
+            )
+            await self._repo.commit()
+            return layout
+        except Exception:
+            await self._repo.rollback()
+            raise
 
-        layout = await self._build_card_scope_layout(scope_identity=scope_identity)
-        await self._set_cached_card_scope_layout(scope_identity=scope_identity, layout=layout)
-        return layout
-
-    async def _load_ready_card_scope_layout(
+    async def _load_card_scope_layout(
         self,
         *,
         scope_identity: TaxonomyScopeIdentity,
-    ) -> TaxonomyCardScopeLayout:
+    ) -> _ResolvedCardScopeLayout:
+        graph = await self._build_card_scope_graph_projection(scope_identity=scope_identity)
+        input_fingerprint = _card_scope_layout_input_fingerprint(graph)
         cached_layout = await self._get_cached_card_scope_layout(scope_identity=scope_identity)
         if cached_layout is not None:
-            return cached_layout
+            if cached_layout.input_fingerprint == input_fingerprint:
+                return _ResolvedCardScopeLayout(layout=cached_layout.layout, status="ready")
+            await self._request_card_scope_layout_compute(
+                scope_identity=scope_identity,
+                input_fingerprint=input_fingerprint,
+            )
+            return _ResolvedCardScopeLayout(layout=cached_layout.layout, status="refreshing")
 
-        await self._request_card_scope_layout_compute(scope_identity=scope_identity)
+        stored_layout = await self._repo.get_card_scope_layout_read_model(
+            scope_identity=scope_identity,
+            layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+        )
+        if stored_layout is not None:
+            if stored_layout.input_fingerprint == input_fingerprint:
+                await self._set_cached_card_scope_layout(
+                    scope_identity=scope_identity,
+                    input_fingerprint=input_fingerprint,
+                    layout=stored_layout.layout,
+                )
+                return _ResolvedCardScopeLayout(layout=stored_layout.layout, status="ready")
+
+            await self._request_card_scope_layout_compute(
+                scope_identity=scope_identity,
+                input_fingerprint=input_fingerprint,
+            )
+            return _ResolvedCardScopeLayout(layout=stored_layout.layout, status="refreshing")
+
+        await self._request_card_scope_layout_compute(
+            scope_identity=scope_identity,
+            input_fingerprint=input_fingerprint,
+        )
         raise _layout_not_ready_error(scope_identity=scope_identity)
 
     async def _build_card_scope_layout(
@@ -957,36 +1050,19 @@ class TaxonomyService:
         scope_identity: TaxonomyScopeIdentity,
     ) -> TaxonomyCardScopeLayout:
         graph = await self._build_card_scope_graph_projection(scope_identity=scope_identity)
-        return build_card_scope_layout(
-            nodes=[
-                TaxonomyCardScopeLayoutNode(
-                    id=node_id,
-                    scope=graph.scope_by_node_id[node_id],
-                    x=0.0,
-                    y=0.0,
-                )
-                for node_id in sorted(graph.scope_by_node_id)
-            ],
-            edges=[
-                TaxonomyCardScopeLayoutEdge(
-                    source_node_id=edge.node_a_id,
-                    target_node_id=edge.node_b_id,
-                    strength=edge.strength,
-                )
-                for edge in graph.edges
-            ],
-            generated_at=datetime.now(UTC),
-        )
+        return await asyncio.to_thread(_build_card_scope_layout_from_graph, graph=graph)
 
     async def _get_cached_card_scope_layout(
         self,
         *,
         scope_identity: TaxonomyScopeIdentity,
-    ) -> TaxonomyCardScopeLayout | None:
+    ) -> TaxonomyCardScopeLayoutReadModel | None:
         if self._view_cache is None:
             return None
         try:
-            return await self._view_cache.get_card_scope_layout(scope_identity=scope_identity)
+            return await self._view_cache.get_card_scope_layout(
+                scope_identity=scope_identity,
+            )
         except Exception as exc:
             _log_cache_failure(cache_name="taxonomy-card-scope-layout", operation="get", exc=exc)
             return None
@@ -995,6 +1071,7 @@ class TaxonomyService:
         self,
         *,
         scope_identity: TaxonomyScopeIdentity,
+        input_fingerprint: str,
         layout: TaxonomyCardScopeLayout,
     ) -> None:
         if self._view_cache is None:
@@ -1002,38 +1079,75 @@ class TaxonomyService:
         try:
             await self._view_cache.set_card_scope_layout(
                 scope_identity=scope_identity,
+                input_fingerprint=input_fingerprint,
                 layout=layout,
             )
         except Exception as exc:
             _log_cache_failure(cache_name="taxonomy-card-scope-layout", operation="set", exc=exc)
 
-    async def _acquire_card_scope_layout_lock(
-        self,
-        *,
-        scope_identity: TaxonomyScopeIdentity,
-    ) -> None:
-        if self._view_cache is None:
-            return
-        try:
-            await self._view_cache.acquire_card_scope_layout_lock(scope_identity=scope_identity)
-        except Exception as exc:
-            _log_cache_failure(cache_name="taxonomy-card-scope-layout", operation="lock", exc=exc)
-
     async def _request_card_scope_layout_compute(
         self,
         *,
         scope_identity: TaxonomyScopeIdentity,
+        input_fingerprint: str,
     ) -> None:
-        if self._view_cache is None:
-            return
         try:
-            await self._view_cache.request_card_scope_layout_compute(scope_identity=scope_identity)
+            await self._repo.request_card_scope_layout_compute(
+                scope_identity=scope_identity,
+                layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+                input_fingerprint=input_fingerprint,
+            )
+            await self._repo.commit()
         except Exception as exc:
+            await self._repo.rollback()
             _log_cache_failure(
                 cache_name="taxonomy-card-scope-layout",
                 operation="request",
                 exc=exc,
             )
+
+    async def claim_card_scope_layout_compute(
+        self,
+    ) -> TaxonomyCardScopeLayoutComputeClaim | None:
+        try:
+            claim = await self._repo.claim_card_scope_layout_compute()
+            await self._repo.commit()
+            return claim
+        except Exception:
+            await self._repo.rollback()
+            raise
+
+    async def complete_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> None:
+        try:
+            await self._repo.complete_card_scope_layout_compute(
+                scope_identity=scope_identity,
+                layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+            )
+            await self._repo.commit()
+        except Exception:
+            await self._repo.rollback()
+            raise
+
+    async def fail_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        error_message: str,
+    ) -> None:
+        try:
+            await self._repo.fail_card_scope_layout_compute(
+                scope_identity=scope_identity,
+                layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+                error_message=error_message,
+            )
+            await self._repo.commit()
+        except Exception:
+            await self._repo.rollback()
+            raise
 
     async def _refresh_card_scope_projection(
         self,
@@ -1077,6 +1191,47 @@ def _index_tree(
     for node in tree_nodes:
         child_ids_by_parent[node.parent_id].append(node.id)
     return (node_by_id, child_ids_by_parent)
+
+
+def _card_scope_layout_input_fingerprint(graph: _CardScopeGraphProjection) -> str:
+    payload = {
+        "edges": [
+            [edge.node_a_id, edge.node_b_id, edge.strength]
+            for edge in sorted(graph.edges, key=lambda item: (item.node_a_id, item.node_b_id))
+        ],
+        "layout_version": TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+        "nodes": [
+            [node_id, graph.scope_by_node_id[node_id]] for node_id in sorted(graph.scope_by_node_id)
+        ],
+    }
+    payload_text = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(payload_text.encode("utf-8")).hexdigest()
+
+
+def _build_card_scope_layout_from_graph(
+    *,
+    graph: _CardScopeGraphProjection,
+) -> TaxonomyCardScopeLayout:
+    return build_card_scope_layout(
+        nodes=[
+            TaxonomyCardScopeLayoutNode(
+                id=node_id,
+                scope=graph.scope_by_node_id[node_id],
+                x=0.0,
+                y=0.0,
+            )
+            for node_id in sorted(graph.scope_by_node_id)
+        ],
+        edges=[
+            TaxonomyCardScopeLayoutEdge(
+                source_node_id=edge.node_a_id,
+                target_node_id=edge.node_b_id,
+                strength=edge.strength,
+            )
+            for edge in graph.edges
+        ],
+        generated_at=datetime.now(UTC),
+    )
 
 
 def _view_children_from_node_ids(

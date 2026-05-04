@@ -156,11 +156,12 @@ def _validate_card_proposal_contract(openapi: dict[str, Any]) -> None:
     schemas = _require_mapping(components, "schemas")
     request_schema = _require_mapping(schemas, "CardProposalCreateRequest")
     response_schema = _require_mapping(schemas, "CardProposalResponse")
-    if request_schema.get("required") != ["proposal_type"]:
+    if request_schema.get("required") != ["proposal_type", "reason"]:
         raise SystemExit("CardProposalCreateRequest required fields are not current.")
     if response_schema.get("required") != [
         "id",
         "proposal_type",
+        "reason",
         "status",
         "submitted_by_user_id",
         "reviewed_by_user_id",

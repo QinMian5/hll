@@ -84,6 +84,12 @@ class CardProposalValidationError(ValueError):
     pass
 
 
+def _normalize_reason(reason: str | None) -> str:
+    if reason is None or reason.strip() == "":
+        raise CardProposalValidationError("Card proposals require a reason.")
+    return reason.strip()
+
+
 class KnowledgeGraphRepoProtocol(Protocol):
     async def search_vector_candidates(
         self,
@@ -170,6 +176,7 @@ class KnowledgeGraphRepoProtocol(Protocol):
         suggested_title: str,
         suggested_content: str,
         suggested_by_user_id: str,
+        reason: str,
     ) -> CardSuggestedEditRecord: ...
 
     async def create_card_proposal(
@@ -177,6 +184,7 @@ class KnowledgeGraphRepoProtocol(Protocol):
         *,
         proposal_type: str,
         submitted_by_user_id: str,
+        reason: str,
         payload: dict[str, object],
     ) -> CardProposalRecord: ...
 
@@ -468,8 +476,10 @@ class KnowledgeGraphService:
         suggested_title: str,
         suggested_content: str,
         suggested_by_user_id: str,
+        reason: str,
     ) -> CardSuggestedEditRecord:
         try:
+            normalized_reason = _normalize_reason(reason)
             base = await self._repo.fetch_card_version(
                 node_id=node_id,
                 version=base_version,
@@ -484,6 +494,7 @@ class KnowledgeGraphService:
                 suggested_title=suggested_title,
                 suggested_content=suggested_content,
                 suggested_by_user_id=suggested_by_user_id,
+                reason=normalized_reason,
             )
             await self._repo.commit()
             return record
@@ -502,9 +513,10 @@ class KnowledgeGraphService:
         base_version: int | None = None,
         suggested_title: str | None = None,
         suggested_content: str | None = None,
-        reason: str | None = None,
+        reason: str,
     ) -> CardProposalRecord:
         try:
+            normalized_reason = _normalize_reason(reason)
             payload = await self._build_proposal_payload(
                 proposal_type=proposal_type,
                 proposed_title=proposed_title,
@@ -513,11 +525,12 @@ class KnowledgeGraphService:
                 base_version=base_version,
                 suggested_title=suggested_title,
                 suggested_content=suggested_content,
-                reason=reason,
+                reason=normalized_reason,
             )
             record = await self._repo.create_card_proposal(
                 proposal_type=proposal_type,
                 submitted_by_user_id=submitted_by_user_id,
+                reason=normalized_reason,
                 payload=payload,
             )
             await self._repo.commit()
@@ -624,8 +637,9 @@ class KnowledgeGraphService:
         base_version: int | None,
         suggested_title: str | None,
         suggested_content: str | None,
-        reason: str | None,
+        reason: str,
     ) -> dict[str, object]:
+        _normalize_reason(reason)
         if proposal_type == "create":
             if proposed_title is None or proposed_content is None:
                 raise CardProposalValidationError("Create proposals require title and content.")
@@ -655,12 +669,9 @@ class KnowledgeGraphService:
             }
 
         if proposal_type == "delete":
-            if reason is None:
-                raise CardProposalValidationError("Delete proposals require a reason.")
             return {
                 "target_node_id": target_node_id,
                 "base_version": base_version,
-                "reason": reason,
             }
 
         raise CardProposalValidationError("Unsupported proposal type.")

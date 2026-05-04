@@ -26,7 +26,6 @@ RUNTIME_REQUIRED_ENV = {
     "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS": "60",
     "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS": "86400",
     "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS": "60",
-    "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS": "600",
     "KNOWLEDGE_API_LOG_LEVEL": "INFO",
     "KNOWLEDGE_API_LOG_FILE_PATH": "logs/api/app.log",
     "KNOWLEDGE_API_LOG_FILE_MAX_BYTES": "10485760",
@@ -196,9 +195,9 @@ def test_load_settings_requires_cache_ttl_keys(
     isolated_env: pytest.MonkeyPatch,
 ) -> None:
     values = dict(RUNTIME_REQUIRED_ENV)
-    values.pop("KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS")
+    values.pop("KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS")
     _set_env(isolated_env, values)
-    with pytest.raises(ValidationError, match="taxonomy_card_scope_layout_cache_ttl_seconds"):
+    with pytest.raises(ValidationError, match="taxonomy_view_cache_ttl_seconds"):
         config_module.Settings()
 
 
@@ -212,14 +211,12 @@ def test_load_settings_reads_cache_ttls_from_environment(
             "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS": "45",
             "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS": "7200",
             "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS": "30",
-            "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS": "300",
         },
     )
     settings = config_module.Settings()
     assert settings.search_response_cache_ttl_seconds == 45
     assert settings.search_embedding_cache_ttl_seconds == 7200
     assert settings.taxonomy_view_cache_ttl_seconds == 30
-    assert settings.taxonomy_card_scope_layout_cache_ttl_seconds == 300
 
 
 def test_shared_settings_exclude_taxonomy_classification_job_queue_and_webhook_fields(

@@ -34,6 +34,8 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `taxonomy_nodes`
 - `node_taxonomy_assignments`
 - `taxonomy_scope_projection_edges`
+- `taxonomy_card_scope_layouts`
+- `taxonomy_card_scope_layout_compute_requests`
 - `taxonomy_classification_jobs`
 - `taxonomy_classification_continuation_requests`
 - `taxonomy_classification_webhook_events`
@@ -45,7 +47,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `alembic_version` is excluded; Alembic migrations remain the schema source of truth.
 - `make dev-up` invokes `scripts/bootstrap-dev-api-from-prod-snapshot.sh` before starting the development Compose stack.
 - `scripts/bootstrap-dev-api-from-prod-snapshot.sh` targets `infra/env/.env.dev`, runs development migrations, stops development API writer and taxonomy layout services, truncates the scoped API tables with `RESTART IDENTITY CASCADE`, restores the snapshot, and clears Redis-derived read models.
-- The snapshot preserves current card IDs, titles, content, embeddings, edge relationships, taxonomy nodes, node taxonomy assignments, taxonomy projection edges, ingestion request rows, and taxonomy classification orchestration rows.
+- The snapshot preserves current card IDs, titles, content, embeddings, edge relationships, taxonomy nodes, node taxonomy assignments, taxonomy projection edges, durable taxonomy card-scope layouts, ingestion request rows, and taxonomy classification orchestration rows.
 
 ### Nodes
 - `id`: integer primary key.
@@ -97,6 +99,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `proposal_type`: non-null text.
 - `status`: non-null text.
 - `submitted_by_user_id`: non-null text containing the authenticated Logto user id.
+- `reason`: non-null text explaining why the contributor recommends the proposed change.
 - `reviewed_by_user_id`: nullable text containing the reviewer Logto user id.
 - `review_note`: nullable text.
 - `payload`: non-null structured proposal payload.
@@ -106,6 +109,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - Required constraints:
   - proposal type in `create`, `edit`, `delete`
   - status in `pending_review`, `accepted_applied`, `rejected`, `withdrawn`
+  - reason is not blank after trimming whitespace
 - Required indexes:
   - index on `submitted_by_user_id`
   - index on `reviewed_by_user_id`
@@ -189,6 +193,57 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - Projection rule:
   - rows store card-scope edge membership only.
   - mutable edge values are read from `edges`.
+
+### Taxonomy Card-Scope Layouts
+- `id`: integer primary key.
+- `scope_kind`: non-null text identifying whether the layout belongs to a real taxonomy node scope or a virtual Unclassified child scope.
+- `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
+- `layout_version`: non-null text identifying the active backend layout algorithm and payload shape.
+- `input_fingerprint`: non-null text containing the SHA-256 fingerprint of the graph membership, scoped node roles, projected edges, and edge strengths used to build the layout.
+- `layout_payload`: non-null JSON payload containing the full card-scope layout read model.
+- `generated_at`: non-null timestamp with timezone copied from the layout payload.
+- `created_at`: non-null timestamp with timezone.
+- `updated_at`: non-null timestamp with timezone.
+- Required constraints:
+  - scope kind in `taxonomy_node`, `virtual_unclassified`.
+  - uniqueness over `(scope_kind, taxonomy_node_id, layout_version)`.
+- Required indexes:
+  - index on `(scope_kind, taxonomy_node_id)`.
+  - index on `input_fingerprint`.
+- Read-model rule:
+  - each row stores the latest durable layout available for one scope and layout algorithm version.
+  - the API may serve a row whose `input_fingerprint` differs from the current graph input fingerprint and marks that response as refreshing.
+  - successful background compute replaces the row atomically with the current input fingerprint and layout payload.
+
+### Taxonomy Card-Scope Layout Compute Requests
+- `id`: integer primary key.
+- `scope_kind`: non-null text identifying whether the request targets a real taxonomy node scope or a virtual Unclassified child scope.
+- `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
+- `layout_version`: non-null text identifying the target backend layout algorithm and payload shape.
+- `input_fingerprint`: non-null text identifying the graph input fingerprint requested for computation.
+- `status`: non-null text.
+- `attempt_count`: non-null integer.
+- `last_error`: nullable text.
+- `requested_at`: non-null timestamp with timezone.
+- `claimed_at`: nullable timestamp with timezone.
+- `completed_at`: nullable timestamp with timezone.
+- `failed_at`: nullable timestamp with timezone.
+- `created_at`: non-null timestamp with timezone.
+- `updated_at`: non-null timestamp with timezone.
+- Required constraints:
+  - scope kind in `taxonomy_node`, `virtual_unclassified`.
+  - status in `pending`, `running`, `succeeded`, `failed`.
+  - `attempt_count >= 0`.
+  - uniqueness over `(scope_kind, taxonomy_node_id, layout_version)`.
+- Required indexes:
+  - index on `(status, requested_at)`.
+  - index on `(scope_kind, taxonomy_node_id)`.
+- Singleflight rule:
+  - the API records at most one compute request row for each scope and layout version.
+  - concurrent requests for the same scope, layout version, and input fingerprint reuse the pending or running request.
+  - a later request may replace a succeeded or failed request row with a pending request for the current input fingerprint.
+  - a running request whose claim timestamp exceeds the accepted recovery window may be replaced by a pending request for the current input fingerprint.
+  - the taxonomy view layout runtime claims pending rows with row-level locking and skip-locked semantics.
 
 ### Ingestion Requests
 - `id`: integer primary key and public `ingestion_id` returned by `POST /api/v1/cards`.

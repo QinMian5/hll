@@ -6,7 +6,8 @@ Out of scope: YAML parsing and HTTP transport wiring.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import cast
 
 from sqlalchemy import delete, func, literal, select
 from sqlalchemy.dialects.postgresql import insert
@@ -16,14 +17,24 @@ from modules.knowledge_graph.model import Node
 from modules.taxonomy.dto import (
     TaxonomyAssignmentCount,
     TaxonomyAssignmentRecord,
+    TaxonomyCardScopeLayoutComputeClaim,
+    TaxonomyCardScopeLayoutReadModel,
     TaxonomyNodeRecord,
     TaxonomyScopeAssignment,
     TaxonomyScopeIdentity,
+    TaxonomyScopeKind,
+)
+from modules.taxonomy.dto import (
+    TaxonomyCardScopeLayout as TaxonomyCardScopeLayoutDto,
 )
 from modules.taxonomy.model import (
     NodeTaxonomyAssignment,
+    TaxonomyCardScopeLayoutComputeRequest,
     TaxonomyNode,
     TaxonomyScopeProjectionEdge,
+)
+from modules.taxonomy.model import (
+    TaxonomyCardScopeLayout as TaxonomyCardScopeLayoutModel,
 )
 from modules.taxonomy.route_path import slugify_taxonomy_route_segment
 
@@ -32,6 +43,7 @@ UNCLASSIFIED_NODE_NAME = "Unclassified"
 TAXONOMY_PROJECTION_EDGE_INSERT_BATCH_SIZE = 10_000
 TAXONOMY_NODE_SCOPE_KIND = "taxonomy_node"
 VIRTUAL_UNCLASSIFIED_SCOPE_KIND = "virtual_unclassified"
+_LAYOUT_COMPUTE_RUNNING_RECOVERY_AFTER = timedelta(minutes=30)
 
 
 def _taxonomy_node_record_from_model(node: TaxonomyNode) -> TaxonomyNodeRecord:
@@ -287,6 +299,206 @@ class TaxonomyRepo:
             )
         ).all()
         return [row.edge_id for row in rows]
+
+    async def get_card_scope_layout_read_model(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+    ) -> TaxonomyCardScopeLayoutReadModel | None:
+        layout_row = await self._session.scalar(
+            select(TaxonomyCardScopeLayoutModel)
+            .where(TaxonomyCardScopeLayoutModel.scope_kind == scope_identity.scope_kind)
+            .where(TaxonomyCardScopeLayoutModel.taxonomy_node_id == scope_identity.taxonomy_node_id)
+            .where(TaxonomyCardScopeLayoutModel.layout_version == layout_version)
+            .limit(1)
+        )
+        if layout_row is None:
+            return None
+
+        return TaxonomyCardScopeLayoutReadModel(
+            input_fingerprint=layout_row.input_fingerprint,
+            layout=TaxonomyCardScopeLayoutDto.model_validate(layout_row.layout_payload),
+        )
+
+    async def upsert_card_scope_layout_read_model(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        input_fingerprint: str,
+        layout: TaxonomyCardScopeLayoutDto,
+    ) -> None:
+        now = datetime.now(UTC)
+        statement = (
+            insert(TaxonomyCardScopeLayoutModel)
+            .values(
+                scope_kind=scope_identity.scope_kind,
+                taxonomy_node_id=scope_identity.taxonomy_node_id,
+                layout_version=layout.layout_version,
+                input_fingerprint=input_fingerprint,
+                layout_payload=layout.model_dump(mode="json"),
+                generated_at=layout.generated_at,
+                created_at=now,
+                updated_at=now,
+            )
+            .on_conflict_do_update(
+                index_elements=["scope_kind", "taxonomy_node_id", "layout_version"],
+                set_={
+                    "input_fingerprint": input_fingerprint,
+                    "layout_payload": layout.model_dump(mode="json"),
+                    "generated_at": layout.generated_at,
+                    "updated_at": now,
+                },
+            )
+        )
+        await self._session.execute(statement)
+        await self._session.flush()
+
+    async def request_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+        input_fingerprint: str,
+    ) -> bool:
+        now = datetime.now(UTC)
+        recovery_cutoff = now - _LAYOUT_COMPUTE_RUNNING_RECOVERY_AFTER
+        request_table = TaxonomyCardScopeLayoutComputeRequest.__table__
+        statement = (
+            insert(TaxonomyCardScopeLayoutComputeRequest)
+            .values(
+                scope_kind=scope_identity.scope_kind,
+                taxonomy_node_id=scope_identity.taxonomy_node_id,
+                layout_version=layout_version,
+                input_fingerprint=input_fingerprint,
+                status="pending",
+                attempt_count=0,
+                requested_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+            .on_conflict_do_update(
+                index_elements=["scope_kind", "taxonomy_node_id", "layout_version"],
+                set_={
+                    "input_fingerprint": input_fingerprint,
+                    "status": "pending",
+                    "attempt_count": 0,
+                    "last_error": None,
+                    "requested_at": now,
+                    "claimed_at": None,
+                    "completed_at": None,
+                    "failed_at": None,
+                    "updated_at": now,
+                },
+                where=(
+                    (
+                        (request_table.c.status != "running")
+                        | request_table.c.claimed_at.is_(None)
+                        | (request_table.c.claimed_at <= recovery_cutoff)
+                    )
+                    & (
+                        (request_table.c.status != "pending")
+                        | (request_table.c.input_fingerprint != input_fingerprint)
+                    )
+                ),
+            )
+            .returning(request_table.c.id)
+        )
+        result = await self._session.execute(statement)
+        await self._session.flush()
+        return result.scalar_one_or_none() is not None
+
+    async def claim_card_scope_layout_compute(
+        self,
+    ) -> TaxonomyCardScopeLayoutComputeClaim | None:
+        request = await self._session.scalar(
+            select(TaxonomyCardScopeLayoutComputeRequest)
+            .where(TaxonomyCardScopeLayoutComputeRequest.status == "pending")
+            .order_by(
+                TaxonomyCardScopeLayoutComputeRequest.requested_at.asc(),
+                TaxonomyCardScopeLayoutComputeRequest.id.asc(),
+            )
+            .with_for_update(skip_locked=True)
+            .limit(1)
+        )
+        if request is None:
+            return None
+
+        now = datetime.now(UTC)
+        request.status = "running"
+        request.claimed_at = now
+        request.completed_at = None
+        request.failed_at = None
+        request.last_error = None
+        request.attempt_count += 1
+        request.updated_at = now
+        await self._session.flush()
+        return TaxonomyCardScopeLayoutComputeClaim(
+            scope_identity=TaxonomyScopeIdentity(
+                scope_kind=cast(TaxonomyScopeKind, request.scope_kind),
+                taxonomy_node_id=request.taxonomy_node_id,
+            ),
+            input_fingerprint=request.input_fingerprint,
+        )
+
+    async def complete_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+    ) -> None:
+        request = await self._get_card_scope_layout_compute_request(
+            scope_identity=scope_identity,
+            layout_version=layout_version,
+        )
+        if request is None:
+            return
+
+        now = datetime.now(UTC)
+        request.status = "succeeded"
+        request.completed_at = now
+        request.failed_at = None
+        request.last_error = None
+        request.updated_at = now
+        await self._session.flush()
+
+    async def fail_card_scope_layout_compute(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+        error_message: str,
+    ) -> None:
+        request = await self._get_card_scope_layout_compute_request(
+            scope_identity=scope_identity,
+            layout_version=layout_version,
+        )
+        if request is None:
+            return
+
+        now = datetime.now(UTC)
+        request.status = "failed"
+        request.failed_at = now
+        request.last_error = error_message[:4096]
+        request.updated_at = now
+        await self._session.flush()
+
+    async def _get_card_scope_layout_compute_request(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+    ) -> TaxonomyCardScopeLayoutComputeRequest | None:
+        return await self._session.scalar(
+            select(TaxonomyCardScopeLayoutComputeRequest)
+            .where(TaxonomyCardScopeLayoutComputeRequest.scope_kind == scope_identity.scope_kind)
+            .where(
+                TaxonomyCardScopeLayoutComputeRequest.taxonomy_node_id
+                == scope_identity.taxonomy_node_id
+            )
+            .where(TaxonomyCardScopeLayoutComputeRequest.layout_version == layout_version)
+            .limit(1)
+        )
 
     async def add_projected_edge_ids_for_scope(
         self,

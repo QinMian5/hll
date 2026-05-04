@@ -635,15 +635,84 @@ describe("SearchPage", () => {
     fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "Better content." },
     });
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "This improves the visible explanation." },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith({
         base_version: 3,
         proposal_type: "edit",
+        reason: "This improves the visible explanation.",
         suggested_content: "Better content.",
         suggested_title: "Better title",
         target_node_id: 10,
+      }),
+    );
+  });
+
+  it("submits authenticated add-card proposal with a required reason", async () => {
+    const mutateAsync = vi.fn(async () => ({
+      created_at: "2026-04-28T18:00:00Z",
+      id: 100,
+      payload: {
+        proposed_content: "New card content.",
+        proposed_title: "New card",
+      },
+      proposal_type: "create",
+      reason: "This fills a missing concept.",
+      reviewed_at: null,
+      reviewed_by_user_id: null,
+      review_note: null,
+      status: "pending_review",
+      submitted_by_user_id: "logto-user-123",
+      updated_at: "2026-04-28T18:00:00Z",
+    }));
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [],
+    };
+    mockUseCreateCardProposalMutation.mockReturnValue({
+      error: null,
+      isPending: false,
+      mutateAsync,
+    } as never);
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+    mockUseWebSession.mockReturnValue({
+      status: "authenticated",
+      user: { id: "logto-user-123" },
+    });
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Add Card" }));
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "New card" },
+    });
+    fireEvent.change(screen.getByLabelText("Content"), {
+      target: { value: "New card content." },
+    });
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "This fills a missing concept." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith({
+        proposal_type: "create",
+        proposed_content: "New card content.",
+        proposed_title: "New card",
+        reason: "This fills a missing concept.",
       }),
     );
   });
@@ -684,6 +753,12 @@ describe("SearchPage", () => {
 
     fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "Better content." },
+    });
+
+    expect(submitButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "The current card is missing this detail." },
     });
 
     expect(submitButton).not.toBeDisabled();
@@ -732,6 +807,9 @@ describe("SearchPage", () => {
     });
     fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "Better content." },
+    });
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "This clarifies the current card." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 
@@ -789,6 +867,9 @@ describe("SearchPage", () => {
     );
     fireEvent.change(screen.getByLabelText("Content"), {
       target: { value: "Better content." },
+    });
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "This clarifies the current card." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Submit" }));
 

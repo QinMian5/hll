@@ -277,7 +277,7 @@ export interface components {
       /** Proposed Title */
       proposed_title?: string | null;
       /** Reason */
-      reason?: string | null;
+      reason: string;
       /** Suggested Content */
       suggested_content?: string | null;
       /** Suggested Title */
@@ -308,6 +308,8 @@ export interface components {
        * @enum {string}
        */
       proposal_type: "create" | "edit" | "delete";
+      /** Reason */
+      reason: string;
       /** Review Note */
       review_note: string | null;
       /** Reviewed At */
@@ -414,6 +416,8 @@ export interface components {
     SuggestedEditCreateRequest: {
       /** Base Version */
       base_version: number;
+      /** Reason */
+      reason: string;
       /** Suggested Content */
       suggested_content: string;
       /** Suggested Title */
@@ -457,6 +461,11 @@ export interface components {
     TaxonomyCardScopeLayoutSliceResponse: {
       /** Edges */
       edges: components["schemas"]["TaxonomyCardScopeGraphEdgeResponse"][];
+      /**
+       * Layout Status
+       * @enum {string}
+       */
+      layout_status: "ready" | "refreshing";
       /** Layout Version */
       layout_version: string;
       /** Nodes */
@@ -552,6 +561,11 @@ export interface components {
        * Format: date-time
        */
       generated_at: string;
+      /**
+       * Layout Status
+       * @enum {string}
+       */
+      layout_status: "ready" | "refreshing";
       /** Layout Version */
       layout_version: string;
       /** Node Count */

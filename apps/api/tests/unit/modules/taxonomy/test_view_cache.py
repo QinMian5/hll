@@ -13,6 +13,7 @@ from modules.taxonomy.dto import (
     TaxonomyCardScopeLayout,
     TaxonomyCardScopeLayoutEdge,
     TaxonomyCardScopeLayoutNode,
+    TaxonomyCardScopeLayoutReadModel,
     TaxonomyCardScopeWorldBounds,
     TaxonomyScopeIdentity,
 )
@@ -25,7 +26,6 @@ from modules.taxonomy.schema import (
     TaxonomyViewScopeResponse,
 )
 from modules.taxonomy.view_cache import (
-    TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS,
     TAXONOMY_VIEW_COUNT_CACHE_TTL_SECONDS,
     TAXONOMY_VIEW_RESPONSE_CACHE_TTL_SECONDS,
     TaxonomyViewRedisCache,
@@ -136,6 +136,7 @@ def _card_scope_metadata_view() -> TaxonomyNodeCardScopeViewResponse:
             _view_scope(id=3, parent_id=1, name="Cards"),
         ],
         layout_version="taxonomy-card-scope-layout-v1",
+        layout_status="ready",
         world_bounds=TaxonomyCardScopeWorldBoundsResponse(
             min_x=-1.0,
             min_y=-2.0,
@@ -274,15 +275,22 @@ async def test_card_scope_layout_cache_stores_and_reads_layout_payload() -> None
         ],
     )
 
-    await cache.set_card_scope_layout(scope_identity=scope_identity, layout=layout)
+    await cache.set_card_scope_layout(
+        scope_identity=scope_identity,
+        input_fingerprint="abc123",
+        layout=layout,
+    )
     cached = await cache.get_card_scope_layout(scope_identity=scope_identity)
 
-    assert cached == layout
-    assert (
-        redis.set_calls[0][0]
-        == "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9"
+    assert cached == TaxonomyCardScopeLayoutReadModel(
+        input_fingerprint="abc123",
+        layout=layout,
     )
-    assert redis.set_calls[0][2] == TAXONOMY_VIEW_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS
+    assert (
+        redis.set_calls[0][0] == "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:"
+        "taxonomy_node:9"
+    )
+    assert redis.set_calls[0][2] is None
 
 
 @pytest.mark.anyio
@@ -296,113 +304,6 @@ async def test_card_scope_layout_cache_rejects_malformed_payload() -> None:
 
     with pytest.raises(ValueError, match="card-scope layout cache payload"):
         await cache.get_card_scope_layout(scope_identity=scope_identity)
-
-
-@pytest.mark.anyio
-async def test_card_scope_layout_lock_uses_per_scope_single_flight_key() -> None:
-    redis = _FakeRedis()
-    cache = TaxonomyViewRedisCache(redis=redis)
-    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
-
-    acquired = await cache.acquire_card_scope_layout_lock(scope_identity=scope_identity)
-
-    assert acquired is True
-    assert redis.set_calls == [
-        (
-            "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:"
-            "taxonomy_node:9:lock",
-            "1",
-            30,
-            True,
-        )
-    ]
-
-
-@pytest.mark.anyio
-async def test_card_scope_layout_compute_request_enqueues_each_scope_once() -> None:
-    redis = _FakeRedis()
-    cache = TaxonomyViewRedisCache(redis=redis)
-    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
-
-    first_requested = await cache.request_card_scope_layout_compute(scope_identity=scope_identity)
-    second_requested = await cache.request_card_scope_layout_compute(scope_identity=scope_identity)
-
-    assert first_requested is True
-    assert second_requested is False
-    assert redis.rpush_calls == [
-        (
-            "taxonomy:view:v1:card-scope-layout:requests",
-            '{"scope_kind":"taxonomy_node","taxonomy_node_id":9}',
-        )
-    ]
-    assert (
-        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:pending",
-        "1",
-        600,
-        True,
-    ) in redis.set_calls
-
-
-@pytest.mark.anyio
-async def test_card_scope_layout_compute_request_skips_running_scope() -> None:
-    redis = _FakeRedis()
-    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
-    redis.values[
-        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:running"
-    ] = "1"
-    cache = TaxonomyViewRedisCache(redis=redis)
-
-    requested = await cache.request_card_scope_layout_compute(scope_identity=scope_identity)
-
-    assert requested is False
-    assert redis.rpush_calls == []
-
-
-@pytest.mark.anyio
-async def test_card_scope_layout_compute_claim_marks_scope_running_and_clears_pending() -> None:
-    redis = _FakeRedis()
-    redis.lists["taxonomy:view:v1:card-scope-layout:requests"] = [
-        '{"scope_kind":"taxonomy_node","taxonomy_node_id":9}'
-    ]
-    cache = TaxonomyViewRedisCache(redis=redis)
-
-    scope_identity = await cache.claim_card_scope_layout_compute()
-
-    assert scope_identity == TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
-    assert (
-        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:running",
-        "1",
-        1800,
-        True,
-    ) in redis.set_calls
-    assert (
-        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:pending"
-        in redis.delete_calls
-    )
-
-
-@pytest.mark.anyio
-async def test_card_scope_layout_compute_completion_clears_singleflight_state() -> None:
-    redis = _FakeRedis()
-    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
-    redis.values[
-        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:pending"
-    ] = "1"
-    redis.values[
-        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:running"
-    ] = "1"
-    cache = TaxonomyViewRedisCache(redis=redis)
-
-    await cache.complete_card_scope_layout_compute(scope_identity=scope_identity)
-
-    assert (
-        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:pending"
-        in redis.delete_calls
-    )
-    assert (
-        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9:running"
-        in redis.delete_calls
-    )
 
 
 @pytest.mark.anyio

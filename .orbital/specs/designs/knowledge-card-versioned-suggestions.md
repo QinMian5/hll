@@ -68,6 +68,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
   - submitted user id.
   - reviewed user id.
   - review note.
+  - reason.
   - created, updated, and reviewed timestamps.
   - type-specific payload.
 - `proposal_apply_audits` holds reviewer-acceptance outcomes:
@@ -91,9 +92,10 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 - New accepted cards create initial formal version `1` in the same apply operation as the node.
 
 ## Proposal Semantics
+- All `create`, `edit`, and `delete` proposals require a non-empty common `reason` explaining why the contributor recommends the proposed change.
 - `create` proposal payload contains proposed title and proposed content.
 - `edit` proposal payload contains target node id, base version, suggested title, and suggested content.
-- `delete` proposal payload contains target node id, base version, and reason.
+- `delete` proposal payload contains target node id and base version.
 - Contributors may withdraw only their own pending proposals.
 - Reviewer rejection transitions a pending proposal to `rejected` and may include a review note.
 - Reviewer acceptance transitions a pending proposal to `accepted_applied` only after the formal domain change and audit record are written.
@@ -132,6 +134,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 - Authenticated Search request-deletion activation opens the delete mode of the Search Card Proposal Dialog for the selected card.
 - Anonymous Search proposal activation opens the sign-in-required dialog.
 - Search proposal submission uses the unified proposal contracts.
+- Search proposal submission requires a non-empty `Reason` field for add-card, edit-card, and delete-card modes.
 - Search Card Proposal Dialog delete mode renders the selected card title and content through shared Input/Textarea `ReadOnly` states rather than disabled controls, preserving selectable content while distinguishing it from editable Reason input.
 - Workspace does not expose contributor-facing create/edit/delete proposal forms.
 - Workspace `My Proposals` shows the current user's proposal status.
@@ -142,6 +145,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
   - Persistence metadata supports formal card versions, Knowledge-owned roles, unified proposals, and apply audits.
   - Proposal status values are limited to `pending_review`, `accepted_applied`, `rejected`, and `withdrawn`.
   - Proposal type values are limited to `create`, `edit`, and `delete`.
+  - Proposal reason is stored as a non-empty common field for create, edit, and delete proposals.
   - Search response contract includes `node_id` and `current_version` for every matched active card.
   - Search proposal creation stores the BFF-derived Logto user id and does not accept browser-supplied identity.
   - Workspace proposal creation rejects unauthenticated requests.

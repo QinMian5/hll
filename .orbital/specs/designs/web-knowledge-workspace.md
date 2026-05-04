@@ -37,11 +37,11 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - The system uses one proposal model for all human-originated card maintenance actions.
 - Proposal types are `create`, `edit`, and `delete`.
 - Proposal statuses are `pending_review`, `accepted_applied`, `rejected`, and `withdrawn`.
-- Common proposal fields include proposal id, proposal type, status, submitted user id, reviewed user id, review note, created timestamp, updated timestamp, and reviewed timestamp.
+- Common proposal fields include proposal id, proposal type, status, submitted user id, reason, reviewed user id, review note, created timestamp, updated timestamp, and reviewed timestamp.
 - Type-specific payloads:
   - `create`: proposed title and proposed content.
   - `edit`: target node id, base version, suggested title, and suggested content.
-  - `delete`: target node id, base version, and reason.
+  - `delete`: target node id and base version.
 
 ## Proposal Semantics
 - `create` acceptance creates a formal card and its initial version. The accepted card enters taxonomy browsing through the existing default assignment rule: direct `Root` assignment exposed as visible `Unclassified` until classification moves it.
@@ -61,6 +61,7 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - Search remains a discovery and lightweight contribution page.
 - Search Results expose `Add Card` in the results header and edit affordances on result cards.
 - The Search Card Proposal Dialog exposes create, edit, and request-deletion modes.
+- The Search Card Proposal Dialog labels the contributor explanation field `Reason` and requires it for create, edit, and request-deletion modes.
 - Search-submitted proposals use the same unified proposal model tracked by Workspace.
 - Workspace does not expose contributor-facing create/edit/delete proposal forms.
 - A proposal submitted from Search appears in `My Proposals` and is reviewed through role-governed service flows outside the Workspace route.

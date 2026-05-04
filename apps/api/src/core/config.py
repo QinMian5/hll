@@ -31,7 +31,6 @@ class Settings(BaseSettings):
     search_response_cache_ttl_seconds: int = Field(ge=1)
     search_embedding_cache_ttl_seconds: int = Field(ge=1)
     taxonomy_view_cache_ttl_seconds: int = Field(ge=1)
-    taxonomy_card_scope_layout_cache_ttl_seconds: int = Field(ge=1)
     edge_title_mention_top_k: int = Field(ge=0)
     edge_semantic_top_k: int = Field(ge=0)
     edge_semantic_min_strength: float = Field(ge=0.0, le=1.0)
@@ -106,7 +105,6 @@ class TaxonomyViewLayoutRuntimeSettings(BaseSettings):
     database_url: str
     redis_url: str
     taxonomy_view_cache_ttl_seconds: int = Field(ge=1)
-    taxonomy_card_scope_layout_cache_ttl_seconds: int = Field(ge=1)
     edge_title_mention_top_k: int = Field(ge=0)
     edge_semantic_top_k: int = Field(ge=0)
     edge_semantic_min_strength: float = Field(ge=0.0, le=1.0)

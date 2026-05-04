@@ -107,7 +107,7 @@ function readCreateProposalPayload(body: unknown): CardProposalCreateRequest {
       "proposed_title",
     ),
     proposal_type: proposalType,
-    reason: readOptionalNonEmptyString(source.reason, "reason"),
+    reason: readNonEmptyString(source.reason, "reason"),
     suggested_content: readOptionalNonEmptyString(
       source.suggested_content,
       "suggested_content",

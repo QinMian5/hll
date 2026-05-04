@@ -20,7 +20,7 @@ from core.config import (
     load_taxonomy_view_layout_runtime_settings,
 )
 from modules.knowledge_graph.builders import build_knowledge_graph_service
-from modules.taxonomy.dto import TaxonomyScopeIdentity
+from modules.taxonomy.dto import TaxonomyCardScopeLayoutComputeClaim, TaxonomyScopeIdentity
 from modules.taxonomy.repo import TaxonomyRepo
 from modules.taxonomy.service import TaxonomyService
 from modules.taxonomy.view_cache import TaxonomyRedisProtocol, TaxonomyViewRedisCache
@@ -30,8 +30,16 @@ logger = logging.getLogger(__name__)
 TAXONOMY_VIEW_LAYOUT_POLL_INTERVAL_SECONDS = 1.0
 
 
-class TaxonomyLayoutComputeCache(Protocol):
-    async def claim_card_scope_layout_compute(self) -> TaxonomyScopeIdentity | None: ...
+class TaxonomyLayoutComputeService(Protocol):
+    async def claim_card_scope_layout_compute(
+        self,
+    ) -> TaxonomyCardScopeLayoutComputeClaim | None: ...
+
+    async def build_and_cache_card_scope_layout(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+    ) -> object: ...
 
     async def complete_card_scope_layout_compute(
         self,
@@ -39,13 +47,12 @@ class TaxonomyLayoutComputeCache(Protocol):
         scope_identity: TaxonomyScopeIdentity,
     ) -> None: ...
 
-
-class TaxonomyLayoutComputeService(Protocol):
-    async def build_and_cache_card_scope_layout(
+    async def fail_card_scope_layout_compute(
         self,
         *,
         scope_identity: TaxonomyScopeIdentity,
-    ) -> object: ...
+        error_message: str,
+    ) -> None: ...
 
 
 TaxonomyLayoutServiceFactory = Callable[
@@ -76,7 +83,6 @@ def build_runtime() -> TaxonomyViewLayoutRuntime:
             redis=cast(TaxonomyRedisProtocol, redis),
             descendant_count_ttl_seconds=settings.taxonomy_view_cache_ttl_seconds,
             view_response_ttl_seconds=settings.taxonomy_view_cache_ttl_seconds,
-            card_scope_layout_ttl_seconds=settings.taxonomy_card_scope_layout_cache_ttl_seconds,
         ),
         redis=redis,
     )
@@ -103,23 +109,27 @@ async def open_taxonomy_layout_service(
 
 async def process_next_card_scope_layout(
     *,
-    cache: TaxonomyLayoutComputeCache,
     service_factory: TaxonomyLayoutServiceFactory,
 ) -> bool:
-    scope_identity = await cache.claim_card_scope_layout_compute()
-    if scope_identity is None:
-        return False
+    async with service_factory() as service:
+        claim = await service.claim_card_scope_layout_compute()
+        if claim is None:
+            return False
 
-    try:
-        async with service_factory() as service:
+        scope_identity = claim.scope_identity
+        try:
             await service.build_and_cache_card_scope_layout(scope_identity=scope_identity)
-    except Exception:
-        logger.exception(
-            "taxonomy_view_layout.compute_failed",
-            extra=scope_identity.model_dump(mode="json"),
-        )
-    finally:
-        await cache.complete_card_scope_layout_compute(scope_identity=scope_identity)
+        except Exception as exc:
+            logger.exception(
+                "taxonomy_view_layout.compute_failed",
+                extra=scope_identity.model_dump(mode="json"),
+            )
+            await service.fail_card_scope_layout_compute(
+                scope_identity=scope_identity,
+                error_message=str(exc),
+            )
+        else:
+            await service.complete_card_scope_layout_compute(scope_identity=scope_identity)
     return True
 
 
@@ -127,7 +137,6 @@ async def run_forever(runtime: TaxonomyViewLayoutRuntime) -> None:
     try:
         while True:
             processed = await process_next_card_scope_layout(
-                cache=runtime.view_cache,
                 service_factory=lambda: open_taxonomy_layout_service(runtime),
             )
             if not processed:

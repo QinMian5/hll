@@ -5,6 +5,7 @@ import type { components } from "@knowledge/contracts/generated/types";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { fetchWebApiJson } from "../../../shared/web-api/client";
+import { WebApiRequestError } from "../../../shared/web-api/errors";
 
 type TaxonomyRootViewContract =
   components["schemas"]["TaxonomyRootViewResponse"];
@@ -37,6 +38,8 @@ type TaxonomyCardScopeEdgeTuple =
   TaxonomyCardScopeLayoutSliceResponse["edges"][number];
 const CARD_SCOPE_LAYOUT_SLICE_STALE_TIME_MS = 5 * 60 * 1000;
 const CARD_SCOPE_LAYOUT_SLICE_GC_TIME_MS = 30 * 60 * 1000;
+const CARD_SCOPE_LAYOUT_REFRESH_INTERVAL_MS = 3 * 1000;
+const CARD_SCOPE_LAYOUT_NOT_READY_MAX_RETRIES = 20;
 
 export interface TaxonomyCardScopeLayoutBounds {
   readonly min_x: number;
@@ -141,6 +144,34 @@ function normalizeTaxonomyCardScopeLayoutSlicePayload(
     ...layoutSlice,
     edges: rawEdges.map(normalizeCardScopeEdgeTuple),
   };
+}
+
+function isLayoutNotReadyError(error: unknown): boolean {
+  return (
+    error instanceof WebApiRequestError &&
+    error.status === 503 &&
+    error.code === "layout_not_ready"
+  );
+}
+
+function shouldRetryTaxonomyNodeView(
+  failureCount: number,
+  error: Error,
+): boolean {
+  return (
+    isLayoutNotReadyError(error) &&
+    failureCount < CARD_SCOPE_LAYOUT_NOT_READY_MAX_RETRIES
+  );
+}
+
+function taxonomyLayoutRetryDelay(_failureCount: number, error: Error): number {
+  if (
+    error instanceof WebApiRequestError &&
+    error.retryAfterSeconds !== undefined
+  ) {
+    return error.retryAfterSeconds * 1000;
+  }
+  return CARD_SCOPE_LAYOUT_REFRESH_INTERVAL_MS;
 }
 
 const taxonomyViewQueryKeys = {
@@ -261,6 +292,15 @@ export function taxonomyNodeViewQueryOptions(nodeId: number) {
   return queryOptions({
     queryFn: () => fetchTaxonomyNodeView(nodeId),
     queryKey: taxonomyViewQueryKeys.node(nodeId),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data?.node_kind === "card_scope" &&
+        data.layout_status === "refreshing"
+        ? CARD_SCOPE_LAYOUT_REFRESH_INTERVAL_MS
+        : false;
+    },
+    retry: shouldRetryTaxonomyNodeView,
+    retryDelay: taxonomyLayoutRetryDelay,
   });
 }
 
@@ -268,6 +308,15 @@ export function taxonomyNodeViewByPathQueryOptions(routePath: string) {
   return queryOptions({
     queryFn: () => fetchTaxonomyNodeViewByPath(routePath),
     queryKey: taxonomyViewQueryKeys.path(routePath),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data?.node_kind === "card_scope" &&
+        data.layout_status === "refreshing"
+        ? CARD_SCOPE_LAYOUT_REFRESH_INTERVAL_MS
+        : false;
+    },
+    retry: shouldRetryTaxonomyNodeView,
+    retryDelay: taxonomyLayoutRetryDelay,
   });
 }
 

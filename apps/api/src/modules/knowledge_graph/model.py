@@ -161,6 +161,7 @@ class CardProposal(Base):
         server_default=text("'pending_review'"),
     )
     submitted_by_user_id: Mapped[str] = mapped_column(Text, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
     reviewed_by_user_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     review_note: Mapped[str | None] = mapped_column(Text, nullable=True)
     payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
@@ -186,6 +187,7 @@ class CardProposal(Base):
             "status IN ('pending_review', 'accepted_applied', 'rejected', 'withdrawn')",
             name="status",
         ),
+        CheckConstraint("btrim(reason) <> ''", name="reason_nonempty"),
         Index("ix_card_proposals_submitted_by_user_id", "submitted_by_user_id"),
         Index("ix_card_proposals_reviewed_by_user_id", "reviewed_by_user_id"),
         Index("ix_card_proposals_status", "status"),

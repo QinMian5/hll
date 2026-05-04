@@ -40,8 +40,10 @@ def test_api_bootstrap_tables_cover_prod_snapshot_closure() -> None:
         "card_proposals",
         "proposal_apply_audits",
         "taxonomy_scope_projection_edges",
+        "taxonomy_card_scope_layouts",
     )
     assert "alembic_version" not in API_BOOTSTRAP_TABLES
+    assert "taxonomy_card_scope_layout_compute_requests" not in API_BOOTSTRAP_TABLES
     assert len(set(API_BOOTSTRAP_TABLES)) == len(API_BOOTSTRAP_TABLES)
 
 

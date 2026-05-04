@@ -17,6 +17,7 @@ export type SuggestedEditCreateResponse =
 export interface CreateSuggestedEditPayload {
   readonly baseVersion: number;
   readonly nodeId: number;
+  readonly reason: string;
   readonly suggestedContent: string;
   readonly suggestedTitle: string;
 }
@@ -41,6 +42,7 @@ export async function createSuggestedEdit(
     {
       body: {
         base_version: payload.baseVersion,
+        reason: payload.reason,
         suggested_content: payload.suggestedContent,
         suggested_title: payload.suggestedTitle,
       },

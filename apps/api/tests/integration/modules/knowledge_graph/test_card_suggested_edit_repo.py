@@ -50,6 +50,7 @@ async def test_create_card_suggested_edit_persists_unified_pending_proposal(
         suggested_title="Better title",
         suggested_content="Better content",
         suggested_by_user_id="logto-user-123",
+        reason="The current card needs clearer wording.",
     )
 
     stored = await db_session.scalar(select(CardProposal).where(CardProposal.id == record.id))
@@ -58,6 +59,7 @@ async def test_create_card_suggested_edit_persists_unified_pending_proposal(
     assert stored.proposal_type == "edit"
     assert stored.status == "pending_review"
     assert stored.submitted_by_user_id == "logto-user-123"
+    assert stored.reason == "The current card needs clearer wording."
     assert stored.payload == {
         "target_node_id": node.id,
         "base_version": 1,

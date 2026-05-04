@@ -417,7 +417,6 @@ def test_base_compose_defines_taxonomy_view_layout_runtime_with_private_dependen
         "KNOWLEDGE_API_DATABASE_URL",
         "KNOWLEDGE_API_REDIS_URL",
         "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS",
-        "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS",
         "KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K",
         "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K",
         "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH",
@@ -456,9 +455,7 @@ def test_base_api_service_passes_taxonomy_view_cache_ttl_env_contract() -> None:
     assert "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS" in environment
     assert "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS" in environment
     assert "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS" in environment
-    assert "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS" in environment
     assert "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS" in environment
-    assert "KNOWLEDGE_API_TAXONOMY_CARD_SCOPE_LAYOUT_CACHE_TTL_SECONDS" in environment
 
 
 def test_base_worker_service_passes_required_cache_ttl_env_contract() -> None:

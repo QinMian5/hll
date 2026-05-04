@@ -119,11 +119,13 @@ export function SearchPage() {
           proposal_type: "create",
           proposed_content: payload.content,
           proposed_title: payload.title,
+          reason: payload.reason,
         });
       } else if (payload.mode === "edit" && proposalDialog?.card) {
         await createCardProposalMutation.mutateAsync({
           base_version: proposalDialog.card.currentVersion,
           proposal_type: "edit",
+          reason: payload.reason,
           suggested_content: payload.content,
           suggested_title: payload.title,
           target_node_id: proposalDialog.card.nodeId,

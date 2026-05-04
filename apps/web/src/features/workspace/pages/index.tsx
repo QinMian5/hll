@@ -108,12 +108,13 @@ function proposalDisplayContent(proposal: CardProposalResponse): string {
   );
 }
 
-function proposalDisplayRationale(proposal: CardProposalResponse): string {
+function proposalDisplayReason(proposal: CardProposalResponse): string {
   const payload = proposal.payload as Record<string, unknown>;
   return (
-    readPayloadString(payload, ["rationale", "reason"]) ??
+    proposal.reason ??
+    readPayloadString(payload, ["reason"]) ??
     proposal.review_note ??
-    "No rationale provided."
+    "No reason provided."
   );
 }
 
@@ -306,10 +307,10 @@ function ProposalDetail({
           value={proposalDisplayContent(proposal)}
         />
         <ReadOnlyField
-          id="workspace-proposal-rationale"
-          label="Rationale"
+          id="workspace-proposal-reason"
+          label="Reason"
           multiline
-          value={proposalDisplayRationale(proposal)}
+          value={proposalDisplayReason(proposal)}
         />
       </ScrollArea>
     </div>

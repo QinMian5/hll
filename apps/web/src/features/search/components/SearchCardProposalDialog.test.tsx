@@ -56,7 +56,7 @@ describe("SearchCardProposalDialog", () => {
       "placeholder",
       "Write the proposed card content.",
     );
-    expect(screen.getByLabelText("Rationale")).toHaveAttribute(
+    expect(screen.getByLabelText("Reason")).toHaveAttribute(
       "placeholder",
       "Explain why you recommend adding this card.",
     );
@@ -123,10 +123,81 @@ describe("SearchCardProposalDialog", () => {
       "placeholder",
       "Write the revised card content.",
     );
-    expect(screen.getByLabelText("Rationale")).toHaveAttribute(
+    expect(screen.getByLabelText("Reason")).toHaveAttribute(
       "placeholder",
-      "Explain what changed and why.",
+      "Explain why you recommend editing this card.",
     );
+  });
+
+  it("requires a reason for create, edit, and delete submissions", async () => {
+    const onSubmit = vi.fn(async () => {});
+    const { rerender } = render(
+      <SearchCardProposalDialog
+        initialMode="create"
+        isSubmitting={false}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "New card" },
+    });
+    fireEvent.change(screen.getByLabelText("Content"), {
+      target: { value: "New card content." },
+    });
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "This card fills a knowledge gap." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onSubmit).toHaveBeenCalledWith({
+      content: "New card content.",
+      mode: "create",
+      reason: "This card fills a knowledge gap.",
+      title: "New card",
+    });
+
+    onSubmit.mockClear();
+    rerender(
+      <SearchCardProposalDialog
+        card={card}
+        initialMode="edit"
+        isSubmitting={false}
+        onClose={vi.fn()}
+        onSubmit={onSubmit}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Content"), {
+      target: { value: "Updated card content." },
+    });
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "The current explanation omits common uses." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onSubmit).toHaveBeenCalledWith({
+      content: "Updated card content.",
+      mode: "edit",
+      reason: "The current explanation omits common uses.",
+      title: card.title,
+    });
+
+    onSubmit.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("button", { name: "Submit" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "The card duplicates another entry." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    expect(onSubmit).toHaveBeenCalledWith({
+      mode: "delete",
+      reason: "The card duplicates another entry.",
+    });
   });
 
   it("keeps form scrolling on the form panel while textarea controls expand without their own vertical scroll", () => {
@@ -143,7 +214,7 @@ describe("SearchCardProposalDialog", () => {
     const formPanel = screen.getByTestId("search-card-proposal-form-panel");
     const viewport = formPanel.firstElementChild;
     const contentTextarea = screen.getByLabelText("Content");
-    const rationaleTextarea = screen.getByLabelText("Rationale");
+    const reasonTextarea = screen.getByLabelText("Reason");
 
     expect(formPanel).toHaveClass(
       "[--scroll-area-padding-right:var(--spacing-knowledge-dialog-scrollbar-gap)]",
@@ -155,14 +226,14 @@ describe("SearchCardProposalDialog", () => {
       "pr-[var(--scroll-area-padding-right,0.5rem)]",
     );
     expect(contentTextarea).toHaveClass("overflow-hidden");
-    expect(rationaleTextarea).toHaveClass("overflow-hidden");
+    expect(reasonTextarea).toHaveClass("overflow-hidden");
     expect(contentTextarea.closest("div")).not.toHaveClass(
       "min-h-knowledge-dialog-textarea-min-height",
     );
-    expect(rationaleTextarea.closest("div")).not.toHaveClass(
+    expect(reasonTextarea.closest("div")).not.toHaveClass(
       "min-h-knowledge-dialog-textarea-min-height",
     );
     expect(contentTextarea).not.toHaveClass("overflow-y-auto");
-    expect(rationaleTextarea).not.toHaveClass("overflow-y-auto");
+    expect(reasonTextarea).not.toHaveClass("overflow-y-auto");
   });
 });

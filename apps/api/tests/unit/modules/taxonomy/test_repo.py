@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import cast
 
 import pytest
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from modules.taxonomy import repo as taxonomy_repo_module
@@ -43,6 +44,11 @@ class _StubExecuteResult:
 
     def all(self) -> list[object]:
         return list(self._rows)
+
+    def scalar_one_or_none(self) -> object | None:
+        if self._row is None:
+            return None
+        return self._row[0]
 
 
 @dataclass(slots=True)
@@ -251,6 +257,34 @@ async def test_set_current_assignment_creates_when_assignment_missing() -> None:
     assert isinstance(created_assignment, NodeTaxonomyAssignment)
     assert created_assignment.assigned_at is None
     assert assignment.taxonomy_node.id == 8
+    assert session.flushed is True
+
+
+@pytest.mark.anyio
+async def test_request_card_scope_layout_compute_uses_atomic_singleflight_upsert() -> None:
+    session = _StubSession(
+        execute_results=[
+            _StubExecuteResult(row=(7, object())),
+        ]
+    )
+    repo = _repo_with_stub(session)
+
+    changed = await repo.request_card_scope_layout_compute(
+        scope_identity=TaxonomyScopeIdentity(
+            scope_kind="taxonomy_node",
+            taxonomy_node_id=3,
+        ),
+        layout_version="taxonomy-card-scope-layout-v1",
+        input_fingerprint="input-fingerprint",
+    )
+
+    statement = session.executed_statements[0]
+    compiled_statement = str(statement.compile(dialect=postgresql.dialect()))
+    assert changed is True
+    assert "ON CONFLICT" in compiled_statement
+    assert "DO UPDATE SET" in compiled_statement
+    assert "WHERE" in compiled_statement
+    assert "status !=" in compiled_statement
     assert session.flushed is True
 
 
