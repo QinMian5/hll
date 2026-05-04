@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;900&family=Geist+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 /*
@@ -8,7 +8,9 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
 
 @theme {
   --font-knowledge-geist: "Geist", sans-serif;
-  --font-mono: var(--font-knowledge-geist);
+  --font-mono:
+    "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Consolas,
+    "Liberation Mono", Menlo, monospace;
   --font-sans: var(--font-knowledge-geist);
   --font-serif: var(--font-knowledge-geist);
 
@@ -32,6 +34,8 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --color-knowledge-border-subtle: #e0e4eb;
   --color-knowledge-divider-subtle: rgb(214 227 247 / 74%);
   --color-docs-border-accent: rgb(147 197 253 / 90%);
+  --color-docs-instruction-bg: #f8fafd;
+  --color-docs-instruction-border: #d5e1f4;
   --color-docs-page-bg: #f8fafc;
   --color-docs-scrollbar-thumb: rgb(148 163 184 / 72%);
   --color-docs-scrollbar-track: #dee6f4;
@@ -122,6 +126,8 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-docs-content-gap: 8px;
   --spacing-docs-copy-icon-size: 16px;
   --spacing-docs-icon-button-size: 32px;
+  --spacing-docs-instruction-padding-x: 12px;
+  --spacing-docs-instruction-padding-y: 10px;
   --spacing-docs-page-gap: 20px;
   --spacing-docs-scrollbar-width: 8px;
   --spacing-docs-step-badge-size: 28px;

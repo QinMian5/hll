@@ -17,7 +17,7 @@ out_of_scope: Markdown authoring pipelines, documentation search indexing, CMS s
 
 ## Constraint Projection
 - **Governing Constraints:** Documentation is part of the public web client boundary, must preserve clear page/module responsibility, and must keep behavior-changing navigation and page-structure decisions synchronized with active specs.
-- **Detail Commitments:** The web client exposes `/docs` as a routed page inside the shared app shell. `Docs` is a primary navigation item alongside `Overview`, `Graph View`, and `Search`. The current Docs page is an MCP client setup surface titled `MCP Client Setup`, with a `Clients` selector and a selected-client `Configuration` panel. The first-version clients are `Codex`, `Claude Code`, and `OpenClaw`. Selecting one client shows only that client's setup steps. Dashboard remains the authenticated token and quota management surface. Docs owns canonical explanatory guidance for connecting external clients to the environment-specific MCP public endpoint supplied by the Web BFF. The Web BFF owns `KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL` as a first-class public configuration value; development uses `http://localhost:8002/mcp`, and production uses `https://knowledge.orbitalis.org/mcp`.
+- **Detail Commitments:** The web client exposes `/docs` as a routed page inside the shared app shell. `Docs` is a primary navigation item alongside `Overview`, `Graph View`, and `Search`. The current Docs page is an MCP client setup surface titled `MCP Client Setup`, with a `Clients` selector and a selected-client `Configuration` panel. The first-version clients are `Codex`, `Claude Code`, and `OpenClaw`. Selecting one client shows only that client's setup steps. Dashboard remains the authenticated token and quota management surface. Docs owns canonical explanatory guidance for connecting external clients to the environment-specific MCP public endpoint supplied by the Web BFF, and each client flow starts by directing the user to create or copy a Dashboard personal access token. The Web BFF owns `KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL` as a first-class public configuration value; development uses `http://localhost:8002/mcp`, and production uses `https://knowledge.orbitalis.org/mcp`.
 - **Update Rule:** Repository-level requirements remain stable while Docs route ownership, information architecture, page content structure, and navigation placement stay in this design document.
 
 ## Inputs & Outputs
@@ -29,7 +29,7 @@ out_of_scope: Markdown authoring pipelines, documentation search indexing, CMS s
 - **Outputs:**
   - A Docs page rendered inside the shared app shell.
   - A visible primary navigation entry for `Docs`.
-  - Environment-specific setup commands for Codex, Claude Code, and OpenClaw.
+  - Environment-specific setup guidance, commands, and configuration snippets for Codex, Claude Code, and OpenClaw.
   - Interactive client selection that updates the visible configuration panel without changing routes.
 - **Artifacts:**
   - `apps/web/src/app/AppShell.tsx`
@@ -57,11 +57,11 @@ out_of_scope: Markdown authoring pipelines, documentation search indexing, CMS s
   - **Page structure:** The Docs page uses an available-height routed body with a compact page header, a `Clients` rail, and a selected-client configuration detail region. The page header uses the shared routed-page header tokens defined by the app shell: `layout/page/header-height`, `typography/page/title/font-size`, and `typography/page/title/line-height`.
   - **Desktop layout:** The workspace stays stacked below `lg`. From `lg` upward it switches to two columns with a responsive client rail that follows the App Shell stepped-width rhythm: `256px` at `lg`, `288px` at `xl`, and `320px` at `2xl`. The configuration region fills the remaining width, with `16px` gaps and internal scroll areas.
   - **Mobile layout:** The same DOM and content stack vertically. The workspace uses a one-column, two-row grid with `1fr` for the client region and `2fr` for the configuration region, so the split follows the available Docs workspace height instead of fixed pixel heights.
-  - **Client setup taxonomy:** `Codex`, `Claude Code`, and `OpenClaw` are first-version client pages inside the selector. Each client contains three ordered setup steps, command blocks, and copy controls. Only the selected client's steps are visible.
+  - **Client setup taxonomy:** `Codex`, `Claude Code`, and `OpenClaw` are first-version client pages inside the selector. Each client starts with a Dashboard token instruction step rendered as a non-terminal guidance block without a copy control. Codex then shows four command/configuration steps: add server, set bearer authentication in `~/.codex/config.toml`, inspect the saved server, and list configured servers. Claude Code then shows three command steps: add the HTTP server with an `Authorization` header, inspect the saved server, and list configured servers. OpenClaw then shows three command steps: save a Streamable HTTP server with an `Authorization` header, inspect the saved server, and list configured servers. Only the selected client's steps are visible.
   - **MCP endpoint source:** The Docs page reads `mcpPublicBaseUrl` from browser runtime configuration injected by the Web BFF. The browser-visible value comes from the Web BFF's `KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL` setting and represents the public MCP endpoint that external clients should use.
   - **Public runtime configuration:** Browser runtime configuration exposes only public client-facing values needed by browser UI. Internal API origins, MCP internal usage-summary origins, service credentials, token URLs, and raw personal access tokens remain server-only.
-  - **Command generation:** Codex, Claude Code, and OpenClaw command strings are generated from the configured MCP public endpoint at render time, so copy controls and visible command text stay aligned.
-  - **Command typography:** Command blocks use the Docs terminal visual tokens and render command text in a monospace font.
+  - **Command generation:** Codex, Claude Code, and OpenClaw command strings and configuration snippets are generated from the configured MCP public endpoint at render time, so copy controls and visible code text stay aligned. Token-bearing examples use the literal placeholder `<Dashboard PAT>` and never expose raw personal access tokens from browser runtime configuration.
+  - **Command typography:** Command and configuration blocks use the Docs terminal visual tokens and render code text in a monospace font. Dashboard instruction blocks use regular body typography, not terminal chrome.
   - **Scrolling behavior:** The client list and setup steps use the shared shadcn-style `ScrollArea`; the configuration title and panel header do not scroll.
   - **Dashboard boundary:** Dashboard remains the place to create, inspect, copy, rename, and delete personal access tokens. Docs remains the place to explain what those tokens are for and how external clients should be configured.
   - **Visual language:** The route follows the existing light product-shell style: Geist typography, neutral page background, white bordered panels, `8px` radii, restrained blue emphasis, Lucide copy icons, and product-client icons imported from Figma assets. Docs page title sizing follows the shared routed-page title tokens rather than Docs-local display sizing. Docs-specific page background, panel heading sizes, copy controls, scrollbars, terminal chrome, client rows, and step badges are represented with theme tokens rather than ad hoc arbitrary utilities.
@@ -70,7 +70,7 @@ out_of_scope: Markdown authoring pipelines, documentation search indexing, CMS s
   - The Web BFF serves HTML with browser runtime configuration containing the current environment's MCP public endpoint.
   - On mobile, selecting `Docs` from the drawer closes the drawer through the same route-navigation behavior as other primary routes.
   - Selecting `Codex`, `Claude Code`, or `OpenClaw` updates the configuration title, panel title, and visible setup steps in place.
-  - Copy controls copy the command text containing the configured MCP public endpoint and do not display toast or bubble UI in the first version.
+  - Copy controls copy command or configuration text containing the configured MCP public endpoint and do not display toast or bubble UI in the first version. Dashboard instruction blocks do not render copy controls.
   - Docs content is static in the first version and does not call backend APIs.
 
 ## Validation
@@ -80,7 +80,7 @@ out_of_scope: Markdown authoring pipelines, documentation search indexing, CMS s
   - Web server config tests verify `KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL` is required and parsed as a public URL.
   - Web app tests verify production and development HTML fallbacks include browser runtime configuration with `mcpPublicBaseUrl`.
   - Browser runtime config tests verify `mcpPublicBaseUrl` is accepted while private API and internal MCP service origins are not exposed.
-  - Docs page tests verify the `MCP Client Setup` layout, `Clients` and selected-client `Configuration` headings, responsive workspace classes, shared scroll areas, Codex default content, Claude Code switching, OpenClaw switching, copy controls, configured MCP endpoint command generation, and monospace command rendering.
+  - Docs page tests verify the `MCP Client Setup` layout, `Clients` and selected-client `Configuration` headings, responsive workspace classes, shared scroll areas, Codex default content, Claude Code switching, OpenClaw switching, Dashboard token instruction blocks without copy controls, copy controls on command/configuration blocks, configured MCP endpoint command generation, token placeholder rendering, and monospace command/configuration rendering.
   - Visual inspection confirms the Docs page header uses the shared routed-page header height and title typography tokens.
   - Typecheck and frontend checks verify the route and page compile with the current React/Tailwind stack.
 - **Evidence:**

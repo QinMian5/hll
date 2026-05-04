@@ -15,6 +15,17 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DocsPage } from ".";
 
 const MCP_PUBLIC_BASE_URL = "http://localhost:8002/mcp";
+const CODEX_ADD_COMMAND = `codex mcp add knowledge --url ${MCP_PUBLIC_BASE_URL}`;
+const CODEX_CONFIG = `[mcp_servers.knowledge]\nurl = "${MCP_PUBLIC_BASE_URL}"\nhttp_headers = { Authorization = "Bearer <Dashboard PAT>" }`;
+const CLAUDE_ADD_COMMAND = `claude mcp add --transport http knowledge ${MCP_PUBLIC_BASE_URL} --header "Authorization: Bearer <Dashboard PAT>"`;
+const OPENCLAW_SET_COMMAND = `openclaw mcp set knowledge '{"url":"${MCP_PUBLIC_BASE_URL}","transport":"streamable-http","headers":{"Authorization":"Bearer <Dashboard PAT>"}}'`;
+
+function getCodeBlock(text: string): HTMLElement {
+  return screen.getByText(
+    (_content, element) =>
+      element?.tagName.toLowerCase() === "code" && element.textContent === text,
+  );
+}
 
 beforeEach(() => {
   Object.defineProperty(window, "__KNOWLEDGE_RUNTIME_CONFIG__", {
@@ -83,7 +94,7 @@ describe("DocsPage", () => {
     );
     expect(
       screen.getByRole("button", {
-        name: `Copy command: codex mcp add knowledge --url ${MCP_PUBLIC_BASE_URL}`,
+        name: `Copy command: ${CODEX_ADD_COMMAND}`,
       }),
     ).toHaveClass(
       "size-docs-icon-button-size",
@@ -92,6 +103,26 @@ describe("DocsPage", () => {
       "hover:bg-docs-terminal-action-hover-bg",
       "hover:text-docs-terminal-action-hover",
     );
+
+    expect(within(panel).getAllByTestId("docs-setup-step")).toHaveLength(5);
+    const instructionBlock = within(panel).getByTestId(
+      "docs-instruction-block",
+    );
+    expect(instructionBlock).toHaveClass(
+      "border-docs-instruction-border",
+      "bg-docs-instruction-bg",
+      "px-docs-instruction-padding-x",
+      "py-docs-instruction-padding-y",
+    );
+    expect(
+      within(instructionBlock).getByText(
+        "Dashboard > Tokens > Create Token > Copy token",
+      ),
+    ).not.toHaveClass("font-mono");
+    expect(
+      within(instructionBlock).queryByRole("button"),
+    ).not.toBeInTheDocument();
+
     expect(screen.getByTestId("docs-client-scroll-area")).toHaveClass(
       "min-h-0",
       "flex-1",
@@ -111,9 +142,14 @@ describe("DocsPage", () => {
       "aria-pressed",
       "true",
     );
+    expect(getCodeBlock(CODEX_ADD_COMMAND)).toHaveClass("font-mono");
+    expect(getCodeBlock(CODEX_CONFIG)).toHaveClass("font-mono");
+    expect(getCodeBlock("codex mcp get knowledge")).toHaveClass("font-mono");
+    expect(getCodeBlock("codex mcp list")).toHaveClass("font-mono");
     expect(
-      screen.getByText(`codex mcp add knowledge --url ${MCP_PUBLIC_BASE_URL}`),
-    ).toHaveClass("font-mono");
+      screen.queryByText("codex mcp login knowledge"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/OAuth/i)).not.toBeInTheDocument();
     expect(screen.queryByText("/mcp")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Claude Code" }));
@@ -128,11 +164,14 @@ describe("DocsPage", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        `claude mcp add --transport http knowledge ${MCP_PUBLIC_BASE_URL}`,
+      within(screen.getByTestId("docs-setup-panel")).getAllByTestId(
+        "docs-setup-step",
       ),
-    ).toHaveClass("font-mono");
-    expect(screen.getByText("/mcp")).toBeInTheDocument();
+    ).toHaveLength(4);
+    expect(getCodeBlock(CLAUDE_ADD_COMMAND)).toHaveClass("font-mono");
+    expect(getCodeBlock("claude mcp get knowledge")).toHaveClass("font-mono");
+    expect(getCodeBlock("claude mcp list")).toHaveClass("font-mono");
+    expect(screen.queryByText("/mcp")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "OpenClaw" }));
     expect(screen.getByRole("button", { name: "OpenClaw" })).toHaveAttribute(
@@ -143,13 +182,15 @@ describe("DocsPage", () => {
       screen.getByRole("heading", { level: 2, name: "OpenClaw Configuration" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        `openclaw mcp set knowledge '{"url":"${MCP_PUBLIC_BASE_URL}"}'`,
+      within(screen.getByTestId("docs-setup-panel")).getAllByTestId(
+        "docs-setup-step",
       ),
-    ).toHaveClass("font-mono");
-    expect(
-      screen.getByText("openclaw mcp show knowledge --json"),
-    ).toBeInTheDocument();
+    ).toHaveLength(4);
+    expect(getCodeBlock(OPENCLAW_SET_COMMAND)).toHaveClass("font-mono");
+    expect(getCodeBlock("openclaw mcp show knowledge --json")).toHaveClass(
+      "font-mono",
+    );
+    expect(getCodeBlock("openclaw mcp list")).toHaveClass("font-mono");
   });
 
   it("uses shadcn-style scroll areas and lucide copy controls", () => {
@@ -167,8 +208,14 @@ describe("DocsPage", () => {
 
     expect(
       screen.getByRole("button", {
-        name: `Copy command: codex mcp add knowledge --url ${MCP_PUBLIC_BASE_URL}`,
+        name: `Copy command: ${CODEX_ADD_COMMAND}`,
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: /^Copy configuration: \[mcp_servers\.knowledge\]/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Copy / })).toHaveLength(4);
   });
 });

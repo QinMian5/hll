@@ -10,12 +10,23 @@ import { cn } from "../../../shared/utils";
 
 type DocsClientId = "codex" | "claude-code" | "openclaw";
 
-interface DocsSetupStep {
-  readonly command: string;
+interface DocsInstructionStep {
+  readonly body: string;
   readonly description: string;
+  readonly kind: "instruction";
+  readonly title: string;
+}
+
+interface DocsCommandStep {
+  readonly command: string;
+  readonly copyLabel: string;
+  readonly description: string;
+  readonly kind: "command";
   readonly label: string;
   readonly title: string;
 }
+
+type DocsSetupStep = DocsCommandStep | DocsInstructionStep;
 
 interface DocsClient {
   readonly configurationTitle: string;
@@ -46,23 +57,45 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
       panelTitle: "Connect Knowledge to Codex",
       steps: [
         {
+          body: "Dashboard > Tokens > Create Token > Copy token",
+          description:
+            "Create or copy a personal access token in Dashboard, then paste it into the client configuration below.",
+          kind: "instruction",
+          title: "Create a Dashboard token",
+        },
+        {
           command: `codex mcp add knowledge --url ${mcpPublicBaseUrl}`,
-          description: "Add the Knowledge MCP server to Codex.",
+          copyLabel: "Copy command",
+          description: "Add Knowledge as a Streamable HTTP MCP server.",
+          kind: "command",
           label: "Terminal",
           title: "Add the MCP server",
         },
         {
-          command: "codex mcp login knowledge",
+          command: `[mcp_servers.knowledge]\nurl = "${mcpPublicBaseUrl}"\nhttp_headers = { Authorization = "Bearer <Dashboard PAT>" }`,
+          copyLabel: "Copy configuration",
           description:
-            "Open the browser-based OAuth flow and authorize Codex to access your Knowledge account.",
+            "Add the Dashboard token to the Codex server entry in ~/.codex/config.toml.",
+          kind: "command",
+          label: "Config",
+          title: "Set bearer authentication",
+        },
+        {
+          command: "codex mcp get knowledge",
+          copyLabel: "Copy command",
+          description: "Review the saved Knowledge MCP definition.",
+          kind: "command",
           label: "Terminal",
-          title: "Authenticate with OAuth",
+          title: "Inspect the server",
         },
         {
           command: "codex mcp list",
-          description: "Confirm Knowledge appears as a registered MCP server.",
+          copyLabel: "Copy command",
+          description:
+            "Confirm Knowledge appears in the configured MCP server list.",
+          kind: "command",
           label: "Terminal",
-          title: "Verify the connection",
+          title: "List configured servers",
         },
       ],
     },
@@ -74,25 +107,37 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
       panelTitle: "Connect Knowledge to Claude Code",
       steps: [
         {
-          command: `claude mcp add --transport http knowledge ${mcpPublicBaseUrl}`,
+          body: "Dashboard > Tokens > Create Token > Copy token",
           description:
-            "Add the Knowledge MCP server to Claude Code using HTTP transport.",
-          label: "Terminal",
-          title: "Add the MCP server",
+            "Create or copy a personal access token in Dashboard, then paste it into the client configuration below.",
+          kind: "instruction",
+          title: "Create a Dashboard token",
         },
         {
-          command: "/mcp",
+          command: `claude mcp add --transport http knowledge ${mcpPublicBaseUrl} --header "Authorization: Bearer <Dashboard PAT>"`,
+          copyLabel: "Copy command",
           description:
-            "Run the MCP menu command in Claude Code and follow the browser sign-in flow.",
-          label: "Claude Code",
-          title: "Authenticate with OAuth",
+            "Add Knowledge with HTTP transport and the Dashboard token in the Authorization header.",
+          kind: "command",
+          label: "Terminal",
+          title: "Add the MCP server with bearer authentication",
+        },
+        {
+          command: "claude mcp get knowledge",
+          copyLabel: "Copy command",
+          description: "Review the saved Knowledge MCP definition.",
+          kind: "command",
+          label: "Terminal",
+          title: "Inspect the server",
         },
         {
           command: "claude mcp list",
+          copyLabel: "Copy command",
           description:
             "Confirm Knowledge appears in Claude Code's MCP server list.",
+          kind: "command",
           label: "Terminal",
-          title: "Verify the connection",
+          title: "List configured servers",
         },
       ],
     },
@@ -104,25 +149,38 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
       panelTitle: "Connect Knowledge to OpenClaw",
       steps: [
         {
-          command: `openclaw mcp set knowledge '{"url":"${mcpPublicBaseUrl}"}'`,
+          body: "Dashboard > Tokens > Create Token > Copy token",
           description:
-            "Register the Knowledge MCP server in OpenClaw's client-side MCP registry.",
+            "Create or copy a personal access token in Dashboard, then paste it into the client configuration below.",
+          kind: "instruction",
+          title: "Create a Dashboard token",
+        },
+        {
+          command: `openclaw mcp set knowledge '{"url":"${mcpPublicBaseUrl}","transport":"streamable-http","headers":{"Authorization":"Bearer <Dashboard PAT>"}}'`,
+          copyLabel: "Copy command",
+          description:
+            "Save Knowledge as a Streamable HTTP MCP server with the Dashboard token header.",
+          kind: "command",
           label: "Terminal",
-          title: "Save the MCP server",
+          title: "Save the MCP server with bearer authentication",
         },
         {
           command: "openclaw mcp show knowledge --json",
+          copyLabel: "Copy command",
           description:
-            "Review the saved server definition before using it from an OpenClaw runtime.",
+            "Review the registry entry. This does not validate live authentication.",
+          kind: "command",
           label: "Terminal",
-          title: "Inspect the saved configuration",
+          title: "Inspect the saved server",
         },
         {
           command: "openclaw mcp list",
+          copyLabel: "Copy command",
           description:
             "Confirm Knowledge appears in the OpenClaw MCP registry.",
+          kind: "command",
           label: "Terminal",
-          title: "Verify the registry entry",
+          title: "List configured servers",
         },
       ],
     },
@@ -176,9 +234,11 @@ function ClientRow({
 
 function TerminalCommand({
   command,
+  copyLabel,
   label,
 }: {
   readonly command: string;
+  readonly copyLabel: string;
   readonly label: string;
 }) {
   return (
@@ -188,10 +248,10 @@ function TerminalCommand({
           {label}
         </span>
         <button
-          aria-label={`Copy command: ${command}`}
+          aria-label={`${copyLabel}: ${command}`}
           className="flex size-docs-icon-button-size shrink-0 items-center justify-center rounded-docs-icon-button text-docs-terminal-action transition-colors hover:bg-docs-terminal-action-hover-bg hover:text-docs-terminal-action-hover"
           onClick={() => copyCommand(command)}
-          title="Copy command"
+          title={copyLabel}
           type="button"
         >
           <Copy
@@ -210,6 +270,19 @@ function TerminalCommand({
   );
 }
 
+function InstructionBlock({ body }: { readonly body: string }) {
+  return (
+    <div
+      className="w-full rounded-knowledge-surface border border-docs-instruction-border bg-docs-instruction-bg px-docs-instruction-padding-x py-docs-instruction-padding-y"
+      data-testid="docs-instruction-block"
+    >
+      <p className="m-0 w-full text-docs-step-body text-knowledge-text-muted">
+        {body}
+      </p>
+    </div>
+  );
+}
+
 function SetupStep({
   index,
   step,
@@ -218,7 +291,10 @@ function SetupStep({
   readonly step: DocsSetupStep;
 }) {
   return (
-    <article className="flex w-full shrink-0 items-start gap-docs-step-row-gap">
+    <article
+      className="flex w-full shrink-0 items-start gap-docs-step-row-gap"
+      data-testid="docs-setup-step"
+    >
       <div className="flex size-docs-step-badge-size shrink-0 items-center justify-center rounded-full border border-docs-border-accent bg-knowledge-surface-accent-soft text-center text-docs-terminal-label font-semibold text-knowledge-text-default">
         {index + 1}
       </div>
@@ -229,7 +305,15 @@ function SetupStep({
         <p className="m-0 w-full text-docs-step-body text-knowledge-text-muted">
           {step.description}
         </p>
-        <TerminalCommand command={step.command} label={step.label} />
+        {step.kind === "instruction" ? (
+          <InstructionBlock body={step.body} />
+        ) : (
+          <TerminalCommand
+            command={step.command}
+            copyLabel={step.copyLabel}
+            label={step.label}
+          />
+        )}
       </div>
     </article>
   );
