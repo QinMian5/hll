@@ -115,7 +115,7 @@ class TaxonomyCardScopeLayout(Base):
     __table_args__ = (
         CheckConstraint(
             "scope_kind IN ('taxonomy_node', 'virtual_unclassified')",
-            name="taxonomy_card_scope_layouts_scope_kind",
+            name="scope_kind",
         ),
         UniqueConstraint(
             "scope_kind",
@@ -158,15 +158,15 @@ class TaxonomyCardScopeLayoutComputeRequest(Base):
     __table_args__ = (
         CheckConstraint(
             "scope_kind IN ('taxonomy_node', 'virtual_unclassified')",
-            name="taxonomy_card_scope_layout_compute_requests_scope_kind",
+            name="scope_kind",
         ),
         CheckConstraint(
             "status IN ('pending', 'running', 'succeeded', 'failed')",
-            name="taxonomy_card_scope_layout_compute_requests_status",
+            name="status",
         ),
         CheckConstraint(
             "attempt_count >= 0",
-            name="taxonomy_card_scope_layout_compute_requests_attempt_count",
+            name="attempt_count",
         ),
         UniqueConstraint(
             "scope_kind",
