@@ -240,6 +240,17 @@ describe("SearchPage", () => {
       "md:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
       "xl:grid-cols-[minmax(0,3fr)_minmax(16rem,1fr)]",
     );
+    expect(screen.getByTestId("search-results-header")).toHaveClass(
+      "h-12",
+      "justify-between",
+    );
+    expect(screen.getByTestId("search-results-header")).not.toHaveClass(
+      "bg-white",
+    );
+    expect(screen.getByText("Search results")).toHaveClass(
+      "text-knowledge-search-results-title",
+      "lg:text-knowledge-search-results-title-desktop",
+    );
     expect(screen.getByTestId("search-results-grid")).toHaveClass(
       "group/search-results-grid",
       "auto-rows-[200px]",

@@ -198,8 +198,8 @@ function NavigationItem({
       className={cn(
         "flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-[14px] leading-5 no-underline transition-colors",
         isActive
-          ? "bg-[#eff6ff] font-medium text-[#131c2d]"
-          : "font-medium text-[#606e87] hover:bg-[#f1f5f9] hover:text-[#131c2d]",
+          ? "bg-knowledge-surface-accent-soft font-medium text-knowledge-text-default"
+          : "font-medium text-knowledge-text-muted hover:bg-knowledge-surface-hover hover:text-knowledge-text-default",
       )}
       data-nav-state={isActive ? "active" : "inactive"}
       onClick={onNavigate}

@@ -2,7 +2,7 @@
 // out_of_scope: Admin role-management UI and notification workflows.
 
 import { Check, RotateCcw, X } from "lucide-react";
-import { Button } from "../../../shared/ui/button";
+import { Button, PageHeader } from "../../../shared/ui";
 import { WebApiRequestError } from "../../../shared/web-api/errors";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
 import type { CardProposalResponse } from "../data/workspaceQueries";
@@ -98,11 +98,7 @@ export function WorkspacePage() {
 
   return (
     <main className="flex h-full min-h-0 flex-col gap-4 overflow-hidden p-4 lg:p-6">
-      <header className="flex h-12 shrink-0 items-center">
-        <h1 className="m-0 text-[20px] leading-7 font-semibold text-knowledge-text-default md:text-[32px] md:leading-[46px]">
-          Workspace
-        </h1>
-      </header>
+      <PageHeader title="Workspace" />
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-2">
         <section className="flex min-h-0 flex-col gap-3 overflow-hidden">
           <h2 className="m-0 text-[16px] leading-6 font-semibold text-knowledge-text-default">

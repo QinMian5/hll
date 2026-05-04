@@ -9,6 +9,7 @@ import { useWebSession } from "../../../shared/web-api/useWebSession";
 import { RelatedResultItem } from "../components/RelatedResultItem";
 import {
   SearchCardProposalDialog,
+  type SearchCardProposalMode,
   type SearchCardProposalSubmitPayload,
 } from "../components/SearchCardProposalDialog";
 import { SearchField } from "../components/SearchField";
@@ -59,7 +60,7 @@ export function SearchPage() {
   const createCardProposalMutation = useCreateCardProposalMutation();
   const [proposalDialog, setProposalDialog] = useState<{
     readonly card?: SearchResultCardEditPayload;
-    readonly mode: "create" | "edit";
+    readonly mode: SearchCardProposalMode;
   } | null>(null);
   const [proposalError, setProposalError] = useState<string | undefined>();
   const [isSignInDialogOpen, setIsSignInDialogOpen] = useState(false);
@@ -93,7 +94,7 @@ export function SearchPage() {
 
   function openProposalDialog(nextDialog: {
     readonly card?: SearchResultCardEditPayload;
-    readonly mode: "create" | "edit";
+    readonly mode: SearchCardProposalMode;
   }) {
     if (session.status === "loading") {
       return;
@@ -183,8 +184,11 @@ export function SearchPage() {
             data-testid="search-results-section"
           >
             <section className="flex min-h-0 min-w-0 flex-col gap-2 lg:h-full lg:gap-4">
-              <div className="flex h-12 w-full shrink-0 items-center justify-between bg-white">
-                <h1 className="m-0 min-w-0 flex-1 text-[20px] leading-7 font-semibold text-knowledge-text-default md:text-[32px] md:leading-[46px]">
+              <div
+                className="flex h-12 w-full shrink-0 items-center justify-between"
+                data-testid="search-results-header"
+              >
+                <h1 className="m-0 min-w-0 flex-1 text-knowledge-search-results-title font-semibold text-knowledge-text-default lg:text-knowledge-search-results-title-desktop">
                   Search results
                 </h1>
                 <button

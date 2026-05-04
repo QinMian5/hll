@@ -4,7 +4,7 @@
 import { Copy } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { ScrollArea } from "../../../shared/ui";
+import { PageHeader, ScrollArea } from "../../../shared/ui";
 import { cn } from "../../../shared/utils";
 
 type DocsClientId = "codex" | "claude-code" | "openclaw";
@@ -237,11 +237,7 @@ export function DocsPage() {
       className="flex h-full min-h-0 w-full flex-col gap-docs-page-gap overflow-hidden bg-docs-page-bg p-4 md:px-8 md:pt-6 md:pb-8"
       data-testid="docs-route-page"
     >
-      <header className="flex h-9 shrink-0 items-center overflow-hidden md:h-16">
-        <h1 className="m-0 min-w-0 flex-1 text-docs-page-title font-semibold text-knowledge-text-default">
-          MCP Client Setup
-        </h1>
-      </header>
+      <PageHeader title="MCP Client Setup" />
 
       <div
         className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_minmax(0,2fr)] gap-4 overflow-hidden lg:grid-cols-[256px_minmax(0,1fr)] lg:grid-rows-none xl:grid-cols-[288px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]"

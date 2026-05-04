@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
+import { PageHeader } from "../../../shared/ui";
 import { cn } from "../../../shared/utils";
 import { WebApiRequestError } from "../../../shared/web-api/errors";
 import {
@@ -173,9 +174,7 @@ export function SettingsPage() {
         className="relative flex w-full max-w-[720px] flex-col gap-4 lg:gap-6"
         data-testid="settings-column"
       >
-        <h1 className="m-0 h-8 text-[24px] leading-8 font-black text-[#131c2d]">
-          Settings
-        </h1>
+        <PageHeader title="Settings" />
         {notificationMessage ? (
           <ErrorNotification
             message={notificationMessage}

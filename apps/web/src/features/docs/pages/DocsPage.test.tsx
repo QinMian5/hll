@@ -24,7 +24,7 @@ describe("DocsPage", () => {
 
     expect(
       screen.getByRole("heading", { level: 1, name: "MCP Client Setup" }),
-    ).toHaveClass("text-docs-page-title");
+    ).toHaveClass("text-knowledge-page-title");
 
     expect(screen.getByTestId("docs-route-page")).toHaveClass(
       "h-full",

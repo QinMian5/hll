@@ -146,7 +146,7 @@ export function SearchCardProposalDialog({
       <section
         aria-modal="true"
         aria-label="Card proposal"
-        className="flex h-[min(var(--spacing-knowledge-dialog-lg-height-mobile),calc(100vh-32px))] w-[min(var(--spacing-knowledge-dialog-lg-width-mobile),calc(100vw-32px))] flex-col gap-knowledge-dialog-content-gap rounded-xl border border-knowledge-border-subtle bg-knowledge-surface-dialog p-knowledge-dialog-padding shadow-[0_18px_21px_rgba(5,10,20,0.12)] md:h-knowledge-dialog-lg-height-desktop md:w-knowledge-dialog-lg-width-desktop"
+        className="flex h-[min(var(--spacing-knowledge-dialog-lg-height-mobile),calc(100vh-32px))] w-[min(var(--spacing-knowledge-dialog-lg-width-mobile),calc(100vw-32px))] flex-col gap-knowledge-dialog-content-gap rounded-xl border border-knowledge-border-subtle bg-knowledge-surface-dialog p-knowledge-dialog-padding shadow-[0_18px_21px_rgba(5,10,20,0.12)] md:h-knowledge-dialog-lg-height-desktop md:w-knowledge-dialog-lg-width-desktop md:gap-knowledge-dialog-content-gap-desktop"
         role="dialog"
       >
         <div className="flex h-knowledge-dialog-header-height shrink-0 items-center justify-between">

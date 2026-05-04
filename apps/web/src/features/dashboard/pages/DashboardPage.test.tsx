@@ -165,7 +165,10 @@ describe("DashboardPage", () => {
       "lg:pb-knowledge-dashboard-page-padding-bottom-desktop",
     );
     expect(screen.getByTestId("dashboard-page-header")).toHaveClass(
-      "h-knowledge-dashboard-page-header",
+      "h-knowledge-page-header-height",
+    );
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toHaveClass(
+      "text-knowledge-page-title",
     );
     expect(screen.getByTestId("dashboard-quota-summary")).toHaveClass(
       "rounded-knowledge-surface",

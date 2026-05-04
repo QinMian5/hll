@@ -2,6 +2,7 @@
 // out_of_scope: AppShell navigation chrome and server-side token adapters.
 
 import { useEffect, useRef, useState } from "react";
+import { PageHeader } from "../../../shared/ui";
 import { WebApiRequestError } from "../../../shared/web-api/errors";
 import { QuotaSummary } from "../components/QuotaSummary";
 import { DeleteTokenDialog, TokenDialog } from "../components/TokenDialog";
@@ -156,14 +157,7 @@ export function DashboardPage() {
       className="flex h-full min-h-0 flex-col gap-knowledge-dashboard-page-gap overflow-hidden px-knowledge-dashboard-page-padding-x pt-knowledge-dashboard-page-padding-top pb-knowledge-dashboard-page-padding-bottom lg:gap-knowledge-dashboard-page-gap-desktop lg:px-knowledge-dashboard-page-padding-x-desktop lg:pt-knowledge-dashboard-page-padding-top-desktop lg:pb-knowledge-dashboard-page-padding-bottom-desktop"
       data-testid="dashboard-route-page"
     >
-      <header
-        className="flex h-knowledge-dashboard-page-header shrink-0 items-center overflow-hidden"
-        data-testid="dashboard-page-header"
-      >
-        <h1 className="m-0 min-w-0 flex-1 text-knowledge-dashboard-page-title font-semibold text-knowledge-text-default lg:text-knowledge-dashboard-page-title-desktop">
-          Dashboard
-        </h1>
-      </header>
+      <PageHeader data-testid="dashboard-page-header" title="Dashboard" />
 
       <QuotaSummary
         errorMessage={
