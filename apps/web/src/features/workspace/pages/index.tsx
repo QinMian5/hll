@@ -189,20 +189,11 @@ function EmptyPanel({ label }: { readonly label: string }) {
   );
 }
 
-function WorkspaceEmptyState({
-  body,
-  title,
-}: {
-  readonly body: string;
-  readonly title: string;
-}) {
+function WorkspaceEmptyState({ title }: { readonly title: string }) {
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-knowledge-empty-state-gap overflow-hidden p-knowledge-empty-state-padding text-center">
+    <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden p-knowledge-empty-state-padding text-center">
       <p className="m-0 w-full text-knowledge-empty-state-title font-semibold text-knowledge-text-default">
         {title}
-      </p>
-      <p className="m-0 w-full text-knowledge-empty-state-body text-knowledge-text-muted">
-        {body}
       </p>
     </div>
   );
@@ -288,10 +279,7 @@ function ProposalDetail({
   if (!proposal) {
     return (
       <div className="flex min-h-0 w-full flex-1 items-start gap-knowledge-dialog-form-scrollbar-gap overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-knowledge-dialog-padding">
-        <WorkspaceEmptyState
-          body="Proposal details will appear after a proposal is submitted."
-          title="No Proposal Selected"
-        />
+        <WorkspaceEmptyState title="No Proposal Selected" />
       </div>
     );
   }
@@ -399,10 +387,7 @@ export function WorkspacePage() {
                 />
               ))
             ) : (
-              <WorkspaceEmptyState
-                body="Proposals from Search will appear here."
-                title="No Proposals Yet"
-              />
+              <WorkspaceEmptyState title="No Proposals Yet" />
             )}
           </ScrollArea>
         </section>

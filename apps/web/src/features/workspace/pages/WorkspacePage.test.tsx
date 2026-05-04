@@ -123,14 +123,14 @@ describe("WorkspacePage", () => {
     render(<WorkspacePage />);
 
     expect(screen.getByText("No Proposals Yet")).toBeInTheDocument();
-    expect(
-      screen.getByText("Proposals from Search will appear here."),
-    ).toBeInTheDocument();
     expect(screen.getByText("No Proposal Selected")).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.queryByText("Proposals from Search will appear here."),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(
         "Proposal details will appear after a proposal is submitted.",
       ),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 });
