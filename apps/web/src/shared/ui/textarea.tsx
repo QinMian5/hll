@@ -11,7 +11,7 @@ export function Textarea({ className, ...props }: TextareaProps) {
   return (
     <textarea
       className={cn(
-        "flex w-full min-w-0 resize-none border-none bg-transparent outline-none disabled:cursor-not-allowed disabled:opacity-100",
+        "flex w-full min-w-0 resize-none overflow-hidden border-none bg-transparent text-[14px] leading-5 text-knowledge-text-default outline-none [field-sizing:content] placeholder:text-knowledge-text-muted disabled:cursor-not-allowed disabled:opacity-100",
         className,
       )}
       {...props}

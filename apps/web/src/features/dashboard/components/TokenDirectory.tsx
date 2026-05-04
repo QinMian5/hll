@@ -1,4 +1,4 @@
-// abstract: Figma-aligned token directory table with a fixed header and scrollable row viewport.
+// abstract: Figma-aligned token directory table with a desktop fixed header and scrollable row viewport.
 // out_of_scope: Token mutation dialog state and BFF request orchestration.
 
 import { Button } from "../../../shared/ui/button";
@@ -162,16 +162,16 @@ function TokenRowGroup({
 function TokenTable({ children }: { readonly children: React.ReactNode }) {
   return (
     <div
-      className="flex h-knowledge-dashboard-table-height w-full shrink-0 flex-col items-start overflow-hidden lg:h-knowledge-dashboard-table-height-desktop"
+      className="flex w-full shrink-0 flex-col items-start overflow-hidden"
       data-testid="dashboard-token-table"
     >
       <div
-        className="flex h-knowledge-dashboard-table-header-height w-full shrink-0 items-start overflow-hidden lg:h-knowledge-dashboard-table-header-height-desktop"
+        className="hidden w-full shrink-0 items-start overflow-hidden lg:flex lg:h-knowledge-dashboard-table-header-height-desktop"
         data-testid="dashboard-token-table-fixed-header"
       >
         <div
           aria-hidden="true"
-          className="h-full min-w-0 flex-1 overflow-hidden lg:hidden"
+          className="hidden min-w-0 flex-1 overflow-hidden"
         />
         <div className="hidden h-full min-w-0 flex-1 flex-col items-start overflow-hidden lg:flex">
           <div
@@ -204,11 +204,12 @@ function TokenTable({ children }: { readonly children: React.ReactNode }) {
       </div>
       <ScrollArea
         className={cn(
-          "flex min-h-0 w-full flex-1 items-start",
+          "flex min-h-0 w-full shrink-0 items-start [--dashboard-token-table-scroll-area-max-height:var(--spacing-knowledge-dashboard-table-height)] lg:[--dashboard-token-table-scroll-area-max-height:calc(var(--spacing-knowledge-dashboard-table-height-desktop)-var(--spacing-knowledge-dashboard-table-header-height-desktop))]",
           tokenTableScrollAreaTheme,
         )}
         data-testid="dashboard-token-table-scroll-area"
-        viewportClassName="flex h-full min-h-0 w-full flex-col items-start overflow-x-hidden overflow-y-auto"
+        viewportClassName="flex max-h-[var(--dashboard-token-table-scroll-area-max-height)] min-h-0 w-full flex-col items-start overflow-x-hidden overflow-y-auto"
+        viewportFillsContainer={false}
       >
         {children}
       </ScrollArea>

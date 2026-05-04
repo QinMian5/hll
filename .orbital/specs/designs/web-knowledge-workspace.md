@@ -29,12 +29,12 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 ## Workspace Information Architecture
 - `Workspace` is reached from the authenticated account menu between `Dashboard` and `Settings`.
 - The Workspace route contains three product views:
-  - `My proposals`: contributor-facing status tracking for proposals submitted by the current user.
-  - `Review queue`: reviewer/admin-facing pending proposal review and accept/reject actions.
-  - `Role management`: admin-facing reviewer authorization management. First-phase implementation may defer this view while keeping the route and permission boundary explicit in design.
-- Ordinary contributors see `My proposals`.
-- Reviewers see `My proposals` plus `Review queue`.
-- Admins see contributor views, `Review queue`, and `Role management`.
+  - `My Proposals`: contributor-facing status tracking for proposals submitted by the current user.
+  - `Review Queue`: reviewer/admin-facing pending proposal review and accept/reject actions.
+  - `Role Management`: admin-facing reviewer authorization management. First-phase implementation may defer this view while keeping the route and permission boundary explicit in design.
+- Ordinary contributors see `My Proposals`.
+- Reviewers see `My Proposals` plus `Review Queue`.
+- Admins see contributor views, `Review Queue`, and `Role Management`.
 
 ## Unified Proposal Model
 - The system uses one proposal model for all human-originated card maintenance actions.
@@ -62,11 +62,11 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 
 ## Search Integration
 - Search remains a discovery and lightweight contribution page.
-- Search results expose `Add card` in the results header and edit affordances on result cards.
+- Search Results expose `Add Card` in the results header and edit affordances on result cards.
 - The Search Card Proposal Dialog exposes create, edit, and request-deletion modes.
 - Search-submitted proposals use the same unified proposal model tracked by Workspace.
 - Workspace does not expose contributor-facing create/edit/delete proposal forms.
-- A proposal submitted from Search appears in `My proposals` and is reviewed through the same `Review queue` as every other pending proposal.
+- A proposal submitted from Search appears in `My Proposals` and is reviewed through the same `Review Queue` as every other pending proposal.
 
 ## Access Boundary And Data Flow
 - Browser code calls only BFF-owned `/web-api/*` endpoints for Workspace behavior.
@@ -78,15 +78,15 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - Frontend code consumes generated contract artifacts rather than handwritten backend schemas.
 
 ## First-Version Phasing
-- Phase 1 covers Knowledge-owned roles, Search create proposals, Search edit proposals, Search delete proposals, `My proposals`, `Review queue`, accept/apply, reject, withdraw, audit records, and Search integration with the unified proposal model.
-- Phase 2 covers the admin Role management UI. Operator-managed reviewer/admin seeding is acceptable before the Role management UI is implemented.
+- Phase 1 covers Knowledge-owned roles, Search create proposals, Search edit proposals, Search delete proposals, `My Proposals`, `Review Queue`, accept/apply, reject, withdraw, audit records, and Search integration with the unified proposal model.
+- Phase 2 covers the admin Role Management UI. Operator-managed reviewer/admin seeding is acceptable before the Role Management UI is implemented.
 
 ## Figma-First UI Projection
 - Workspace UI is designed in Figma before frontend code implementation.
-- Figma coverage includes desktop and mobile frames for Workspace inside the existing app shell, `My proposals`, `Review queue`, `Role management`, and Search lightweight entry into the unified proposal model.
+- Figma coverage includes desktop and mobile frames for Workspace inside the existing app shell, `My Proposals`, `Review Queue`, `Role Management`, and Search lightweight entry into the unified proposal model.
 - Workspace is a working product surface, not a landing page.
 - Workspace page headers use the shared routed-page header tokens defined by the app shell: `layout/page/header-height`, `typography/page/title/font-size`, `typography/page/title/line-height`, `typography/page/subtitle/font-size`, `typography/page/subtitle/line-height`, and `layout/page/header-title-gap`.
-- The `My proposals` Workspace header does not render a top-right `Contributor` role badge. Contributor access is implied by the current view and server-side permissions, while reviewer/admin-specific indicators remain scoped to privileged views where they add decision value.
+- The `My Proposals` Workspace header does not render a top-right `Contributor` role badge. Contributor access is implied by the current view and server-side permissions, while reviewer/admin-specific indicators remain scoped to privileged views where they add decision value.
 - Visual language follows the existing app shell, Search, Dashboard, Docs, and Settings style: restrained, business-like, high-frequency maintenance oriented, and aligned with existing Tailwind/shadcn-style primitives.
 
 ## Validation
@@ -95,7 +95,7 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
   - Anonymous users cannot submit, withdraw, review, apply, reject, or administer proposals.
   - Signed-in contributors can submit proposals and view their own proposals.
   - Contributors can withdraw their own pending proposals and cannot withdraw reviewed proposals.
-  - Reviewers can access pending proposals in `Review queue`.
+  - Reviewers can access pending proposals in `Review Queue`.
   - Reviewers can reject pending proposals with reviewer notes.
   - Reviewer acceptance applies the formal domain change and transitions the proposal to `accepted_applied`.
   - Reviewer acceptance writes an independent audit record.
@@ -106,7 +106,7 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
   - Search create submission creates the unified `create` proposal type.
   - Search delete submission creates the unified `delete` proposal type.
   - Workspace desktop and mobile page headers use the shared routed-page header height, title typography, subtitle typography, and title-gap tokens.
-  - Workspace `My proposals` desktop and mobile headers do not show a top-right `Contributor` role badge.
+  - Workspace `My Proposals` desktop and mobile headers do not show a top-right `Contributor` role badge.
   - Frontend Workspace API integration consumes generated contracts rather than handwritten backend schemas.
 - **Evidence:**
   - Active specs describe one proposal model and one review/apply path for human-originated card maintenance.

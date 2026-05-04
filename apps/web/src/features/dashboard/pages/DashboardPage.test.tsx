@@ -183,22 +183,37 @@ describe("DashboardPage", () => {
       "p-knowledge-dashboard-surface-padding",
     );
     expect(screen.getByTestId("dashboard-token-table")).toHaveClass(
+      "w-full",
+      "shrink-0",
+    );
+    expect(screen.getByTestId("dashboard-token-table")).not.toHaveClass(
       "h-knowledge-dashboard-table-height",
       "lg:h-knowledge-dashboard-table-height-desktop",
     );
     expect(
       screen.getByTestId("dashboard-token-table-fixed-header"),
     ).toHaveClass(
-      "h-knowledge-dashboard-table-header-height",
+      "hidden",
+      "lg:flex",
       "lg:h-knowledge-dashboard-table-header-height-desktop",
     );
     expect(
       screen.getByTestId("dashboard-token-table-scrollbar-gutter"),
     ).toHaveClass("w-knowledge-dashboard-scrollbar-width");
     expect(screen.getByTestId("dashboard-token-table-scroll-area")).toHaveClass(
-      "flex-1",
       "min-h-0",
+      "shrink-0",
+      "[--dashboard-token-table-scroll-area-max-height:var(--spacing-knowledge-dashboard-table-height)]",
+      "lg:[--dashboard-token-table-scroll-area-max-height:calc(var(--spacing-knowledge-dashboard-table-height-desktop)-var(--spacing-knowledge-dashboard-table-header-height-desktop))]",
     );
+    expect(
+      screen.getByTestId("dashboard-token-table-scroll-area").firstElementChild,
+    ).toHaveClass(
+      "max-h-[var(--dashboard-token-table-scroll-area-max-height)]",
+    );
+    expect(
+      screen.getByTestId("dashboard-token-table-scroll-area").firstElementChild,
+    ).not.toHaveClass("h-full");
   });
 
   it("renders quota above tokens with Daily and Weekly account limits", () => {

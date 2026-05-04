@@ -133,11 +133,17 @@ describe("SearchPage", () => {
       expect(screen.getByTestId("search-results-grid")).toBeInTheDocument(),
     );
     expect(screen.getByTestId("search-suggestions-panel")).toBeInTheDocument();
-    expect(screen.getByText("Search results")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Add card" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Related results")).toBeInTheDocument();
+    expect(screen.getByText("Search Results")).toBeInTheDocument();
+    const addCardButton = screen.getByRole("button", { name: "Add Card" });
+    expect(addCardButton).toBeInTheDocument();
+    expect(addCardButton).toHaveClass(
+      "h-knowledge-control",
+      "px-knowledge-action-button-x",
+      "whitespace-nowrap",
+    );
+    expect(addCardButton.className).not.toContain("w-[116px]");
+    expect(addCardButton.className).not.toContain("px-[14px]");
+    expect(screen.getByText("Related Results")).toBeInTheDocument();
     expect(screen.getByDisplayValue("matrix")).toBeInTheDocument();
     expect(screen.getByTestId("search-icon-button")).toBeInTheDocument();
     expect(screen.queryByTestId("search-empty-state")).not.toBeInTheDocument();
@@ -247,15 +253,15 @@ describe("SearchPage", () => {
     expect(screen.getByTestId("search-results-header")).not.toHaveClass(
       "bg-white",
     );
-    expect(screen.getByText("Search results")).toHaveClass(
+    expect(screen.getByText("Search Results")).toHaveClass(
       "text-knowledge-search-section-title",
       "lg:text-knowledge-search-section-title-desktop",
     );
-    expect(screen.getByText("Search results")).not.toHaveClass(
+    expect(screen.getByText("Search Results")).not.toHaveClass(
       "text-knowledge-search-results-title",
       "lg:text-knowledge-search-results-title-desktop",
     );
-    expect(screen.getByText("Related results")).toHaveClass(
+    expect(screen.getByText("Related Results")).toHaveClass(
       "text-knowledge-search-section-title",
       "lg:text-knowledge-search-section-title-desktop",
     );
@@ -621,7 +627,7 @@ describe("SearchPage", () => {
       await screen.findByRole("button", { name: "Suggest edit for Old title" }),
     );
     expect(
-      screen.getByRole("dialog", { name: "Card proposal" }),
+      screen.getByRole("dialog", { name: "Card Proposal" }),
     ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Better title" },
@@ -733,7 +739,7 @@ describe("SearchPage", () => {
       await screen.findByText("Could not submit the suggestion. Try again."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("dialog", { name: "Card proposal" }),
+      screen.getByRole("dialog", { name: "Card Proposal" }),
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Better title")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Better content.")).toBeInTheDocument();
@@ -790,7 +796,7 @@ describe("SearchPage", () => {
       await screen.findByText("Change the title or content before submitting."),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("dialog", { name: "Card proposal" }),
+      screen.getByRole("dialog", { name: "Card Proposal" }),
     ).toBeInTheDocument();
   });
 });

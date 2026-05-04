@@ -1,7 +1,7 @@
 // abstract: Search card proposal dialog for create, edit, and delete proposal modes.
 // out_of_scope: Proposal review queue behavior and backend authorization.
 
-import { Plus, SquarePen, Trash2, X } from "lucide-react";
+import { SquarePen, Trash2, X } from "lucide-react";
 import {
   type ComponentType,
   type FormEvent,
@@ -13,6 +13,7 @@ import {
 
 import { Button } from "../../../shared/ui/button";
 import { Input } from "../../../shared/ui/input";
+import { ScrollArea } from "../../../shared/ui/scroll-area";
 import { Textarea } from "../../../shared/ui/textarea";
 import { cn } from "../../../shared/utils";
 import type { SearchResultCardEditPayload } from "./SearchResultCard";
@@ -51,9 +52,8 @@ export type SearchCardProposalSubmitPayload =
 const modeItems: readonly {
   readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
   readonly label: string;
-  readonly mode: SearchCardProposalMode;
+  readonly mode: Exclude<SearchCardProposalMode, "create">;
 }[] = [
-  { icon: Plus, label: "Add", mode: "create" },
   { icon: SquarePen, label: "Edit", mode: "edit" },
   { icon: Trash2, label: "Delete", mode: "delete" },
 ];
@@ -130,6 +130,8 @@ export function SearchCardProposalDialog({
     (mode === "create" && (title.trim() === "" || content.trim() === "")) ||
     isEditNoop ||
     (mode === "delete" && reason.trim() === "");
+  const dialogTitle =
+    mode === "create" ? "Card Proposal - Add Card" : "Card Proposal";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -145,13 +147,13 @@ export function SearchCardProposalDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-knowledge-overlay-scrim px-4 py-8">
       <section
         aria-modal="true"
-        aria-label="Card proposal"
+        aria-label={dialogTitle}
         className="flex h-[min(var(--spacing-knowledge-dialog-lg-height-mobile),calc(100vh-32px))] w-[min(var(--spacing-knowledge-dialog-lg-width-mobile),calc(100vw-32px))] flex-col gap-knowledge-dialog-content-gap rounded-xl border border-knowledge-border-subtle bg-knowledge-surface-dialog p-knowledge-dialog-padding shadow-[0_18px_21px_rgba(5,10,20,0.12)] md:h-knowledge-dialog-lg-height-desktop md:w-knowledge-dialog-lg-width-desktop md:gap-knowledge-dialog-content-gap-desktop"
         role="dialog"
       >
         <div className="flex h-knowledge-dialog-header-height shrink-0 items-center justify-between">
           <h2 className="m-0 min-w-0 flex-1 text-knowledge-dialog-title font-semibold text-knowledge-text-default">
-            Card proposal
+            {dialogTitle}
           </h2>
           <button
             aria-label="Close card proposal dialog"
@@ -166,31 +168,40 @@ export function SearchCardProposalDialog({
           className="flex min-h-0 flex-1 flex-col gap-4"
           onSubmit={handleSubmit}
         >
-          <div className="grid h-8 shrink-0 grid-cols-3 gap-2">
-            {modeItems.map((item) => {
-              const Icon = item.icon;
-              const isSelected = mode === item.mode;
-              return (
-                <button
-                  aria-pressed={isSelected}
-                  className={cn(
-                    "inline-flex min-w-0 items-center justify-center gap-2 rounded-knowledge-control px-knowledge-dialog-mode-tab-padding-x text-[13px] leading-5 font-medium text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand",
-                    isSelected &&
-                      "border border-docs-border-accent bg-knowledge-surface-accent-soft font-semibold text-knowledge-brand hover:bg-knowledge-surface-accent-soft hover:text-knowledge-brand",
-                  )}
-                  key={item.mode}
-                  onClick={() => {
-                    setMode(item.mode);
-                  }}
-                  type="button"
-                >
-                  <Icon aria-hidden="true" className="size-4 shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-color:var(--color-docs-scrollbar-thumb)_var(--color-docs-scrollbar-track)] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-docs-scrollbar-width [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-docs-scrollbar-thumb [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-docs-scrollbar-track">
+          {mode === "create" ? null : (
+            <div
+              className="grid h-8 shrink-0 grid-cols-2 gap-2"
+              data-testid="search-proposal-mode-tabs"
+            >
+              {modeItems.map((item) => {
+                const Icon = item.icon;
+                const isSelected = mode === item.mode;
+                return (
+                  <button
+                    aria-pressed={isSelected}
+                    className={cn(
+                      "inline-flex min-w-0 items-center justify-center gap-2 rounded-knowledge-control px-knowledge-dialog-mode-tab-padding-x text-[13px] leading-5 font-medium text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand",
+                      isSelected &&
+                        "border border-docs-border-accent bg-knowledge-surface-accent-soft font-semibold text-knowledge-brand hover:bg-knowledge-surface-accent-soft hover:text-knowledge-brand",
+                    )}
+                    key={item.mode}
+                    onClick={() => {
+                      setMode(item.mode);
+                    }}
+                    type="button"
+                  >
+                    <Icon aria-hidden="true" className="size-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <ScrollArea
+            className="relative flex-1 [--scroll-area-padding-right:var(--spacing-knowledge-dialog-scrollbar-gap)] [--scroll-area-scrollbar-width:var(--spacing-docs-scrollbar-width)] [--scroll-area-thumb-color:var(--color-docs-scrollbar-thumb)] [--scroll-area-track-color:var(--color-docs-scrollbar-track)]"
+            data-testid="search-card-proposal-form-panel"
+            viewportClassName="overflow-y-auto overflow-x-clip"
+          >
             {mode === "delete" ? (
               <div className="flex flex-col gap-knowledge-dialog-content-gap">
                 {card ? (
@@ -276,7 +287,7 @@ export function SearchCardProposalDialog({
                 </div>
               </div>
             )}
-          </div>
+          </ScrollArea>
           {errorMessage ? (
             <p className="m-0 rounded-md bg-knowledge-danger-soft px-3 py-2 text-[13px] leading-[18px] font-medium text-knowledge-danger">
               {errorMessage}

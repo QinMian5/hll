@@ -4,6 +4,7 @@
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { type FormEvent, lazy, Suspense, useState } from "react";
+import { Button } from "../../../shared/ui/button";
 import { WebApiRequestError } from "../../../shared/web-api/errors";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
 import { RelatedResultItem } from "../components/RelatedResultItem";
@@ -189,18 +190,17 @@ export function SearchPage() {
                 data-testid="search-results-header"
               >
                 <h1 className="m-0 min-w-0 flex-1 text-knowledge-search-section-title font-semibold text-knowledge-text-default lg:text-knowledge-search-section-title-desktop">
-                  Search results
+                  Search Results
                 </h1>
-                <button
-                  className="inline-flex h-9 w-[116px] shrink-0 items-center justify-center gap-2 rounded-knowledge-control bg-knowledge-brand px-[14px] text-knowledge-button font-medium text-knowledge-text-inverse transition-colors hover:bg-knowledge-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
+                <Button
+                  className="shrink-0 gap-2"
                   onClick={() => {
                     openProposalDialog({ mode: "create" });
                   }}
-                  type="button"
                 >
                   <Plus aria-hidden="true" className="size-4" />
-                  Add card
-                </button>
+                  Add Card
+                </Button>
               </div>
               <div
                 className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pt-4 pr-4 pb-1 pl-2 [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
@@ -251,7 +251,7 @@ export function SearchPage() {
               data-testid="search-suggestions-panel"
             >
               <h2 className="m-0 flex h-6 w-full shrink-0 items-center text-knowledge-search-section-title font-semibold text-knowledge-text-default lg:h-12 lg:text-knowledge-search-section-title-desktop">
-                Related results
+                Related Results
               </h2>
               <div
                 className="group/search-suggestions-list flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden pt-1 pr-1 pb-1 pl-px [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"

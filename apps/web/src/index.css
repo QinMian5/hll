@@ -142,6 +142,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-dialog-lg-width-desktop: 640px;
   --spacing-knowledge-dialog-lg-width-mobile: 400px;
   --spacing-knowledge-dialog-mode-tab-padding-x: 8px;
+  --spacing-knowledge-dialog-scrollbar-gap: 8px;
   --spacing-knowledge-dialog-textarea-min-height: 80px;
   --spacing-knowledge-icon-action: 24px;
   --spacing-knowledge-leaf-disclosure-content-height-2xl: 144px;
