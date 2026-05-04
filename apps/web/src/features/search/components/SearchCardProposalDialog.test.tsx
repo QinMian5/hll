@@ -52,6 +52,14 @@ describe("SearchCardProposalDialog", () => {
     expect(within(dialog).queryByRole("button", { name: "Add" })).toBeNull();
     expect(within(dialog).queryByRole("button", { name: "Edit" })).toBeNull();
     expect(within(dialog).queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.getByLabelText("Content")).toHaveAttribute(
+      "placeholder",
+      "Write the proposed card content.",
+    );
+    expect(screen.getByLabelText("Rationale")).toHaveAttribute(
+      "placeholder",
+      "Explain why you recommend adding this card.",
+    );
   });
 
   it("limits in-dialog mode switching to equal-width edit and delete tabs", () => {
@@ -88,6 +96,31 @@ describe("SearchCardProposalDialog", () => {
       within(tabs).getByRole("button", { name: "Delete" }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(within(dialog).getByText("Current card")).toBeInTheDocument();
+    expect(screen.getByLabelText("Reason")).toHaveAttribute(
+      "placeholder",
+      "Explain why you recommend deleting this card.",
+    );
+  });
+
+  it("uses edit-specific proposal placeholders", () => {
+    render(
+      <SearchCardProposalDialog
+        card={card}
+        initialMode="edit"
+        isSubmitting={false}
+        onClose={vi.fn()}
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Content")).toHaveAttribute(
+      "placeholder",
+      "Write the revised card content.",
+    );
+    expect(screen.getByLabelText("Rationale")).toHaveAttribute(
+      "placeholder",
+      "Explain what changed and why.",
+    );
   });
 
   it("keeps form scrolling on the form panel while textarea controls expand without their own vertical scroll", () => {

@@ -227,7 +227,7 @@ export function SearchCardProposalDialog({
                       onChange={(event) => {
                         setReason(event.currentTarget.value);
                       }}
-                      placeholder="Explain why this card should be archived."
+                      placeholder="Explain why you recommend deleting this card."
                       rows={3}
                       value={reason}
                     />
@@ -259,7 +259,11 @@ export function SearchCardProposalDialog({
                       onChange={(event) => {
                         setContent(event.currentTarget.value);
                       }}
-                      placeholder="Write the proposed card content here."
+                      placeholder={
+                        mode === "create"
+                          ? "Write the proposed card content."
+                          : "Write the revised card content."
+                      }
                       rows={3}
                       value={content}
                     />
@@ -277,8 +281,8 @@ export function SearchCardProposalDialog({
                       }}
                       placeholder={
                         mode === "create"
-                          ? "Why this card should be added."
-                          : "What changed and why."
+                          ? "Explain why you recommend adding this card."
+                          : "Explain what changed and why."
                       }
                       rows={3}
                       value={rationale}
