@@ -17,7 +17,7 @@ out_of_scope: Online API integration, knowledge corpus schema design, processed-
 
 ## Constraint Projection
 - **Governing Constraints:** Offline data-preparation workflows must remain outside online runtime ownership, repository boundaries must stay explicit, and behavior-changing orchestration changes must keep active specs current.
-- **Detail Commitments:** The repository adds a recoverable external import script under `human_workspace/` that reads `articles/**/*.jsonl.zst`, uses the `apps/knowledge_corpus` library boundary for batched record upsert, and tracks progress through per-shard marker files rather than database import state.
+- **Detail Commitments:** The repository owns a recoverable external import entrypoint at `apps/operator_tools/src/knowledge_operator/knowledge_corpus/import_wikipedia_shards.py` that reads `articles/**/*.jsonl.zst`, uses the `apps/knowledge_corpus` library boundary for batched record upsert, and tracks progress through per-shard marker files rather than database import state.
 - **Update Rule:** Requirement-level governance stays stable while this design owns importer placement, checkpoint semantics, concurrency policy, and observability details.
 
 ## Inputs & Outputs
@@ -33,15 +33,15 @@ out_of_scope: Online API integration, knowledge corpus schema design, processed-
   - Terminal progress output for total shard progress and active worker status.
 
 ## Design Approach
-- **Approach:** Implement a recoverable import orchestrator in `human_workspace/wiki_to_knowledge_corpus_import.py`. The script remains external to `apps/knowledge_corpus`, streams preprocessed article shards, and coordinates shard-level worker processes that batch-write records through the existing knowledge corpus library.
+- **Approach:** Implement a recoverable import orchestrator in `apps/operator_tools/src/knowledge_operator/knowledge_corpus/import_wikipedia_shards.py`. The entrypoint remains external to `apps/knowledge_corpus`, streams preprocessed article shards, and coordinates shard-level worker processes that batch-write records through the existing knowledge corpus library.
 - **Key Elements:**
-  - **External orchestration boundary:** The importer lives under `human_workspace/` and is not part of the `knowledge_corpus` app package. It may import `knowledge_corpus` library modules but does not move file traversal or checkpoint state into the app.
+  - **External orchestration boundary:** The importer lives under `apps/operator_tools` and is not part of the `knowledge_corpus` app package. It may import `knowledge_corpus` library modules but does not move file traversal or checkpoint state into the app.
   - **Input contract:** The importer consumes canonical article shards only. It does not read redirect-alias or disambiguation outputs.
   - **Checkpoint location:** The importer writes recoverable state to a caller-supplied state root separate from the article source tree.
   - **Single-run lock:** The importer acquires an exclusive lock file under the state root before dispatching workers. A concurrent run against the same state root fails fast.
   - **Per-shard marker strategy:** Shard progress is tracked with individual marker files instead of database rows. Marker files are the source of truth for resume behavior.
   - **Shard states:** Accepted states are `pending` (no marker file), `running`, `completed`, and `failed`.
-  - **Marker payload:** Each shard marker carries at least `shard_id`, `input_path`, `status`, `worker_id`, `started_at`, `finished_at`, `records_seen`, `records_committed`, `batches_committed`, and `error` when failed.
+  - **Marker payload:** Each shard marker carries `shard_id`, `input_path`, `status`, and `worker_id`. Aggregate progress stats plus event/failure logs carry run-level counts and error details.
   - **Shard claiming rule:** A worker claims a shard by atomically creating the shard's `running` marker. Only the worker that successfully creates the marker owns the shard.
   - **Resume rule:** The importer skips `completed` shards, retries `failed` shards, and may reclaim stale `running` shards from prior interrupted runs because document upsert is already idempotent by `page_id`.
   - **Concurrency model:** The importer uses one coordinator process plus multiple worker processes. Each worker processes one shard at a time and uses the current knowledge corpus database runtime for batched writes inside the worker process.

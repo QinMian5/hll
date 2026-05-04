@@ -14,7 +14,7 @@ from modules.taxonomy.importer import TaxonomyImporter
 from modules.taxonomy.repo import TaxonomyRepo
 
 _ROOT_DIR = Path(__file__).resolve().parents[1]
-_LCC_PATH = _ROOT_DIR / "human_workspace" / "LCC.yaml"
+_LCC_PATH = _ROOT_DIR / "apps" / "operator_tools" / "assets" / "taxonomy" / "lcc.yaml"
 
 
 async def _main() -> None:

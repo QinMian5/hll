@@ -12,7 +12,7 @@ out_of_scope: HTTP APIs, operator-facing CLI commands, file-system import orches
 
 ## Context
 - **Purpose:** Define the accepted design for a repository-local but runtime-isolated knowledge corpus app that stores external source documents for personal/offline workflows, supports PostgreSQL keyword retrieval, and records which documents have already been processed into another system.
-- **Scope/Boundaries:** Covers the app boundary, isolated PostgreSQL ownership, source-specific schema strategy, Python-library interfaces, Wikipedia-first schema commitments, processed/unprocessed filtering, and architecture isolation rules. Excludes online API/runtime integration, operator-facing CLI contracts, file/directory traversal orchestration for ingestion, vector search, and cross-source federation.
+- **Scope/Boundaries:** Covers the app boundary, isolated PostgreSQL ownership, source-specific schema strategy, Python-library interfaces, Wikipedia-first schema commitments, processed/unprocessed filtering, and architecture isolation rules. Excludes online API/runtime integration, operator-facing CLI contracts, file/directory traversal orchestration owned by operator tools, vector search, and cross-source federation.
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Constraint Projection
@@ -42,6 +42,7 @@ out_of_scope: HTTP APIs, operator-facing CLI commands, file-system import orches
 - **Key Elements:**
   - **Independent app boundary:** `apps/knowledge_corpus` is not part of the online API runtime and is not a shared package. It owns its own `pyproject.toml`, settings/config, Alembic migrations, SQLAlchemy metadata, tests, and database lifecycle.
   - **Hard isolation rule:** `apps/knowledge_corpus` must not import `apps/api`, `apps/cli`, `apps/web`, or `apps/source_pipeline`. `apps/api`, `apps/cli`, `apps/web`, and `apps/source_pipeline` must not import `apps/knowledge_corpus`.
+  - **Operator orchestration rule:** `apps/operator_tools` may import `knowledge_corpus` library interfaces for offline import, search, and source-selection workflows without moving those workflows into the knowledge corpus app.
   - **Dedicated PostgreSQL service:** The app uses a separate PostgreSQL service rather than sharing the online graph database. The service exists only for local/offline corpus usage.
   - **Repository-managed service lifecycle:** The dedicated PostgreSQL service is part of repository-managed infrastructure, environment files, and migration flow while remaining isolated from the online API/worker database lifecycle. The accepted first-version infra contract uses a dedicated database service and a dedicated one-shot migration service for knowledge corpus.
   - **Source-specific schema strategy:** Each external source gets its own schema inside the dedicated corpus database. The accepted first-version schema is `wikipedia`. Future sources may add more schemas without changing the first-version `wikipedia` contract.

@@ -5,7 +5,6 @@
 __pycache__/
 
 /.orbital/specs/plans
-/human_workspace/
 /logs/
 /apps/knowledge_corpus/uv.lock
 

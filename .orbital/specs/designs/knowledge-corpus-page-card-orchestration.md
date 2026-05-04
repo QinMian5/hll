@@ -46,9 +46,10 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
 ## Design Approach
 - **Approach:** Keep source adaptation, webhook intake, and step orchestration separate. `pipeline_intake` owns external config ingestion and source-unit normalization. The source-pipeline webhook receiver owns authenticated queue-result event intake and local event persistence. `pipeline_runtime` owns long-running orchestration state and all state advancement from local queue-result events, low-frequency reconcile, and `job-queue-mcp` result reads. `page_to_card`, `card_review`, and `card_repair` own only step contracts. `pipeline_handoff` transfers review-accepted card candidates to the knowledge ingestion HTTP boundary without writing the knowledge database directly.
 - **Key Elements:**
-  - **Formal app boundary:** The source-processing runtime is a project app and is not a `human_workspace` script surface.
+  - **Formal app boundary:** The source-processing runtime is a project app under `apps/source_pipeline`.
   - **Dedicated database lifecycle:** `apps/source_pipeline` owns a dedicated PostgreSQL service and app-local migration lifecycle rather than sharing the online API database service.
   - **Source-agnostic intake boundary:** `pipeline_intake` accepts one external config or normalized unit submission and materializes `WorkflowRun` plus `WorkflowUnit` rows. It does not select source pages, crawl source systems, or write source-side processed markers.
+  - **Source-specific operator entrypoints:** Source discovery, page selection, and bounded batch submission entrypoints live under `apps/operator_tools` and submit normalized units to `pipeline_intake`.
   - **Minimal local persistence:** The app persists only:
     - `workflow_runs` for one submitted orchestration request and its source config metadata, without duplicating normalized unit payloads
     - `workflow_units` for one normalized unit plus its `page_to_card_job_id` and page-step terminal checkpoint
@@ -175,7 +176,7 @@ out_of_scope: Source-specific discovery/crawling policy, source-side processed b
 
 ## Validation
 - **Checks:**
-  - Spec review confirms source intake, orchestration runtime, and step contracts are formal project-owned app boundaries rather than `human_workspace` scripts.
+  - Spec review confirms source intake, orchestration runtime, and step contracts are formal project-owned app boundaries.
   - Contract tests verify `SourceUnit`, `CardDraft`, `CardReviewResult`, `CardRepairInput`, and `CardRepairResult` shapes.
   - Instruction tests verify page extraction, card review, and card repair share the same card-quality standard without duplicating transport-generic worker protocol instructions.
   - PostgreSQL-backed integration tests verify `workflow_runs`, `workflow_units`, and `card_candidates` are sufficient for restart/resume behavior without mirroring queue lifecycle state.

@@ -8,6 +8,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 CORPUS_DIR="$ROOT_DIR/apps/knowledge_corpus"
 MCP_DIR="$ROOT_DIR/apps/mcp"
+OPERATOR_TOOLS_DIR="$ROOT_DIR/apps/operator_tools"
 SOURCE_PIPELINE_DIR="$ROOT_DIR/apps/source_pipeline"
 WEB_DIR="$ROOT_DIR/apps/web"
 
@@ -19,6 +20,9 @@ uv --directory "$CORPUS_DIR" run pytest "$CORPUS_DIR/tests/unit"
 
 echo "[test] mcp (pytest)"
 uv --directory "$MCP_DIR" run pytest
+
+echo "[test] operator tools unit (pytest)"
+uv --directory "$OPERATOR_TOOLS_DIR" run pytest "$OPERATOR_TOOLS_DIR/tests/unit"
 
 echo "[test] source pipeline unit (pytest)"
 uv --directory "$SOURCE_PIPELINE_DIR" run pytest "$SOURCE_PIPELINE_DIR/tests/unit"

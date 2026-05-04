@@ -8,6 +8,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 CORPUS_DIR="$ROOT_DIR/apps/knowledge_corpus"
 MCP_DIR="$ROOT_DIR/apps/mcp"
+OPERATOR_TOOLS_DIR="$ROOT_DIR/apps/operator_tools"
 SOURCE_PIPELINE_DIR="$ROOT_DIR/apps/source_pipeline"
 
 cd "$ROOT_DIR"
@@ -20,6 +21,9 @@ uv run --project "$CORPUS_DIR" ty check --project "$CORPUS_DIR" apps/knowledge_c
 
 echo "[typecheck] mcp (ty)"
 uv run --project "$MCP_DIR" ty check --project "$MCP_DIR" apps/mcp/src
+
+echo "[typecheck] operator tools (ty)"
+uv run --project "$OPERATOR_TOOLS_DIR" ty check --project "$OPERATOR_TOOLS_DIR" apps/operator_tools/src
 
 echo "[typecheck] source pipeline (ty)"
 uv run --project "$SOURCE_PIPELINE_DIR" ty check --project "$SOURCE_PIPELINE_DIR" apps/source_pipeline/src

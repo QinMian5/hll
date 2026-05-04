@@ -1,3 +1,5 @@
+# abstract: Library of Congress Classification taxonomy seed used by operator import.
+# out_of_scope: Taxonomy persistence, assignment movement, and layout computation.
 General Works:
   - Collections. Series. Collected works:
       - Collections of monographs, essays, etc.:

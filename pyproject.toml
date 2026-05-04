@@ -10,6 +10,7 @@ members = [
     "apps/cli",
     "apps/knowledge_corpus",
     "apps/mcp",
+    "apps/operator_tools",
     "apps/source_pipeline",
     "packages/contracts/generated/python",
 ]
@@ -17,6 +18,8 @@ members = [
 [tool.uv.sources]
 job-queue-mcp-client = { path = "/Users/mianqin/Code/job-queue-mcp/packages/python-client" }
 knowledge-contracts-client = { workspace = true }
+knowledge-corpus = { workspace = true }
+source-pipeline = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -26,6 +29,7 @@ src = [
     "apps/cli",
     "apps/knowledge_corpus/src",
     "apps/mcp/src",
+    "apps/operator_tools/src",
     "apps/source_pipeline/src",
     "packages/contracts/generated/python/src",
 ]
@@ -60,6 +64,7 @@ include = [
     "apps/api/src",
     "apps/knowledge_corpus/src",
     "apps/mcp/src",
+    "apps/operator_tools/src",
     "apps/source_pipeline/src",
 ]
 

@@ -25,6 +25,7 @@ out_of_scope: AI classification job orchestration, worker-side execution mechani
 - **Key Elements:**
   - **Module ownership:** `apps/api/src/modules/taxonomy` owns taxonomy tree reads, taxonomy tree writes, assignment reads/writes, default assignment resolution, and taxonomy view API contracts.
   - **Authoritative source:** Persisted taxonomy rows are runtime/system truth. Operator-provided classification outlines are inputs to taxonomy-owned import or mutation services.
+  - **Versioned import asset:** The repository-owned LCC import asset lives at `apps/operator_tools/assets/taxonomy/lcc.yaml` and is consumed by operator import scripts through taxonomy-owned services.
   - **Root invariant:** Exactly one taxonomy node has `parent_id IS NULL`; its name is `Root`, its depth is `0`, and it is not a leaf.
   - **Persisted category invariant:** Persisted taxonomy rows represent real LCC categories. Service-owned view buckets are assembled in response payloads and are not persisted as taxonomy rows.
   - **Assignment result model:** Each knowledge node binds to exactly one current real taxonomy node.

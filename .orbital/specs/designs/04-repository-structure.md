@@ -22,13 +22,14 @@ repo/
     cli/
     knowledge_corpus/
     mcp/
+    operator_tools/
     source_pipeline/
     web/
+  archives/
   packages/
     contracts/
   infra/
   scripts/
-  human_workspace/
   .orbital/specs/
   Makefile
   package.json
@@ -42,12 +43,13 @@ repo/
 - `apps/cli`: local operator-facing CLI source.
 - `apps/knowledge_corpus`: local/offline corpus app source and app-local DB lifecycle assets.
 - `apps/mcp`: public MCP server source, MCP tests, app-local Alembic assets, PAT-backed programmatic access control, quota and usage attribution, MCP-owned usage-table access, and generated internal search API consumption.
+- `apps/operator_tools`: versioned offline/operator workflows and static operator assets that coordinate repository apps without joining online runtime surfaces.
 - `apps/source_pipeline`: project-owned source-processing runtime, queue orchestration, and pipeline state.
 - `apps/web`: React web client source, Express BFF server, public web API endpoints, server-side web session handling, web access-control state, and authenticated dashboard token-management orchestration.
+- `archives`: historical repository artifacts retained for audit/reference only.
 - `packages/contracts`: OpenAPI snapshot, generated clients/types, contracts scripts.
 - `infra`: deployment/environment templates.
 - `scripts`: repository automation scripts.
-- `human_workspace`: human-operated research and offline workflow scripts.
 - `.orbital/specs`: active requirements/design/plan documents.
 
 ## API Application Layout (`apps/api`)
@@ -140,6 +142,19 @@ apps/mcp/
   tests/
 ```
 
+## Operator Tools Layout (`apps/operator_tools`)
+```text
+apps/operator_tools/
+  assets/
+    source_pipeline/
+    taxonomy/
+  src/
+    knowledge_operator/
+      knowledge_corpus/
+      source_pipeline/
+  tests/
+```
+
 ## Source Pipeline Layout (`apps/source_pipeline`)
 ```text
 apps/source_pipeline/
@@ -195,18 +210,19 @@ packages/contracts/
 11. `apps/api/src/modules/taxonomy_classification` owns job-queue-backed classification orchestration and does not own graph/taxonomy persistence projections.
 12. `apps/api/src/modules/**` must not import `apps/api/src/entrypoints/**`.
 13. `apps/cli` owns local review/submission flow and must not own backend persistence/runtime concerns.
-14. `human_workspace` assets are not authoritative online API/runtime contracts.
-15. `apps/knowledge_corpus` is isolated local/offline ownership and not imported by online apps.
-16. `apps/source_pipeline` owns project-level source-processing runtime and remains source-agnostic within this repository boundary.
-17. `apps/source_pipeline` must not import `apps/api/src/entrypoints/**`.
-18. `apps/source_pipeline` interacts with the online knowledge system only through accepted HTTP contracts and must not import `apps/api/src/modules/ingestion/**`, `apps/api/src/modules/knowledge_graph/**`, or write knowledge database tables directly.
-19. `apps/web` owns public web HTTP endpoints and must not import `apps/api/src/**` or `apps/mcp/src/**`; it interacts with `apps/api` through the generated internal API client over Docker-network HTTP and with MCP usage summaries through internal HTTP only.
-20. `apps/mcp` owns public MCP endpoints and must not import `apps/api/src/**`; it interacts with `apps/api` through generated internal API client artifacts over Docker-network HTTP.
-21. `apps/mcp` must not persist, log, or expose raw Logto personal access tokens.
-22. `apps/web` owns browser-facing Dashboard token lifecycle endpoints and must not directly read MCP usage database tables; it consumes MCP usage through an internal MCP service endpoint.
-23. `apps/mcp` owns internal MCP usage-summary reads for dashboard consumption and accepts only PAT fingerprints for those reads, not raw personal access tokens.
-24. `apps/mcp` may access only MCP-owned usage tables in the dedicated MCP PostgreSQL database and must not read or write graph, taxonomy, ingestion, source-pipeline, or job-queue linkage tables directly.
-25. `apps/mcp` owns MCP usage persistence migrations through its own Alembic environment and must not register MCP persistence models in `apps/api` migration metadata.
+14. `apps/operator_tools` owns offline/operator workflows and static operator assets; it may import local app library surfaces needed for offline orchestration but is not imported by online runtime apps.
+15. `archives` content is reference-only and must not be used as an active runtime, operator, or test entrypoint.
+16. `apps/knowledge_corpus` is isolated local/offline ownership and not imported by online apps.
+17. `apps/source_pipeline` owns project-level source-processing runtime and remains source-agnostic within this repository boundary.
+18. `apps/source_pipeline` must not import `apps/api/src/entrypoints/**`.
+19. `apps/source_pipeline` interacts with the online knowledge system only through accepted HTTP contracts and must not import `apps/api/src/modules/ingestion/**`, `apps/api/src/modules/knowledge_graph/**`, or write knowledge database tables directly.
+20. `apps/web` owns public web HTTP endpoints and must not import `apps/api/src/**` or `apps/mcp/src/**`; it interacts with `apps/api` through the generated internal API client over Docker-network HTTP and with MCP usage summaries through internal HTTP only.
+21. `apps/mcp` owns public MCP endpoints and must not import `apps/api/src/**`; it interacts with `apps/api` through generated internal API client artifacts over Docker-network HTTP.
+22. `apps/mcp` must not persist, log, or expose raw Logto personal access tokens.
+23. `apps/web` owns browser-facing Dashboard token lifecycle endpoints and must not directly read MCP usage database tables; it consumes MCP usage through an internal MCP service endpoint.
+24. `apps/mcp` owns internal MCP usage-summary reads for dashboard consumption and accepts only PAT fingerprints for those reads, not raw personal access tokens.
+25. `apps/mcp` may access only MCP-owned usage tables in the dedicated MCP PostgreSQL database and must not read or write graph, taxonomy, ingestion, source-pipeline, or job-queue linkage tables directly.
+26. `apps/mcp` owns MCP usage persistence migrations through its own Alembic environment and must not register MCP persistence models in `apps/api` migration metadata.
 
 ## Governance Anchors
 - Architecture constraints: `03-architecture-constraints`.

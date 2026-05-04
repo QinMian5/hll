@@ -1,3 +1,5 @@
+# abstract: Query batches for selecting science-oriented Wikipedia pages.
+# out_of_scope: Source-pipeline runtime orchestration and processed-document state.
 batches:
   - name: mathematics-core
     query: mathematics algebra geometry trigonometry probability function equation

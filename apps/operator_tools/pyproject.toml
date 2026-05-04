@@ -1,0 +1,34 @@
+[project]
+name = "operator-tools"
+version = "0.1.0"
+description = "Versioned offline operator workflows for Knowledge repository data preparation."
+requires-python = ">=3.14"
+dependencies = [
+    "knowledge-corpus",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.1",
+    "pyyaml>=6.0.3",
+    "rich>=14.2.0",
+    "source-pipeline",
+    "sqlalchemy[asyncio]>=2.0.48",
+    "zstandard>=0.25.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.2,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["knowledge_operator"]
+
+[tool.uv.sources]
+knowledge-corpus = { workspace = true }
+source-pipeline = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest-anyio>=0.0.0",
+    "pytest>=9.0.2",
+    "ruff>=0.15.8",
+    "ty>=0.0.27",
+]

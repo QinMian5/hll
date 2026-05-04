@@ -8,6 +8,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 CORPUS_DIR="$ROOT_DIR/apps/knowledge_corpus"
 MCP_DIR="$ROOT_DIR/apps/mcp"
+OPERATOR_TOOLS_DIR="$ROOT_DIR/apps/operator_tools"
 SOURCE_PIPELINE_DIR="$ROOT_DIR/apps/source_pipeline"
 
 cd "$ROOT_DIR"
@@ -26,6 +27,9 @@ uv run --project "$CORPUS_DIR" ruff check \
 
 echo "[lint] mcp (ruff)"
 uv run --project "$MCP_DIR" ruff check apps/mcp/src apps/mcp/tests apps/mcp/alembic
+
+echo "[lint] operator tools (ruff)"
+uv run --project "$OPERATOR_TOOLS_DIR" ruff check apps/operator_tools/src apps/operator_tools/tests
 
 echo "[lint] source pipeline (ruff)"
 uv run --project "$SOURCE_PIPELINE_DIR" ruff check \

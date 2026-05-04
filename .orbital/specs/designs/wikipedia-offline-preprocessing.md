@@ -16,9 +16,9 @@ out_of_scope: Direct ingestion into online API/runtime paths, full MediaWiki tem
 - **Related Requirements:** R-001, R-004, R-005, R-006.
 
 ## Constraint Projection
-- **Governing Constraints:** Repository governance remains unified, module boundaries stay explicit even under a script-first implementation constraint, runtime behavior remains reproducible, and accepted behavior lives only in current active specs.
-- **Detail Commitments:** First-version preprocessing lives under `human_workspace/` as a script-first pipeline with clear internal boundaries. The pipeline consumes Wikipedia multistream XML `.bz2` split files and writes split-aligned compressed JSONL datasets plus manifests, stats, and logs. XML parsing uses streaming semantics; full XML dump extraction to disk is not part of the accepted path.
-- **Update Rule:** Requirement-level governance remains stable while this document holds preprocessing-specific file layout, record schemas, parsing behavior, failure semantics, and validation rules.
+- **Governing Constraints:** Repository governance remains unified, module boundaries stay explicit, runtime behavior remains reproducible, and accepted behavior lives only in current active specs.
+- **Detail Commitments:** The accepted preprocessing contract consumes Wikipedia multistream XML `.bz2` split files and writes split-aligned compressed JSONL datasets plus manifests, stats, and logs. XML parsing uses streaming semantics; full XML dump extraction to disk is not part of the accepted path.
+- **Update Rule:** Requirement-level governance remains stable while this document holds preprocessing-specific artifact layout, record schemas, parsing behavior, failure semantics, and validation rules.
 
 ## Inputs & Outputs
 - **Inputs:**
@@ -39,9 +39,9 @@ out_of_scope: Direct ingestion into online API/runtime paths, full MediaWiki tem
   - Run-level and split-level manifests, counters, and failure diagnostics.
 
 ## Design Approach
-- **Approach:** Use a split-aligned offline preprocessing pipeline whose main path is `bz2 stream -> XML page extraction -> page classification -> canonical cleaning -> deterministic shard writing`. The implementation remains script-first under `human_workspace/`, but its responsibilities are separated so it can later move into a formal app boundary without redesigning the data contracts.
+- **Approach:** Use a split-aligned offline preprocessing pipeline whose main path is `bz2 stream -> XML page extraction -> page classification -> canonical cleaning -> deterministic shard writing`. The preprocessing contract is offline-only and remains outside online API/runtime ownership.
 - **Key Elements:**
-  - **Script boundary:** The accepted script set is one controller entrypoint plus focused helper modules for XML extraction, content cleaning, artifact writing, and typed record/runtime models.
+  - **Operator workflow boundary:** The accepted logical workflow is one controller plus focused helpers for XML extraction, content cleaning, artifact writing, and typed record/runtime models.
   - **Input discovery:** The pipeline scans only XML split dump files, orders them deterministically by dump filename order, and treats each split as an independent processing unit.
   - **Run layout:** Each run writes into `runs/<run-id>/` with dedicated `articles/`, `redirect_aliases/`, `disambiguation/`, `manifests/`, `stats/`, `logs/`, and `temp/` subdirectories. Every run owns its own immutable audit context.
   - **Resume contract:** Split status is tracked in split-level manifests using only `pending`, `running`, `completed`, and `failed-threshold`. Resume decisions use manifest state rather than inferring completion from output files.
