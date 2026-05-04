@@ -5,6 +5,10 @@ name: knowledge-dev
 services:
   postgres:
     image: knowledge-postgres:dev
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 0.75
+    pids_limit: 192
     networks:
       - backend
       - edge
@@ -13,6 +17,10 @@ services:
 
   logto-postgres:
     image: postgres:18.3-bookworm
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
 
   logto-seed:
     extra_hosts:
@@ -20,6 +28,10 @@ services:
       - "knowledge-dev-logto-admin.localhost:host-gateway"
 
   logto:
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
     extra_hosts:
       - "knowledge-dev-logto.localhost:host-gateway"
       - "knowledge-dev-logto-admin.localhost:host-gateway"
@@ -29,6 +41,10 @@ services:
 
   knowledge_corpus_db:
     image: knowledge-corpus-postgres:dev
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 0.75
+    pids_limit: 192
     command:
       - postgres
       - -c
@@ -45,9 +61,23 @@ services:
 
   source_pipeline_db:
     image: knowledge-source-pipeline-postgres:dev
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
 
   mcp_db:
     image: knowledge-mcp-postgres:dev
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
+
+  redis:
+    mem_limit: 192m
+    memswap_limit: 192m
+    cpus: 0.25
+    pids_limit: 96
 
   migrate:
     image: knowledge-api:dev
@@ -79,6 +109,10 @@ services:
 
   api:
     image: knowledge-api:dev
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.75
+    pids_limit: 192
     environment:
       API_RELOAD: "1"
     volumes:
@@ -90,6 +124,10 @@ services:
 
   mcp:
     image: knowledge-mcp:dev
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
     environment:
       MCP_RELOAD: "1"
     volumes:
@@ -103,9 +141,17 @@ services:
 
   worker:
     image: knowledge-api:dev
+    mem_limit: 1024m
+    memswap_limit: 1024m
+    cpus: 1.0
+    pids_limit: 384
 
   taxonomy_view_layout_runtime:
     image: knowledge-api:dev
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.75
+    pids_limit: 128
     volumes:
       - ../../apps/api/src:/app/apps/api/src
       - ../../apps/api/alembic:/app/apps/api/alembic
@@ -143,6 +189,10 @@ services:
     build:
       target: dev
     image: knowledge-web:dev
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
     environment:
       NODE_ENV: development
     volumes:

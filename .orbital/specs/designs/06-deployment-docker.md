@@ -267,6 +267,23 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Knowledge Logto production routing uses `https://knowledge-logto.orbitalis.org` for the auth endpoint and `https://admin.knowledge-logto.internal.home.arpa` for the admin console, both routed through the project-local `nginx` app gateway.
 - Tracked environment files must carry the knowledge corpus, source pipeline, and taxonomy-classification queue-runtime fields alongside the online stack URL fields when those repository-managed app services are enabled.
 
+## Runtime Resource Governance
+- Production Docker services define explicit container resource ceilings for memory, CPU, and PID count so one role cannot exhaust the Docker host allocation.
+- Resource ceilings are deployment topology, not application runtime configuration. Compose service definitions own resource ceilings directly; environment files do not carry container resource budgets.
+- Production public-facing and public-dependency services receive enough memory and CPU headroom to preserve `knowledge` availability during normal spikes while still preventing unbounded growth.
+- The production `worker` role receives the largest application-process budget because ingestion and embedding materialization have the highest steady-state memory and process count among application roles.
+- Production PostgreSQL services receive conservative hard memory ceilings plus PostgreSQL-internal tuning so container memory limits do not become the only database protection boundary.
+- Production Redis receives both a container memory ceiling and a Redis `maxmemory` policy appropriate to cache ownership so Redis fails predictably before exhausting the Docker host allocation.
+- Production web, MCP, API, webhook receiver, orchestrator, taxonomy-classification runtime, taxonomy view layout runtime, Logto, and nginx roles receive smaller per-role ceilings based on process type and expected concurrency.
+- Development services define lower resource ceilings than production services and remain subordinate to production availability on the same host.
+- One-shot migration and seed jobs may define bounded resource ceilings, but their limits must not be used to hide migration failures or convert failed startup into silent partial rollout.
+- PID limits are required for long-running application, worker, database, identity, Redis, and nginx roles.
+- CPU limits use fractional service-level Compose CPU constraints. CPU shares alone are not sufficient as the primary protection because they do not define a hard ceiling.
+- Memory swap behavior must be explicit whenever a hard memory ceiling is set. Swap must not be relied on for steady-state production database or worker performance.
+- `oom_kill_disable` is not used for these services. A container-level OOM kill is preferable to allowing one service to exhaust the Docker host allocation.
+- Docker log rotation remains bounded for service stdout/stderr logs. Application-managed file logging remains governed by the application logging configuration.
+- Co-located auxiliary stacks must not receive higher default resource priority than `knowledge` production or its production `job-queue-mcp` control-plane dependency.
+
 ## Failure Policy
 - Known startup failures must fail explicitly and stop rollout progression.
 - Silent fallback and partial startup in known invalid states are forbidden.

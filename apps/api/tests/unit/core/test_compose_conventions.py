@@ -28,6 +28,95 @@ MCP_RUN_SCRIPT = REPO_ROOT / "infra" / "docker" / "mcp" / "run-mcp.sh"
 TAXONOMY_VIEW_LAYOUT_RUN_SCRIPT = (
     REPO_ROOT / "infra" / "docker" / "api" / "run-taxonomy-view-layout-runtime.sh"
 )
+RESOURCE_FIELDS = ("mem_limit", "memswap_limit", "cpus", "pids_limit")
+EXPECTED_PROD_RESOURCE_BUDGETS = {
+    "postgres": {"mem_limit": "1536m", "memswap_limit": "1536m", "cpus": 1.5, "pids_limit": 256},
+    "knowledge_corpus_db": {
+        "mem_limit": "1024m",
+        "memswap_limit": "1024m",
+        "cpus": 1.0,
+        "pids_limit": 192,
+    },
+    "source_pipeline_db": {
+        "mem_limit": "768m",
+        "memswap_limit": "768m",
+        "cpus": 0.75,
+        "pids_limit": 192,
+    },
+    "mcp_db": {"mem_limit": "512m", "memswap_limit": "512m", "cpus": 0.5, "pids_limit": 128},
+    "logto-postgres": {
+        "mem_limit": "512m",
+        "memswap_limit": "512m",
+        "cpus": 0.5,
+        "pids_limit": 128,
+    },
+    "redis": {"mem_limit": "256m", "memswap_limit": "256m", "cpus": 0.5, "pids_limit": 128},
+    "api": {"mem_limit": "768m", "memswap_limit": "768m", "cpus": 1.0, "pids_limit": 256},
+    "worker": {"mem_limit": "1536m", "memswap_limit": "1536m", "cpus": 2.0, "pids_limit": 512},
+    "taxonomy_view_layout_runtime": {
+        "mem_limit": "512m",
+        "memswap_limit": "512m",
+        "cpus": 1.0,
+        "pids_limit": 128,
+    },
+    "taxonomy_classification_runtime": {
+        "mem_limit": "768m",
+        "memswap_limit": "768m",
+        "cpus": 1.0,
+        "pids_limit": 256,
+    },
+    "taxonomy_classification_webhook_receiver": {
+        "mem_limit": "384m",
+        "memswap_limit": "384m",
+        "cpus": 0.5,
+        "pids_limit": 128,
+    },
+    "mcp": {"mem_limit": "512m", "memswap_limit": "512m", "cpus": 0.75, "pids_limit": 128},
+    "orchestrator": {"mem_limit": "384m", "memswap_limit": "384m", "cpus": 0.75, "pids_limit": 128},
+    "source_pipeline_webhook_receiver": {
+        "mem_limit": "384m",
+        "memswap_limit": "384m",
+        "cpus": 0.5,
+        "pids_limit": 128,
+    },
+    "web": {"mem_limit": "512m", "memswap_limit": "512m", "cpus": 0.75, "pids_limit": 128},
+    "logto": {"mem_limit": "768m", "memswap_limit": "768m", "cpus": 0.75, "pids_limit": 128},
+    "nginx": {"mem_limit": "128m", "memswap_limit": "128m", "cpus": 0.25, "pids_limit": 64},
+}
+EXPECTED_DEV_RESOURCE_BUDGETS = {
+    "postgres": {"mem_limit": "768m", "memswap_limit": "768m", "cpus": 0.75, "pids_limit": 192},
+    "knowledge_corpus_db": {
+        "mem_limit": "768m",
+        "memswap_limit": "768m",
+        "cpus": 0.75,
+        "pids_limit": 192,
+    },
+    "source_pipeline_db": {
+        "mem_limit": "512m",
+        "memswap_limit": "512m",
+        "cpus": 0.5,
+        "pids_limit": 128,
+    },
+    "mcp_db": {"mem_limit": "384m", "memswap_limit": "384m", "cpus": 0.5, "pids_limit": 128},
+    "logto-postgres": {
+        "mem_limit": "384m",
+        "memswap_limit": "384m",
+        "cpus": 0.5,
+        "pids_limit": 128,
+    },
+    "redis": {"mem_limit": "192m", "memswap_limit": "192m", "cpus": 0.25, "pids_limit": 96},
+    "api": {"mem_limit": "512m", "memswap_limit": "512m", "cpus": 0.75, "pids_limit": 192},
+    "worker": {"mem_limit": "1024m", "memswap_limit": "1024m", "cpus": 1.0, "pids_limit": 384},
+    "taxonomy_view_layout_runtime": {
+        "mem_limit": "384m",
+        "memswap_limit": "384m",
+        "cpus": 0.75,
+        "pids_limit": 128,
+    },
+    "mcp": {"mem_limit": "384m", "memswap_limit": "384m", "cpus": 0.5, "pids_limit": 128},
+    "web": {"mem_limit": "384m", "memswap_limit": "384m", "cpus": 0.5, "pids_limit": 128},
+    "logto": {"mem_limit": "512m", "memswap_limit": "512m", "cpus": 0.5, "pids_limit": 128},
+}
 
 
 def _read(path: Path) -> str:
@@ -66,6 +155,13 @@ def _service_data(path: Path, service_name: str) -> dict[str, object]:
     service = services[service_name]
     assert isinstance(service, dict)
     return service
+
+
+def _assert_resource_budget(path: Path, expected: dict[str, dict[str, object]]) -> None:
+    for service_name, expected_budget in expected.items():
+        service = _service_data(path, service_name)
+        for field_name in RESOURCE_FIELDS:
+            assert service.get(field_name) == expected_budget[field_name], service_name
 
 
 def test_environment_overlays_own_compose_project_names() -> None:
@@ -174,6 +270,41 @@ def test_base_compose_does_not_pin_environment_specific_images() -> None:
     assert all(":dev" not in line for line in _image_lines(BASE_COMPOSE))
     assert all(":prod" not in line for line in _image_lines(BASE_COMPOSE))
     assert "image: redis:7-bookworm" in _image_lines(BASE_COMPOSE)
+
+
+def test_compose_services_do_not_disable_oom_kills() -> None:
+    for compose_file in (BASE_COMPOSE, DEV_COMPOSE, PROD_COMPOSE):
+        data = _compose_data(compose_file)
+        services = data["services"]
+        assert isinstance(services, dict)
+
+        for service in services.values():
+            assert isinstance(service, dict)
+            assert "oom_kill_disable" not in service
+
+
+def test_base_redis_uses_bounded_noeviction_memory_policy() -> None:
+    redis = _service_data(BASE_COMPOSE, "redis")
+
+    assert redis["command"] == [
+        "redis-server",
+        "--save",
+        "",
+        "--appendonly",
+        "no",
+        "--maxmemory",
+        "192mb",
+        "--maxmemory-policy",
+        "noeviction",
+    ]
+
+
+def test_prod_compose_defines_resource_budgets_for_long_running_services() -> None:
+    _assert_resource_budget(PROD_COMPOSE, EXPECTED_PROD_RESOURCE_BUDGETS)
+
+
+def test_dev_compose_defines_resource_budgets_for_long_running_services() -> None:
+    _assert_resource_budget(DEV_COMPOSE, EXPECTED_DEV_RESOURCE_BUDGETS)
 
 
 def test_base_compose_leaves_volume_and_network_names_to_environment_overlays() -> None:

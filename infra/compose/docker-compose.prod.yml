@@ -5,18 +5,38 @@ name: knowledge-prod
 services:
   postgres:
     image: knowledge-postgres:prod
+    mem_limit: 1536m
+    memswap_limit: 1536m
+    cpus: 1.5
+    pids_limit: 256
 
   logto-postgres:
     image: postgres:18.3-bookworm
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
 
   knowledge_corpus_db:
     image: knowledge-corpus-postgres:prod
+    mem_limit: 1024m
+    memswap_limit: 1024m
+    cpus: 1.0
+    pids_limit: 192
 
   source_pipeline_db:
     image: knowledge-source-pipeline-postgres:prod
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 0.75
+    pids_limit: 192
 
   mcp_db:
     image: knowledge-mcp-postgres:prod
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
 
   migrate:
     image: knowledge-api:prod
@@ -29,32 +49,64 @@ services:
 
   api:
     image: knowledge-api:prod
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
 
   mcp:
     image: knowledge-mcp:prod
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.75
+    pids_limit: 128
 
   worker:
     image: knowledge-api:prod
+    mem_limit: 1536m
+    memswap_limit: 1536m
+    cpus: 2.0
+    pids_limit: 512
 
   taxonomy_view_layout_runtime:
     image: knowledge-api:prod
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
 
   taxonomy_classification_runtime:
     image: knowledge-api:prod
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
     networks:
       - backend
       - egress
 
   taxonomy_classification_webhook_receiver:
     image: knowledge-api:prod
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
     networks:
       - backend
       - edge
 
   redis:
     image: redis:7-bookworm
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
 
   logto:
+    mem_limit: 768m
+    memswap_limit: 768m
+    cpus: 0.75
+    pids_limit: 128
     environment:
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/knowledge-logto-extra-ca.crt
     volumes:
@@ -65,23 +117,39 @@ services:
 
   orchestrator:
     image: knowledge-source-pipeline:prod
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.75
+    pids_limit: 128
     networks:
       - backend
       - egress
 
   source_pipeline_webhook_receiver:
     image: knowledge-source-pipeline:prod
+    mem_limit: 384m
+    memswap_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
     networks:
       - backend
       - edge
 
   web:
     image: knowledge-web:prod
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.75
+    pids_limit: 128
     environment:
       NODE_ENV: production
 
   nginx:
     image: knowledge-nginx:prod
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
     build:
       context: ../..
       dockerfile: infra/docker/nginx/Dockerfile
