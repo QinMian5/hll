@@ -102,6 +102,10 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --text-knowledge-workspace-proposal-summary-label--line-height: 16px;
   --text-knowledge-workspace-proposal-summary-value: 14px;
   --text-knowledge-workspace-proposal-summary-value--line-height: 20px;
+  --text-knowledge-empty-state-title: 14px;
+  --text-knowledge-empty-state-title--line-height: 20px;
+  --text-knowledge-empty-state-body: 13px;
+  --text-knowledge-empty-state-body--line-height: 18px;
   --text-knowledge-search-section-title: 16px;
   --text-knowledge-search-section-title--line-height: 24px;
   --text-knowledge-search-section-title-desktop: 18px;
@@ -204,6 +208,8 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-workspace-proposal-status-dot: 8px;
   --spacing-knowledge-workspace-proposal-status-gap: 6px;
   --spacing-knowledge-workspace-proposal-status-slot: 80px;
+  --spacing-knowledge-empty-state-gap: 8px;
+  --spacing-knowledge-empty-state-padding: 24px;
   --spacing-search-related-result-gap: 8px;
   --spacing-search-related-result-icon-size: 24px;
   --spacing-search-related-result-padding-x: 12px;

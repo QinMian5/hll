@@ -122,6 +122,15 @@ describe("WorkspacePage", () => {
 
     render(<WorkspacePage />);
 
-    expect(screen.getByText("No proposals submitted yet.")).toBeInTheDocument();
+    expect(screen.getByText("No Proposals Yet")).toBeInTheDocument();
+    expect(
+      screen.getByText("Proposals from Search will appear here."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No Proposal Selected")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Proposal details will appear after a proposal is submitted.",
+      ),
+    ).toBeInTheDocument();
   });
 });

@@ -189,6 +189,25 @@ function EmptyPanel({ label }: { readonly label: string }) {
   );
 }
 
+function WorkspaceEmptyState({
+  body,
+  title,
+}: {
+  readonly body: string;
+  readonly title: string;
+}) {
+  return (
+    <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center gap-knowledge-empty-state-gap overflow-hidden p-knowledge-empty-state-padding text-center">
+      <p className="m-0 w-full text-knowledge-empty-state-title font-semibold text-knowledge-text-default">
+        {title}
+      </p>
+      <p className="m-0 w-full text-knowledge-empty-state-body text-knowledge-text-muted">
+        {body}
+      </p>
+    </div>
+  );
+}
+
 function FieldLabel({
   children,
   htmlFor,
@@ -267,7 +286,14 @@ function ProposalDetail({
   readonly proposal: CardProposalResponse | undefined;
 }) {
   if (!proposal) {
-    return <EmptyPanel label="Select a proposal to view details." />;
+    return (
+      <div className="flex min-h-0 w-full flex-1 items-start gap-knowledge-dialog-form-scrollbar-gap overflow-hidden rounded-knowledge-surface border border-knowledge-border-card bg-knowledge-surface-card p-knowledge-dialog-padding">
+        <WorkspaceEmptyState
+          body="Proposal details will appear after a proposal is submitted."
+          title="No Proposal Selected"
+        />
+      </div>
+    );
   }
 
   const typeMeta = proposalTypeMeta[proposal.proposal_type];
@@ -373,7 +399,10 @@ export function WorkspacePage() {
                 />
               ))
             ) : (
-              <EmptyPanel label="No proposals submitted yet." />
+              <WorkspaceEmptyState
+                body="Proposals from Search will appear here."
+                title="No Proposals Yet"
+              />
             )}
           </ScrollArea>
         </section>
