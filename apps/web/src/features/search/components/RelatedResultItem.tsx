@@ -2,6 +2,7 @@
 // out_of_scope: Search page query state and backend related-title generation.
 
 import { ArrowRight, ChevronRight } from "lucide-react";
+import { Skeleton } from "../../../shared/ui/skeleton";
 
 interface RelatedResultItemProps {
   readonly onSelect: (title: string) => void;
@@ -42,5 +43,21 @@ export function RelatedResultItem({ onSelect, title }: RelatedResultItemProps) {
         </span>
       </span>
     </button>
+  );
+}
+
+export function RelatedResultItemSkeleton() {
+  return (
+    <div
+      aria-hidden="true"
+      className="flex h-10 w-full shrink-0 items-center justify-between gap-search-related-result-gap rounded-lg border border-knowledge-border-subtle bg-[rgba(255,255,255,0.7)] px-search-related-result-padding-x py-search-related-result-padding-y"
+      data-testid="related-result-item-skeleton"
+    >
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 overflow-hidden">
+        <Skeleton className="h-3 w-[58%] max-w-36 shrink-0" />
+        <Skeleton className="h-2 w-[40%] max-w-24 shrink-0" />
+      </div>
+      <Skeleton className="size-search-related-result-icon-size shrink-0" />
+    </div>
   );
 }

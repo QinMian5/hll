@@ -13,6 +13,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --font-serif: var(--font-knowledge-geist);
 
   --color-knowledge-brand: #006bff;
+  --color-knowledge-brand-disabled: #8cb9ff;
   --color-knowledge-brand-hover: #005ee0;
   --color-knowledge-danger: #d83232;
   --color-knowledge-danger-hover: #bf2525;
@@ -28,6 +29,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --color-knowledge-surface-hover: rgb(226 234 246 / 58%);
   --color-knowledge-surface-input: rgb(255 255 255 / 82%);
   --color-knowledge-surface-input-readonly: rgb(248 250 252 / 94%);
+  --color-knowledge-skeleton: #e2eaf6;
   --color-knowledge-border-card: rgb(214 227 247 / 86%);
   --color-knowledge-border-control: rgb(214 227 247 / 96%);
   --color-knowledge-border-input: #e5e5e5;

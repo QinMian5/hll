@@ -8,4 +8,5 @@ export * from "./input";
 export * from "./knowledge-rich-text";
 export * from "./page-header";
 export * from "./scroll-area";
+export * from "./skeleton";
 export * from "./textarea";

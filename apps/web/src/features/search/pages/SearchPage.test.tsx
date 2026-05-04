@@ -171,6 +171,56 @@ describe("SearchPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("uses the single Figma loading skeleton state while search is fetching", async () => {
+    const stalePayload: SearchResponse = {
+      connected_titles: ["Existing related result"],
+      matched_cards: [
+        {
+          content: "Existing result body.",
+          current_version: 1,
+          node_id: 10,
+          title: "Existing result",
+        },
+      ],
+    };
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: stalePayload,
+        error: null,
+        isError: false,
+        isFetching: true,
+        isPending: false,
+      }),
+    );
+
+    renderSearchRoute("/search?q=matrix");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("search-results-grid")).toBeInTheDocument(),
+    );
+
+    const addCardButton = screen.getByRole("button", { name: "Add Card" });
+    expect(addCardButton).toBeDisabled();
+    expect(addCardButton).toHaveClass(
+      "bg-knowledge-brand-disabled",
+      "disabled:hover:bg-knowledge-brand-disabled",
+    );
+    expect(screen.getAllByTestId("search-result-card-skeleton")).toHaveLength(
+      6,
+    );
+    expect(screen.getAllByTestId("related-result-item-skeleton")).toHaveLength(
+      12,
+    );
+    expect(screen.queryByText("Existing result")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Existing related result" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Searching Knowledge Cards"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Updating Results")).not.toBeInTheDocument();
+  });
+
   it("shows a quota-specific error when search is rate limited", async () => {
     mockUseSearchQuery.mockReturnValue(
       mockSearchQueryResult({

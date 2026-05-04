@@ -16,6 +16,11 @@ const buttonVariantClasses = {
     "border border-knowledge-border-control bg-knowledge-surface-control text-knowledge-text-default hover:border-docs-border-accent hover:bg-knowledge-surface-hover disabled:border-knowledge-border-subtle disabled:text-knowledge-text-muted disabled:hover:border-knowledge-border-subtle disabled:hover:bg-knowledge-surface-control",
 } as const;
 
+const disabledButtonVariantClasses = {
+  default:
+    "bg-knowledge-brand-disabled text-knowledge-text-inverse hover:bg-knowledge-brand-disabled disabled:hover:bg-knowledge-brand-disabled",
+} as const;
+
 const buttonSizeClasses = {
   default:
     "h-knowledge-control min-w-[92px] rounded-knowledge-control px-knowledge-action-button-x text-knowledge-button whitespace-nowrap",
@@ -32,19 +37,28 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({
   className,
+  disabled,
   size = "default",
   type = "button",
   variant = "default",
   ...props
 }: ButtonProps) {
+  const variantClasses =
+    disabled && variant in disabledButtonVariantClasses
+      ? disabledButtonVariantClasses[
+          variant as keyof typeof disabledButtonVariantClasses
+        ]
+      : buttonVariantClasses[variant];
+
   return (
     <button
       className={cn(
         "inline-flex items-center justify-center gap-knowledge-action-button-content-gap font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand disabled:cursor-not-allowed disabled:opacity-100",
-        buttonVariantClasses[variant],
+        variantClasses,
         buttonSizeClasses[size],
         className,
       )}
+      disabled={disabled}
       type={type}
       {...props}
     />

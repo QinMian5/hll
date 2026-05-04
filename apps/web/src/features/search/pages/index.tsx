@@ -7,7 +7,10 @@ import { type FormEvent, lazy, Suspense, useState } from "react";
 import { Button } from "../../../shared/ui/button";
 import { WebApiRequestError } from "../../../shared/web-api/errors";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
-import { RelatedResultItem } from "../components/RelatedResultItem";
+import {
+  RelatedResultItem,
+  RelatedResultItemSkeleton,
+} from "../components/RelatedResultItem";
 import {
   SearchCardProposalDialog,
   type SearchCardProposalMode,
@@ -15,6 +18,7 @@ import {
 } from "../components/SearchCardProposalDialog";
 import { SearchField } from "../components/SearchField";
 import type { SearchResultCardEditPayload } from "../components/SearchResultCard";
+import { SearchResultCardSkeleton } from "../components/SearchResultCardSkeleton";
 import { SignInRequiredDialog } from "../components/SignInRequiredDialog";
 import {
   useCreateCardProposalMutation,
@@ -27,6 +31,29 @@ const SearchResultCard = lazy(() =>
     default: module.SearchResultCard,
   })),
 );
+
+const SEARCH_LOADING_CARD_SKELETON_KEYS = [
+  "search-result-card-skeleton-1",
+  "search-result-card-skeleton-2",
+  "search-result-card-skeleton-3",
+  "search-result-card-skeleton-4",
+  "search-result-card-skeleton-5",
+  "search-result-card-skeleton-6",
+] as const;
+const RELATED_LOADING_ITEM_SKELETON_KEYS = [
+  "related-result-item-skeleton-1",
+  "related-result-item-skeleton-2",
+  "related-result-item-skeleton-3",
+  "related-result-item-skeleton-4",
+  "related-result-item-skeleton-5",
+  "related-result-item-skeleton-6",
+  "related-result-item-skeleton-7",
+  "related-result-item-skeleton-8",
+  "related-result-item-skeleton-9",
+  "related-result-item-skeleton-10",
+  "related-result-item-skeleton-11",
+  "related-result-item-skeleton-12",
+] as const;
 
 function normalizeQuery(value: string | undefined): string {
   return value?.trim() ?? "";
@@ -65,11 +92,14 @@ export function SearchPage() {
   } | null>(null);
   const [proposalError, setProposalError] = useState<string | undefined>();
   const [isSignInDialogOpen, setIsSignInDialogOpen] = useState(false);
+  const isSearchLoading =
+    hasQuery && (searchQuery.isPending || searchQuery.isFetching);
   const matchedCards = searchQuery.data?.matched_cards ?? [];
   const connectedTitles = searchQuery.data?.connected_titles ?? [];
-  const errorCopy = searchQuery.isError
-    ? searchErrorCopy(searchQuery.error)
-    : null;
+  const errorCopy =
+    !isSearchLoading && searchQuery.isError
+      ? searchErrorCopy(searchQuery.error)
+      : null;
 
   function navigateToSearchQuery(nextQuery: string) {
     const normalizedNextQuery = normalizeQuery(nextQuery);
@@ -196,6 +226,7 @@ export function SearchPage() {
                 </h1>
                 <Button
                   className="shrink-0 gap-2"
+                  disabled={isSearchLoading}
                   onClick={() => {
                     openProposalDialog({ mode: "create" });
                   }}
@@ -226,24 +257,28 @@ export function SearchPage() {
                     className="group/search-results-grid grid w-full auto-rows-[200px] grid-cols-1 gap-2 pb-1 sm:grid-cols-2 lg:auto-rows-[200px] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
                     data-testid="search-results-grid"
                   >
-                    <Suspense fallback={null}>
-                      {matchedCards.map((card) => (
-                        <SearchResultCard
-                          content={card.content}
-                          currentVersion={card.current_version}
-                          key={card.node_id}
-                          nodeId={card.node_id}
-                          onSearchTitle={navigateToSearchQuery}
-                          onSuggestEdit={(selectedCard) => {
-                            openProposalDialog({
-                              card: selectedCard,
-                              mode: "edit",
-                            });
-                          }}
-                          title={card.title}
-                        />
-                      ))}
-                    </Suspense>
+                    {isSearchLoading ? (
+                      <SearchResultCardSkeletonList />
+                    ) : (
+                      <Suspense fallback={<SearchResultCardSkeletonList />}>
+                        {matchedCards.map((card) => (
+                          <SearchResultCard
+                            content={card.content}
+                            currentVersion={card.current_version}
+                            key={card.node_id}
+                            nodeId={card.node_id}
+                            onSearchTitle={navigateToSearchQuery}
+                            onSuggestEdit={(selectedCard) => {
+                              openProposalDialog({
+                                card: selectedCard,
+                                mode: "edit",
+                              });
+                            }}
+                            title={card.title}
+                          />
+                        ))}
+                      </Suspense>
+                    )}
                   </div>
                 )}
               </div>
@@ -259,13 +294,17 @@ export function SearchPage() {
                 className="group/search-suggestions-list flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden pt-1 pr-1 pb-1 pl-px [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-suggestions-scroll-area"
               >
-                {connectedTitles.map((suggestion) => (
-                  <RelatedResultItem
-                    key={suggestion}
-                    onSelect={navigateToSearchQuery}
-                    title={suggestion}
-                  />
-                ))}
+                {isSearchLoading ? (
+                  <RelatedResultItemSkeletonList />
+                ) : (
+                  connectedTitles.map((suggestion) => (
+                    <RelatedResultItem
+                      key={suggestion}
+                      onSelect={navigateToSearchQuery}
+                      title={suggestion}
+                    />
+                  ))
+                )}
               </div>
             </section>
           </div>
@@ -293,4 +332,16 @@ export function SearchPage() {
       ) : null}
     </main>
   );
+}
+
+function SearchResultCardSkeletonList() {
+  return SEARCH_LOADING_CARD_SKELETON_KEYS.map((key) => (
+    <SearchResultCardSkeleton key={key} />
+  ));
+}
+
+function RelatedResultItemSkeletonList() {
+  return RELATED_LOADING_ITEM_SKELETON_KEYS.map((key) => (
+    <RelatedResultItemSkeleton key={key} />
+  ));
 }
