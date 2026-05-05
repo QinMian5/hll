@@ -7,18 +7,21 @@ Out of scope: Service-layer business workflow and API transport contracts.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import ClassVar
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
     Computed,
     DateTime,
+    FetchedValue,
     Float,
     ForeignKey,
     Index,
     Integer,
     Text,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
@@ -34,6 +37,7 @@ NODE_SEARCH_VECTOR_SQL = (
 
 class Node(Base):
     __tablename__ = "nodes"
+    __mapper_args__: ClassVar[dict[str, bool]] = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str] = mapped_column(Text, nullable=False)
@@ -64,7 +68,8 @@ class Node(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
+        server_onupdate=FetchedValue(),
         nullable=False,
     )
 
@@ -111,6 +116,7 @@ class CardVersion(Base):
 
 class WorkspaceRole(Base):
     __tablename__ = "workspace_roles"
+    __mapper_args__: ClassVar[dict[str, bool]] = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(Text, nullable=False)
@@ -131,7 +137,8 @@ class WorkspaceRole(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
+        server_onupdate=FetchedValue(),
         nullable=False,
     )
 
@@ -151,6 +158,7 @@ class WorkspaceRole(Base):
 
 class CardProposal(Base):
     __tablename__ = "card_proposals"
+    __mapper_args__: ClassVar[dict[str, bool]] = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     proposal_type: Mapped[str] = mapped_column(Text, nullable=False)
@@ -173,7 +181,8 @@ class CardProposal(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
+        server_onupdate=FetchedValue(),
         nullable=False,
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -224,6 +233,7 @@ class ProposalApplyAudit(Base):
 
 class Edge(Base):
     __tablename__ = "edges"
+    __mapper_args__: ClassVar[dict[str, bool]] = {"eager_defaults": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     node_a_id: Mapped[int] = mapped_column(
@@ -243,7 +253,8 @@ class Edge(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
+        server_onupdate=FetchedValue(),
         nullable=False,
     )
 
@@ -259,6 +270,7 @@ class Edge(Base):
 
 class Adjacency(Base):
     __tablename__ = "adjacency"
+    __mapper_args__: ClassVar[dict[str, bool]] = {"eager_defaults": True}
 
     node_id: Mapped[int] = mapped_column(
         ForeignKey("nodes.id", ondelete="CASCADE"),
@@ -276,7 +288,8 @@ class Adjacency(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("CURRENT_TIMESTAMP"),
-        onupdate=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
+        server_onupdate=FetchedValue(),
         nullable=False,
     )
 

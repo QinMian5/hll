@@ -68,6 +68,31 @@ async def test_create_card_suggested_edit_persists_unified_pending_proposal(
     }
 
 
+async def test_mark_card_proposal_withdrawn_returns_updated_record(
+    db_session: AsyncSession,
+) -> None:
+    repo = KnowledgeRepo(session=db_session)
+    created = await repo.create_card_proposal(
+        proposal_type="edit",
+        submitted_by_user_id="logto-user-123",
+        reason="The current card should be cancelled.",
+        payload={
+            "target_node_id": 1,
+            "base_version": 1,
+            "suggested_title": "Better title",
+            "suggested_content": "Better content",
+        },
+    )
+
+    record = await repo.mark_card_proposal_withdrawn(proposal_id=created.id)
+
+    stored = await db_session.scalar(select(CardProposal).where(CardProposal.id == record.id))
+    assert stored is not None
+    assert record.status == "withdrawn"
+    assert stored.status == "withdrawn"
+    assert record.updated_at is not None
+
+
 async def test_submit_card_proposal_requires_existing_base_version(
     db_session: AsyncSession,
 ) -> None:

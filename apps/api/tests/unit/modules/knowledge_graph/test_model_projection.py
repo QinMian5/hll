@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import cast
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import CheckConstraint, DateTime, Table, UniqueConstraint
+from sqlalchemy import CheckConstraint, DateTime, FetchedValue, Table, UniqueConstraint
 from sqlalchemy.dialects.postgresql import TSVECTOR
 
 from modules.knowledge_graph.model import (
@@ -221,6 +221,14 @@ def test_node_and_edge_timestamp_columns_are_present_and_required() -> None:
         assert updated_at_type.timezone is True
         assert created_at_column.nullable is False
         assert updated_at_column.nullable is False
+
+
+def test_models_with_updated_timestamps_eagerly_fetch_update_defaults() -> None:
+    for model in (Node, WorkspaceRole, CardProposal, Edge, Adjacency):
+        updated_at_column = model.__table__.c.updated_at
+
+        assert model.__mapper__.eager_defaults is True
+        assert isinstance(updated_at_column.server_onupdate, FetchedValue)
 
 
 def test_edges_foreign_keys_use_cascade_delete() -> None:
