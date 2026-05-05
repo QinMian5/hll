@@ -323,7 +323,7 @@ describe("LeafDeckScene", () => {
     ).toEqual([10, 20]);
   });
 
-  it("uses the 2x readable graph pixel sizing for leaf layers without point strokes", () => {
+  it("uses world-sized points with fixed-width pixel edges", () => {
     renderScene({ activeFocusNodeId: 10, hiddenLabelNodeId: null });
 
     const edgeLayer = findLayer("taxonomy-leaf-edges");
@@ -333,9 +333,13 @@ describe("LeafDeckScene", () => {
 
     expect(edgeLayer?.props.getWidth).toBeTypeOf("function");
     expect((edgeLayer?.props.getWidth as () => number)()).toBe(2);
+    expect(edgeLayer?.props.widthUnits).toBe("pixels");
     expect(highlightEdgeLayer?.props.getWidth).toBeTypeOf("function");
     expect((highlightEdgeLayer?.props.getWidth as () => number)()).toBe(3);
+    expect(highlightEdgeLayer?.props.widthUnits).toBe("pixels");
     expect(pointLayer?.props.stroked).toBe(false);
+    expect(pointLayer?.props.radiusUnits).toBe("common");
+    expect(focusHaloLayer?.props.radiusUnits).toBe("common");
 
     const haloNodes = focusHaloLayer?.props.data as
       | readonly LeafScenePointNode[]

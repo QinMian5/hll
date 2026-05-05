@@ -187,7 +187,7 @@ export function LeafDeckScene({
         getRadius: (node) => (node.graphNodeId === activeFocusNodeId ? 32 : 24),
         id: "taxonomy-leaf-focus-halos",
         pickable: false,
-        radiusUnits: "pixels",
+        radiusUnits: "common",
         stroked: false,
       }),
       new ScatterplotLayer<LeafScenePointNode>({
@@ -233,7 +233,7 @@ export function LeafDeckScene({
           onPointHover(node?.graphNodeId ?? null);
         },
         pickable: isPointInteractionEnabled,
-        radiusUnits: "pixels",
+        radiusUnits: "common",
         stroked: false,
       }),
       new TextLayer<LeafSceneTitleLabelNode>({
