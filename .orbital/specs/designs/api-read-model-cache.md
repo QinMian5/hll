@@ -12,7 +12,7 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 
 ## Context
 - **Purpose:** Define the API-owned read-model cache boundary for public high-concurrency reads that reach the private API through the web BFF or public MCP service.
-- **Scope/Boundaries:** Covers cache ownership, cacheable read surfaces, key construction, TTL policy, stale-read semantics, cache failure behavior, durable taxonomy layout read models, configuration, and validation expectations for Search, MCP Search, and Graph View read paths. Excludes Redis deployment topology, web session storage, MCP quota counters, and frontend TanStack Query behavior.
+- **Scope/Boundaries:** Covers cache ownership, cacheable read surfaces, key construction, TTL policy, stale-read semantics, cache failure behavior, durable taxonomy layout read models, operator precompute orchestration, configuration, and validation expectations for Search, MCP Search, and Graph View read paths. Excludes Redis deployment topology, web session storage, MCP quota counters, and frontend TanStack Query behavior.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-005, R-006, R-007.
 
 ## Constraint Projection
@@ -35,6 +35,7 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
   - **Fail-soft reads:** Redis read, write, decode, or validation failures do not fail public read requests that can be served through bounded authoritative read flow. The API logs the cache failure, treats it as a cache miss, and returns data from authoritative dependencies when those dependencies succeed.
   - **Card-scope layout readiness:** Full layout read models are required for taxonomy card-scope metadata and viewport layout responses. Missing durable layout read models return `503 layout_not_ready` with `Retry-After` after one PostgreSQL-backed compute request is registered for the scope/version/input fingerprint. Stale durable layout read models are returned with a refreshing status while a single background compute refresh is registered.
   - **Request-path compute boundary:** Taxonomy card-scope layout simulation is long-running CPU-bound work and does not run inside API request handlers. The dedicated taxonomy view layout runtime consumes pending compute requests and writes full layout read models.
+  - **Operator precompute boundary:** Card-scope layout precomputation is an operator workflow that enumerates currently valid card-scope scopes, registers missing or stale layout compute work through the taxonomy-owned compute request pipeline, and optionally drains that work through the same runtime processing unit used by the long-running taxonomy view layout runtime.
   - **Payload validation:** Cached JSON payloads must be validated through Pydantic models or existing response contract models before being returned to callers.
 
 ## Cacheable Surfaces
@@ -89,6 +90,11 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 - PostgreSQL compute request state prevents duplicate compute requests for concurrent callers targeting the same scope/version/input fingerprint.
 - The API request path does not run the CPU-bound card-scope layout simulation.
 - The taxonomy view layout runtime consumes pending PostgreSQL compute requests, runs the deterministic layout simulation, writes the durable full layout entry, refreshes the Redis hot cache, and records compute success or failure.
+- The operator precompute workflow discovers card-scope targets using the same taxonomy service semantics that determine whether a route renders as a card-scope view. It covers all currently user-reachable card-scope scopes, including any virtual card-scope scopes produced by the taxonomy view service.
+- The operator precompute workflow supports a queue-only mode that registers compute requests and exits after reporting queued, already-ready, refreshing, failed, and total target counts.
+- The operator precompute workflow supports a wait mode that processes or observes pending compute work until the selected target set has durable ready layouts, a configured timeout is reached, or an unrecoverable error occurs.
+- Operator precompute work uses the existing durable compute request table, layout input fingerprint, layout version, runtime claim/complete/fail semantics, PostgreSQL layout read model, and Redis hot-cache write path. It does not write layout payloads through a separate persistence path.
+- Operator precompute output is machine-readable enough for automation and human-readable enough for release readiness checks. It reports per-scope failures with route path, scope identity, status, and error text.
 - Viewport layout slices are derived from cached full layouts and are not stored as independent Redis response caches.
 - Card-scope title and detail requests are not stored in Redis; frontend local/TanStack caches handle immediate repeated browser hydration.
 
@@ -110,6 +116,8 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 - Taxonomy card-scope layout hot-cache entries do not have a layout TTL setting.
 - Provider wiring injects cache ports into Search and taxonomy services at the API composition root.
 - Feature services remain testable without Redis by accepting optional cache ports or test doubles.
+- Operator precompute composition uses the same database, Redis, taxonomy repo, taxonomy service, and knowledge projection service wiring as the taxonomy view layout runtime. It runs as an explicit operator command rather than as a public HTTP endpoint.
+- Operator precompute wait mode may process compute work in-process by calling the runtime processing unit, or it may observe an already-running taxonomy view layout runtime, but both modes must respect the same compute request state machine and must not start duplicate work for the same scope/version/input fingerprint.
 
 ## Failure Behavior
 - Missing keys are cache misses.
@@ -122,6 +130,9 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 - Card-scope layout stale durable hits are served with a refreshing status and a compute request for the current input fingerprint.
 - Redis dependency failures in the card-scope layout readiness path do not fail requests that can be served from durable PostgreSQL layouts.
 - Authoritative dependency failures still surface through existing error-governance behavior.
+- Operator precompute failures are visible operator failures. The command exits non-zero when target discovery fails, compute registration fails, wait mode times out before all selected targets are ready, or any selected target remains failed at completion.
+- Operator precompute does not mask failed scope computations as successful warmup. Failed scopes remain inspectable through the compute request state and are reported in command output.
+- Queue-only mode may exit successfully after registering work even when compute has not completed, but it must label the result as queued rather than ready.
 
 ## Validation
 - Search cache tests verify response cache hits bypass the embedding provider and knowledge graph read port.
@@ -135,6 +146,9 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 - Taxonomy service tests verify stale durable full card-scope layout read models return data with `layout_status = "refreshing"` and register a background refresh request.
 - Taxonomy cache tests verify card-scope metadata and viewport layout request handlers do not run the CPU-bound layout simulation on cache miss.
 - Taxonomy runtime tests verify the taxonomy view layout runtime consumes pending PostgreSQL compute requests and writes durable full layout read models plus Redis hot-cache entries.
+- Taxonomy operator tests verify precompute target discovery uses the same card-scope semantics as taxonomy view responses and includes virtual card-scope scopes when they are user-reachable.
+- Taxonomy operator tests verify queue-only precompute registers compute requests without building layouts directly.
+- Taxonomy operator tests verify wait-mode precompute uses the runtime processing path, reports ready and failed target counts, and exits non-zero on timeout or failed selected targets.
 - Settings tests verify API cache TTL settings parse from environment and do not include a taxonomy card-scope layout TTL.
 - Provider tests verify cache wiring uses `Settings.redis_url` and does not read Redis configuration from scattered environment variables.
 - Contract drift checks remain unchanged because cache behavior preserves public and private API response contracts.

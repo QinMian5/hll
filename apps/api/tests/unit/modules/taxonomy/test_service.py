@@ -18,8 +18,10 @@ from modules.taxonomy.dto import (
     TaxonomyAssignmentCount,
     TaxonomyAssignmentRecord,
     TaxonomyCardScopeLayout,
+    TaxonomyCardScopeLayoutComputeRequestState,
     TaxonomyCardScopeLayoutNode,
     TaxonomyCardScopeLayoutReadModel,
+    TaxonomyCardScopePrecomputeTarget,
     TaxonomyCardScopeWorldBounds,
     TaxonomyNodeRecord,
     TaxonomyScopeIdentity,
@@ -35,12 +37,20 @@ class _StoredLayout:
 
 
 @dataclass(slots=True)
+class _StoredComputeRequest:
+    input_fingerprint: str
+    status: str
+    last_error: str | None = None
+
+
+@dataclass(slots=True)
 class _StubRepo:
     tree_nodes: list[TaxonomyNodeRecord] = field(default_factory=list)
     assignment_counts: list[TaxonomyAssignmentCount] = field(default_factory=list)
     assigned_node_ids_by_scope: dict[tuple[str, int], list[int]] = field(default_factory=dict)
     projected_edge_ids: list[int] = field(default_factory=list)
     stored_layout: _StoredLayout | None = None
+    compute_request: _StoredComputeRequest | None = None
     requested_layout_computes: list[tuple[TaxonomyScopeIdentity, str]] = field(default_factory=list)
     stored_layout_writes: list[tuple[TaxonomyScopeIdentity, str, TaxonomyCardScopeLayout]] = field(
         default_factory=list
@@ -101,6 +111,20 @@ class _StubRepo:
     ) -> _StoredLayout | None:
         return self.stored_layout
 
+    async def get_card_scope_layout_compute_request_state(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+    ) -> TaxonomyCardScopeLayoutComputeRequestState | None:
+        if self.compute_request is None:
+            return None
+        return TaxonomyCardScopeLayoutComputeRequestState(
+            input_fingerprint=self.compute_request.input_fingerprint,
+            status=self.compute_request.status,
+            last_error=self.compute_request.last_error,
+        )
+
     async def upsert_card_scope_layout_read_model(
         self,
         *,
@@ -119,6 +143,10 @@ class _StubRepo:
         input_fingerprint: str,
     ) -> bool:
         self.requested_layout_computes.append((scope_identity, input_fingerprint))
+        self.compute_request = _StoredComputeRequest(
+            input_fingerprint=input_fingerprint,
+            status="pending",
+        )
         return True
 
     async def add_projected_edge_ids_for_scope(
@@ -286,6 +314,172 @@ def _fingerprint_for_inner_nodes(node_ids: list[int]) -> str:
             scope_by_node_id=dict.fromkeys(node_ids, "inner"),
         )
     )
+
+
+def _precompute_tree() -> list[TaxonomyNodeRecord]:
+    return [
+        TaxonomyNodeRecord(id=1, parent_id=None, name="Root", route_slug="root", depth=0),
+        TaxonomyNodeRecord(id=2, parent_id=1, name="Science", route_slug="science", depth=1),
+        TaxonomyNodeRecord(id=3, parent_id=1, name="Math", route_slug="math", depth=1),
+        TaxonomyNodeRecord(id=4, parent_id=2, name="Heat", route_slug="heat", depth=2),
+    ]
+
+
+@pytest.mark.anyio
+async def test_card_scope_precompute_targets_match_user_enterable_card_scopes() -> None:
+    repo = _StubRepo(
+        tree_nodes=_precompute_tree(),
+        assignment_counts=[
+            TaxonomyAssignmentCount(taxonomy_node_id=1, card_count=2),
+            TaxonomyAssignmentCount(taxonomy_node_id=2, card_count=3),
+            TaxonomyAssignmentCount(taxonomy_node_id=3, card_count=7),
+            TaxonomyAssignmentCount(taxonomy_node_id=4, card_count=5),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    targets = await service.list_card_scope_precompute_targets()
+
+    assert [
+        (
+            target.route_path,
+            target.scope_identity.scope_kind,
+            target.scope_identity.taxonomy_node_id,
+        )
+        for target in targets
+    ] == [
+        ("math", TAXONOMY_NODE_SCOPE_KIND, 3),
+        ("science/heat", TAXONOMY_NODE_SCOPE_KIND, 4),
+        ("science/unclassified", VIRTUAL_UNCLASSIFIED_SCOPE_KIND, 2),
+        ("unclassified", VIRTUAL_UNCLASSIFIED_SCOPE_KIND, 1),
+    ]
+
+
+@pytest.mark.anyio
+async def test_card_scope_precompute_prepare_queues_missing_layout_without_building() -> None:
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=2,
+    )
+    target = TaxonomyCardScopePrecomputeTarget(
+        scope_identity=scope_identity,
+        route_path="science",
+        name="Science",
+    )
+    repo = _StubRepo(
+        tree_nodes=_tree(),
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 2): [11]},
+    )
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=_StubViewCache(layout=None),
+    )
+
+    result = await service.prepare_card_scope_layout_precompute_target(target=target)
+
+    assert result.status == "queued"
+    assert result.target == target
+    assert repo.requested_layout_computes == [
+        (scope_identity, _fingerprint_for_inner_nodes([11])),
+    ]
+    assert repo.stored_layout_writes == []
+    assert repo.committed is True
+
+
+@pytest.mark.anyio
+async def test_card_scope_precompute_prepare_returns_ready_for_current_durable_layout() -> None:
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=2,
+    )
+    target = TaxonomyCardScopePrecomputeTarget(
+        scope_identity=scope_identity,
+        route_path="science",
+        name="Science",
+    )
+    repo = _StubRepo(
+        tree_nodes=_tree(),
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 2): [11]},
+        stored_layout=_StoredLayout(
+            input_fingerprint=_fingerprint_for_inner_nodes([11]),
+            layout=_layout(),
+        ),
+    )
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=_StubViewCache(layout=None),
+    )
+
+    result = await service.prepare_card_scope_layout_precompute_target(target=target)
+
+    assert result.status == "ready"
+    assert repo.requested_layout_computes == []
+
+
+@pytest.mark.anyio
+async def test_card_scope_precompute_prepare_refreshes_stale_layout() -> None:
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=2,
+    )
+    target = TaxonomyCardScopePrecomputeTarget(
+        scope_identity=scope_identity,
+        route_path="science",
+        name="Science",
+    )
+    repo = _StubRepo(
+        tree_nodes=_tree(),
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 2): [11, 12]},
+        stored_layout=_StoredLayout(input_fingerprint="old-fingerprint", layout=_layout()),
+    )
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=_StubViewCache(layout=None),
+    )
+
+    result = await service.prepare_card_scope_layout_precompute_target(target=target)
+
+    assert result.status == "refreshing"
+    assert repo.requested_layout_computes == [
+        (scope_identity, _fingerprint_for_inner_nodes([11, 12])),
+    ]
+
+
+@pytest.mark.anyio
+async def test_card_scope_precompute_prepare_reports_failed_current_compute() -> None:
+    scope_identity = TaxonomyScopeIdentity(
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+        taxonomy_node_id=2,
+    )
+    target = TaxonomyCardScopePrecomputeTarget(
+        scope_identity=scope_identity,
+        route_path="science",
+        name="Science",
+    )
+    current_fingerprint = _fingerprint_for_inner_nodes([11])
+    repo = _StubRepo(
+        tree_nodes=_tree(),
+        assigned_node_ids_by_scope={(TAXONOMY_NODE_SCOPE_KIND, 2): [11]},
+        compute_request=_StoredComputeRequest(
+            input_fingerprint=current_fingerprint,
+            status="failed",
+            last_error="layout compute failed",
+        ),
+    )
+    service = TaxonomyService(
+        repo=repo,
+        knowledge_projection_port=_StubProjectionPort(),
+        view_cache=_StubViewCache(layout=None),
+    )
+
+    result = await service.prepare_card_scope_layout_precompute_target(target=target)
+
+    assert result.status == "failed"
+    assert result.error_message == "layout compute failed"
+    assert repo.requested_layout_computes == []
 
 
 @pytest.mark.anyio

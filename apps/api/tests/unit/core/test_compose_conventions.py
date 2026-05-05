@@ -28,6 +28,7 @@ MCP_RUN_SCRIPT = REPO_ROOT / "infra" / "docker" / "mcp" / "run-mcp.sh"
 TAXONOMY_VIEW_LAYOUT_RUN_SCRIPT = (
     REPO_ROOT / "infra" / "docker" / "api" / "run-taxonomy-view-layout-runtime.sh"
 )
+TAXONOMY_LAYOUT_PRECOMPUTE_SCRIPT = REPO_ROOT / "scripts" / "taxonomy-layout-precompute.sh"
 RESOURCE_FIELDS = ("mem_limit", "memswap_limit", "cpus", "pids_limit")
 EXPECTED_PROD_RESOURCE_BUDGETS = {
     "postgres": {"mem_limit": "1536m", "memswap_limit": "1536m", "cpus": 1.5, "pids_limit": 256},
@@ -315,7 +316,9 @@ def test_base_compose_defines_web_healthcheck() -> None:
             "CMD",
             "node",
             "-e",
-            "require('http').get('http://127.0.0.1:5173/', (response) => process.exit(response.statusCode && response.statusCode >= 200 && response.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))",
+            "require('http').get('http://127.0.0.1:5173/', (response) => "
+            "process.exit(response.statusCode && response.statusCode >= 200 && "
+            "response.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))",
         ],
         "interval": "10s",
         "timeout": "5s",
@@ -796,6 +799,12 @@ def test_taxonomy_view_layout_runtime_startup_script_uses_module_entrypoint() ->
     script = _read(TAXONOMY_VIEW_LAYOUT_RUN_SCRIPT)
 
     assert "python -m entrypoints.taxonomy_view_layout_runtime" in script
+
+
+def test_taxonomy_layout_precompute_script_uses_operator_module_entrypoint() -> None:
+    script = _read(TAXONOMY_LAYOUT_PRECOMPUTE_SCRIPT)
+
+    assert "uv run python -m entrypoints.ops.taxonomy_layout_precompute" in script
 
 
 def test_dev_and_prod_compose_define_mcp_image_and_ingress_dependencies() -> None:

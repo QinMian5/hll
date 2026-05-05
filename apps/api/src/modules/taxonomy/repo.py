@@ -18,6 +18,8 @@ from modules.taxonomy.dto import (
     TaxonomyAssignmentCount,
     TaxonomyAssignmentRecord,
     TaxonomyCardScopeLayoutComputeClaim,
+    TaxonomyCardScopeLayoutComputeRequestState,
+    TaxonomyCardScopeLayoutComputeStatus,
     TaxonomyCardScopeLayoutReadModel,
     TaxonomyNodeRecord,
     TaxonomyScopeAssignment,
@@ -439,6 +441,25 @@ class TaxonomyRepo:
                 taxonomy_node_id=request.taxonomy_node_id,
             ),
             input_fingerprint=request.input_fingerprint,
+        )
+
+    async def get_card_scope_layout_compute_request_state(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+    ) -> TaxonomyCardScopeLayoutComputeRequestState | None:
+        request = await self._get_card_scope_layout_compute_request(
+            scope_identity=scope_identity,
+            layout_version=layout_version,
+        )
+        if request is None:
+            return None
+
+        return TaxonomyCardScopeLayoutComputeRequestState(
+            input_fingerprint=request.input_fingerprint,
+            status=cast(TaxonomyCardScopeLayoutComputeStatus, request.status),
+            last_error=request.last_error,
         )
 
     async def complete_card_scope_layout_compute(

@@ -55,6 +55,8 @@ class TaxonomyAssignmentRecord(BaseModel):
 
 TaxonomyScopeKind = Literal["taxonomy_node", "virtual_unclassified"]
 TaxonomyCardScopeLayoutStatus = Literal["ready", "refreshing"]
+TaxonomyCardScopeLayoutComputeStatus = Literal["pending", "running", "succeeded", "failed"]
+TaxonomyCardScopePrecomputeStatus = Literal["ready", "queued", "refreshing", "failed"]
 
 
 class TaxonomyScopeIdentity(BaseModel):
@@ -134,6 +136,42 @@ class TaxonomyCardScopeLayoutComputeClaim(BaseModel):
 
     scope_identity: TaxonomyScopeIdentity
     input_fingerprint: str = Field(min_length=1)
+
+
+class TaxonomyCardScopeLayoutComputeRequestState(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    input_fingerprint: str = Field(min_length=1)
+    status: TaxonomyCardScopeLayoutComputeStatus
+    last_error: str | None = None
+
+
+class TaxonomyCardScopePrecomputeTarget(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    scope_identity: TaxonomyScopeIdentity
+    route_path: str
+    name: NonEmptyString
+
+
+class TaxonomyCardScopePrecomputeResult(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    target: TaxonomyCardScopePrecomputeTarget
+    status: TaxonomyCardScopePrecomputeStatus
+    input_fingerprint: str = Field(min_length=1)
+    error_message: str | None = None
+
+
+class TaxonomyCardScopePrecomputeSummary(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    total: int = Field(ge=0)
+    ready: int = Field(ge=0)
+    queued: int = Field(ge=0)
+    refreshing: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    results: list[TaxonomyCardScopePrecomputeResult]
 
 
 class TaxonomyCardScopeLayoutSlice(BaseModel):

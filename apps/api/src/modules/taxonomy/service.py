@@ -21,10 +21,13 @@ from modules.taxonomy.dto import (
     TaxonomyAssignmentRecord,
     TaxonomyCardScopeLayout,
     TaxonomyCardScopeLayoutComputeClaim,
+    TaxonomyCardScopeLayoutComputeRequestState,
     TaxonomyCardScopeLayoutEdge,
     TaxonomyCardScopeLayoutNode,
     TaxonomyCardScopeLayoutReadModel,
     TaxonomyCardScopeLayoutStatus,
+    TaxonomyCardScopePrecomputeResult,
+    TaxonomyCardScopePrecomputeTarget,
     TaxonomyNodeRecord,
     TaxonomyScopeAssignment,
     TaxonomyScopeIdentity,
@@ -107,6 +110,13 @@ class TaxonomyRepoProtocol(Protocol):
         layout_version: str,
         input_fingerprint: str,
     ) -> bool: ...
+
+    async def get_card_scope_layout_compute_request_state(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        layout_version: str,
+    ) -> TaxonomyCardScopeLayoutComputeRequestState | None: ...
 
     async def claim_card_scope_layout_compute(
         self,
@@ -426,6 +436,130 @@ class TaxonomyService:
         if view.node_kind == "branch":
             await self._set_cached_path_view(route_path=route_path, view=view)
         return view
+
+    async def list_card_scope_precompute_targets(
+        self,
+    ) -> list[TaxonomyCardScopePrecomputeTarget]:
+        tree_context = await self._load_tree_context()
+        descendant_counts = await self._load_descendant_card_counts(
+            node_by_id=tree_context.node_by_id,
+            child_ids_by_parent=tree_context.child_ids_by_parent,
+        )
+        direct_counts = await self._load_direct_card_counts(node_by_id=tree_context.node_by_id)
+        targets: list[TaxonomyCardScopePrecomputeTarget] = []
+        for node in sorted(
+            tree_context.node_by_id.values(),
+            key=lambda item: (tree_context.route_paths_by_id[item.id], item.id),
+        ):
+            if descendant_counts[node.id] <= 0:
+                continue
+            visible_child_ids = _visible_child_ids(
+                node_id=node.id,
+                child_ids_by_parent=tree_context.child_ids_by_parent,
+                descendant_counts=descendant_counts,
+            )
+            if visible_child_ids:
+                if direct_counts[node.id] > 0:
+                    virtual_scope = _virtual_unclassified_scope_from_parent(
+                        node,
+                        parent_route_path=tree_context.route_paths_by_id[node.id],
+                    )
+                    targets.append(
+                        TaxonomyCardScopePrecomputeTarget(
+                            scope_identity=TaxonomyScopeIdentity(
+                                scope_kind=VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
+                                taxonomy_node_id=node.id,
+                            ),
+                            route_path=virtual_scope.route_path,
+                            name=virtual_scope.name,
+                        )
+                    )
+                continue
+
+            targets.append(
+                TaxonomyCardScopePrecomputeTarget(
+                    scope_identity=TaxonomyScopeIdentity(
+                        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
+                        taxonomy_node_id=node.id,
+                    ),
+                    route_path=tree_context.route_paths_by_id[node.id],
+                    name=node.name,
+                )
+            )
+
+        return sorted(targets, key=lambda target: (target.route_path, target.name))
+
+    async def prepare_card_scope_layout_precompute_target(
+        self,
+        *,
+        target: TaxonomyCardScopePrecomputeTarget,
+    ) -> TaxonomyCardScopePrecomputeResult:
+        graph = await self._build_card_scope_graph_projection(scope_identity=target.scope_identity)
+        input_fingerprint = _card_scope_layout_input_fingerprint(graph)
+        cached_layout = await self._get_cached_card_scope_layout(
+            scope_identity=target.scope_identity
+        )
+        if cached_layout is not None and cached_layout.input_fingerprint == input_fingerprint:
+            return TaxonomyCardScopePrecomputeResult(
+                target=target,
+                status="ready",
+                input_fingerprint=input_fingerprint,
+            )
+
+        stored_layout = await self._repo.get_card_scope_layout_read_model(
+            scope_identity=target.scope_identity,
+            layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+        )
+        if stored_layout is not None and stored_layout.input_fingerprint == input_fingerprint:
+            await self._set_cached_card_scope_layout(
+                scope_identity=target.scope_identity,
+                input_fingerprint=input_fingerprint,
+                layout=stored_layout.layout,
+            )
+            return TaxonomyCardScopePrecomputeResult(
+                target=target,
+                status="ready",
+                input_fingerprint=input_fingerprint,
+            )
+
+        has_stale_layout = cached_layout is not None or stored_layout is not None
+        existing_request = await self._repo.get_card_scope_layout_compute_request_state(
+            scope_identity=target.scope_identity,
+            layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+        )
+        if existing_request is not None and existing_request.input_fingerprint == input_fingerprint:
+            if existing_request.status == "failed":
+                return TaxonomyCardScopePrecomputeResult(
+                    target=target,
+                    status="failed",
+                    input_fingerprint=input_fingerprint,
+                    error_message=existing_request.last_error,
+                )
+            if existing_request.status in {"pending", "running"}:
+                return TaxonomyCardScopePrecomputeResult(
+                    target=target,
+                    status="refreshing" if has_stale_layout else "queued",
+                    input_fingerprint=input_fingerprint,
+                )
+
+        try:
+            await self._request_card_scope_layout_compute_strict(
+                scope_identity=target.scope_identity,
+                input_fingerprint=input_fingerprint,
+            )
+        except Exception as exc:
+            return TaxonomyCardScopePrecomputeResult(
+                target=target,
+                status="failed",
+                input_fingerprint=input_fingerprint,
+                error_message=str(exc),
+            )
+
+        return TaxonomyCardScopePrecomputeResult(
+            target=target,
+            status="refreshing" if has_stale_layout else "queued",
+            input_fingerprint=input_fingerprint,
+        )
 
     async def _resolve_card_scope_by_route_path(
         self,
@@ -1105,6 +1239,24 @@ class TaxonomyService:
                 operation="request",
                 exc=exc,
             )
+
+    async def _request_card_scope_layout_compute_strict(
+        self,
+        *,
+        scope_identity: TaxonomyScopeIdentity,
+        input_fingerprint: str,
+    ) -> bool:
+        try:
+            requested = await self._repo.request_card_scope_layout_compute(
+                scope_identity=scope_identity,
+                layout_version=TAXONOMY_CARD_SCOPE_LAYOUT_VERSION,
+                input_fingerprint=input_fingerprint,
+            )
+            await self._repo.commit()
+            return requested
+        except Exception:
+            await self._repo.rollback()
+            raise
 
     async def claim_card_scope_layout_compute(
         self,
