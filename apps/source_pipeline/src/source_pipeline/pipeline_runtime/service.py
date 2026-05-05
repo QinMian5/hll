@@ -5,12 +5,18 @@ Out of scope: Process bootstrap and Docker/Compose integration.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from job_queue_mcp_client.errors import ResultNotReadyError
-from job_queue_mcp_client.types import AcceptedResult as AcceptedJobResult
+from job_queue_mcp_client.types import (
+    AcceptedResult as AcceptedJobResult,
+)
+from job_queue_mcp_client.types import (
+    CreatedJob,
+    CreateJobItem,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,16 +43,7 @@ TERMINAL_NON_ACCEPTED_STATES = frozenset({"CANCELLED", "DEAD_LETTER", "FAILED", 
 
 
 class JobQueueClientPort(Protocol):
-    async def create_job(
-        self,
-        *,
-        queue_name: str,
-        instruction: str,
-        output_schema: dict[str, object],
-        priority: str = "normal",
-        payload: dict[str, object] | None = None,
-        metadata: dict[str, object] | None = None,
-    ) -> int: ...
+    async def create_jobs(self, jobs: Sequence[CreateJobItem]) -> list[CreatedJob]: ...
 
     async def get_result(self, job_id: int) -> AcceptedJobResult: ...
 
@@ -271,8 +268,9 @@ class PipelineRuntimeService:
 
     async def _submit_page_to_card(self, unit: WorkflowUnit) -> None:
         source_unit = SourceUnit.model_validate(unit.payload)
-        unit.page_to_card_job_id = await self._job_queue_client.create_job(
+        unit.page_to_card_job_id = await self._create_idempotent_job(
             queue_name="page_to_card",
+            idempotency_key=f"source-pipeline:page-to-card:workflow-unit:{unit.id}",
             priority="normal",
             instruction=build_page_to_card_instruction(),
             output_schema=export_page_to_card_output_schema(),
@@ -280,6 +278,34 @@ class PipelineRuntimeService:
             metadata={"workflow_unit_id": unit.id},
         )
         await self._session.flush()
+
+    async def _create_idempotent_job(
+        self,
+        *,
+        queue_name: str,
+        idempotency_key: str,
+        instruction: str,
+        output_schema: dict[str, object],
+        priority: str = "normal",
+        payload: dict[str, object] | None = None,
+        metadata: dict[str, object] | None = None,
+    ) -> int:
+        created_jobs = await self._job_queue_client.create_jobs(
+            [
+                CreateJobItem(
+                    queue_name=queue_name,
+                    idempotency_key=idempotency_key,
+                    priority=priority,
+                    instruction=instruction,
+                    output_schema=output_schema,
+                    payload=payload or {},
+                    metadata=metadata or {},
+                )
+            ]
+        )
+        if len(created_jobs) != 1 or created_jobs[0].index != 0:
+            raise RuntimeError("Expected exactly one idempotent job creation result.")
+        return created_jobs[0].job_id
 
     async def _ensure_initial_candidates(
         self,
@@ -350,8 +376,9 @@ class PipelineRuntimeService:
 
     async def _submit_review_job(self, candidate: CardCandidate) -> None:
         card = CardDraft.model_validate(candidate.card_payload)
-        candidate.review_job_id = await self._job_queue_client.create_job(
+        candidate.review_job_id = await self._create_idempotent_job(
             queue_name="card_review",
+            idempotency_key=f"source-pipeline:card-review:candidate:{candidate.id}",
             priority="normal",
             instruction=build_card_review_instruction(),
             output_schema=export_card_review_output_schema(),
@@ -382,8 +409,9 @@ class PipelineRuntimeService:
     ) -> None:
         card = CardDraft.model_validate(candidate.card_payload)
         repair_input = CardRepairInput(card=card, review=review)
-        candidate.repair_job_id = await self._job_queue_client.create_job(
+        candidate.repair_job_id = await self._create_idempotent_job(
             queue_name="card_repair",
+            idempotency_key=f"source-pipeline:card-repair:candidate:{candidate.id}",
             priority="normal",
             instruction=build_card_repair_instruction(),
             output_schema=export_card_repair_output_schema(),

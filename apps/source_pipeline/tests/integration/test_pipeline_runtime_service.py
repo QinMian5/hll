@@ -5,12 +5,19 @@ Out of scope: Process bootstrap and Docker/Compose image wiring.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import pytest
 from job_queue_mcp_client.errors import ResultNotReadyError
-from job_queue_mcp_client.types import AcceptedResult as AcceptedJobResult
+from job_queue_mcp_client.types import (
+    AcceptedResult as AcceptedJobResult,
+)
+from job_queue_mcp_client.types import (
+    CreatedJob,
+    CreateJobItem,
+)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,12 +39,31 @@ pytestmark = [pytest.mark.integration, pytest.mark.db, pytest.mark.anyio]
 class FakeJobQueueClient:
     created_jobs: list[dict[str, object]] = field(default_factory=list)
     create_job_ids: list[int] = field(default_factory=list)
+    create_jobs_errors: list[Exception] = field(default_factory=list)
     requested_result_job_ids: list[int] = field(default_factory=list)
     results_by_job_id: dict[int, AcceptedJobResult | Exception] = field(default_factory=dict)
 
-    async def create_job(self, **kwargs: object) -> int:
-        self.created_jobs.append(kwargs)
-        return self.create_job_ids.pop(0)
+    async def create_jobs(self, jobs: Sequence[CreateJobItem]) -> list[CreatedJob]:
+        created_jobs: list[CreatedJob] = []
+        error = self.create_jobs_errors.pop(0) if self.create_jobs_errors else None
+        for index, job in enumerate(jobs):
+            self.created_jobs.append(
+                {
+                    "queue_name": job.queue_name,
+                    "idempotency_key": job.idempotency_key,
+                    "priority": job.priority,
+                    "instruction": job.instruction,
+                    "output_schema": job.output_schema,
+                    "payload": job.payload or {},
+                    "metadata": job.metadata or {},
+                }
+            )
+            created_jobs.append(
+                CreatedJob(index=index, job_id=self.create_job_ids.pop(0), created=True)
+            )
+        if error is not None:
+            raise error
+        return created_jobs
 
     async def get_result(self, job_id: int) -> AcceptedJobResult:
         self.requested_result_job_ids.append(job_id)
@@ -171,6 +197,9 @@ async def test_tick_submits_page_to_card_when_job_id_missing(db_session: AsyncSe
 
     assert unit.page_to_card_job_id == 12
     assert client.created_jobs[0]["queue_name"] == "page_to_card"
+    assert client.created_jobs[0]["idempotency_key"] == (
+        f"source-pipeline:page-to-card:workflow-unit:{unit.id}"
+    )
     assert client.created_jobs[0]["instruction"] == build_page_to_card_instruction()
     assert client.created_jobs[0]["metadata"] == {"workflow_unit_id": unit.id}
 
@@ -304,6 +333,9 @@ async def test_tick_creates_candidates_and_review_jobs_from_page_result(
     assert [candidate.card_payload["title"] for candidate in candidates] == ["Card A", "Card B"]
     assert [candidate.review_job_id for candidate in candidates] == [21, 22]
     assert [job["queue_name"] for job in client.created_jobs] == ["card_review", "card_review"]
+    assert [job["idempotency_key"] for job in client.created_jobs] == [
+        f"source-pipeline:card-review:candidate:{candidate.id}" for candidate in candidates
+    ]
     assert [job["instruction"] for job in client.created_jobs] == [
         build_card_review_instruction(),
         build_card_review_instruction(),
@@ -402,10 +434,57 @@ async def test_tick_submits_repair_job_for_failed_review_once(db_session: AsyncS
 
     assert candidate.repair_job_id == 31
     assert [job["queue_name"] for job in client.created_jobs] == ["card_repair"]
+    assert client.created_jobs[0]["idempotency_key"] == (
+        f"source-pipeline:card-repair:candidate:{candidate.id}"
+    )
     assert client.created_jobs[0]["instruction"] == build_card_repair_instruction()
     repair_input = CardRepairInput.model_validate(client.created_jobs[0]["payload"])
     assert repair_input.card.title == "bad title"
     assert repair_input.review.passed is False
+
+
+async def test_retried_repair_submission_reuses_same_idempotency_key(
+    db_session: AsyncSession,
+) -> None:
+    unit = await create_workflow_unit(db_session)
+    unit.page_to_card_job_id = 12
+    candidate = CardCandidate(
+        workflow_unit_id=unit.id,
+        card_payload={"title": "bad title", "content": "A body"},
+        origin_step="page_to_card",
+        origin_job_id=12,
+        origin_ordinal=0,
+        review_job_id=21,
+    )
+    db_session.add(candidate)
+    await db_session.commit()
+    await record_webhook_event(db_session, job_id=21)
+
+    client = FakeJobQueueClient(
+        create_job_ids=[31, 31],
+        create_jobs_errors=[RuntimeError("lost create response")],
+        results_by_job_id={21: build_review_result(job_id=21, passed=False)},
+    )
+    service = PipelineRuntimeService(
+        db_session,
+        job_queue_client=client,
+        card_handoff=FakeAcceptedCardHandoff(),
+    )
+
+    await service.tick()
+    await db_session.refresh(candidate)
+
+    assert candidate.repair_job_id is None
+
+    await service.tick()
+    await db_session.refresh(candidate)
+
+    expected_key = f"source-pipeline:card-repair:candidate:{candidate.id}"
+    assert candidate.repair_job_id == 31
+    assert [job["idempotency_key"] for job in client.created_jobs] == [
+        expected_key,
+        expected_key,
+    ]
 
 
 async def test_tick_repair_empty_cards_stops_lineage(db_session: AsyncSession) -> None:
@@ -481,6 +560,9 @@ async def test_tick_repair_cards_create_child_candidates_that_reenter_review(
     assert [item.card_payload["title"] for item in candidates] == ["bad title", "Card A", "Card B"]
     assert [item.review_job_id for item in candidates[1:]] == [41, 42]
     assert [job["queue_name"] for job in client.created_jobs] == ["card_review", "card_review"]
+    assert [job["idempotency_key"] for job in client.created_jobs] == [
+        f"source-pipeline:card-review:candidate:{item.id}" for item in candidates[1:]
+    ]
 
 
 async def test_terminal_non_accepted_page_result_stops_fanout(
