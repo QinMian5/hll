@@ -11,7 +11,7 @@ out_of_scope: Implementation details, data-model internals, and module-level tec
 
 ## System Definition
 The system is an open knowledge network for the agent era with public web and MCP access surfaces, private service APIs, role-governed human contribution, and operator-assisted source processing.
-V1 exposes public web browsing and search through a BFF, a role-governed web Workspace for human card proposals and reviewer apply flows, public MCP search through a Logto personal-access-token boundary, private internal search read, taxonomy drill-down read, and ingestion accept HTTP APIs, plus a local operator-facing CLI for reviewed card submission.
+V1 exposes public web browsing and search through a BFF, a role-governed web Workspace for human card proposals and reviewer apply flows, public MCP search through a Logto personal-access-token boundary, private internal search read, taxonomy drill-down read, and ingestion accept HTTP APIs.
 The platform organizes knowledge as atomic cards and relation links to support machine-oriented retrieval, taxonomy-first hierarchical exploration, role-governed human maintenance, and operator-guided incremental classification.
 
 ## Target Users
@@ -29,7 +29,6 @@ The core value is open knowledge dissemination through a machine-consumable know
 - Role-governed web Workspace for human card proposals, proposal tracking, reviewer accept/apply, reviewer rejection, and admin role-management placement.
 - Public MCP search access through Logto personal-access-token authentication, account-level quota, and token-level attribution.
 - Private internal ingestion accept HTTP API for platform-official card construction.
-- Local operator-facing CLI for single-card review and submission into ingestion API.
 - Atomic knowledge cards.
 - Relation links with dot-product-mapped strength computation in ingestion worker execution.
 - Taxonomy-backed hierarchical browsing with branch/leaf query responses.
@@ -40,7 +39,6 @@ The core value is open knowledge dissemination through a machine-consumable know
 
 ### Out of Scope
 - Semantic-map snapshot rebuild and tile browsing.
-- Multi-card or interactive authoring CLI workflows beyond single-card review/submission.
 - Public REST API access for external users or external programmatic clients.
 - Source-verification requirements.
 - Iterative relation-evolution algorithms beyond initial dot-product strength.

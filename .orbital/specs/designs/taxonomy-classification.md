@@ -156,7 +156,6 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 15. When result and continuation work are drained for a tick, the runtime refreshes queued scope projections and deletes only successfully refreshed requests.
 
 ## Runtime Configuration
-- Classification runtime configuration is independent from `apps/cli` reviewer configuration.
 - API shared settings remain free of taxonomy-classification producer/result-reader and webhook receiver secrets.
 - Taxonomy-classification runtime and webhook receiver settings use dedicated settings classes sourced from process environment.
 - Classification settings include:

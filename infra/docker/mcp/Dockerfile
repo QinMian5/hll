@@ -10,7 +10,6 @@ COPY --from=job_queue_mcp_python_client pyproject.toml /workspace/mianqin/Code/j
 COPY --from=job_queue_mcp_python_client README.md /workspace/mianqin/Code/job-queue-mcp/packages/python-client/README.md
 COPY --from=job_queue_mcp_python_client src /workspace/mianqin/Code/job-queue-mcp/packages/python-client/src
 COPY apps/api/pyproject.toml /workspace/mianqin/Code/knowledge/apps/api/pyproject.toml
-COPY apps/cli/pyproject.toml /workspace/mianqin/Code/knowledge/apps/cli/pyproject.toml
 COPY apps/knowledge_corpus/pyproject.toml /workspace/mianqin/Code/knowledge/apps/knowledge_corpus/pyproject.toml
 COPY apps/mcp/pyproject.toml /workspace/mianqin/Code/knowledge/apps/mcp/pyproject.toml
 COPY apps/source_pipeline/pyproject.toml /workspace/mianqin/Code/knowledge/apps/source_pipeline/pyproject.toml

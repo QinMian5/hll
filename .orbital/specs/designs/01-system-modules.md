@@ -11,7 +11,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ## Context
 - **Purpose:** Define module-level responsibilities, non-responsibilities, and dependency direction for V1.
-- **Scope/Boundaries:** Covers ownership for browser frontend, web BFF, MCP service, backend API, operator CLI, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, source_pipeline, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
+- **Scope/Boundaries:** Covers ownership for browser frontend, web BFF, MCP service, backend API, knowledge_graph, taxonomy, taxonomy_classification, search, ingestion, source_pipeline, offline/local auxiliary apps, database, and runtime infrastructure dependencies.
 - **Related Requirements:** R-001, R-003, R-004, R-005, R-006, R-007, R-008.
 
 ## Module Responsibilities
@@ -177,16 +177,6 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
   - Read-side search response orchestration.
   - Taxonomy classification ownership.
 
-### Operator CLI
-- **Responsibilities:**
-  - Accept local `title` and `content` for single-card submission.
-  - Run local agent review and emit deterministic JSON result.
-  - Submit to ingestion API only after review passes.
-- **Non-responsibilities:**
-  - Backend persistence ownership.
-  - Worker runtime ownership.
-  - Batch multi-card authoring workflows.
-
 ### Knowledge Corpus App
 - **Responsibilities:**
   - Own local/offline source-document persistence and keyword retrieval.
@@ -241,7 +231,6 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `Frontend -> Web BFF(dashboard tokens) -> Logto Management API`
 - `Web BFF(dashboard usage) -> MCP Service(internal usage summary) -> MCP usage database`
 - `Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
-- `Operator CLI -> Backend API(ingestion) -> entrypoints.api -> ingestion -> Redis/Dramatiq -> entrypoints.worker -> knowledge_graph -> Database`
 - `Background taxonomy bootstrap -> taxonomy -> Database`
 - `Background taxonomy classification -> taxonomy_classification -> job-queue-mcp-client -> job-queue-mcp -> external workers`
 - `Background taxonomy classification result application -> taxonomy_classification -> taxonomy + knowledge_graph -> Database`
@@ -250,5 +239,5 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 - `core` is inbound-only; it does not import `entrypoints/modules/shared`.
 
 ## V1 Boundary Summary
-- V1 delivers ingestion acceptance API, search read API, public MCP search, web dashboard token management, taxonomy drill-down read APIs, taxonomy-backed structure truth, local reviewed card submission CLI, versioned knowledge-card history, authenticated Search proposal submission, project-owned source-processing pipeline orchestration, and leaf-level one-hop relation browsing.
+- V1 delivers ingestion acceptance API, search read API, public MCP search, web dashboard token management, taxonomy drill-down read APIs, taxonomy-backed structure truth, versioned knowledge-card history, authenticated Search proposal submission, project-owned source-processing pipeline orchestration, and leaf-level one-hop relation browsing.
 - V1 excludes semantic-map snapshot/tile browsing and excludes runtime cache/object-storage dependencies.

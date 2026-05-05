@@ -41,7 +41,7 @@ out_of_scope: HTTP APIs, operator-facing CLI commands, file-system import orches
 - **Approach:** Build `apps/knowledge_corpus` as an independent local app that owns a dedicated PostgreSQL service and exposes only importable Python-library services. The app stores source documents for later human/AI-driven processing, provides PostgreSQL full-text keyword retrieval, and tracks processed documents in a separate table so source-document truth remains single-purpose.
 - **Key Elements:**
   - **Independent app boundary:** `apps/knowledge_corpus` is not part of the online API runtime and is not a shared package. It owns its own `pyproject.toml`, settings/config, Alembic migrations, SQLAlchemy metadata, tests, and database lifecycle.
-  - **Hard isolation rule:** `apps/knowledge_corpus` must not import `apps/api`, `apps/cli`, `apps/web`, or `apps/source_pipeline`. `apps/api`, `apps/cli`, `apps/web`, and `apps/source_pipeline` must not import `apps/knowledge_corpus`.
+  - **Hard isolation rule:** `apps/knowledge_corpus` must not import `apps/api`, `apps/web`, or `apps/source_pipeline`. `apps/api`, `apps/web`, and `apps/source_pipeline` must not import `apps/knowledge_corpus`.
   - **Operator orchestration rule:** `apps/operator_tools` may import `knowledge_corpus` library interfaces for offline import, search, and source-selection workflows without moving those workflows into the knowledge corpus app.
   - **Dedicated PostgreSQL service:** The app uses a separate PostgreSQL service rather than sharing the online graph database. The service exists only for local/offline corpus usage.
   - **Repository-managed service lifecycle:** The dedicated PostgreSQL service is part of repository-managed infrastructure, environment files, and migration flow while remaining isolated from the online API/worker database lifecycle. The accepted first-version infra contract uses a dedicated database service and a dedicated one-shot migration service for knowledge corpus.
@@ -82,7 +82,7 @@ out_of_scope: HTTP APIs, operator-facing CLI commands, file-system import orches
 
 ## Validation
 - **Checks:**
-  - Spec review confirms the design keeps `knowledge_corpus` completely isolated from online API/CLI/runtime ownership.
+  - Spec review confirms the design keeps `knowledge_corpus` completely isolated from online API and runtime ownership.
   - Repository-structure and module-boundary docs are updated so the new app placement and non-import rules remain canonical.
   - Schema/model tests verify `wikipedia.documents` and `wikipedia.processed_documents` expose exactly the accepted first-version fields and constraints.
   - Repository tests verify document upsert idempotency, processed-mark idempotency, and unprocessed filtering behavior.

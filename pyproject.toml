@@ -7,7 +7,6 @@ dependencies = []
 [tool.uv.workspace]
 members = [
     "apps/api",
-    "apps/cli",
     "apps/knowledge_corpus",
     "apps/mcp",
     "apps/operator_tools",
@@ -26,7 +25,6 @@ line-length = 100
 target-version = "py314"
 src = [
     "apps/api/src",
-    "apps/cli",
     "apps/knowledge_corpus/src",
     "apps/mcp/src",
     "apps/operator_tools/src",

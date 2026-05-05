@@ -42,14 +42,6 @@ out_of_scope: Detailed implementation wiring, benchmark-driven tuning, and phase
 - Stable path for `Node/Edge/Adjacency` modeling and `Node.embedding` vector storage.
 - Root `uv.lock` and member-local declarations provide reproducible Python workflows.
 
-### Operator CLI
-- Package and environment manager: root `uv` workspace with `apps/cli` as member
-- Language and runtime: `Python`
-- Agent framework: `Pydantic AI`
-- Agent workflow graph: `Pydantic Graph`
-- Validation/settings: `Pydantic v2` + `pydantic-settings`
-- HTTP client: `httpx`
-
 ### MCP Server
 - Package and environment manager: root `uv` workspace with `apps/mcp` as member
 - Language and runtime: `Python` + `Uvicorn`
