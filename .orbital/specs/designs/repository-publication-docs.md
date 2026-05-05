@@ -41,6 +41,7 @@ out_of_scope: Product feature behavior, deployment topology internals, and activ
 - **Key Elements:**
   - **Project name:** The public name is `Humanity's Last Library`.
   - **Subtitle:** The public subtitle is `An upstream knowledge network for agents, maintained by humans.`
+  - **Top presentation:** The README starts with a centered GitHub-renderable header containing the project name, subtitle, and a Website link.
   - **README role:** The README explains why the project exists, the project bet, how the system works, current capabilities, current limits, architecture at a glance, documentation entrypoints, development quickstart, and project status.
   - **Project-bet rule:** The README states the hypothesis that large models may perform better when more factual knowledge lives in an external, incrementally updateable, maintained knowledge network and the model learns how to retrieve, judge, and use that context instead of memorizing every fact in parameters.
   - **Current-limits rule:** The README states that the first corpus is bootstrapped from Wikipedia-derived material and that AI-assisted extraction is a real limitation relative to the long-term principle of human-maintained quality.
@@ -62,7 +63,7 @@ out_of_scope: Product feature behavior, deployment topology internals, and activ
   - README title, subtitle, and positioning match the accepted project framing.
   - README project-bet section frames parameter-memory reduction, external retrieval, responsibility separation, and incremental knowledge updates as a working hypothesis rather than a settled claim.
   - README current-limits section states the AI-assisted bootstrap and Wikipedia-derived corpus limitations without presenting them as solved.
-  - README links to repository developer docs, repository MCP docs, and the web product docs boundary.
+  - README links to the public website, repository developer docs, repository MCP docs, and the web product docs boundary.
   - Repository docs do not contradict the root Makefile or repository script command contracts.
   - No generated contract, source code, runtime behavior, or API behavior changes are introduced by this documentation update.
 - **Evidence:**

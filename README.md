@@ -1,6 +1,10 @@
-# Humanity's Last Library
-
-An upstream knowledge network for agents, maintained by humans.
+<div align="center">
+  <h1>Humanity's Last Library</h1>
+  <p><strong>An upstream knowledge network for agents, maintained by humans.</strong></p>
+  <p>
+    <a href="https://knowledge.orbitalis.org">Website</a>
+  </p>
+</div>
 
 Humanity's Last Library is a knowledge infrastructure project for the agent era.
 Agents are the downstream users: they search, retrieve, cite, and act on structured
@@ -96,6 +100,7 @@ better as humans maintain it and agents use it.
 
 ## Documentation
 
+- [Website](https://knowledge.orbitalis.org): the public web application.
 - [Development guide](docs/development.md): local setup, commands, contracts, and
   tests.
 - [MCP integration notes](docs/mcp.md): service boundary, authentication model,
