@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from mcp.server.fastmcp import FastMCP
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
 from starlette.responses import JSONResponse, Response
@@ -81,24 +82,30 @@ def create_app(
             )
         )
 
-    mcp_server = create_mcp_server(search_tool=search_tool)
-    routes.append(Mount("/mcp", app=mcp_server.streamable_http_app()))
+    mcp_server = create_mcp_server(
+        search_tool=search_tool,
+        public_base_url=resolved_settings.public_base_url,
+    )
+    mcp_app = mcp_server.streamable_http_app()
+    routes.append(Mount("/mcp", app=mcp_app))
     return Starlette(
         routes=routes,
         middleware=middleware,
-        lifespan=_runtime_lifespan(runtime_resources),
+        lifespan=_runtime_lifespan(runtime_resources, mcp_server),
     )
 
 
-def _runtime_lifespan(resources: RuntimeResources | None) -> Lifespan[Starlette] | None:
-    if resources is None:
-        return None
-
+def _runtime_lifespan(
+    resources: RuntimeResources | None,
+    mcp_server: FastMCP,
+) -> Lifespan[Starlette]:
     @asynccontextmanager
     async def lifespan(_: Starlette) -> AsyncIterator[None]:
         try:
-            yield
+            async with mcp_server.session_manager.run():
+                yield
         finally:
-            await resources.aclose()
+            if resources is not None:
+                await resources.aclose()
 
     return lifespan
