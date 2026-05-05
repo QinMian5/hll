@@ -51,17 +51,41 @@ vi.mock("../features/settings/pages", () => ({
   SettingsPage: () => <div data-testid="mock-settings-page">Settings page</div>,
 }));
 
-function jsonResponse(body: unknown): Response {
+function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     headers: { "Content-Type": "application/json" },
-    status: 200,
+    status,
   });
 }
 
-function stubSessionResponse(body: unknown) {
+function stubSessionResponse(
+  body: unknown,
+  options: {
+    readonly repositorySummary?:
+      | Response
+      | (() => Response | Promise<Response>);
+  } = {},
+) {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => jsonResponse(body)),
+    vi.fn(async (input: RequestInfo | URL) => {
+      const url = input instanceof Request ? input.url : input.toString();
+
+      if (url.endsWith("/web-api/repository-summary")) {
+        const repositorySummary =
+          options.repositorySummary ??
+          jsonResponse({
+            repositoryUrl: "https://github.com/QinMian5/hll",
+            stars: 1,
+          });
+
+        return typeof repositorySummary === "function"
+          ? await repositorySummary()
+          : repositorySummary;
+      }
+
+      return jsonResponse(body);
+    }),
   );
 }
 
@@ -201,10 +225,15 @@ describe("AppShell", () => {
     expect(
       screen.queryByRole("link", { name: "Dashboard" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "GitHub 0 stars" })).toHaveClass(
-      "h-10",
-      "rounded-lg",
+    const githubLink = await screen.findByRole("link", {
+      name: "GitHub 1 star",
+    });
+
+    expect(githubLink).toHaveAttribute(
+      "href",
+      "https://github.com/QinMian5/hll",
     );
+    expect(githubLink).toHaveClass("h-10", "rounded-lg");
     const signInButton = screen.getByRole("button", { name: "Sign in" });
 
     expect(signInButton).toBeEnabled();
@@ -216,6 +245,34 @@ describe("AppShell", () => {
     expect(signInButton.closest("form")).toHaveFormValues({
       return_to: "/graph",
     });
+  });
+
+  it("falls back to a plain GitHub label when repository summary is unavailable", async () => {
+    stubSessionResponse(
+      { status: "anonymous" },
+      {
+        repositorySummary: () =>
+          jsonResponse(
+            {
+              error: {
+                code: "repository_summary_unavailable",
+                message: "Repository summary unavailable.",
+              },
+            },
+            503,
+          ),
+      },
+    );
+
+    renderWithRoute("/graph");
+
+    const githubLink = await screen.findByRole("link", { name: "GitHub" });
+
+    expect(githubLink).toHaveAttribute(
+      "href",
+      "https://github.com/QinMian5/hll",
+    );
+    expect(screen.queryByRole("link", { name: /stars?/ })).toBeNull();
   });
 
   it("does not show an enabled sign-in action while the session check is pending", async () => {

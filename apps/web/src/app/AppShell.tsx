@@ -19,6 +19,7 @@ import type { ComponentType, Ref, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../shared/utils";
+import { useRepositorySummaryQuery } from "../shared/web-api/repositorySummary";
 import type { WebSessionResponse } from "../shared/web-api/session";
 import { useAuthCoordinator } from "./auth/AuthCoordinatorProvider";
 import { isPublicRoute } from "./auth/routePolicies";
@@ -69,7 +70,7 @@ function isNavigationItemActive(pathname: string, itemTo: AppRoute): boolean {
   return pathname === itemTo;
 }
 
-const githubRepositoryUrl = "https://github.com/QinMian5/knowledge";
+const githubRepositoryUrl = "https://github.com/QinMian5/hll";
 
 const actionButtonClasses =
   "inline-flex h-10 w-full items-center justify-center rounded-lg bg-[#006bff] px-3 text-[13px] leading-[18px] font-medium text-white transition-colors hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
@@ -162,17 +163,27 @@ function AccountStatusAction({ label }: { readonly label: string }) {
   );
 }
 
+function formatStarLabel(stars: number): string {
+  return `${stars} ${stars === 1 ? "star" : "stars"}`;
+}
+
 function GithubButton() {
+  const repositorySummary = useRepositorySummaryQuery();
+  const summary = repositorySummary.data;
+  const repositoryUrl = summary?.repositoryUrl ?? githubRepositoryUrl;
+  const label =
+    summary === undefined ? "GitHub" : formatStarLabel(summary.stars);
+
   return (
     <a
-      aria-label="GitHub 0 stars"
+      aria-label={summary === undefined ? "GitHub" : `GitHub ${label}`}
       className="flex h-10 w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] px-3 text-[13px] leading-[18px] font-medium text-[#131c2d] no-underline transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
-      href={githubRepositoryUrl}
+      href={repositoryUrl}
       rel="noreferrer"
       target="_blank"
     >
       <GithubMark />
-      <span>0 stars</span>
+      <span>{label}</span>
     </a>
   );
 }

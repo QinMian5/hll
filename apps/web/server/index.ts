@@ -21,6 +21,7 @@ import { createCardProposalsRouter } from "./routes/cardProposals.js";
 import { createCardSuggestedEditsRouter } from "./routes/cardSuggestedEdits.js";
 import { createDashboardQuotaRouter } from "./routes/dashboardQuota.js";
 import { createDashboardTokensRouter } from "./routes/dashboardTokens.js";
+import { createRepositorySummaryRouter } from "./routes/repositorySummary.js";
 import { createSearchRouter } from "./routes/search.js";
 import { createTaxonomyViewRouter } from "./routes/taxonomyView.js";
 import { createRedisSessionMiddleware } from "./session/redisSessionStore.js";
@@ -98,6 +99,7 @@ async function main(): Promise<void> {
     });
   const webApiRouter = Router();
   webApiRouter.use("/auth", createAuthRouter({ config }));
+  webApiRouter.use("/repository-summary", createRepositorySummaryRouter());
   webApiRouter.use(
     "/dashboard",
     createDashboardTokensRouter({
