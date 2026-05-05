@@ -17,8 +17,8 @@ import {
 
 interface FakeSession {
   [key: string]: unknown;
-  destroy: (callback: (error?: Error) => void) => void;
-  regenerate: (callback: (error?: Error) => void) => void;
+  destroy: (callback: (error?: Error | null) => void) => void;
+  regenerate: (callback: (error?: Error | null) => void) => void;
 }
 
 function createRequest(session: FakeSession): Request {
@@ -117,6 +117,20 @@ describe("session lifecycle helpers", () => {
     expect(session.unrelated).toBeUndefined();
   });
 
+  it("treats null regenerate callbacks as successful", async () => {
+    const session: FakeSession = {
+      authReturnTo: "/dashboard",
+      destroy: vi.fn(),
+      regenerate: vi.fn((callback) => {
+        callback(null);
+      }),
+    };
+
+    await expect(
+      regenerateSessionPreserving(createRequest(session), ["authReturnTo"]),
+    ).resolves.toBeUndefined();
+  });
+
   it("destroys local session data and clears the session cookie", async () => {
     const session: FakeSession = {
       destroy: vi.fn((callback) => {
@@ -135,6 +149,23 @@ describe("session lifecycle helpers", () => {
     await destroyLocalSession(createRequest(session), response);
 
     expect(session.destroy).toHaveBeenCalledOnce();
+    expect(response.clearCookie).toHaveBeenCalledWith("knowledge.sid");
+  });
+
+  it("treats null destroy callbacks as successful", async () => {
+    const session: FakeSession = {
+      destroy: vi.fn((callback) => {
+        callback(null);
+      }),
+      regenerate: vi.fn(),
+    };
+    const response = {
+      clearCookie: vi.fn(),
+    } as unknown as Response;
+
+    await expect(
+      destroyLocalSession(createRequest(session), response),
+    ).resolves.toBeUndefined();
     expect(response.clearCookie).toHaveBeenCalledWith("knowledge.sid");
   });
 });

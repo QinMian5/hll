@@ -20,7 +20,6 @@ import {
   destroyLocalSession,
   markAuthenticatedSession,
   regenerateSessionPreserving,
-  WEB_AUTH_SESSION_COOKIE_NAME,
 } from "./sessionLifecycle.js";
 import { WebSessionExpiredError } from "./tokenResolver.js";
 
@@ -171,39 +170,13 @@ function isRecoverableSignInCallbackError(error: unknown): boolean {
   );
 }
 
-function redirectAfterRecoverableSignInCallbackError(
+async function redirectAfterRecoverableSignInCallbackError(
   request: Request,
   response: Response,
-): void {
+): Promise<void> {
   const returnTo = takeAuthReturnTo(request);
-  request.session?.destroy((error) => {
-    if (error != null) {
-      console.error("Failed to destroy stale auth callback session.", error);
-    }
-  });
-  response.clearCookie(WEB_AUTH_SESSION_COOKIE_NAME);
+  await destroyLocalSession(request, response);
   response.redirect(303, returnTo);
-}
-
-function isInteractiveCallbackRequest(request: Request): boolean {
-  if (request.method !== "GET") {
-    return false;
-  }
-
-  const callbackPaths = new Set([
-    "/callback",
-    "/auth/callback",
-    "/web-api/auth/callback",
-  ]);
-  const requestPaths = [request.path, request.url, request.originalUrl];
-
-  return requestPaths.some((path) => {
-    const pathname = new URL(path, "http://web.local").pathname;
-    const normalizedPathname =
-      pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-
-    return callbackPaths.has(normalizedPathname);
-  });
 }
 
 async function handleInteractiveCallback(
@@ -213,11 +186,6 @@ async function handleInteractiveCallback(
   config: WebServerConfig,
   createClient: WebLogtoClientFactory,
 ): Promise<void> {
-  if (!isInteractiveCallbackRequest(request)) {
-    next();
-    return;
-  }
-
   try {
     const client = createClient(request, response);
     await client.handleSignInCallback(
@@ -230,7 +198,11 @@ async function handleInteractiveCallback(
     response.redirect(303, returnTo);
   } catch (error) {
     if (isRecoverableSignInCallbackError(error)) {
-      redirectAfterRecoverableSignInCallbackError(request, response);
+      try {
+        await redirectAfterRecoverableSignInCallbackError(request, response);
+      } catch (sessionError) {
+        next(sessionError);
+      }
       return;
     }
 
@@ -355,7 +327,7 @@ export function createAuthRouter(options: CreateAuthRouterOptions): Router {
     }
   });
 
-  router.use((request, response, next) => {
+  router.get("/callback", (request, response, next) => {
     void handleInteractiveCallback(
       request,
       response,

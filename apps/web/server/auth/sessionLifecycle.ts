@@ -14,8 +14,8 @@ export interface AuthenticatedSessionMeta {
 
 interface SessionLike {
   [key: string]: unknown;
-  destroy: (callback: (error?: Error) => void) => void;
-  regenerate: (callback: (error?: Error) => void) => void;
+  destroy: (callback: (error?: Error | null) => void) => void;
+  regenerate: (callback: (error?: Error | null) => void) => void;
   webAuth?: unknown;
 }
 
@@ -108,7 +108,7 @@ export async function regenerateSessionPreserving(
 
   await new Promise<void>((resolve, reject) => {
     session.regenerate((error) => {
-      if (error === undefined) {
+      if (error == null) {
         resolve();
         return;
       }
@@ -128,7 +128,7 @@ export async function destroyLocalSession(
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     sessionFor(request).destroy((error) => {
-      if (error === undefined) {
+      if (error == null) {
         resolve();
         return;
       }

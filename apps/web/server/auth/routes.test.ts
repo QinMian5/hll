@@ -192,6 +192,24 @@ describe("auth routes", () => {
     );
   });
 
+  it("does not accept duplicate auth-prefixed callback aliases", async () => {
+    const client = createFakeClient();
+    const app = await createTestApp(client);
+
+    const response = await request(app).get(
+      "/web-api/auth/auth/callback?code=abc&state=xyz",
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      error: {
+        code: "web_api_route_not_found",
+        message: "Web API route not found.",
+      },
+    });
+    expect(client.handleSignInCallback).not.toHaveBeenCalled();
+  });
+
   it("regenerates the local session id after interactive callback", async () => {
     const client = createFakeClient();
     const app = await createTestApp(client);
