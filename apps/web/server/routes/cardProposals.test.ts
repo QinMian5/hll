@@ -72,15 +72,18 @@ describe("card proposal routes", () => {
       },
     });
 
-    const response = await request(app).post("/web-api/card-proposals").send({
-      base_version: 3,
-      proposal_type: "edit",
-      reason: "This improves the card explanation.",
-      suggested_by_user_id: "browser-controlled",
-      suggested_content: "Better content",
-      suggested_title: "Better title",
-      target_node_id: 10,
-    });
+    const response = await request(app)
+      .post("/web-api/card-proposals")
+      .set("Origin", "http://localhost:5173")
+      .send({
+        base_version: 3,
+        proposal_type: "edit",
+        reason: "This improves the card explanation.",
+        suggested_by_user_id: "browser-controlled",
+        suggested_content: "Better content",
+        suggested_title: "Better title",
+        target_node_id: 10,
+      });
 
     expect(response.status).toBe(201);
     expect(response.body.status).toBe("pending_review");
@@ -114,13 +117,16 @@ describe("card proposal routes", () => {
       },
     });
 
-    const response = await request(app).post("/web-api/card-proposals").send({
-      base_version: 3,
-      proposal_type: "edit",
-      suggested_content: "Better content",
-      suggested_title: "Better title",
-      target_node_id: 10,
-    });
+    const response = await request(app)
+      .post("/web-api/card-proposals")
+      .set("Origin", "http://localhost:5173")
+      .send({
+        base_version: 3,
+        proposal_type: "edit",
+        suggested_content: "Better content",
+        suggested_title: "Better title",
+        target_node_id: 10,
+      });
 
     expect(response.status).toBe(400);
     expect(response.body.error).toMatchObject({
@@ -144,11 +150,14 @@ describe("card proposal routes", () => {
       session: { status: "anonymous" },
     });
 
-    const response = await request(app).post("/web-api/card-proposals").send({
-      proposed_content: "New card content",
-      proposed_title: "New card",
-      proposal_type: "create",
-    });
+    const response = await request(app)
+      .post("/web-api/card-proposals")
+      .set("Origin", "http://localhost:5173")
+      .send({
+        proposed_content: "New card content",
+        proposed_title: "New card",
+        proposal_type: "create",
+      });
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({
@@ -191,6 +200,7 @@ describe("card proposal routes", () => {
 
     const response = await request(app)
       .post("/web-api/card-proposals/199/accept")
+      .set("Origin", "http://localhost:5173")
       .send({ review_note: "Archive duplicate." });
 
     expect(response.status).toBe(200);

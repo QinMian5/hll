@@ -7,6 +7,7 @@ import LogtoClient, {
   type JwtVerifier,
   type LogtoConfig,
   type PersistKey,
+  Prompt,
   type StandardLogtoClient,
   type Storage,
   type StorageKey,
@@ -26,6 +27,10 @@ import type {
   WebAccountProfile,
   WebSessionResponse,
 } from "./sessionState.js";
+import {
+  requestWithUserAccessTokenRetry,
+  type UserAccessTokenClient,
+} from "./tokenResolver.js";
 
 type LogtoStorageKey = StorageKey | PersistKey;
 type LogtoAccountProfilePayload = {
@@ -36,6 +41,7 @@ type LogtoAccountProfilePayload = {
 };
 
 export interface SignInRequest {
+  readonly prompt?: "none";
   readonly redirectUri: string;
 }
 
@@ -368,33 +374,15 @@ async function requestAccountProfileWithTokenRefresh(
   client: LogtoAccessTokenClient,
   init: LogtoAccountProfileRequestInit = {},
 ): Promise<LogtoAccountProfilePayload> {
-  try {
-    return await requestAccountProfile(
-      config,
-      await client.getAccessToken(),
-      init,
-    );
-  } catch (error) {
-    if (!(error instanceof LogtoAccountApiUnauthorizedError)) {
-      throw error;
-    }
-  }
-
-  await client.clearAccessToken();
-
-  try {
-    return await requestAccountProfile(
-      config,
-      await client.getAccessToken(),
-      init,
-    );
-  } catch (error) {
-    if (error instanceof LogtoAccountApiUnauthorizedError) {
-      throw new WebAuthRequiredError();
-    }
-
-    throw error;
-  }
+  return await requestWithUserAccessTokenRetry(
+    client as UserAccessTokenClient,
+    async (accessToken) =>
+      await requestAccountProfile(config, accessToken, init),
+    {
+      isAccessTokenRejected: (error) =>
+        error instanceof LogtoAccountApiUnauthorizedError,
+    },
+  );
 }
 
 export function createLogtoClientFactory(
@@ -442,9 +430,12 @@ export function createLogtoClientFactory(
       handleSignInCallback: async (callbackUri) => {
         await client.handleSignInCallback(callbackUri);
       },
-      signIn: async ({ redirectUri }) => {
+      signIn: async ({ prompt, redirectUri }) => {
         redirectUrl = undefined;
-        await client.signIn({ redirectUri });
+        await client.signIn({
+          prompt: prompt === "none" ? Prompt.None : undefined,
+          redirectUri,
+        });
         return takeRedirectUrl(redirectUrl);
       },
       signOut: async (postLogoutRedirectUri) => {

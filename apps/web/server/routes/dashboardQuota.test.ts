@@ -115,7 +115,7 @@ describe("dashboard quota routes", () => {
     expect(mcpQuotaClient.getQuotaSummary).not.toHaveBeenCalled();
     expect(response.body).toEqual({
       error: {
-        code: "dashboard_auth_required",
+        code: "authentication_required",
         message: "Authentication is required.",
       },
     });

@@ -19,9 +19,6 @@ import {
   useAccountProfileQuery,
 } from "../../../shared/web-api/sessionQueries";
 
-const signInButtonClasses =
-  "inline-flex h-10 items-center justify-center rounded-lg bg-[#006bff] px-4 text-[13px] leading-[18px] font-medium text-white transition-colors hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
-
 function normalizeName(value: string): string {
   return value.trim();
 }
@@ -30,32 +27,12 @@ function profileName(profile: AccountProfile | undefined): string {
   return profile?.name ?? "";
 }
 
-function isAuthenticationError(error: unknown): boolean {
-  return error instanceof WebApiRequestError && error.status === 401;
-}
-
 function errorMessage(error: unknown): string {
   if (error instanceof WebApiRequestError) {
     return error.message;
   }
 
   return "Account profile is unavailable.";
-}
-
-function SignInPrompt() {
-  return (
-    <div className="flex w-full flex-col items-start gap-4 rounded-lg border border-[#e0e4eb] bg-white px-4 py-4">
-      <p className="m-0 text-[14px] leading-5 font-normal text-[#606e87]">
-        Sign in to manage your account.
-      </p>
-      <form action="/web-api/auth/sign-in" method="post">
-        <input name="return_to" type="hidden" value="/settings" />
-        <button className={signInButtonClasses} type="submit">
-          Sign in
-        </button>
-      </form>
-    </div>
-  );
 }
 
 function ErrorNotification({
@@ -164,11 +141,8 @@ export function SettingsPage() {
     }
   }
 
-  const isAnonymous = isAuthenticationError(profileQuery.error);
   const profileLoadError =
-    profileQuery.error === null || isAnonymous
-      ? null
-      : errorMessage(profileQuery.error);
+    profileQuery.error === null ? null : errorMessage(profileQuery.error);
   const visibleNotificationMessage = notificationMessage ?? profileLoadError;
   const isProfileReady = profileQuery.data !== undefined;
 
@@ -194,9 +168,7 @@ export function SettingsPage() {
             }
           />
         ) : null}
-        {isAnonymous ? (
-          <SignInPrompt />
-        ) : profileLoadError ? null : (
+        {profileLoadError ? null : (
           <div
             className="w-full rounded-lg border border-[#e0e4eb] bg-white"
             data-testid="settings-panel"

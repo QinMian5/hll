@@ -19,6 +19,12 @@ import { createAppRouter } from "../../../app/router";
 import { WebApiRequestError } from "../../../shared/web-api/errors";
 import type { SearchResponse } from "../data/searchQueries";
 
+vi.mock("../../../app/auth/authTransport", () => ({
+  startSilentSignIn: vi.fn(async () => "failed"),
+  submitInteractiveSignIn: vi.fn(),
+  submitSignOut: vi.fn(),
+}));
+
 vi.mock("../data/searchQueries", () => ({
   useCreateCardProposalMutation: vi.fn(),
   useSearchQuery: vi.fn(),
@@ -897,6 +903,75 @@ describe("SearchPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByDisplayValue("Better title")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Better content.")).toBeInTheDocument();
+  });
+
+  it("keeps proposal drafts mounted and opens sign-in recovery on expired sessions", async () => {
+    const mutateAsync = vi.fn(async () => {
+      throw new WebApiRequestError({
+        code: "session_expired",
+        message: "Session expired.",
+        status: 401,
+      });
+    });
+    const payload: SearchResponse = {
+      connected_titles: [],
+      matched_cards: [
+        {
+          content: "Old content.",
+          current_version: 3,
+          node_id: 10,
+          title: "Old title",
+        },
+      ],
+    };
+    mockUseCreateCardProposalMutation.mockReturnValue({
+      error: null,
+      isPending: false,
+      mutateAsync,
+    } as never);
+    mockUseSearchQuery.mockReturnValue(
+      mockSearchQueryResult({
+        data: payload,
+        error: null,
+        isError: false,
+        isPending: false,
+      }),
+    );
+    mockUseWebSession.mockReturnValue({
+      status: "authenticated",
+      user: { id: "logto-user-123" },
+    });
+
+    renderSearchRoute("/search?q=matrix");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Suggest edit for Old title" }),
+    );
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Better title" },
+    });
+    fireEvent.change(screen.getByLabelText("Content"), {
+      target: { value: "Better content." },
+    });
+    fireEvent.change(screen.getByLabelText("Reason"), {
+      target: { value: "This clarifies the current card." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(
+      await screen.findByText("Session expired. Sign in again."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Card Proposal" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Sign in to suggest edits" }),
+    ).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Better title")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Better content.")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("This clarifies the current card."),
+    ).toBeInTheDocument();
   });
 
   it("shows actionable copy for known suggested edit rule violations", async () => {

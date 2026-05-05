@@ -1,39 +1,25 @@
-// abstract: Browser hook for shared web session state.
+// abstract: Legacy browser hook backed by shared web session query state.
 // out_of_scope: Server-side Logto SDK integration and token persistence.
 
-import { useEffect, useState } from "react";
-
-import { fetchWebSession, type WebSessionResponse } from "./session";
+import type { WebSessionResponse } from "./session";
+import { useWebSessionQuery } from "./sessionQueries";
 
 export type { WebSessionResponse };
 export type WebSessionState =
   | WebSessionResponse
+  | { readonly error: unknown; readonly status: "error" }
   | { readonly status: "loading" };
 
 export function useWebSession(): WebSessionState {
-  const [session, setSession] = useState<WebSessionState>({
-    status: "loading",
-  });
+  const sessionQuery = useWebSessionQuery();
 
-  useEffect(() => {
-    let isMounted = true;
+  if (sessionQuery.data !== undefined) {
+    return sessionQuery.data;
+  }
 
-    fetchWebSession()
-      .then((nextSession) => {
-        if (isMounted) {
-          setSession(nextSession);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setSession({ status: "anonymous" });
-        }
-      });
+  if (sessionQuery.isError) {
+    return { error: sessionQuery.error, status: "error" };
+  }
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  return session;
+  return { status: "loading" };
 }

@@ -62,6 +62,7 @@ describe("card suggested edit route", () => {
 
     const response = await request(app)
       .post("/web-api/cards/1/suggested-edits")
+      .set("Origin", "http://localhost:5173")
       .send({
         base_version: 1,
         reason: "The current card needs clearer wording.",
@@ -101,6 +102,7 @@ describe("card suggested edit route", () => {
 
     const response = await request(app)
       .post("/web-api/cards/1/suggested-edits")
+      .set("Origin", "http://localhost:5173")
       .send({
         base_version: 1,
         suggested_content: "Better content",
@@ -124,6 +126,7 @@ describe("card suggested edit route", () => {
 
     const response = await request(app)
       .post("/web-api/cards/1/suggested-edits")
+      .set("Origin", "http://localhost:5173")
       .send({
         base_version: 1,
         suggested_content: "Better content",
@@ -156,13 +159,16 @@ describe("card suggested edit route", () => {
       },
     });
 
-    await request(app).post("/web-api/cards/1/suggested-edits").send({
-      base_version: 1,
-      reason: "The current card needs clearer wording.",
-      suggested_by_user_id: "browser-controlled-user",
-      suggested_content: "Better content",
-      suggested_title: "Better title",
-    });
+    await request(app)
+      .post("/web-api/cards/1/suggested-edits")
+      .set("Origin", "http://localhost:5173")
+      .send({
+        base_version: 1,
+        reason: "The current card needs clearer wording.",
+        suggested_by_user_id: "browser-controlled-user",
+        suggested_content: "Better content",
+        suggested_title: "Better title",
+      });
 
     expect(createSuggestedEdit).toHaveBeenCalledWith(
       1,
@@ -193,6 +199,7 @@ describe("card suggested edit route", () => {
 
     const response = await request(app)
       .post("/web-api/cards/1/suggested-edits")
+      .set("Origin", "http://localhost:5173")
       .send({
         base_version: 1,
         reason: "The current card needs clearer wording.",

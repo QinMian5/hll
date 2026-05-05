@@ -10,7 +10,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../app.js";
 import { loadWebServerConfig } from "../config.js";
-import { buildSessionCookieOptions } from "../session/redisSessionStore.js";
+import {
+  buildSessionCookieOptions,
+  buildSessionOptions,
+} from "../session/redisSessionStore.js";
 import { createWebServerTestEnv } from "../testSupport/webServerEnv.js";
 import {
   createLogtoJwtVerifier,
@@ -20,6 +23,7 @@ import {
   type WebLogtoClient,
 } from "./logto.js";
 import { createAuthRouter } from "./routes.js";
+import { WebSessionExpiredError } from "./tokenResolver.js";
 
 const TEST_ENV = createWebServerTestEnv();
 
@@ -45,6 +49,14 @@ function createFakeClient(
   };
 }
 
+function firstCookieValue(response: request.Response): string | undefined {
+  const rawCookie = response.headers["set-cookie"];
+  const cookies = Array.isArray(rawCookie) ? rawCookie : [rawCookie];
+  return cookies
+    .find((cookie): cookie is string => typeof cookie === "string")
+    ?.split(";")[0];
+}
+
 async function createTestApp(client: WebLogtoClient) {
   const config = loadWebServerConfig(TEST_ENV);
   const webApiRouter = Router();
@@ -64,10 +76,7 @@ async function createTestApp(client: WebLogtoClient) {
       kind: "production",
     },
     sessionMiddleware: session({
-      cookie: buildSessionCookieOptions(config),
-      resave: false,
-      saveUninitialized: false,
-      secret: config.sessionSecret,
+      ...buildSessionOptions(config),
     }),
     webApiRouter,
   });
@@ -120,6 +129,7 @@ describe("auth routes", () => {
 
     const response = await request(app)
       .post("/web-api/auth/sign-in")
+      .set("Origin", "http://localhost:5173")
       .type("form")
       .send({ return_to: "/graph/science/mathematics?focus=1" });
 
@@ -137,6 +147,7 @@ describe("auth routes", () => {
 
     const signInResponse = await agent
       .post("/web-api/auth/sign-in")
+      .set("Origin", "http://localhost:5173")
       .type("form")
       .send({ return_to: "/graph/science/mathematics?focus=1" });
     const callbackResponse = await agent.get(
@@ -150,6 +161,28 @@ describe("auth routes", () => {
     );
   });
 
+  it("regenerates the local session id after interactive callback", async () => {
+    const client = createFakeClient();
+    const app = await createTestApp(client);
+    const agent = request.agent(app);
+
+    const signInResponse = await agent
+      .post("/web-api/auth/sign-in")
+      .set("Origin", "http://localhost:5173")
+      .type("form")
+      .send({ return_to: "/dashboard" });
+    const callbackResponse = await agent.get(
+      "/web-api/auth/callback?code=abc&state=xyz",
+    );
+
+    expect(signInResponse.status).toBe(303);
+    expect(callbackResponse.status).toBe(303);
+    expect(firstCookieValue(callbackResponse)).toMatch(/^knowledge\.sid=/);
+    expect(firstCookieValue(callbackResponse)).not.toBe(
+      firstCookieValue(signInResponse),
+    );
+  });
+
   it("falls back to root for external pre-login return URLs", async () => {
     const client = createFakeClient();
     const app = await createTestApp(client);
@@ -157,6 +190,7 @@ describe("auth routes", () => {
 
     await agent
       .post("/web-api/auth/sign-in")
+      .set("Origin", "http://localhost:5173")
       .type("form")
       .send({ return_to: "https://evil.example/steal" });
     const callbackResponse = await agent.get(
@@ -174,6 +208,7 @@ describe("auth routes", () => {
 
     await agent
       .post("/web-api/auth/sign-in")
+      .set("Origin", "http://localhost:5173")
       .type("form")
       .send({ return_to: "/web-api/auth/callback?code=abc" });
     const callbackResponse = await agent.get(
@@ -203,11 +238,109 @@ describe("auth routes", () => {
     const client = createFakeClient();
     const app = await createTestApp(client);
 
-    const response = await request(app).post("/web-api/auth/sign-out");
+    const response = await request(app)
+      .post("/web-api/auth/sign-out")
+      .set("Origin", "http://localhost:5173");
 
     expect(response.status).toBe(303);
     expect(response.headers.location).toBe("https://logto.example/sign-out");
     expect(client.signOut).toHaveBeenCalledWith("http://localhost:5173");
+  });
+
+  it("destroys the local session during sign-out", async () => {
+    const client = createFakeClient();
+    const app = await createTestApp(client);
+    const agent = request.agent(app);
+
+    await agent
+      .post("/web-api/auth/sign-in")
+      .set("Origin", "http://localhost:5173")
+      .type("form")
+      .send({ return_to: "/dashboard" });
+    const response = await agent
+      .post("/web-api/auth/sign-out")
+      .set("Origin", "http://localhost:5173");
+
+    expect(response.status).toBe(303);
+    expect(response.headers["set-cookie"]).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^knowledge\.sid=;/)]),
+    );
+  });
+
+  it("starts silent sign-in with prompt none and the silent callback route", async () => {
+    const signIn = vi.fn(async () => "https://logto.example/silent");
+    const app = await createTestApp(createFakeClient({ signIn }));
+
+    const response = await request(app)
+      .post("/web-api/auth/silent-sign-in")
+      .set("Origin", "http://localhost:5173")
+      .type("form")
+      .send({ return_to: "/overview" });
+
+    expect(response.status).toBe(303);
+    expect(response.headers.location).toBe("https://logto.example/silent");
+    expect(signIn).toHaveBeenCalledWith({
+      prompt: "none",
+      redirectUri: "http://localhost:5173/web-api/auth/silent-callback",
+    });
+  });
+
+  it("returns a same-origin silent success message after silent callback", async () => {
+    const app = await createTestApp(createFakeClient());
+
+    const response = await request(app).get(
+      "/web-api/auth/silent-callback?code=abc&state=xyz",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.type).toBe("text/html");
+    expect(response.text).toContain("knowledge.auth.silent");
+    expect(response.text).toContain('"status":"success"');
+    expect(response.text).not.toContain("code=abc");
+    expect(response.text).not.toContain("accessToken");
+  });
+
+  it("returns a same-origin silent failure message without exposing provider details", async () => {
+    const app = await createTestApp(
+      createFakeClient({
+        handleSignInCallback: vi.fn(async () => {
+          throw new Error("provider said login_required with token detail");
+        }),
+      }),
+    );
+
+    const response = await request(app).get(
+      "/web-api/auth/silent-callback?error=login_required&state=xyz",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.type).toBe("text/html");
+    expect(response.text).toContain("knowledge.auth.silent");
+    expect(response.text).toContain('"status":"failed"');
+    expect(response.text).not.toContain("provider said");
+    expect(response.text).not.toContain("token detail");
+  });
+
+  it("keeps silent auth state from overwriting interactive return paths", async () => {
+    const app = await createTestApp(createFakeClient());
+    const agent = request.agent(app);
+
+    await agent
+      .post("/web-api/auth/sign-in")
+      .set("Origin", "http://localhost:5173")
+      .type("form")
+      .send({ return_to: "/dashboard" });
+    await agent
+      .post("/web-api/auth/silent-sign-in")
+      .set("Origin", "http://localhost:5173")
+      .type("form")
+      .send({ return_to: "/overview" });
+    const callbackResponse = await agent.get(
+      "/web-api/auth/callback?code=abc&state=xyz",
+    );
+
+    expect(callbackResponse.status).toBe(303);
+    expect(callbackResponse.headers.location).toBe("/dashboard");
   });
 
   it("returns account profile metadata without token fields", async () => {
@@ -241,6 +374,7 @@ describe("auth routes", () => {
 
     const response = await request(app)
       .patch("/web-api/auth/profile")
+      .set("Origin", "http://localhost:5173")
       .send({ name: "  Grace Hopper  " });
 
     expect(response.status).toBe(200);
@@ -264,6 +398,7 @@ describe("auth routes", () => {
 
     const response = await request(app)
       .patch("/web-api/auth/profile")
+      .set("Origin", "http://localhost:5173")
       .send({ name: "   " });
 
     expect(response.status).toBe(200);
@@ -284,6 +419,7 @@ describe("auth routes", () => {
 
     const response = await request(app)
       .patch("/web-api/auth/profile")
+      .set("Origin", "http://localhost:5173")
       .send({ name: null });
 
     expect(response.status).toBe(200);
@@ -300,6 +436,7 @@ describe("auth routes", () => {
 
     const response = await request(app)
       .patch("/web-api/auth/profile")
+      .set("Origin", "http://localhost:5173")
       .send({ name: "x".repeat(129) });
 
     expect(response.status).toBe(400);
@@ -343,6 +480,7 @@ describe("auth routes", () => {
 
     const response = await request(app)
       .patch("/web-api/auth/profile")
+      .set("Origin", "http://localhost:5173")
       .send({ name: "Ada" });
 
     expect(response.status).toBe(502);
@@ -354,6 +492,27 @@ describe("auth routes", () => {
     });
     expect(response.text).not.toContain("token");
     expect(response.text).not.toContain("upstream");
+  });
+
+  it("maps expired account profile sessions to safe auth errors", async () => {
+    const app = await createTestApp(
+      createFakeClient({
+        getProfile: vi.fn(async () => {
+          throw new WebSessionExpiredError();
+        }),
+      }),
+    );
+
+    const response = await request(app).get("/web-api/auth/profile");
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      error: {
+        code: "session_expired",
+        message: "Session expired.",
+      },
+    });
+    expect(response.text).not.toContain("token");
   });
 });
 
@@ -368,8 +527,13 @@ describe("session cookie policy", () => {
     expect(buildSessionCookieOptions(config)).toEqual({
       domain: "knowledge.example",
       httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000,
       sameSite: "lax",
       secure: true,
+    });
+    expect(buildSessionOptions(config)).toMatchObject({
+      name: "knowledge.sid",
+      rolling: true,
     });
   });
 });

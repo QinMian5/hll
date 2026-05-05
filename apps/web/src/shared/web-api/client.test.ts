@@ -80,7 +80,7 @@ describe("fetchWebApiJson", () => {
       jsonResponse(
         {
           error: {
-            code: "dashboard_auth_required",
+            code: "authentication_required",
             message: "Authentication is required.",
           },
         },
@@ -88,14 +88,50 @@ describe("fetchWebApiJson", () => {
       ),
     );
     vi.stubGlobal("fetch", fetchMock);
+    const authErrorListener = vi.fn();
+
+    window.addEventListener("knowledge.web-auth-error", authErrorListener);
 
     await expect(fetchWebApiJson("/web-api/dashboard/tokens")).rejects.toEqual(
       new WebApiRequestError({
-        code: "dashboard_auth_required",
+        code: "authentication_required",
         message: "Authentication is required.",
         status: 401,
       }),
     );
+    expect(authErrorListener).toHaveBeenCalledOnce();
+    expect(
+      (authErrorListener.mock.calls[0]?.[0] as CustomEvent).detail,
+    ).toEqual({
+      code: "authentication_required",
+      message: "Authentication is required.",
+      status: 401,
+    });
+    window.removeEventListener("knowledge.web-auth-error", authErrorListener);
+  });
+
+  it("does not emit auth events for non-auth request errors", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        {
+          error: {
+            code: "layout_not_ready",
+            message: "Taxonomy leaf layout is being prepared.",
+          },
+        },
+        503,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const authErrorListener = vi.fn();
+
+    window.addEventListener("knowledge.web-auth-error", authErrorListener);
+
+    await expect(
+      fetchWebApiJson("/web-api/taxonomy/view/path/math"),
+    ).rejects.toBeInstanceOf(WebApiRequestError);
+    expect(authErrorListener).not.toHaveBeenCalled();
+    window.removeEventListener("knowledge.web-auth-error", authErrorListener);
   });
 
   it("preserves retry-after hints on typed request errors", async () => {

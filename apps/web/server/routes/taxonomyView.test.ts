@@ -235,6 +235,7 @@ describe("taxonomy view route", () => {
 
     const response = await request(app)
       .post("/web-api/taxonomy/view/card-scopes/details")
+      .set("Origin", "http://localhost:5173")
       .send({ node_ids: [10, 11], route_path: "science/mathematics" });
 
     expect(response.status).toBe(200);
@@ -306,6 +307,7 @@ describe("taxonomy view route", () => {
 
     const response = await request(app)
       .post("/web-api/taxonomy/view/card-scopes/titles")
+      .set("Origin", "http://localhost:5173")
       .send({ node_ids: [10, 11], route_path: "science/mathematics" });
 
     expect(response.status).toBe(200);

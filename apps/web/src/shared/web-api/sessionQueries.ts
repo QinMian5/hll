@@ -1,7 +1,11 @@
 // abstract: TanStack Query adapters for web session and account profile state.
 // out_of_scope: Auth route implementation and settings page composition.
 
-import { queryOptions, useQuery } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  queryOptions,
+  useQuery,
+} from "@tanstack/react-query";
 
 import {
   fetchAccountProfile,
@@ -37,4 +41,11 @@ export function useWebSessionQuery() {
 
 export function useAccountProfileQuery() {
   return useQuery(accountProfileQueryOptions());
+}
+
+export function clearAuthenticatedSessionQueries(
+  queryClient: QueryClient,
+): void {
+  queryClient.setQueryData(sessionQueryKeys.session, { status: "anonymous" });
+  queryClient.removeQueries({ queryKey: accountProfileQueryKeys.profile });
 }

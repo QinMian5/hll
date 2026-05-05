@@ -10,6 +10,7 @@ import express, {
 
 import { injectBrowserRuntimeConfig } from "./browserRuntimeConfig.js";
 import type { WebServerConfig } from "./config.js";
+import { createWebApiOriginGuard } from "./security/webApiOriginGuard.js";
 
 export interface ProductionRuntime {
   readonly clientRoot?: string;
@@ -47,6 +48,7 @@ export async function createApp(options: CreateAppOptions): Promise<Express> {
   }
 
   if (options.webApiRouter !== undefined) {
+    app.use("/web-api", createWebApiOriginGuard(options.config));
     app.use("/web-api", options.webApiRouter);
   }
 

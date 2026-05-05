@@ -17,7 +17,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WebSessionResponse } from "../shared/web-api/session";
 import { sessionQueryKeys } from "../shared/web-api/sessionQueries";
+import { AuthCoordinatorProvider } from "./auth/AuthCoordinatorProvider";
+import * as authTransport from "./auth/authTransport";
 import { createAppRouter } from "./router";
+
+vi.mock("./auth/authTransport", () => ({
+  startSilentSignIn: vi.fn(async () => "failed"),
+  submitInteractiveSignIn: vi.fn(),
+  submitSignOut: vi.fn(),
+}));
 
 vi.mock("../features/taxonomy-view/page/TaxonomyViewPage", () => ({
   TaxonomyViewPage: () => <div data-testid="mock-graph-page">Graph page</div>,
@@ -31,6 +39,16 @@ vi.mock("../features/workspace/pages", () => ({
   WorkspacePage: () => (
     <div data-testid="mock-workspace-page">Workspace page</div>
   ),
+}));
+
+vi.mock("../features/dashboard/pages", () => ({
+  DashboardPage: () => (
+    <div data-testid="mock-dashboard-page">Dashboard page</div>
+  ),
+}));
+
+vi.mock("../features/settings/pages", () => ({
+  SettingsPage: () => <div data-testid="mock-settings-page">Settings page</div>,
 }));
 
 function jsonResponse(body: unknown): Response {
@@ -74,7 +92,9 @@ function renderWithRoute(
 
   render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <AuthCoordinatorProvider>
+        <RouterProvider router={router} />
+      </AuthCoordinatorProvider>
     </QueryClientProvider>,
   );
 
@@ -83,11 +103,14 @@ function renderWithRoute(
 
 afterEach(() => {
   cleanup();
+  window.sessionStorage.clear();
+  vi.clearAllMocks();
   vi.unstubAllGlobals();
 });
 
 beforeEach(() => {
   window.scrollTo = vi.fn();
+  window.sessionStorage.clear();
   stubSessionResponse({ status: "anonymous" });
 });
 
@@ -126,6 +149,9 @@ describe("AppShell", () => {
   it("renders the shared top navigation with anonymous sign-in action", async () => {
     renderWithRoute("/graph");
 
+    await waitFor(() =>
+      expect(authTransport.startSilentSignIn).toHaveBeenCalledOnce(),
+    );
     await waitFor(() =>
       expect(screen.getAllByText("Knowledge Graph").length).toBeGreaterThan(0),
     );
@@ -192,6 +218,25 @@ describe("AppShell", () => {
     });
   });
 
+  it("does not show an enabled sign-in action while the session check is pending", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          await new Promise<Response>(() => {
+            return;
+          }),
+      ),
+    );
+
+    renderWithRoute("/overview");
+
+    expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
+    expect(
+      await screen.findByRole("button", { name: "Checking" }),
+    ).toBeDisabled();
+  });
+
   it("keeps Graph View active for readable graph route paths", async () => {
     const { router } = renderWithRoute("/graph/science/mathematics");
 
@@ -201,6 +246,9 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "Graph View" })).toHaveAttribute(
       "data-nav-state",
       "active",
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled(),
     );
     expect(
       screen.getByRole("button", { name: "Sign in" }).closest("form"),
@@ -360,6 +408,18 @@ describe("AppShell", () => {
     fireEvent.pointerDown(document.body);
 
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("starts interactive sign-in before rendering protected account routes", async () => {
+    renderWithRoute("/dashboard");
+
+    await waitFor(() =>
+      expect(authTransport.submitInteractiveSignIn).toHaveBeenCalledWith(
+        "/dashboard",
+      ),
+    );
+    expect(authTransport.submitInteractiveSignIn).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId("mock-dashboard-page")).not.toBeInTheDocument();
   });
 
   it("updates authenticated user state from the shared session query cache", async () => {

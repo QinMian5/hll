@@ -11,6 +11,8 @@ export function suggestedEditErrorMessage(error: unknown): string {
   switch (error.code) {
     case "authentication_required":
       return "Sign in to suggest edits.";
+    case "session_expired":
+      return "Session expired. Sign in again.";
     case "APPLICATION_API_INPUT_INVALID":
     case "invalid_request":
       return "Check the suggestion fields and try again.";

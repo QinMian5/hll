@@ -95,7 +95,7 @@ async function requireAuthenticatedUser(
   if (session.status === "anonymous") {
     throw new DashboardTokenError(
       401,
-      "dashboard_auth_required",
+      "authentication_required",
       "Authentication is required.",
     );
   }

@@ -153,7 +153,7 @@ describe("dashboard token routes", () => {
     expect(logtoClient.listPersonalAccessTokens).not.toHaveBeenCalled();
     expect(response.body).toEqual({
       error: {
-        code: "dashboard_auth_required",
+        code: "authentication_required",
         message: "Authentication is required.",
       },
     });
@@ -165,6 +165,7 @@ describe("dashboard token routes", () => {
 
     const response = await request(app)
       .post("/web-api/dashboard/tokens")
+      .set("Origin", "http://localhost:5173")
       .send({ name: "Laptop" });
 
     expect(response.status).toBe(201);
@@ -189,6 +190,7 @@ describe("dashboard token routes", () => {
 
     const response = await request(app)
       .patch("/web-api/dashboard/tokens")
+      .set("Origin", "http://localhost:5173")
       .send({ currentName: "Laptop", name: "Workstation" });
 
     expect(response.status).toBe(200);
@@ -212,6 +214,7 @@ describe("dashboard token routes", () => {
 
     const response = await request(app)
       .post("/web-api/dashboard/tokens/delete")
+      .set("Origin", "http://localhost:5173")
       .send({ name: "Laptop" });
 
     expect(response.status).toBe(204);
@@ -227,6 +230,7 @@ describe("dashboard token routes", () => {
 
     const response = await request(app)
       .post("/web-api/dashboard/tokens")
+      .set("Origin", "http://localhost:5173")
       .send({ name: "   " });
 
     expect(response.status).toBe(400);

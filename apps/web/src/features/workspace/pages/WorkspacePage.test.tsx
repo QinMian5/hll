@@ -8,16 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CardProposalResponse } from "../data/workspaceQueries";
 
-vi.mock("../../../shared/web-api/useWebSession", () => ({
-  useWebSession: vi.fn(),
-}));
-
 vi.mock("../data/workspaceQueries", () => ({
   useMyProposalsQuery: vi.fn(),
   useWithdrawCardProposalMutation: vi.fn(),
 }));
 
-import * as webSession from "../../../shared/web-api/useWebSession";
 import * as workspaceQueries from "../data/workspaceQueries";
 import { WorkspacePage } from "./index";
 
@@ -40,7 +35,6 @@ const proposal: CardProposalResponse = {
   updated_at: "2026-05-03T10:00:00.000Z",
 };
 
-const mockUseWebSession = vi.mocked(webSession.useWebSession);
 const mockUseMyProposalsQuery = vi.mocked(workspaceQueries.useMyProposalsQuery);
 const mockUseWithdrawCardProposalMutation = vi.mocked(
   workspaceQueries.useWithdrawCardProposalMutation,
@@ -75,14 +69,6 @@ beforeEach(() => {
       mutate: vi.fn(),
     }),
   );
-  mockUseWebSession.mockReturnValue({
-    status: "authenticated",
-    user: {
-      email: "ada@example.com",
-      id: "user-1",
-      name: "Ada Lovelace",
-    },
-  });
   mockUseMyProposalsQuery.mockReturnValue(
     queryResult({
       data: { proposals: [proposal] },
@@ -93,15 +79,6 @@ beforeEach(() => {
 });
 
 describe("WorkspacePage", () => {
-  it("asks anonymous users to sign in before opening proposal workspace", () => {
-    mockUseWebSession.mockReturnValue({ status: "anonymous" });
-
-    render(<WorkspacePage />);
-
-    expect(screen.getByText("Sign in to open Workspace.")).toBeInTheDocument();
-    expect(mockUseMyProposalsQuery).toHaveBeenCalledWith(false);
-  });
-
   it("renders only current-user proposals from the unified proposal model", () => {
     render(<WorkspacePage />);
 

@@ -107,7 +107,7 @@ describe("SettingsPage", () => {
     expect(screen.queryByText(/saved/i)).not.toBeInTheDocument();
   });
 
-  it("renders a compact sign-in state for anonymous direct visits", async () => {
+  it("renders auth errors as route-level notifications when tested without the guard", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -125,19 +125,11 @@ describe("SettingsPage", () => {
 
     renderSettingsPage();
 
-    expect(
-      await screen.findByText("Sign in to manage your account."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Authentication required.",
+    );
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
-    expect(
-      screen.getByRole("button", { name: "Sign in" }).closest("form"),
-    ).toHaveAttribute("action", "/web-api/auth/sign-in");
-    expect(
-      screen.getByRole("button", { name: "Sign in" }).closest("form"),
-    ).toHaveFormValues({
-      return_to: "/settings",
-    });
+    expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
   });
 
   it("shows a profile load error instead of a blank disabled name form", async () => {

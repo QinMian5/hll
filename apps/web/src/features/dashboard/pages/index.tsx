@@ -35,8 +35,10 @@ function dashboardTokenErrorMessage(
   }
 
   switch (error.code) {
-    case "dashboard_auth_required":
-      return "Sign in to manage tokens.";
+    case "authentication_required":
+      return "Authentication required.";
+    case "session_expired":
+      return "Session expired.";
     case "dashboard_invalid_token_name":
       return "Enter a token name.";
     case "dashboard_token_dependency_unavailable":

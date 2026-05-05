@@ -10,6 +10,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProviders } from "../../../app/providers";
 import { createAppRouter } from "../../../app/router";
 
+vi.mock("../../../app/auth/authTransport", () => ({
+  startSilentSignIn: vi.fn(async () => "failed"),
+  submitInteractiveSignIn: vi.fn(),
+  submitSignOut: vi.fn(),
+}));
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();

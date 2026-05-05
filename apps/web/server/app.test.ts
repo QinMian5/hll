@@ -2,6 +2,7 @@
 // out_of_scope: Auth route behavior, quota enforcement, and backend API forwarding.
 // @vitest-environment node
 
+import { Router } from "express";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 
@@ -31,6 +32,40 @@ describe("createApp", () => {
         message: "Web API route not found.",
       },
     });
+  });
+
+  it("rejects cross-origin web API mutations before feature handlers run", async () => {
+    const config = loadWebServerConfig(TEST_ENV);
+    const webApiRouter = Router();
+    let handlerWasCalled = false;
+
+    webApiRouter.post("/auth/sign-in", (_request, response) => {
+      handlerWasCalled = true;
+      response.status(204).send();
+    });
+    const app = await createApp({
+      config,
+      runtime: {
+        indexHtml: '<html><body><div id="root"></div></body></html>',
+        kind: "production",
+      },
+      webApiRouter,
+    });
+
+    const response = await request(app)
+      .post("/web-api/auth/sign-in")
+      .set("Origin", "https://evil.example")
+      .type("form")
+      .send({ return_to: "/dashboard" });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({
+      error: {
+        code: "csrf_origin_rejected",
+        message: "Request origin is not allowed.",
+      },
+    });
+    expect(handlerWasCalled).toBe(false);
   });
 
   it("serves the client HTML fallback for non-API routes", async () => {

@@ -6,7 +6,10 @@ import { Plus } from "lucide-react";
 import { type FormEvent, lazy, Suspense, useMemo, useState } from "react";
 import { resolveBrowserRuntimeConfig } from "../../../shared/config";
 import { Button } from "../../../shared/ui/button";
-import { WebApiRequestError } from "../../../shared/web-api/errors";
+import {
+  isWebAuthError,
+  WebApiRequestError,
+} from "../../../shared/web-api/errors";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
 import {
   RelatedResultItem,
@@ -174,6 +177,9 @@ export function SearchPage() {
       setProposalError(undefined);
     } catch (error) {
       setProposalError(suggestedEditErrorMessage(error));
+      if (isWebAuthError(error)) {
+        setIsSignInDialogOpen(true);
+      }
     }
   }
 

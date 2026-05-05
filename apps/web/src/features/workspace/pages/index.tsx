@@ -23,7 +23,6 @@ import {
 } from "../../../shared/ui";
 import { Button } from "../../../shared/ui/button";
 import { cn } from "../../../shared/utils";
-import { useWebSession } from "../../../shared/web-api/useWebSession";
 import type { CardProposalResponse } from "../data/workspaceQueries";
 import {
   useMyProposalsQuery,
@@ -183,14 +182,6 @@ function ProposalEntry({
         <ProposalStatus status={proposal.status} />
       </span>
     </button>
-  );
-}
-
-function EmptyPanel({ label }: { readonly label: string }) {
-  return (
-    <div className="flex min-h-[160px] items-center justify-center rounded-knowledge-surface border border-knowledge-border-subtle bg-white/70 px-4 text-knowledge-body text-knowledge-text-muted">
-      {label}
-    </div>
   );
 }
 
@@ -364,9 +355,7 @@ function ProposalDetail({
 }
 
 export function WorkspacePage() {
-  const session = useWebSession();
-  const isAuthenticated = session.status === "authenticated";
-  const myProposals = useMyProposalsQuery(isAuthenticated);
+  const myProposals = useMyProposalsQuery(true);
   const withdrawProposalMutation = useWithdrawCardProposalMutation();
   const proposals = useMemo(
     () => myProposals.data?.proposals ?? [],
@@ -387,14 +376,6 @@ export function WorkspacePage() {
       setSelectedProposalId(proposals[0]?.id);
     }
   }, [proposals, selectedProposalId]);
-
-  if (!isAuthenticated) {
-    return (
-      <main className="flex h-full min-h-0 items-center justify-center p-4">
-        <EmptyPanel label="Sign in to open Workspace." />
-      </main>
-    );
-  }
 
   return (
     <main className="flex h-full min-h-0 flex-col gap-knowledge-page-content-gap overflow-hidden px-knowledge-page-padding-x pt-knowledge-page-padding-top pb-knowledge-page-padding-bottom lg:px-knowledge-page-padding-x-desktop lg:pt-knowledge-page-padding-top-desktop lg:pb-knowledge-page-padding-bottom-desktop">

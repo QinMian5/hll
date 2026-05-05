@@ -12,11 +12,11 @@ out_of_scope: Logto tenant provisioning, password and email flows, Knowledge-own
 
 ## Context
 - **Purpose:** Define the Settings page workflow for authenticated browser users to view and update their account display name.
-- **Scope/Boundaries:** Covers `/settings` page layout, one `Name` field, autosave interaction, BFF profile endpoint behavior, Logto Account API integration, session/profile consistency, and validation expectations. Excludes password, email, avatar, username, custom data, application preferences, and Knowledge-owned profile storage.
+- **Scope/Boundaries:** Covers `/settings` page layout, one `Name` field, autosave interaction, BFF profile endpoint behavior, Logto Account API integration, session/profile consistency, and validation expectations. Excludes password, email, avatar, username, custom data, application preferences, Knowledge-owned profile storage, and shared web auth/session orchestration.
 - **Related Requirements:** R-001, R-003, R-004, R-006, R-007.
 
 ## Constraint Projection
-- **Governing Constraints:** Browser-visible account settings must use the public web BFF boundary, must keep Logto as the account profile authority, must keep browser tokens out of frontend runtime state, and must keep settings UI behavior synchronized with active specs.
+- **Governing Constraints:** Browser-visible account settings must use the public web BFF boundary, must keep Logto as the account profile authority, must follow the shared web auth/session boundary, must keep browser tokens out of frontend runtime state, and must keep settings UI behavior synchronized with active specs.
 - **Detail Commitments:** The Settings route follows Figma file `WBYs6P9HMxe21TSYQL637r`, Settings canvas node `474:84`, desktop frame `476:42`, and mobile frame `476:79`. The settings surface contains only the `Name` field. The browser calls same-origin `/web-api/*` endpoints only. The BFF uses the authenticated server-side Logto session to fetch and patch Logto Account API profile data. Knowledge does not persist a separate account profile table.
 - **Update Rule:** Project requirements remain stable while `/settings` layout, web profile endpoint shape, Logto Account API adapter behavior, and autosave rules stay in this design document.
 
@@ -46,7 +46,7 @@ out_of_scope: Logto tenant provisioning, password and email flows, Knowledge-own
 - **Approach:** The Settings page is an authenticated account page inside the existing shared app shell. It reads browser-safe account profile data through the BFF, renders the Figma-aligned `Name` form, and saves the trimmed name on blur or Enter. The BFF keeps Logto as the source of account profile truth by calling the Logto Account API with server-side session credentials.
 - **Key Elements:**
   - **Route ownership:** `/settings` remains an account-menu route and is not added to the primary sidebar navigation.
-  - **Authenticated boundary:** Authenticated users see the Settings content. Anonymous direct visits show a compact sign-in-required state with the existing BFF-backed sign-in action, `/settings` as the sign-in `return_to` value, and no editable form.
+  - **Authenticated boundary:** Authenticated users see the Settings content. Anonymous or expired-session direct visits use the shared web auth coordinator to start interactive sign-in with `/settings` as the `return_to` value. The Settings page does not own a page-local anonymous sign-in prompt as its primary access behavior.
   - **Figma projection:** Desktop uses the `1120px` main region with `32px` content padding, a `720px` Settings column, a title-only page header, and a quiet `720px x 72px` settings-list panel placed `24px` below the title. The page header uses the shared routed-page header height token and is `48px` tall on desktop and mobile. The normal default state does not render an `Account` header, section header, subtitle, helper, metadata, separator, or saved-status copy. The desktop `Name` row uses `24px` horizontal panel padding, `18px` vertical padding, a `240px` label area, `72px` label-to-field gap, and a `360px x 36px` input. Mobile uses the `440px` frame with `16px` horizontal content padding, `20px` top content padding, a full-width `408px` Settings column, `16px` title-to-panel gap, and a `408px x 96px` panel where the `Name` label and `376px x 36px` input stack with an `8px` gap.
   - **Figma tokenization:** The Settings desktop frame binds the `Knowledge / Layout` collection to `Desktop` mode and the Settings mobile frame binds it to `Mobile` mode. Settings layout dimensions and spacing use `layout/settings/*` variables for content width, page padding, page gap, panel padding, field gap, label width, and input width. The Settings page header uses the shared `layout/page/header-height`, `typography/page/title/font-size`, and `typography/page/title/line-height` variables instead of Settings-local title dimensions. The sectioned panel binds fill, stroke, and radius to `color/surface/card`, `color/border/subtle`, and `radius/surface`. Text fills bind to `color/text/default`. The content, column, panel, and row frames use auto-layout with `FILL` or `HUG` sizing wherever their parent relationship allows.
   - **Field scope:** The page exposes only `Name`. The value is initialized from Logto profile `name`; if no `name` exists, the input starts empty while account identity fallback remains available from email or user id.
@@ -67,14 +67,14 @@ out_of_scope: Logto tenant provisioning, password and email flows, Knowledge-own
   - Pressing Escape before commit restores the last saved value.
   - A successful commit updates the Settings field and shared shell account display from the returned profile data.
   - A failed commit leaves focusable controls usable, preserves the attempted value, marks the field invalid, and displays a content-area error notification.
-  - Anonymous direct-visit sign-in posts through the BFF endpoint and returns to `/settings` after successful authentication.
+  - Anonymous or expired-session direct visits start interactive sign-in through the shared web auth coordinator and return to `/settings` after successful authentication.
 
 ## Validation
 - **Checks:**
   - `/settings` renders inside the shared shell and matches the approved desktop and mobile Settings Figma structures for the normal authenticated state.
   - `/settings` uses the shared routed-page header height and title typography tokens.
   - `/settings` does not add `Settings` to primary navigation.
-  - Anonymous direct visits render a sign-in-required state without an editable profile form and include `/settings` as the sign-in return path.
+  - Anonymous or expired-session direct visits start interactive sign-in through the shared web auth coordinator with `/settings` as the sign-in return path and do not render the editable profile form before authentication.
   - The Name input initializes from authenticated Logto profile data loaded through `GET /web-api/auth/profile`.
   - Profile load failures render content-area error notification feedback instead of an empty disabled profile form.
   - Blur and Enter each trigger exactly one save when the normalized value changed.

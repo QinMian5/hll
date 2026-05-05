@@ -15,6 +15,12 @@ import {
   WebAuthRequiredError,
   type WebLogtoClientFactory,
 } from "./logto.js";
+import {
+  destroyLocalSession,
+  markAuthenticatedSession,
+  regenerateSessionPreserving,
+} from "./sessionLifecycle.js";
+import { WebSessionExpiredError } from "./tokenResolver.js";
 
 export interface CreateAuthRouterOptions {
   readonly config: WebServerConfig;
@@ -108,6 +114,28 @@ function takeAuthReturnTo(request: Request): string {
   return returnTo ?? defaultPostAuthRedirect;
 }
 
+function hasInteractiveAuthReturnTo(request: Request): boolean {
+  return authSessionState(request)?.authReturnTo !== undefined;
+}
+
+function sessionKeys(request: Request): string[] {
+  const session = authSessionState(request);
+  return session === undefined ? [] : Object.keys(session);
+}
+
+function renderSilentCallbackDocument(
+  config: WebServerConfig,
+  status: "failed" | "success",
+): string {
+  const targetOrigin = JSON.stringify(new URL(config.publicBaseUrl).origin);
+  const message = JSON.stringify({
+    status,
+    type: "knowledge.auth.silent",
+  });
+
+  return `<!doctype html><html><body><script>window.parent.postMessage(${message},${targetOrigin});</script></body></html>`;
+}
+
 function readProfileName(value: unknown): string | null {
   if (value === null) {
     return null;
@@ -145,6 +173,16 @@ function handleProfileRouteError(
       error: {
         code: "authentication_required",
         message: "Authentication required.",
+      },
+    });
+    return;
+  }
+
+  if (error instanceof WebSessionExpiredError) {
+    response.status(401).json({
+      error: {
+        code: "session_expired",
+        message: "Session expired.",
       },
     });
     return;
@@ -219,10 +257,67 @@ export function createAuthRouter(options: CreateAuthRouterOptions): Router {
       await client.handleSignInCallback(
         joinPublicUrl(options.config, request.originalUrl),
       );
+      const returnTo = takeAuthReturnTo(request);
+      markAuthenticatedSession(request);
+      await regenerateSessionPreserving(request, sessionKeys(request));
 
-      response.redirect(303, takeAuthReturnTo(request));
+      response.redirect(303, returnTo);
     } catch (error) {
       next(error);
+    }
+  });
+
+  router.post("/silent-sign-in", async (request, response, next) => {
+    try {
+      if (hasInteractiveAuthReturnTo(request)) {
+        response
+          .status(200)
+          .type("html")
+          .send(renderSilentCallbackDocument(options.config, "failed"));
+        return;
+      }
+
+      const client = createClient(request, response);
+      const redirectUrl = await client.signIn({
+        prompt: "none",
+        redirectUri: joinPublicUrl(
+          options.config,
+          "/web-api/auth/silent-callback",
+        ),
+      });
+
+      response.redirect(303, redirectUrl);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/silent-callback", async (request, response) => {
+    if (hasInteractiveAuthReturnTo(request)) {
+      response
+        .status(200)
+        .type("html")
+        .send(renderSilentCallbackDocument(options.config, "failed"));
+      return;
+    }
+
+    try {
+      const client = createClient(request, response);
+      await client.handleSignInCallback(
+        joinPublicUrl(options.config, request.originalUrl),
+      );
+      markAuthenticatedSession(request);
+      await regenerateSessionPreserving(request, sessionKeys(request));
+
+      response
+        .status(200)
+        .type("html")
+        .send(renderSilentCallbackDocument(options.config, "success"));
+    } catch {
+      response
+        .status(200)
+        .type("html")
+        .send(renderSilentCallbackDocument(options.config, "failed"));
     }
   });
 
@@ -230,6 +325,7 @@ export function createAuthRouter(options: CreateAuthRouterOptions): Router {
     try {
       const client = createClient(request, response);
       const redirectUrl = await client.signOut(options.config.publicBaseUrl);
+      await destroyLocalSession(request, response);
 
       response.redirect(303, redirectUrl);
     } catch (error) {

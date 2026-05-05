@@ -1,6 +1,6 @@
 ---
 abstract: Web Workspace design for current-user human knowledge-card proposal tracking and Search proposal integration.
-out_of_scope: Figma canvas construction, implementation plan steps, notification workflows, collaborative change-request threads, reviewer queue UI, role-management UI, billing, and Logto tenant administration.
+out_of_scope: Figma canvas construction, implementation plan steps, notification workflows, collaborative change-request threads, reviewer queue UI, role-management UI, billing, shared web auth/session orchestration, and Logto tenant administration.
 ---
 
 # Design: web-knowledge-workspace
@@ -12,12 +12,12 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 
 ## Context
 - **Purpose:** Define the web Workspace product surface for current-user tracking of role-governed human maintenance proposals.
-- **Scope/Boundaries:** Covers Workspace information architecture, Knowledge-owned contribution roles, unified proposal types, proposal lifecycle states, reviewer accept/apply semantics, audit expectations, Search proposal integration, and first-version phasing. Excludes Figma drawing execution, detailed implementation planning, notification systems, comment threads, reviewer queue UI, role-management UI, billing, and Logto operational setup.
+- **Scope/Boundaries:** Covers Workspace information architecture, Knowledge-owned contribution roles, unified proposal types, proposal lifecycle states, reviewer accept/apply semantics, audit expectations, Search proposal integration, and first-version phasing. Excludes Figma drawing execution, detailed implementation planning, notification systems, comment threads, reviewer queue UI, role-management UI, billing, shared web auth/session orchestration, and Logto operational setup.
 - **Related Requirements:** R-001, R-002, R-003, R-004, R-006, R-007, R-008.
 
 ## Constraint Projection
 - **Governing Constraints:** Human-originated knowledge changes remain role-governed, reviewable, and auditable. Public browser access remains BFF-mediated. Internal API access remains contract-driven through generated artifacts. Active specs stay synchronized with accepted behavior.
-- **Detail Commitments:** The web client exposes `Workspace` as an authenticated account-menu route inside the existing app shell. Search owns lightweight proposal entry for adding cards, editing cards, and requesting card deletion. Workspace owns current-user proposal tracking through `My Proposals` only. Workspace does not expose contributor-facing create/edit/delete forms, `Review Queue`, or `Role Management`. Search-submitted records use the same unified proposal model that Workspace tracks and reviewers apply through role-governed service flows outside the Workspace route. Reviewer acceptance applies the formal knowledge-graph change immediately and writes an independent audit record. Knowledge owns reviewer/admin authorization using Logto user ids as identity keys; Logto remains the identity provider rather than the contribution-role store.
+- **Detail Commitments:** The web client exposes `Workspace` as an authenticated account-menu route inside the app shell, and the route is protected by the shared web auth coordinator defined in `web-auth-session.md`. Search owns lightweight proposal entry for adding cards, editing cards, and requesting card deletion. Workspace owns current-user proposal tracking through `My Proposals` only. Workspace does not expose contributor-facing create/edit/delete forms, `Review Queue`, or `Role Management`. Search-submitted records use the same unified proposal model that Workspace tracks and reviewers apply through role-governed service flows outside the Workspace route. Reviewer acceptance applies the formal knowledge-graph change immediately and writes an independent audit record. Knowledge owns reviewer/admin authorization using Logto user ids as identity keys; Logto remains the identity provider rather than the contribution-role store.
 - **Update Rule:** Requirement-level role-governance constraints remain stable in `requirements.md`; Workspace route structure, proposal behavior, role ownership, and apply/audit semantics stay in this design document and related web/BFF/domain design documents.
 
 ## Product Model

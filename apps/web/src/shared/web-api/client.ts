@@ -1,7 +1,7 @@
 // abstract: Same-origin JSON client for browser calls to the web BFF API.
 // out_of_scope: Server-side internal API transport and feature query state.
 
-import { WebApiRequestError } from "./errors";
+import { dispatchWebAuthError, WebApiRequestError } from "./errors";
 
 interface WebApiErrorPayload {
   readonly error?: {
@@ -78,7 +78,9 @@ export async function fetchWebApiJson<TResponse>(
   });
 
   if (!response.ok) {
-    throw await readError(response);
+    const error = await readError(response);
+    dispatchWebAuthError(error);
+    throw error;
   }
 
   if (response.status === 204) {

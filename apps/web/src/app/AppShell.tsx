@@ -20,10 +20,15 @@ import { useEffect, useRef, useState } from "react";
 
 import { cn } from "../shared/utils";
 import type { WebSessionResponse } from "../shared/web-api/session";
-import { useWebSessionQuery } from "../shared/web-api/sessionQueries";
+import { useAuthCoordinator } from "./auth/AuthCoordinatorProvider";
+import { isPublicRoute } from "./auth/routePolicies";
 
 type AppRoute = "/overview" | "/graph" | "/search" | "/docs";
 type AccountRoute = "/dashboard" | "/workspace" | "/settings";
+type ShellSession =
+  | WebSessionResponse
+  | { readonly status: "checking" }
+  | { readonly status: "error" };
 
 interface NavItem {
   readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
@@ -68,6 +73,9 @@ const githubRepositoryUrl = "https://github.com/QinMian5/knowledge";
 
 const actionButtonClasses =
   "inline-flex h-10 w-full items-center justify-center rounded-lg bg-[#006bff] px-3 text-[13px] leading-[18px] font-medium text-white transition-colors hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
+
+const disabledActionButtonClasses =
+  "inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] px-3 text-[13px] leading-[18px] font-medium text-[#606e87]";
 
 const menuItemClasses =
   "flex h-account-menu-item-height w-full items-center gap-account-menu-item-gap rounded-account-menu-item px-account-menu-item-x text-left text-account-menu-item font-normal text-account-menu-text no-underline transition-colors hover:bg-account-menu-item-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-account-menu-focus";
@@ -143,6 +151,14 @@ function SignInAction({ returnTo }: { readonly returnTo: string }) {
         Sign in
       </button>
     </form>
+  );
+}
+
+function AccountStatusAction({ label }: { readonly label: string }) {
+  return (
+    <button className={disabledActionButtonClasses} disabled type="button">
+      {label}
+    </button>
   );
 }
 
@@ -313,7 +329,7 @@ function SidebarContent({
   readonly onClose?: () => void;
   readonly pathname: string;
   readonly returnTo: string;
-  readonly session: WebSessionResponse;
+  readonly session: ShellSession;
 }) {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
@@ -377,8 +393,12 @@ function SidebarContent({
             }}
             profile={profile}
           />
-        ) : (
+        ) : session.status === "anonymous" ? (
           <SignInAction returnTo={returnTo} />
+        ) : session.status === "error" ? (
+          <AccountStatusAction label="Auth unavailable" />
+        ) : (
+          <AccountStatusAction label="Checking" />
         )}
       </div>
     </div>
@@ -387,13 +407,31 @@ function SidebarContent({
 
 export function AppShell() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const session = useWebSessionQuery().data ?? { status: "anonymous" };
+  const auth = useAuthCoordinator();
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
   const returnTo = useRouterState({
     select: (state) => state.location.href,
   });
+  const authStatus = auth.status;
+  const session: ShellSession =
+    auth.status === "authenticated"
+      ? { status: "authenticated", user: auth.user }
+      : {
+          status:
+            auth.status === "error"
+              ? "error"
+              : auth.status === "anonymous"
+                ? "anonymous"
+                : "checking",
+        };
+
+  useEffect(() => {
+    if (authStatus === "anonymous" && isPublicRoute(pathname)) {
+      void auth.attemptSilentSignIn(returnTo);
+    }
+  }, [auth.attemptSilentSignIn, authStatus, pathname, returnTo]);
 
   function closeDrawer() {
     setIsDrawerOpen(false);

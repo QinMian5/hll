@@ -49,7 +49,7 @@ async function requireAuthenticatedUser(
   if (session.status === "anonymous") {
     throw new DashboardQuotaRouteError(
       401,
-      "dashboard_auth_required",
+      "authentication_required",
       "Authentication is required.",
     );
   }

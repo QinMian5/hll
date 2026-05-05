@@ -9,9 +9,12 @@ import {
   createRouter,
   lazyRouteComponent,
   Outlet,
+  useRouterState,
 } from "@tanstack/react-router";
+import type { ComponentType } from "react";
 
 import { AppShell } from "./AppShell";
+import { ProtectedRoute } from "./auth/AuthCoordinatorProvider";
 
 function RootRedirect() {
   return <Outlet />;
@@ -21,6 +24,20 @@ const taxonomyViewRouteComponent = lazyRouteComponent(
   () => import("../features/taxonomy-view/page/TaxonomyViewPage"),
   "TaxonomyViewPage",
 );
+
+function protectedRouteComponent(Component: ComponentType) {
+  return function ProtectedRouteComponent() {
+    const returnTo = useRouterState({
+      select: (state) => state.location.href,
+    });
+
+    return (
+      <ProtectedRoute returnTo={returnTo}>
+        <Component />
+      </ProtectedRoute>
+    );
+  };
+}
 
 const rootRoute = createRootRoute({
   component: AppShell,
@@ -75,27 +92,33 @@ const docsRoute = createRoute({
 });
 
 const dashboardRoute = createRoute({
-  component: lazyRouteComponent(
-    () => import("../features/dashboard/pages"),
-    "DashboardPage",
+  component: protectedRouteComponent(
+    lazyRouteComponent(
+      () => import("../features/dashboard/pages"),
+      "DashboardPage",
+    ),
   ),
   getParentRoute: () => rootRoute,
   path: "dashboard",
 });
 
 const workspaceRoute = createRoute({
-  component: lazyRouteComponent(
-    () => import("../features/workspace/pages"),
-    "WorkspacePage",
+  component: protectedRouteComponent(
+    lazyRouteComponent(
+      () => import("../features/workspace/pages"),
+      "WorkspacePage",
+    ),
   ),
   getParentRoute: () => rootRoute,
   path: "workspace",
 });
 
 const settingsRoute = createRoute({
-  component: lazyRouteComponent(
-    () => import("../features/settings/pages"),
-    "SettingsPage",
+  component: protectedRouteComponent(
+    lazyRouteComponent(
+      () => import("../features/settings/pages"),
+      "SettingsPage",
+    ),
   ),
   getParentRoute: () => rootRoute,
   path: "settings",
