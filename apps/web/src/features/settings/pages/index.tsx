@@ -63,7 +63,7 @@ function ErrorNotification({
   onDismiss,
 }: {
   readonly message: string;
-  readonly onDismiss: () => void;
+  readonly onDismiss?: () => void;
 }) {
   return (
     <div
@@ -73,14 +73,16 @@ function ErrorNotification({
       <span className="min-w-0 flex-1 text-[13px] leading-[18px] font-medium">
         {message}
       </span>
-      <button
-        aria-label="Dismiss error"
-        className="flex size-5 shrink-0 items-center justify-center rounded-md text-[#991b1b] hover:bg-[#fee2e2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#dc2626]"
-        onClick={onDismiss}
-        type="button"
-      >
-        <X aria-hidden="true" className="size-3.5" strokeWidth={2} />
-      </button>
+      {onDismiss ? (
+        <button
+          aria-label="Dismiss error"
+          className="flex size-5 shrink-0 items-center justify-center rounded-md text-[#991b1b] hover:bg-[#fee2e2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#dc2626]"
+          onClick={onDismiss}
+          type="button"
+        >
+          <X aria-hidden="true" className="size-3.5" strokeWidth={2} />
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -163,6 +165,11 @@ export function SettingsPage() {
   }
 
   const isAnonymous = isAuthenticationError(profileQuery.error);
+  const profileLoadError =
+    profileQuery.error === null || isAnonymous
+      ? null
+      : errorMessage(profileQuery.error);
+  const visibleNotificationMessage = notificationMessage ?? profileLoadError;
   const isProfileReady = profileQuery.data !== undefined;
 
   return (
@@ -175,17 +182,21 @@ export function SettingsPage() {
         data-testid="settings-column"
       >
         <PageHeader title="Settings" />
-        {notificationMessage ? (
+        {visibleNotificationMessage ? (
           <ErrorNotification
-            message={notificationMessage}
-            onDismiss={() => {
-              setNotificationMessage(null);
-            }}
+            message={visibleNotificationMessage}
+            onDismiss={
+              notificationMessage === null
+                ? undefined
+                : () => {
+                    setNotificationMessage(null);
+                  }
+            }
           />
         ) : null}
         {isAnonymous ? (
           <SignInPrompt />
-        ) : (
+        ) : profileLoadError ? null : (
           <div
             className="w-full rounded-lg border border-[#e0e4eb] bg-white"
             data-testid="settings-panel"

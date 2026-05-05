@@ -64,6 +64,13 @@ export class LogtoAccountApiRequestError extends Error {
   }
 }
 
+class LogtoAccountApiUnauthorizedError extends Error {
+  constructor() {
+    super("Logto account profile token was rejected.");
+    this.name = "LogtoAccountApiUnauthorizedError";
+  }
+}
+
 export type WebLogtoClientFactory = (
   request: Request,
   response: ExpressResponse,
@@ -306,29 +313,39 @@ function mergeAccountProfile(
   };
 }
 
+type LogtoAccessTokenClient = Pick<
+  StandardLogtoClient,
+  "clearAccessToken" | "getAccessToken"
+>;
+
+type LogtoAccountProfileRequestInit = Omit<RequestInit, "headers"> & {
+  readonly headers?: Record<string, string>;
+};
+
 async function requestAccountProfile(
   config: WebServerConfig,
   accessToken: string,
-  init: Omit<RequestInit, "headers"> & {
-    readonly headers?: Record<string, string>;
-  } = {},
+  init: LogtoAccountProfileRequestInit = {},
 ): Promise<LogtoAccountProfilePayload> {
   let accountResponse: globalThis.Response;
 
   try {
-    accountResponse = await fetch(joinLogtoUrl(config, "/api/my-account"), {
-      ...init,
-      headers: {
-        ...init.headers,
-        authorization: `Bearer ${accessToken}`,
-      },
-    });
+    accountResponse = await fetch(
+      rewriteLogtoServerUrl(config, joinLogtoUrl(config, "/api/my-account")),
+      withLogtoForwardedHeaders(config, {
+        ...init,
+        headers: {
+          ...init.headers,
+          authorization: `Bearer ${accessToken}`,
+        },
+      }),
+    );
   } catch {
     throw new LogtoAccountApiRequestError();
   }
 
   if (accountResponse.status === 401) {
-    throw new WebAuthRequiredError();
+    throw new LogtoAccountApiUnauthorizedError();
   }
 
   if (!accountResponse.ok) {
@@ -343,6 +360,40 @@ async function requestAccountProfile(
     }
 
     throw new LogtoAccountApiRequestError();
+  }
+}
+
+async function requestAccountProfileWithTokenRefresh(
+  config: WebServerConfig,
+  client: LogtoAccessTokenClient,
+  init: LogtoAccountProfileRequestInit = {},
+): Promise<LogtoAccountProfilePayload> {
+  try {
+    return await requestAccountProfile(
+      config,
+      await client.getAccessToken(),
+      init,
+    );
+  } catch (error) {
+    if (!(error instanceof LogtoAccountApiUnauthorizedError)) {
+      throw error;
+    }
+  }
+
+  await client.clearAccessToken();
+
+  try {
+    return await requestAccountProfile(
+      config,
+      await client.getAccessToken(),
+      init,
+    );
+  } catch (error) {
+    if (error instanceof LogtoAccountApiUnauthorizedError) {
+      throw new WebAuthRequiredError();
+    }
+
+    throw error;
   }
 }
 
@@ -381,15 +432,12 @@ export function createLogtoClientFactory(
           throw new WebAuthRequiredError();
         }
 
-        const [claims, accessToken] = await Promise.all([
+        const [claims, accountProfile] = await Promise.all([
           client.getIdTokenClaims(),
-          client.getAccessToken(),
+          requestAccountProfileWithTokenRefresh(config, client),
         ]);
 
-        return mergeAccountProfile(
-          claims,
-          await requestAccountProfile(config, accessToken),
-        );
+        return mergeAccountProfile(claims, accountProfile);
       },
       handleSignInCallback: async (callbackUri) => {
         await client.handleSignInCallback(callbackUri);
@@ -409,21 +457,18 @@ export function createLogtoClientFactory(
           throw new WebAuthRequiredError();
         }
 
-        const [claims, accessToken] = await Promise.all([
+        const [claims, accountProfile] = await Promise.all([
           client.getIdTokenClaims(),
-          client.getAccessToken(),
-        ]);
-
-        return mergeAccountProfile(
-          claims,
-          await requestAccountProfile(config, accessToken, {
+          requestAccountProfileWithTokenRefresh(config, client, {
             body: JSON.stringify({ name }),
             headers: {
               "content-type": "application/json",
             },
             method: "PATCH",
           }),
-        );
+        ]);
+
+        return mergeAccountProfile(claims, accountProfile);
       },
     };
   };

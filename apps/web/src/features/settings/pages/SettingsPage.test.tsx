@@ -140,6 +140,30 @@ describe("SettingsPage", () => {
     });
   });
 
+  it("shows a profile load error instead of a blank disabled name form", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            error: {
+              code: "logto_account_profile_unavailable",
+              message: "Account profile is unavailable.",
+            },
+          },
+          502,
+        ),
+      ),
+    );
+
+    renderSettingsPage();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Account profile is unavailable.",
+    );
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+  });
+
   it("autosaves a changed name on blur and refreshes shared session display data", async () => {
     const fetchMock = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
