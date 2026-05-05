@@ -242,7 +242,7 @@ function AccountMenu({
 }) {
   return (
     <div
-      className="absolute -top-account-menu-offset-y left-0 z-20 flex h-account-menu-height w-full flex-col rounded-account-menu border border-account-menu-border bg-account-menu-surface p-1 drop-shadow-[var(--drop-shadow-account-menu)]"
+      className="absolute bottom-[calc(var(--spacing-account-action-button-height)+var(--spacing-shell-account-action-gap))] left-0 right-0 z-20 flex w-full flex-col rounded-account-menu border border-account-menu-border bg-account-menu-surface p-account-menu-padding drop-shadow-[var(--drop-shadow-account-menu)]"
       ref={menuRef}
       role="menu"
     >
@@ -275,7 +275,7 @@ function UserAccountAction({
       aria-expanded={isMenuOpen}
       aria-label={`User menu, ${profile.name}`}
       className={cn(
-        "flex h-12 w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-lg border border-[#e0e4eb] pl-2 pr-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]",
+        "flex h-account-action-button-height w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-lg border border-[#e0e4eb] pl-2 pr-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]",
         isMenuOpen
           ? "bg-[#eff6ff]"
           : "bg-[rgba(255,255,255,0.72)] hover:bg-white",
@@ -357,10 +357,13 @@ function SidebarContent({
   }
 
   return (
-    <div className="relative flex h-full w-full flex-col gap-2 overflow-hidden bg-[rgba(255,255,255,0.72)] p-2">
+    <div className="relative flex h-full w-full flex-col gap-shell-account-action-gap overflow-hidden bg-[rgba(255,255,255,0.72)] p-shell-account-action-inset-x">
       <BrandRow withClose={onClose} />
       <NavigationItems onNavigate={handleNavigate} pathname={pathname} />
-      <div className="relative flex h-[104px] w-full shrink-0 flex-col gap-2 pt-2">
+      <div
+        className="relative flex h-auto w-full shrink-0 flex-col gap-shell-account-action-gap pt-shell-account-action-gap"
+        data-testid="app-shell-account-area"
+      >
         {profile && isAccountMenuOpen ? (
           <AccountMenu menuRef={accountMenuRef} onNavigate={handleNavigate} />
         ) : null}

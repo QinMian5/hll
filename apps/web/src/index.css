@@ -257,12 +257,14 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-dashboard-table-row-padding-y: 8px;
   --spacing-knowledge-dashboard-toolbar-height: 40px;
 
-  --spacing-account-menu-height: 184px;
+  --spacing-shell-account-action-gap: 8px;
+  --spacing-shell-account-action-inset-x: 8px;
+  --spacing-account-action-button-height: 48px;
   --spacing-account-menu-icon-size: 16px;
   --spacing-account-menu-item-gap: 8px;
   --spacing-account-menu-item-height: 44px;
   --spacing-account-menu-item-x: 12px;
-  --spacing-account-menu-offset-y: 192px;
+  --spacing-account-menu-padding: 4px;
 
   --radius-knowledge-control: 8px;
   --radius-docs-icon-button: 4px;

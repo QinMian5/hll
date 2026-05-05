@@ -281,15 +281,25 @@ describe("AppShell", () => {
 
     fireEvent.click(accountButton);
 
+    expect(screen.getByTestId("app-shell-account-area")).toHaveClass(
+      "gap-shell-account-action-gap",
+      "pt-shell-account-action-gap",
+      "h-auto",
+    );
     expect(screen.getByRole("menu")).toHaveClass(
-      "-top-account-menu-offset-y",
-      "h-account-menu-height",
+      "bottom-[calc(var(--spacing-account-action-button-height)+var(--spacing-shell-account-action-gap))]",
       "left-0",
+      "right-0",
       "w-full",
       "rounded-account-menu",
       "border-account-menu-border",
       "bg-account-menu-surface",
+      "p-account-menu-padding",
       "drop-shadow-[var(--drop-shadow-account-menu)]",
+    );
+    expect(screen.getByRole("menu")).not.toHaveClass(
+      "-top-account-menu-offset-y",
+      "h-account-menu-height",
     );
     const expectedMenuItemClasses = [
       "h-account-menu-item-height",
