@@ -211,7 +211,7 @@ describe("SearchPage", () => {
     const addCardButton = screen.getByRole("button", { name: "Add Card" });
     expect(addCardButton).toBeDisabled();
     expect(addCardButton).toHaveClass(
-      "bg-knowledge-brand-disabled",
+      "disabled:bg-knowledge-brand-disabled",
       "disabled:hover:bg-knowledge-brand-disabled",
     );
     expect(screen.getAllByTestId("search-result-card-skeleton")).toHaveLength(

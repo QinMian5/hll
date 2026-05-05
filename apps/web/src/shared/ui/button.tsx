@@ -7,18 +7,15 @@ import { cn } from "../utils";
 
 const buttonVariantClasses = {
   default:
-    "bg-knowledge-brand text-knowledge-text-inverse hover:bg-knowledge-brand-hover disabled:hover:bg-knowledge-brand",
+    "bg-knowledge-brand text-knowledge-text-inverse hover:bg-knowledge-brand-hover active:bg-knowledge-brand-pressed disabled:bg-knowledge-brand-disabled disabled:hover:bg-knowledge-brand-disabled disabled:active:bg-knowledge-brand-disabled",
+  danger:
+    "bg-knowledge-danger text-knowledge-text-inverse hover:bg-knowledge-danger-hover active:bg-knowledge-danger-pressed disabled:bg-knowledge-muted-surface disabled:text-knowledge-text-muted disabled:hover:bg-knowledge-muted-surface disabled:active:bg-knowledge-muted-surface",
   destructive:
-    "bg-knowledge-danger text-knowledge-text-inverse hover:bg-knowledge-danger-hover disabled:hover:bg-knowledge-danger",
+    "bg-knowledge-danger text-knowledge-text-inverse hover:bg-knowledge-danger-hover active:bg-knowledge-danger-pressed disabled:bg-knowledge-muted-surface disabled:text-knowledge-text-muted disabled:hover:bg-knowledge-muted-surface disabled:active:bg-knowledge-muted-surface",
   ghost:
-    "bg-transparent text-knowledge-text-muted hover:bg-knowledge-surface-hover hover:text-knowledge-text-default disabled:hover:bg-transparent",
+    "bg-transparent text-knowledge-text-muted hover:bg-knowledge-surface-hover hover:text-knowledge-text-default active:bg-knowledge-surface-control-pressed disabled:hover:bg-transparent disabled:active:bg-transparent",
   secondary:
-    "border border-knowledge-border-control bg-knowledge-surface-control text-knowledge-text-default hover:border-docs-border-accent hover:bg-knowledge-surface-hover disabled:border-knowledge-border-subtle disabled:text-knowledge-text-muted disabled:hover:border-knowledge-border-subtle disabled:hover:bg-knowledge-surface-control",
-} as const;
-
-const disabledButtonVariantClasses = {
-  default:
-    "bg-knowledge-brand-disabled text-knowledge-text-inverse hover:bg-knowledge-brand-disabled disabled:hover:bg-knowledge-brand-disabled",
+    "border border-knowledge-border-control bg-knowledge-surface-control text-knowledge-text-default hover:border-docs-border-accent hover:bg-knowledge-surface-control-hover active:bg-knowledge-surface-control-pressed disabled:border-knowledge-border-subtle disabled:bg-knowledge-muted-surface disabled:text-knowledge-text-muted disabled:hover:border-knowledge-border-subtle disabled:hover:bg-knowledge-muted-surface disabled:active:bg-knowledge-muted-surface",
 } as const;
 
 const buttonSizeClasses = {
@@ -37,28 +34,19 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export function Button({
   className,
-  disabled,
   size = "default",
   type = "button",
   variant = "default",
   ...props
 }: ButtonProps) {
-  const variantClasses =
-    disabled && variant in disabledButtonVariantClasses
-      ? disabledButtonVariantClasses[
-          variant as keyof typeof disabledButtonVariantClasses
-        ]
-      : buttonVariantClasses[variant];
-
   return (
     <button
       className={cn(
         "inline-flex items-center justify-center gap-knowledge-action-button-content-gap font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand disabled:cursor-not-allowed disabled:opacity-100",
-        variantClasses,
+        buttonVariantClasses[variant],
         buttonSizeClasses[size],
         className,
       )}
-      disabled={disabled}
       type={type}
       {...props}
     />

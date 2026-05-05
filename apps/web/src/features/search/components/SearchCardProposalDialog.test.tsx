@@ -106,6 +106,11 @@ describe("SearchCardProposalDialog", () => {
       "placeholder",
       "Explain why you recommend deleting this card.",
     );
+    expect(
+      within(dialog)
+        .getByRole("button", { name: "Submit" })
+        .querySelector("svg"),
+    ).toBeNull();
   });
 
   it("uses edit-specific proposal placeholders", () => {

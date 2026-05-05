@@ -311,14 +311,11 @@ export function SearchCardProposalDialog({
               Cancel
             </Button>
             <Button
-              className="min-w-0 gap-2"
+              className="min-w-0"
               disabled={isSubmitDisabled}
               type="submit"
-              variant={mode === "delete" ? "destructive" : "default"}
+              variant={mode === "delete" ? "danger" : "default"}
             >
-              {mode === "delete" ? (
-                <Trash2 aria-hidden="true" className="size-4" />
-              ) : null}
               Submit
             </Button>
           </div>

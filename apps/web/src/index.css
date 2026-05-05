@@ -15,8 +15,10 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --color-knowledge-brand: #006bff;
   --color-knowledge-brand-disabled: #8cb9ff;
   --color-knowledge-brand-hover: #005ee0;
+  --color-knowledge-brand-pressed: #004bb3;
   --color-knowledge-danger: #d83232;
   --color-knowledge-danger-hover: #bf2525;
+  --color-knowledge-danger-pressed: #991b1b;
   --color-knowledge-danger-soft: rgb(216 50 50 / 8%);
   --color-knowledge-text-default: #131c2d;
   --color-knowledge-text-muted: #606e87;
@@ -25,6 +27,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --color-knowledge-surface-card: rgb(255 255 255 / 88%);
   --color-knowledge-surface-control: rgb(255 255 255 / 62%);
   --color-knowledge-surface-control-hover: rgb(241 245 251 / 72%);
+  --color-knowledge-surface-control-pressed: rgb(214 227 247 / 72%);
   --color-knowledge-surface-dialog: #ffffff;
   --color-knowledge-surface-hover: rgb(226 234 246 / 58%);
   --color-knowledge-surface-input: rgb(255 255 255 / 82%);
