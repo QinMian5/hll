@@ -1,13 +1,14 @@
 // abstract: Standalone taxonomy card-scope layout tuning interface.
 // out_of_scope: Production app routing and taxonomy view data fetching.
 
-import { RefreshCw, RotateCcw } from "lucide-react";
+import { Play, RefreshCw, RotateCcw } from "lucide-react";
 import {
   type Dispatch,
   type SetStateAction,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -27,6 +28,7 @@ import {
 } from "./taxonomyLayoutLabParams";
 
 type LayoutLabStatus = "idle" | "loading" | "solving" | "ready" | "error";
+const DEFAULT_INTERACTIVE_FIXTURE_NAME = "obsidian-sample";
 
 export function TaxonomyLayoutLabApp() {
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_LAYOUT_LAB_API_BASE_URL);
@@ -39,16 +41,26 @@ export function TaxonomyLayoutLabApp() {
     useState<TaxonomyCardScopeLayoutSliceResponse | null>(null);
   const [status, setStatus] = useState<LayoutLabStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const solveRequestIdRef = useRef(0);
 
   const selectedFixture = useMemo(
     () => fixtures.find((fixture) => fixture.name === selectedFixtureName),
     [fixtures, selectedFixtureName],
   );
 
+  const invalidatePreview = useCallback(() => {
+    solveRequestIdRef.current += 1;
+    setLayout(null);
+    setStatus("idle");
+    setErrorMessage(null);
+  }, []);
+
   const loadLabData = useCallback(
     async (signal?: AbortSignal) => {
+      solveRequestIdRef.current += 1;
       setStatus("loading");
       setErrorMessage(null);
+      setLayout(null);
       const [fixtureData, parameterData] = await Promise.all([
         fetchLayoutLabFixtures({ apiBaseUrl, signal }),
         fetchLayoutLabDefaultParams({ apiBaseUrl, signal }),
@@ -65,8 +77,9 @@ export function TaxonomyLayoutLabApp() {
           return currentFixtureName;
         }
 
-        return fixtureData[0]?.name ?? "";
+        return selectInitialFixtureName(fixtureData);
       });
+      setStatus("idle");
     },
     [apiBaseUrl],
   );
@@ -88,42 +101,47 @@ export function TaxonomyLayoutLabApp() {
     };
   }, [loadLabData]);
 
-  useEffect(() => {
+  const runSolve = useCallback(() => {
     if (!selectedFixtureName || !defaultParams) {
       return;
     }
 
     const controller = new AbortController();
-    const solveTimer = window.setTimeout(() => {
-      setStatus("solving");
-      setErrorMessage(null);
-      solveLayoutLab({
-        apiBaseUrl,
-        fixtureName: selectedFixtureName,
-        params,
-        signal: controller.signal,
+    const requestId = solveRequestIdRef.current + 1;
+    solveRequestIdRef.current = requestId;
+
+    setStatus("solving");
+    setErrorMessage(null);
+    solveLayoutLab({
+      apiBaseUrl,
+      fixtureName: selectedFixtureName,
+      params,
+      signal: controller.signal,
+    })
+      .then((nextLayout) => {
+        if (solveRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        setLayout(nextLayout);
+        setStatus("ready");
       })
-        .then((nextLayout) => {
-          setLayout(nextLayout);
-          setStatus("ready");
-        })
-        .catch((error: unknown) => {
-          if (controller.signal.aborted) {
-            return;
-          }
+      .catch((error: unknown) => {
+        if (
+          controller.signal.aborted ||
+          solveRequestIdRef.current !== requestId
+        ) {
+          return;
+        }
 
-          setStatus("error");
-          setErrorMessage(
-            error instanceof Error ? error.message : String(error),
-          );
-        });
-    }, 120);
-
-    return () => {
-      window.clearTimeout(solveTimer);
-      controller.abort();
-    };
+        setStatus("error");
+        setErrorMessage(error instanceof Error ? error.message : String(error));
+      });
   }, [apiBaseUrl, defaultParams, params, selectedFixtureName]);
+
+  const canSolve = Boolean(
+    selectedFixtureName && defaultParams && status !== "solving",
+  );
 
   return (
     <main className="grid h-screen min-h-0 grid-cols-[390px_minmax(0,1fr)] bg-[#F8FAFC] text-[#0F172A]">
@@ -140,22 +158,33 @@ export function TaxonomyLayoutLabApp() {
                   : status}
               </p>
             </div>
-            <button
-              aria-label="Reload fixtures and defaults"
-              className="grid size-9 place-items-center rounded-[8px] border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]"
-              onClick={() => {
-                const controller = new AbortController();
-                loadLabData(controller.signal).catch((error: unknown) => {
-                  setStatus("error");
-                  setErrorMessage(
-                    error instanceof Error ? error.message : String(error),
-                  );
-                });
-              }}
-              type="button"
-            >
-              <RefreshCw aria-hidden="true" size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="inline-flex h-9 items-center gap-2 rounded-[8px] bg-[#2563EB] px-3 text-[12px] font-medium text-white hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-[#93C5FD]"
+                disabled={!canSolve}
+                onClick={runSolve}
+                type="button"
+              >
+                <Play aria-hidden="true" size={14} />
+                Solve
+              </button>
+              <button
+                aria-label="Reload fixtures and defaults"
+                className="grid size-9 place-items-center rounded-[8px] border border-[#CBD5E1] bg-white text-[#334155] hover:bg-[#F8FAFC]"
+                onClick={() => {
+                  const controller = new AbortController();
+                  loadLabData(controller.signal).catch((error: unknown) => {
+                    setStatus("error");
+                    setErrorMessage(
+                      error instanceof Error ? error.message : String(error),
+                    );
+                  });
+                }}
+                type="button"
+              >
+                <RefreshCw aria-hidden="true" size={16} />
+              </button>
+            </div>
           </div>
         </header>
 
@@ -164,7 +193,10 @@ export function TaxonomyLayoutLabApp() {
             API
             <input
               className="h-9 rounded-[8px] border border-[#CBD5E1] px-3 text-[13px] text-[#0F172A] outline-none focus:border-[#2563EB]"
-              onChange={(event) => setApiBaseUrl(event.target.value)}
+              onChange={(event) => {
+                setApiBaseUrl(event.target.value);
+                invalidatePreview();
+              }}
               value={apiBaseUrl}
             />
           </label>
@@ -173,7 +205,10 @@ export function TaxonomyLayoutLabApp() {
             Fixture
             <select
               className="h-9 rounded-[8px] border border-[#CBD5E1] bg-white px-3 text-[13px] text-[#0F172A] outline-none focus:border-[#2563EB]"
-              onChange={(event) => setSelectedFixtureName(event.target.value)}
+              onChange={(event) => {
+                setSelectedFixtureName(event.target.value);
+                invalidatePreview();
+              }}
               value={selectedFixtureName}
             >
               {fixtures.map((fixture) => (
@@ -194,6 +229,7 @@ export function TaxonomyLayoutLabApp() {
               onClick={() => {
                 if (defaultParams) {
                   setParams(defaultParams);
+                  invalidatePreview();
                 }
               }}
               type="button"
@@ -218,13 +254,14 @@ export function TaxonomyLayoutLabApp() {
                       className="h-8 w-[96px] rounded-[8px] border border-[#CBD5E1] px-2 text-right text-[12px] text-[#0F172A] outline-none focus:border-[#2563EB]"
                       max={definition.max}
                       min={definition.min}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        invalidatePreview();
                         setParamValue(
                           setParams,
                           definition.key,
                           Number(event.target.value),
-                        )
-                      }
+                        );
+                      }}
                       step={definition.step}
                       type="number"
                       value={formatParamValue(value, definition.step)}
@@ -233,13 +270,14 @@ export function TaxonomyLayoutLabApp() {
                   <input
                     max={definition.max}
                     min={definition.min}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      invalidatePreview();
                       setParamValue(
                         setParams,
                         definition.key,
                         Number(event.target.value),
-                      )
-                    }
+                      );
+                    }}
                     step={definition.step}
                     type="range"
                     value={value}
@@ -281,4 +319,14 @@ function formatParamValue(value: number, step: number): string {
 
   const fractionDigits = Math.max(0, Math.ceil(-Math.log10(step)));
   return value.toFixed(fractionDigits);
+}
+
+function selectInitialFixtureName(fixtures: LayoutLabFixtureSummary[]): string {
+  return (
+    fixtures.find(
+      (fixture) => fixture.name === DEFAULT_INTERACTIVE_FIXTURE_NAME,
+    )?.name ??
+    fixtures[0]?.name ??
+    ""
+  );
 }

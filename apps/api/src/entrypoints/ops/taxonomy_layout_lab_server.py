@@ -6,6 +6,9 @@ Out of scope: Production API router wiring and taxonomy persistence.
 from __future__ import annotations
 
 import argparse
+import threading
+from collections import OrderedDict
+from collections.abc import Callable
 from dataclasses import asdict
 from typing import Any, cast
 
@@ -52,6 +55,7 @@ class LayoutLabSolveRequest(BaseModel):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Taxonomy Layout Lab", docs_url=None, redoc_url=None)
+    solve_cache = _SolveResultCache()
     app.add_middleware(
         cast(Any, CORSMiddleware),
         allow_origins=["*"],
@@ -76,11 +80,14 @@ def create_app() -> FastAPI:
 
     @app.post("/solve")
     def solve(request: LayoutLabSolveRequest) -> dict[str, Any]:
-        layout = solve_layout_lab_fixture(
-            fixture_name=request.fixture_name,
-            params=_parse_params(request.params),
+        params = _parse_params(request.params)
+        return solve_cache.get_or_build(
+            key=_solve_cache_key(fixture_name=request.fixture_name, params=params),
+            build=lambda: _solve_layout_payload(
+                fixture_name=request.fixture_name,
+                params=params,
+            ),
         )
-        return _to_layout_slice_payload(layout=layout, fixture_name=request.fixture_name)
 
     return app
 
@@ -103,6 +110,26 @@ def _parse_params(raw_params: dict[str, Any]) -> TaxonomyCardScopeLayoutParams:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+def _solve_layout_payload(
+    *,
+    fixture_name: str,
+    params: TaxonomyCardScopeLayoutParams,
+) -> dict[str, Any]:
+    layout = solve_layout_lab_fixture(
+        fixture_name=fixture_name,
+        params=params,
+    )
+    return _to_layout_slice_payload(layout=layout, fixture_name=fixture_name)
+
+
+def _solve_cache_key(
+    *,
+    fixture_name: str,
+    params: TaxonomyCardScopeLayoutParams,
+) -> tuple[str, tuple[tuple[str, Any], ...]]:
+    return fixture_name, tuple(sorted(asdict(params).items()))
+
+
 def _to_layout_slice_payload(
     *,
     fixture_name: str,
@@ -121,6 +148,69 @@ def _to_layout_slice_payload(
             [edge.source_node_id, edge.target_node_id, edge.strength] for edge in layout.edges
         ],
     }
+
+
+class _InFlightSolve:
+    def __init__(self) -> None:
+        self.event = threading.Event()
+        self.error: Exception | None = None
+        self.result: dict[str, Any] | None = None
+
+
+class _SolveResultCache:
+    def __init__(self, max_entries: int = 64) -> None:
+        self._max_entries = max_entries
+        self._lock = threading.Lock()
+        self._results: OrderedDict[tuple[str, tuple[tuple[str, Any], ...]], dict[str, Any]] = (
+            OrderedDict()
+        )
+        self._inflight: dict[tuple[str, tuple[tuple[str, Any], ...]], _InFlightSolve] = {}
+
+    def get_or_build(
+        self,
+        *,
+        key: tuple[str, tuple[tuple[str, Any], ...]],
+        build: Callable[[], dict[str, Any]],
+    ) -> dict[str, Any]:
+        with self._lock:
+            cached_result = self._results.get(key)
+            if cached_result is not None:
+                self._results.move_to_end(key)
+                return cached_result
+
+            in_flight = self._inflight.get(key)
+            should_build = in_flight is None
+            if in_flight is None:
+                in_flight = _InFlightSolve()
+                self._inflight[key] = in_flight
+
+        if not should_build:
+            in_flight.event.wait()
+            if in_flight.error is not None:
+                raise in_flight.error
+            if in_flight.result is None:
+                raise RuntimeError("Layout lab solve completed without a result.")
+            return in_flight.result
+
+        try:
+            result = build()
+        except Exception as exc:
+            with self._lock:
+                in_flight.error = exc
+                self._inflight.pop(key, None)
+                in_flight.event.set()
+            raise
+
+        with self._lock:
+            in_flight.result = result
+            self._results[key] = result
+            self._results.move_to_end(key)
+            while len(self._results) > self._max_entries:
+                self._results.popitem(last=False)
+            self._inflight.pop(key, None)
+            in_flight.event.set()
+
+        return result
 
 
 if __name__ == "__main__":
