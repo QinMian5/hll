@@ -2,6 +2,7 @@
 // out_of_scope: Logto network behavior and Redis session persistence.
 // @vitest-environment node
 
+import { LogtoClientError, LogtoError } from "@logto/node";
 import { Router } from "express";
 import session from "express-session";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
@@ -89,9 +90,24 @@ describe("auth routes", () => {
     const response = await request(app).get("/web-api/auth/session");
 
     expect(response.status).toBe(200);
+    expect(response.headers["cache-control"]).toContain("no-store");
     expect(response.body).toEqual({ status: "anonymous" });
     expect(response.text).not.toContain("accessToken");
     expect(response.text).not.toContain("idToken");
+  });
+
+  it("does not return conditional cache responses for session state", async () => {
+    const app = await createTestApp(createFakeClient());
+
+    const firstResponse = await request(app).get("/web-api/auth/session");
+    const secondResponse = await request(app)
+      .get("/web-api/auth/session")
+      .set("If-None-Match", firstResponse.headers.etag ?? "");
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    expect(secondResponse.body).toEqual({ status: "anonymous" });
+    expect(secondResponse.headers["cache-control"]).toContain("no-store");
   });
 
   it("returns authenticated user metadata without token fields", async () => {
@@ -161,6 +177,21 @@ describe("auth routes", () => {
     );
   });
 
+  it("handles callback requests before the web API fallback route", async () => {
+    const client = createFakeClient();
+    const app = await createTestApp(client);
+
+    const response = await request(app).get(
+      "/web-api/auth/callback?code=abc&state=xyz",
+    );
+
+    expect(response.status).toBe(303);
+    expect(response.headers.location).toBe("/");
+    expect(client.handleSignInCallback).toHaveBeenCalledWith(
+      "http://localhost:5173/web-api/auth/callback?code=abc&state=xyz",
+    );
+  });
+
   it("regenerates the local session id after interactive callback", async () => {
     const client = createFakeClient();
     const app = await createTestApp(client);
@@ -181,6 +212,55 @@ describe("auth routes", () => {
     expect(firstCookieValue(callbackResponse)).not.toBe(
       firstCookieValue(signInResponse),
     );
+  });
+
+  it("clears local state and returns to the protected route when the callback session is stale", async () => {
+    const client = createFakeClient({
+      handleSignInCallback: vi.fn(async () => {
+        throw new LogtoClientError("sign_in_session.not_found");
+      }),
+    });
+    const app = await createTestApp(client);
+    const agent = request.agent(app);
+
+    await agent
+      .post("/web-api/auth/sign-in")
+      .set("Origin", "http://localhost:5173")
+      .type("form")
+      .send({ return_to: "/dashboard" });
+    const callbackResponse = await agent.get(
+      "/web-api/auth/callback?code=abc&state=xyz",
+    );
+
+    expect(callbackResponse.status).toBe(303);
+    expect(callbackResponse.headers.location).toBe("/dashboard");
+    expect(callbackResponse.headers["set-cookie"]).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^knowledge\.sid=;/)]),
+    );
+    expect(callbackResponse.text).not.toContain("Sign-in session not found");
+  });
+
+  it("clears local state and returns safely when the callback state is mismatched", async () => {
+    const client = createFakeClient({
+      handleSignInCallback: vi.fn(async () => {
+        throw new LogtoError("callback_uri_verification.state_mismatched");
+      }),
+    });
+    const app = await createTestApp(client);
+    const agent = request.agent(app);
+
+    await agent
+      .post("/web-api/auth/sign-in")
+      .set("Origin", "http://localhost:5173")
+      .type("form")
+      .send({ return_to: "/overview" });
+    const callbackResponse = await agent.get(
+      "/web-api/auth/callback?code=abc&state=xyz",
+    );
+
+    expect(callbackResponse.status).toBe(303);
+    expect(callbackResponse.headers.location).toBe("/overview");
+    expect(callbackResponse.text).not.toContain("State mismatched");
   });
 
   it("falls back to root for external pre-login return URLs", async () => {

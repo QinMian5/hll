@@ -1,6 +1,7 @@
 // abstract: Express route definitions for browser-facing BFF authentication.
 // out_of_scope: Logto SDK storage internals and application quota policy.
 
+import { LogtoClientError, LogtoError } from "@logto/node";
 import {
   type NextFunction,
   type Request,
@@ -19,6 +20,7 @@ import {
   destroyLocalSession,
   markAuthenticatedSession,
   regenerateSessionPreserving,
+  WEB_AUTH_SESSION_COOKIE_NAME,
 } from "./sessionLifecycle.js";
 import { WebSessionExpiredError } from "./tokenResolver.js";
 
@@ -33,6 +35,10 @@ interface AuthSessionState {
 
 const defaultPostAuthRedirect = "/";
 const maxReturnToLength = 2048;
+const recoverableCallbackClientErrorCodes = new Set([
+  "sign_in_session.invalid",
+  "sign_in_session.not_found",
+]);
 
 function joinPublicUrl(config: WebServerConfig, pathname: string): string {
   return new URL(pathname, config.publicBaseUrl).toString();
@@ -136,6 +142,102 @@ function renderSilentCallbackDocument(
   return `<!doctype html><html><body><script>window.parent.postMessage(${message},${targetOrigin});</script></body></html>`;
 }
 
+function applyAuthNoStoreHeaders(
+  request: Request,
+  response: Response,
+  next: NextFunction,
+): void {
+  delete request.headers["if-modified-since"];
+  delete request.headers["if-none-match"];
+  response.set({
+    "Cache-Control": "no-store, max-age=0",
+    Expires: "0",
+    Pragma: "no-cache",
+  });
+  next();
+}
+
+function isRecoverableSignInCallbackError(error: unknown): boolean {
+  if (
+    error instanceof LogtoClientError &&
+    recoverableCallbackClientErrorCodes.has(error.code)
+  ) {
+    return true;
+  }
+
+  return (
+    error instanceof LogtoError &&
+    error.code.startsWith("callback_uri_verification.")
+  );
+}
+
+function redirectAfterRecoverableSignInCallbackError(
+  request: Request,
+  response: Response,
+): void {
+  const returnTo = takeAuthReturnTo(request);
+  request.session?.destroy((error) => {
+    if (error != null) {
+      console.error("Failed to destroy stale auth callback session.", error);
+    }
+  });
+  response.clearCookie(WEB_AUTH_SESSION_COOKIE_NAME);
+  response.redirect(303, returnTo);
+}
+
+function isInteractiveCallbackRequest(request: Request): boolean {
+  if (request.method !== "GET") {
+    return false;
+  }
+
+  const callbackPaths = new Set([
+    "/callback",
+    "/auth/callback",
+    "/web-api/auth/callback",
+  ]);
+  const requestPaths = [request.path, request.url, request.originalUrl];
+
+  return requestPaths.some((path) => {
+    const pathname = new URL(path, "http://web.local").pathname;
+    const normalizedPathname =
+      pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+
+    return callbackPaths.has(normalizedPathname);
+  });
+}
+
+async function handleInteractiveCallback(
+  request: Request,
+  response: Response,
+  next: NextFunction,
+  config: WebServerConfig,
+  createClient: WebLogtoClientFactory,
+): Promise<void> {
+  if (!isInteractiveCallbackRequest(request)) {
+    next();
+    return;
+  }
+
+  try {
+    const client = createClient(request, response);
+    await client.handleSignInCallback(
+      joinPublicUrl(config, request.originalUrl),
+    );
+    const returnTo = takeAuthReturnTo(request);
+    markAuthenticatedSession(request);
+    await regenerateSessionPreserving(request, sessionKeys(request));
+
+    response.redirect(303, returnTo);
+  } catch (error) {
+    if (isRecoverableSignInCallbackError(error)) {
+      redirectAfterRecoverableSignInCallbackError(request, response);
+      return;
+    }
+
+    next(error);
+  }
+}
+
 function readProfileName(value: unknown): string | null {
   if (value === null) {
     return null;
@@ -206,6 +308,8 @@ export function createAuthRouter(options: CreateAuthRouterOptions): Router {
   const createClient =
     options.createClient ?? createLogtoClientFactory(options.config);
 
+  router.use(applyAuthNoStoreHeaders);
+
   router.get("/session", async (request, response, next) => {
     try {
       const client = createClient(request, response);
@@ -251,20 +355,14 @@ export function createAuthRouter(options: CreateAuthRouterOptions): Router {
     }
   });
 
-  router.get("/callback", async (request, response, next) => {
-    try {
-      const client = createClient(request, response);
-      await client.handleSignInCallback(
-        joinPublicUrl(options.config, request.originalUrl),
-      );
-      const returnTo = takeAuthReturnTo(request);
-      markAuthenticatedSession(request);
-      await regenerateSessionPreserving(request, sessionKeys(request));
-
-      response.redirect(303, returnTo);
-    } catch (error) {
-      next(error);
-    }
+  router.use((request, response, next) => {
+    void handleInteractiveCallback(
+      request,
+      response,
+      next,
+      options.config,
+      createClient,
+    );
   });
 
   router.post("/silent-sign-in", async (request, response, next) => {
