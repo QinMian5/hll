@@ -69,8 +69,16 @@ describe("LeafZoomControl", () => {
     );
     expect(control).toHaveAttribute(
       "data-mobile-frame",
-      "408x56-left-16-right-16-bottom-16",
+      "408x56-center-bottom-16-min-side-16",
     );
+    expect(control).toHaveClass(
+      "left-1/2",
+      "w-[408px]",
+      "max-w-[calc(100%_-_2rem)]",
+      "-translate-x-1/2",
+      "md:landscape:translate-x-0",
+    );
+    expect(control).not.toHaveClass("md:right-6", "md:flex-col");
     expect(screen.queryByText(/\d+%/)).not.toBeInTheDocument();
     const thresholdTick = within(control).getByTestId(
       "leaf-zoom-threshold-tick",
@@ -159,7 +167,7 @@ describe("LeafZoomControl", () => {
     expect(onZoomPercentCommit).toHaveBeenLastCalledWith(200);
   });
 
-  it("centers desktop vertical ticks and thumb on their bottom-positioned track coordinates", () => {
+  it("centers landscape desktop vertical ticks and thumb on their bottom-positioned track coordinates", () => {
     renderControl(100);
 
     const control = screen.getByTestId("leaf-zoom-control");
@@ -170,10 +178,10 @@ describe("LeafZoomControl", () => {
     ];
 
     for (const marker of verticalMarkers) {
-      expect(marker).toHaveClass("md:translate-y-1/2");
+      expect(marker).toHaveClass("md:landscape:translate-y-1/2");
     }
     expect(within(control).getByTestId("leaf-zoom-active-range")).toHaveClass(
-      "md:translate-y-0",
+      "md:landscape:translate-y-0",
     );
   });
 

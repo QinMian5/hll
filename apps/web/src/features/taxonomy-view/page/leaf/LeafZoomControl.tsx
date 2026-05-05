@@ -135,14 +135,14 @@ export function LeafZoomControl({
 
   return (
     <div
-      className="absolute bottom-4 left-4 right-4 z-20 flex h-14 max-w-[408px] items-center justify-between rounded-[10px] border border-[#d9e2ee] bg-white/[0.94] px-4 shadow-[0_16px_32px_rgba(15,23,42,0.14)] md:bottom-6 md:left-auto md:right-6 md:h-[400px] md:w-[52px] md:max-w-none md:flex-col md:px-0 md:py-3"
+      className="absolute bottom-4 left-1/2 right-auto z-20 flex h-14 w-[408px] max-w-[calc(100%_-_2rem)] -translate-x-1/2 items-center justify-between rounded-[10px] border border-[#d9e2ee] bg-white/[0.94] px-4 shadow-[0_16px_32px_rgba(15,23,42,0.14)] md:landscape:bottom-6 md:landscape:left-auto md:landscape:right-6 md:landscape:h-[400px] md:landscape:w-[52px] md:landscape:max-w-none md:landscape:translate-x-0 md:landscape:flex-col md:landscape:px-0 md:landscape:py-3"
       data-desktop-frame="52x400-right-24-bottom-24"
-      data-mobile-frame="408x56-left-16-right-16-bottom-16"
+      data-mobile-frame="408x56-center-bottom-16-min-side-16"
       data-testid="leaf-zoom-control"
     >
       <button
         aria-label="Zoom out"
-        className="order-1 flex size-8 items-center justify-center rounded-[8px] text-[#506279] transition hover:bg-[#eef4ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#78a3f3] md:order-5"
+        className="order-1 flex size-8 items-center justify-center rounded-[8px] text-[#506279] transition hover:bg-[#eef4ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#78a3f3] md:landscape:order-5"
         onClick={() =>
           publishStep(
             getPreviousLeafZoomSnap(clampedZoomPercent),
@@ -157,20 +157,20 @@ export function LeafZoomControl({
 
       <div
         aria-hidden="true"
-        className="order-2 h-8 w-px bg-[#d9e2ee] md:h-px md:w-full"
+        className="order-2 h-8 w-px bg-[#d9e2ee] md:landscape:h-px md:landscape:w-full"
       />
 
       <div
-        className="relative order-3 h-4 w-[240px] cursor-pointer md:h-[276px] md:w-6"
+        className="relative order-3 h-4 w-[240px] cursor-pointer md:landscape:h-[276px] md:landscape:w-6"
         data-testid="leaf-zoom-track-hit-area"
         onPointerCancel={handleTrackPointerCancel}
         onPointerDown={handleTrackPointerDown}
         onPointerMove={handleTrackPointerMove}
         onPointerUp={handleTrackPointerUp}
       >
-        <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-[#d9e2ee] md:left-1/2 md:top-0 md:h-full md:w-1 md:-translate-x-1/2 md:translate-y-0" />
+        <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-[#d9e2ee] md:landscape:left-1/2 md:landscape:top-0 md:landscape:h-full md:landscape:w-1 md:landscape:-translate-x-1/2 md:landscape:translate-y-0" />
         <div
-          className="absolute left-0 top-1/2 h-1 w-[var(--leaf-zoom-active)] -translate-y-1/2 rounded-full bg-[#78a3f3] md:bottom-0 md:left-1/2 md:top-auto md:h-[var(--leaf-zoom-active)] md:w-1 md:-translate-x-1/2 md:translate-y-0"
+          className="absolute left-0 top-1/2 h-1 w-[var(--leaf-zoom-active)] -translate-y-1/2 rounded-full bg-[#78a3f3] md:landscape:bottom-0 md:landscape:left-1/2 md:landscape:top-auto md:landscape:h-[var(--leaf-zoom-active)] md:landscape:w-1 md:landscape:-translate-x-1/2 md:landscape:translate-y-0"
           data-testid="leaf-zoom-active-range"
           style={activeStyle}
         />
@@ -180,8 +180,8 @@ export function LeafZoomControl({
               aria-hidden="true"
               className={
                 isThreshold
-                  ? "absolute left-[var(--leaf-zoom-pos)] top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#315fba] md:bottom-[var(--leaf-zoom-pos)] md:left-1/2 md:top-auto md:h-[2px] md:w-4 md:translate-y-1/2"
-                  : "absolute left-[var(--leaf-zoom-pos)] top-1/2 h-2 w-px -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#9fb0c6] md:bottom-[var(--leaf-zoom-pos)] md:left-1/2 md:top-auto md:h-px md:w-2 md:translate-y-1/2"
+                  ? "absolute left-[var(--leaf-zoom-pos)] top-1/2 h-4 w-[2px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#315fba] md:landscape:bottom-[var(--leaf-zoom-pos)] md:landscape:left-1/2 md:landscape:top-auto md:landscape:h-[2px] md:landscape:w-4 md:landscape:translate-y-1/2"
+                  : "absolute left-[var(--leaf-zoom-pos)] top-1/2 h-2 w-px -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#9fb0c6] md:landscape:bottom-[var(--leaf-zoom-pos)] md:landscape:left-1/2 md:landscape:top-auto md:landscape:h-px md:landscape:w-2 md:landscape:translate-y-1/2"
               }
               data-testid={
                 isThreshold ? "leaf-zoom-threshold-tick" : "leaf-zoom-snap-tick"
@@ -195,7 +195,7 @@ export function LeafZoomControl({
         })}
         <div
           aria-hidden="true"
-          className="absolute left-[var(--leaf-zoom-active)] top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#78a3f3] shadow-[0_2px_8px_rgba(15,23,42,0.18)] md:bottom-[var(--leaf-zoom-active)] md:left-1/2 md:top-auto md:translate-y-1/2"
+          className="absolute left-[var(--leaf-zoom-active)] top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#78a3f3] shadow-[0_2px_8px_rgba(15,23,42,0.18)] md:landscape:bottom-[var(--leaf-zoom-active)] md:landscape:left-1/2 md:landscape:top-auto md:landscape:translate-y-1/2"
           data-testid="leaf-zoom-thumb"
           style={activeStyle}
         />
@@ -205,7 +205,7 @@ export function LeafZoomControl({
           aria-valuemin={LEAF_ZOOM_CONTROL_MIN_PERCENT}
           aria-valuenow={Math.round(clampedZoomPercent)}
           aria-valuetext={`${Math.round(clampedZoomPercent)}%`}
-          className="pointer-events-none absolute left-0 top-1/2 z-10 h-14 w-full -translate-y-1/2 opacity-0 md:left-[-126px] md:top-1/2 md:h-[52px] md:w-[276px] md:-translate-y-1/2 md:-rotate-90"
+          className="pointer-events-none absolute left-0 top-1/2 z-10 h-14 w-full -translate-y-1/2 opacity-0 md:landscape:left-[-126px] md:landscape:top-1/2 md:landscape:h-[52px] md:landscape:w-[276px] md:landscape:-translate-y-1/2 md:landscape:-rotate-90"
           max={SLIDER_MAX}
           min={SLIDER_MIN}
           onBlur={(event) => commitSliderValue(event.currentTarget.value)}
@@ -222,12 +222,12 @@ export function LeafZoomControl({
 
       <div
         aria-hidden="true"
-        className="order-4 h-8 w-px bg-[#d9e2ee] md:h-px md:w-full"
+        className="order-4 h-8 w-px bg-[#d9e2ee] md:landscape:h-px md:landscape:w-full"
       />
 
       <button
         aria-label="Zoom in"
-        className="order-5 flex size-8 items-center justify-center rounded-[8px] text-[#506279] transition hover:bg-[#eef4ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#78a3f3] md:order-1"
+        className="order-5 flex size-8 items-center justify-center rounded-[8px] text-[#506279] transition hover:bg-[#eef4ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#78a3f3] md:landscape:order-1"
         onClick={() =>
           publishStep(
             getNextLeafZoomSnap(clampedZoomPercent),
