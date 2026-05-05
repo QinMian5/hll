@@ -226,4 +226,23 @@ describe("DocsPage", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Copy / })).toHaveLength(4);
   });
+
+  it("resets the setup steps scroll position when switching clients", () => {
+    render(<DocsPage />);
+
+    const stepsViewport = screen.getByTestId("docs-steps-scroll-area")
+      .firstElementChild as HTMLElement;
+
+    stepsViewport.scrollTop = 160;
+
+    fireEvent.click(screen.getByRole("button", { name: "Claude Code" }));
+
+    expect(stepsViewport.scrollTop).toBe(0);
+    expect(
+      screen.getByRole("heading", {
+        level: 2,
+        name: "Claude Code Configuration",
+      }),
+    ).toBeInTheDocument();
+  });
 });

@@ -70,6 +70,7 @@ out_of_scope: Markdown authoring pipelines, documentation search indexing, CMS s
   - The Web BFF serves HTML with browser runtime configuration containing the current environment's MCP public endpoint.
   - On mobile, selecting `Docs` from the drawer closes the drawer through the same route-navigation behavior as other primary routes.
   - Selecting `Codex`, `Claude Code`, or `OpenClaw` updates the configuration title, panel title, and visible setup steps in place.
+  - Switching between client pages resets the setup-steps scroll viewport to the top while preserving the client-list scroll position.
   - Copy controls copy command or configuration text containing the configured MCP public endpoint and do not display toast or bubble UI in the first version. Dashboard instruction blocks do not render copy controls.
   - Docs content is static in the first version and does not call backend APIs.
 

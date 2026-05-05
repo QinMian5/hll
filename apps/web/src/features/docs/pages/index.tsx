@@ -398,6 +398,7 @@ export function DocsPage() {
             <ScrollArea
               className={cn("min-h-0 w-full flex-1", scrollAreaTheme)}
               data-testid="docs-steps-scroll-area"
+              resetScrollKey={selectedClient.id}
               viewportClassName="flex min-h-full w-full flex-col gap-4"
             >
               {selectedClient.steps.map((step, index) => (
