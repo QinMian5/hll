@@ -216,12 +216,9 @@ export function LeafDeckScene({
             Math.round(255 * opacity),
           ];
         },
-        getLineColor: [247, 250, 255, 255],
-        getLineWidth: 2,
         getPosition: (node) => [node.position.x, node.position.y],
         getRadius: (node) => node.radius,
         id: "taxonomy-leaf-points",
-        lineWidthUnits: "pixels",
         onClick: (info) => {
           const node = info.object;
           if (!node) {
@@ -237,7 +234,7 @@ export function LeafDeckScene({
         },
         pickable: isPointInteractionEnabled,
         radiusUnits: "pixels",
-        stroked: true,
+        stroked: false,
       }),
       new TextLayer<LeafSceneTitleLabelNode>({
         billboard: true,
