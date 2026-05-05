@@ -332,10 +332,10 @@ describe("LeafDeckScene", () => {
     const pointLayer = findLayer("taxonomy-leaf-points");
 
     expect(edgeLayer?.props.getWidth).toBeTypeOf("function");
-    expect((edgeLayer?.props.getWidth as () => number)()).toBe(2);
+    expect((edgeLayer?.props.getWidth as () => number)()).toBe(1);
     expect(edgeLayer?.props.widthUnits).toBe("pixels");
     expect(highlightEdgeLayer?.props.getWidth).toBeTypeOf("function");
-    expect((highlightEdgeLayer?.props.getWidth as () => number)()).toBe(3);
+    expect((highlightEdgeLayer?.props.getWidth as () => number)()).toBe(2);
     expect(highlightEdgeLayer?.props.widthUnits).toBe("pixels");
     expect(pointLayer?.props.stroked).toBe(false);
     expect(pointLayer?.props.radiusUnits).toBe("common");
