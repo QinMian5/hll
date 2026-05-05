@@ -6,8 +6,8 @@ Out of scope: Production API router wiring and taxonomy persistence.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
-from typing import Any
+from dataclasses import asdict, replace
+from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,6 +27,11 @@ from modules.taxonomy.layout_lab import (
     solve_layout_lab_fixture,
 )
 
+LAYOUT_LAB_DEFAULT_PARAMS = replace(
+    TAXONOMY_CARD_SCOPE_LAYOUT_PRODUCTION_PARAMS,
+    simulation_ticks=10,
+)
+
 
 class LayoutLabSolveRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -38,7 +43,7 @@ class LayoutLabSolveRequest(BaseModel):
 def create_app() -> FastAPI:
     app = FastAPI(title="Taxonomy Layout Lab", docs_url=None, redoc_url=None)
     app.add_middleware(
-        CORSMiddleware,
+        cast(Any, CORSMiddleware),
         allow_origins=["*"],
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
@@ -57,7 +62,7 @@ def create_app() -> FastAPI:
 
     @app.get("/params/default")
     def default_params() -> dict[str, Any]:
-        return asdict(TAXONOMY_CARD_SCOPE_LAYOUT_PRODUCTION_PARAMS)
+        return asdict(LAYOUT_LAB_DEFAULT_PARAMS)
 
     @app.post("/solve")
     def solve(request: LayoutLabSolveRequest) -> dict[str, Any]:
@@ -83,7 +88,7 @@ def main() -> None:
 
 def _parse_params(raw_params: dict[str, Any]) -> TaxonomyCardScopeLayoutParams:
     try:
-        return TaxonomyCardScopeLayoutParams(**raw_params)
+        return TaxonomyCardScopeLayoutParams(**(asdict(LAYOUT_LAB_DEFAULT_PARAMS) | raw_params))
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

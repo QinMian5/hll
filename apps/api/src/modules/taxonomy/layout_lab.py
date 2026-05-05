@@ -19,7 +19,7 @@ from modules.taxonomy.dto import (
 )
 from modules.taxonomy.layout import TaxonomyCardScopeLayoutParams, build_card_scope_layout
 
-DEFAULT_LAYOUT_LAB_FIXTURE = "obsidian-sample"
+DEFAULT_LAYOUT_LAB_FIXTURE = "prod-heat-thermodynamics"
 _FIXTURE_DIRECTORY = Path(__file__).with_name("layout_lab_fixtures")
 
 
@@ -75,9 +75,10 @@ def _load_layout_lab_fixture(fixture_name: str) -> _LayoutLabFixture:
 
 
 def _load_layout_lab_fixtures() -> list[_LayoutLabFixture]:
-    return [
+    fixtures = [
         _load_layout_lab_fixture_path(path) for path in sorted(_FIXTURE_DIRECTORY.glob("*.json"))
     ]
+    return sorted(fixtures, key=lambda fixture: fixture.name != DEFAULT_LAYOUT_LAB_FIXTURE)
 
 
 def _load_layout_lab_fixture_path(path: Path) -> _LayoutLabFixture:

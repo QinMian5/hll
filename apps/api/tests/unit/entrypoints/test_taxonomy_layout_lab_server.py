@@ -20,6 +20,11 @@ def test_layout_lab_server_lists_fixtures() -> None:
     assert response.json() == [
         {
             "name": DEFAULT_LAYOUT_LAB_FIXTURE,
+            "node_count": 1233,
+            "edge_count": 2158,
+        },
+        {
+            "name": "obsidian-sample",
             "node_count": 16,
             "edge_count": 18,
         }
@@ -32,7 +37,7 @@ def test_layout_lab_server_solves_fixture_with_parameter_overrides() -> None:
     response = client.post(
         "/solve",
         json={
-            "fixtureName": DEFAULT_LAYOUT_LAB_FIXTURE,
+            "fixtureName": "obsidian-sample",
             "params": {
                 "seed_base_radius": 40.0,
                 "seed_radius_step": 10.0,
@@ -72,5 +77,6 @@ def test_layout_lab_server_returns_default_params() -> None:
     response = client.get("/params/default")
 
     assert response.status_code == 200
+    assert response.json()["simulation_ticks"] == 10
     assert response.json()["radial_boundary_radius"] == 0.0
     assert response.json()["center_gravity_strength"] > 0.0
