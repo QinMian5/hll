@@ -18,7 +18,7 @@ describe("buildRenderableLeafLayout", () => {
     const layoutSlice: TaxonomyCardScopeLayoutSliceResponse = {
       edges: [[10, 11, 0.8]],
       layout_status: "ready",
-      layout_version: "taxonomy-card-scope-layout-v1",
+      layout_version: "taxonomy-card-scope-layout-v2",
       nodes: [
         {
           id: 10,

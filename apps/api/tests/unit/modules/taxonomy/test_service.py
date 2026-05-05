@@ -271,7 +271,7 @@ def _tree() -> list[TaxonomyNodeRecord]:
 
 def _layout() -> TaxonomyCardScopeLayout:
     return TaxonomyCardScopeLayout(
-        layout_version="taxonomy-card-scope-layout-v1",
+        layout_version="taxonomy-card-scope-layout-v2",
         generated_at=datetime(2026, 5, 2, 12, 0, tzinfo=UTC),
         world_bounds=TaxonomyCardScopeWorldBounds(min_x=0, min_y=0, max_x=1, max_y=1),
         nodes=[TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=0.0, y=0.0)],
@@ -330,7 +330,7 @@ async def test_node_view_for_scope_with_only_cards_returns_card_scope_payload() 
     assert view.node_kind == "card_scope"
     assert view.current_scope.scope_kind == TAXONOMY_NODE_SCOPE_KIND
     assert view.current_scope.taxonomy_node_id == 2
-    assert view.layout_version == "taxonomy-card-scope-layout-v1"
+    assert view.layout_version == "taxonomy-card-scope-layout-v2"
 
 
 @pytest.mark.anyio

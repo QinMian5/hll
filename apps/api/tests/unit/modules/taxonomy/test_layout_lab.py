@@ -47,7 +47,7 @@ def test_solve_layout_lab_fixture_uses_production_layout_builder() -> None:
         ),
     )
 
-    assert compact.layout_version == "taxonomy-card-scope-layout-v1"
+    assert compact.layout_version == "taxonomy-card-scope-layout-v2"
     assert compact.node_count == 16
     assert compact.edge_count == 18
     assert compact.nodes[0].x == 50.0

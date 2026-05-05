@@ -25,21 +25,21 @@ from modules.taxonomy.layout_lab import (
 )
 
 LAYOUT_LAB_DEFAULT_PARAMS = TaxonomyCardScopeLayoutParams(
-    seed_base_radius=18.0,
-    seed_radius_step=36.0,
-    simulation_ticks=40,
+    seed_base_radius=80.0,
+    seed_radius_step=96.0,
+    simulation_ticks=160,
     alpha_min=0.001,
-    velocity_retention=0.5,
-    link_base_distance=96.0,
-    link_distance_strength_factor=70.0,
-    link_base_strength=1.04,
-    link_strength_factor=0.38,
-    charge_strength=-70.0,
-    collision_radius=12.0,
-    collision_strength=0.9,
-    center_gravity_strength=0.09,
-    radial_boundary_radius=1250.0,
-    radial_boundary_strength=0.18,
+    velocity_retention=0.55,
+    link_base_distance=92.0,
+    link_distance_strength_factor=36.0,
+    link_base_strength=1.05,
+    link_strength_factor=0.5,
+    charge_strength=-180.0,
+    collision_radius=16.0,
+    collision_strength=0.92,
+    center_gravity_strength=0.10,
+    radial_boundary_radius=0.0,
+    radial_boundary_strength=0.0,
 )
 
 

@@ -274,7 +274,7 @@ async def test_request_card_scope_layout_compute_uses_atomic_singleflight_upsert
             scope_kind="taxonomy_node",
             taxonomy_node_id=3,
         ),
-        layout_version="taxonomy-card-scope-layout-v1",
+        layout_version="taxonomy-card-scope-layout-v2",
         input_fingerprint="input-fingerprint",
     )
 

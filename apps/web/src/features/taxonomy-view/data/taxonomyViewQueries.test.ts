@@ -47,7 +47,7 @@ async function runQuery<TResult>(
 
 const cardScopeLayoutIdentity = {
   generatedAt: "2026-04-29T00:00:00Z",
-  layoutVersion: "taxonomy-card-scope-layout-v1",
+  layoutVersion: "taxonomy-card-scope-layout-v2",
 };
 
 afterEach(() => {
@@ -176,7 +176,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
           data: {
             generated_at: "2026-04-29T00:00:00Z",
             layout_status: "refreshing",
-            layout_version: "taxonomy-card-scope-layout-v1",
+            layout_version: "taxonomy-card-scope-layout-v2",
             node_kind: "card_scope",
           },
         },
@@ -259,7 +259,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         edges: [[10, 11, 0.8]],
-        layout_version: "taxonomy-card-scope-layout-v1",
+        layout_version: "taxonomy-card-scope-layout-v2",
         layout_status: "ready",
         nodes: [
           { id: 10, scope: "inner", x: 1.5, y: 2.5 },
@@ -295,7 +295,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     );
     expect(result).toEqual({
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-card-scope-layout-v1",
+      layout_version: "taxonomy-card-scope-layout-v2",
       layout_status: "ready",
       nodes: [
         { id: 10, scope: "inner", x: 1.5, y: 2.5 },
@@ -321,7 +321,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     );
     const previous: TaxonomyCardScopeLayoutSliceResponse = {
       edges: [[10, 11, 0.8]],
-      layout_version: "taxonomy-card-scope-layout-v1",
+      layout_version: "taxonomy-card-scope-layout-v2",
       layout_status: "ready",
       nodes: [{ id: 10, scope: "inner", x: 1.5, y: 2.5 }],
       route_path: "math/algebra",
@@ -335,7 +335,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
       "taxonomy-view",
       "card-scope-layout",
       "science/mathematics",
-      "taxonomy-card-scope-layout-v1",
+      "taxonomy-card-scope-layout-v2",
       "2026-04-29T00:00:00Z",
       -100,
       -200,
@@ -376,7 +376,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
       },
       {
         generatedAt: "2026-04-29T00:05:00Z",
-        layoutVersion: "taxonomy-card-scope-layout-v1",
+        layoutVersion: "taxonomy-card-scope-layout-v2",
       },
     );
 
@@ -418,7 +418,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
           [10, 11, 0.8],
           [11, 12, 0.6],
         ],
-        layout_version: "taxonomy-card-scope-layout-v1",
+        layout_version: "taxonomy-card-scope-layout-v2",
         layout_status: "ready",
         nodes: [
           { id: 10, scope: "inner", x: 1.5, y: 2.5 },
@@ -456,7 +456,7 @@ describe("taxonomyNodeViewQueryOptions", () => {
     const fetchMock = vi.fn(async () =>
       jsonResponse({
         edges: [[10, 11]],
-        layout_version: "taxonomy-card-scope-layout-v1",
+        layout_version: "taxonomy-card-scope-layout-v2",
         layout_status: "ready",
         nodes: [{ id: 10, scope: "inner", x: 1.5, y: 2.5 }],
         route_path: "science/mathematics",

@@ -33,7 +33,7 @@ describe("taxonomyLayoutLabApi", () => {
   it("posts parameter overrides to the solve endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
-        JSON.stringify({ layout_version: "taxonomy-card-scope-layout-v1" }),
+        JSON.stringify({ layout_version: "taxonomy-card-scope-layout-v2" }),
         {
           status: 200,
         },

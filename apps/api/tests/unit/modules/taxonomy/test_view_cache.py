@@ -135,7 +135,7 @@ def _card_scope_metadata_view() -> TaxonomyNodeCardScopeViewResponse:
             _view_scope(id=1, parent_id=None, name="Root"),
             _view_scope(id=3, parent_id=1, name="Cards"),
         ],
-        layout_version="taxonomy-card-scope-layout-v1",
+        layout_version="taxonomy-card-scope-layout-v2",
         layout_status="ready",
         world_bounds=TaxonomyCardScopeWorldBoundsResponse(
             min_x=-1.0,
@@ -259,7 +259,7 @@ async def test_card_scope_layout_cache_stores_and_reads_layout_payload() -> None
     cache = TaxonomyViewRedisCache(redis=redis)
     scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
     layout = TaxonomyCardScopeLayout(
-        layout_version="taxonomy-card-scope-layout-v1",
+        layout_version="taxonomy-card-scope-layout-v2",
         generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
         world_bounds=TaxonomyCardScopeWorldBounds(
             min_x=-5.0,
@@ -287,7 +287,7 @@ async def test_card_scope_layout_cache_stores_and_reads_layout_payload() -> None
         layout=layout,
     )
     assert (
-        redis.set_calls[0][0] == "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:"
+        redis.set_calls[0][0] == "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v2:"
         "taxonomy_node:9"
     )
     assert redis.set_calls[0][2] is None
@@ -298,7 +298,7 @@ async def test_card_scope_layout_cache_rejects_malformed_payload() -> None:
     redis = _FakeRedis()
     scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9)
     redis.values[
-        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v1:taxonomy_node:9"
+        "taxonomy:view:v1:card-scope-layout:taxonomy-card-scope-layout-v2:taxonomy_node:9"
     ] = '{"nodes":"bad"}'
     cache = TaxonomyViewRedisCache(redis=redis)
 

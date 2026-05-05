@@ -130,7 +130,7 @@ class _FakeTaxonomyService:
                 ),
                 _scope(),
             ],
-            layout_version="taxonomy-card-scope-layout-v1",
+            layout_version="taxonomy-card-scope-layout-v2",
             layout_status="ready",
             world_bounds=TaxonomyCardScopeWorldBoundsResponse(
                 min_x=0.0,
@@ -167,7 +167,7 @@ class _FakeTaxonomyService:
             taxonomy_node_id=2,
             parent_taxonomy_node_id=1,
             route_path=route_path,
-            layout_version="taxonomy-card-scope-layout-v1",
+            layout_version="taxonomy-card-scope-layout-v2",
             layout_status="ready",
             requested_bounds=TaxonomyCardScopeWorldBoundsResponse(
                 min_x=-10.0,
@@ -358,7 +358,7 @@ async def test_node_view_route_returns_card_scope_payload(async_client: AsyncCli
     assert response.status_code == 200
     payload = response.json()
     assert payload["node_kind"] == "card_scope"
-    assert payload["layout_version"] == "taxonomy-card-scope-layout-v1"
+    assert payload["layout_version"] == "taxonomy-card-scope-layout-v2"
     assert payload["layout_status"] == "ready"
     assert payload["node_count"] == 3
     assert payload["edge_count"] == 2
@@ -386,7 +386,7 @@ async def test_card_scope_layout_route_returns_requested_layout_slice(
         "taxonomy_node_id": 2,
         "parent_taxonomy_node_id": 1,
         "route_path": "science/mathematics",
-        "layout_version": "taxonomy-card-scope-layout-v1",
+        "layout_version": "taxonomy-card-scope-layout-v2",
         "layout_status": "ready",
         "requested_bounds": {
             "min_x": -10.0,

@@ -48,7 +48,7 @@ def test_layout_lab_server_solves_fixture_with_parameter_overrides() -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["layout_version"] == "taxonomy-card-scope-layout-v1"
+    assert body["layout_version"] == "taxonomy-card-scope-layout-v2"
     assert body["layout_status"] == "ready"
     assert len(body["nodes"]) == 16
     assert len(body["edges"]) == 18
@@ -79,18 +79,18 @@ def test_layout_lab_server_returns_default_params() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "alpha_min": 0.001,
-        "center_gravity_strength": 0.09,
-        "charge_strength": -70.0,
-        "collision_radius": 12.0,
-        "collision_strength": 0.9,
-        "link_base_distance": 96.0,
-        "link_base_strength": 1.04,
-        "link_distance_strength_factor": 70.0,
-        "link_strength_factor": 0.38,
-        "radial_boundary_radius": 1250.0,
-        "radial_boundary_strength": 0.18,
-        "seed_base_radius": 18.0,
-        "seed_radius_step": 36.0,
-        "simulation_ticks": 40,
-        "velocity_retention": 0.5,
+        "center_gravity_strength": 0.1,
+        "charge_strength": -180.0,
+        "collision_radius": 16.0,
+        "collision_strength": 0.92,
+        "link_base_distance": 92.0,
+        "link_base_strength": 1.05,
+        "link_distance_strength_factor": 36.0,
+        "link_strength_factor": 0.5,
+        "radial_boundary_radius": 0.0,
+        "radial_boundary_strength": 0.0,
+        "seed_base_radius": 80.0,
+        "seed_radius_step": 96.0,
+        "simulation_ticks": 160,
+        "velocity_retention": 0.55,
     }

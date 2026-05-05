@@ -69,7 +69,7 @@ describe("TaxonomyLayoutLabPreview", () => {
     const layout: TaxonomyCardScopeLayoutSliceResponse = {
       edges: [[1, 2, 0.9]],
       layout_status: "ready",
-      layout_version: "taxonomy-card-scope-layout-v1",
+      layout_version: "taxonomy-card-scope-layout-v2",
       nodes: [
         { id: 1, scope: "inner", x: -10, y: 0 },
         { id: 2, scope: "outer", x: 30, y: 20 },
@@ -100,7 +100,7 @@ describe("TaxonomyLayoutLabPreview", () => {
     const layout: TaxonomyCardScopeLayoutSliceResponse = {
       edges: [[1, 2, 0.9]],
       layout_status: "ready",
-      layout_version: "taxonomy-card-scope-layout-v1",
+      layout_version: "taxonomy-card-scope-layout-v2",
       nodes: [
         { id: 1, scope: "inner", x: -10, y: 0 },
         { id: 2, scope: "outer", x: 30, y: 20 },
@@ -128,7 +128,7 @@ describe("TaxonomyLayoutLabPreview", () => {
     const initialLayout: TaxonomyCardScopeLayoutSliceResponse = {
       edges: [[1, 2, 0.9]],
       layout_status: "ready",
-      layout_version: "taxonomy-card-scope-layout-v1",
+      layout_version: "taxonomy-card-scope-layout-v2",
       nodes: [
         { id: 1, scope: "inner", x: -10, y: 0 },
         { id: 2, scope: "outer", x: 30, y: 20 },
@@ -179,7 +179,7 @@ describe("TaxonomyLayoutLabPreview", () => {
     const initialLayout: TaxonomyCardScopeLayoutSliceResponse = {
       edges: [[1, 2, 0.9]],
       layout_status: "ready",
-      layout_version: "taxonomy-card-scope-layout-v1",
+      layout_version: "taxonomy-card-scope-layout-v2",
       nodes: [
         { id: 1, scope: "inner", x: -10, y: 0 },
         { id: 2, scope: "outer", x: 30, y: 20 },

@@ -274,7 +274,7 @@ function makeLeafView(): TaxonomyLeafView {
     },
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",
-    layout_version: "taxonomy-card-scope-layout-v1",
+    layout_version: "taxonomy-card-scope-layout-v2",
     layout_status: "ready",
     node_kind: "card_scope",
     node_count: 2,
@@ -285,7 +285,7 @@ function makeLeafView(): TaxonomyLeafView {
 function makeLeafLayoutSliceResponse(): TaxonomyCardScopeLayoutSliceResponse {
   return {
     edges: [[10, 11, 0.8]],
-    layout_version: "taxonomy-card-scope-layout-v1",
+    layout_version: "taxonomy-card-scope-layout-v2",
     layout_status: "ready",
     nodes: [
       { id: 10, scope: "inner", x: 0, y: 0 },
@@ -411,7 +411,7 @@ describe("LeafRenderer", () => {
       },
       {
         generatedAt: "2026-04-29T00:00:00Z",
-        layoutVersion: "taxonomy-card-scope-layout-v1",
+        layoutVersion: "taxonomy-card-scope-layout-v2",
       },
       expect.objectContaining({ enabled: true }),
     );
@@ -466,7 +466,7 @@ describe("LeafRenderer", () => {
       },
       {
         generatedAt: "2026-04-29T00:00:00Z",
-        layoutVersion: "taxonomy-card-scope-layout-v1",
+        layoutVersion: "taxonomy-card-scope-layout-v2",
       },
       expect.objectContaining({ enabled: true }),
     );

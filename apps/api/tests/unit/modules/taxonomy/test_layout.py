@@ -54,7 +54,7 @@ def test_build_card_scope_layout_returns_stable_global_coordinates() -> None:
     second = build_card_scope_layout(nodes=nodes, edges=edges, generated_at=generated_at)
 
     assert first == second
-    assert first.layout_version == "taxonomy-card-scope-layout-v1"
+    assert first.layout_version == "taxonomy-card-scope-layout-v2"
     assert [node.id for node in first.nodes] == [11, 12, 77]
     assert [(node.id, node.scope) for node in first.nodes] == [
         (11, "inner"),
@@ -104,11 +104,11 @@ def test_build_card_scope_layout_uses_scaled_seed_radius_for_single_node() -> No
         generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
     )
 
-    assert [(node.x, node.y) for node in layout.nodes] == [(200.0, 0.0)]
+    assert [(node.x, node.y) for node in layout.nodes] == [(176.0, 0.0)]
     assert layout.world_bounds.model_dump() == {
-        "min_x": 200.0,
+        "min_x": 176.0,
         "min_y": 0.0,
-        "max_x": 200.0,
+        "max_x": 176.0,
         "max_y": 0.0,
     }
 

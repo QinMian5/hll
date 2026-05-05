@@ -266,7 +266,7 @@ function makeLeafNodeView(
     },
     edge_count: 1,
     generated_at: "2026-04-29T00:00:00Z",
-    layout_version: "taxonomy-card-scope-layout-v1",
+    layout_version: "taxonomy-card-scope-layout-v2",
     layout_status: "ready",
     node_kind: "card_scope",
     node_count: 2,
