@@ -3,6 +3,7 @@
 
 import { SquarePen } from "lucide-react";
 import type { SyntheticEvent } from "react";
+import { useCallback, useRef } from "react";
 
 import { KnowledgeRichText, ScrollArea } from "../../../../shared/ui";
 import type { SearchResultCardEditPayload } from "../../../search/components/SearchResultCard";
@@ -31,7 +32,7 @@ const DISCLOSURE_TITLE_TRACK_CLASS =
 const DISCLOSURE_CONTENT_SCROLL_CLASS =
   "[--scroll-area-padding-right:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] max-h-[var(--leaf-disclosure-card-content-height)] min-h-0 w-full flex-1";
 const DISCLOSURE_CONTENT_VIEWPORT_CLASS =
-  "max-h-[var(--leaf-disclosure-card-content-height)] overflow-x-hidden overflow-y-auto [&_[data-testid=knowledge-rich-text-content]]:text-[12px] [&_[data-testid=knowledge-rich-text-content]]:leading-[17px] [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-text-muted";
+  "max-h-[var(--leaf-disclosure-card-content-height)] overflow-x-hidden overflow-y-auto overscroll-contain [&_[data-testid=knowledge-rich-text-content]]:text-[12px] [&_[data-testid=knowledge-rich-text-content]]:leading-[17px] [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-text-muted";
 
 interface OverlayPosition {
   readonly left: number;
@@ -60,6 +61,10 @@ function disclosureTransform(position: OverlayPosition) {
 }
 
 function stopCanvasPropagation(event: SyntheticEvent) {
+  event.stopPropagation();
+}
+
+function stopNativeCanvasPropagation(event: WheelEvent) {
   event.stopPropagation();
 }
 
@@ -134,6 +139,26 @@ export function LeafDisclosureOverlay({
   onSuggestEdit,
   viewport,
 }: LeafDisclosureOverlayProps) {
+  const disclosureElementRef = useRef<HTMLElement | null>(null);
+  const setDisclosureElementRef = useCallback((element: HTMLElement | null) => {
+    const currentElement = disclosureElementRef.current;
+
+    if (currentElement) {
+      currentElement.removeEventListener("wheel", stopNativeCanvasPropagation, {
+        capture: true,
+      });
+    }
+
+    if (element) {
+      element.addEventListener("wheel", stopNativeCanvasPropagation, {
+        capture: true,
+        passive: false,
+      });
+    }
+
+    disclosureElementRef.current = element;
+  }, []);
+
   if (!disclosure) {
     return null;
   }
@@ -153,6 +178,8 @@ export function LeafDisclosureOverlay({
     onPointerDown: stopCanvasPropagation,
     onPointerUp: stopCanvasPropagation,
     onWheel: stopCanvasPropagation,
+    onWheelCapture: stopCanvasPropagation,
+    ref: setDisclosureElementRef,
     style: {
       transform: disclosureTransform(currentPosition),
     },

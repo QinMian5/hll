@@ -1,5 +1,5 @@
-// abstract: Contract tests for selected and hover disclosure rendering in taxonomy leaf view.
-// out_of_scope: deck.gl picking and viewport store behavior.
+// abstract: Contract tests for taxonomy leaf disclosure rendering and canvas event isolation.
+// out_of_scope: deck.gl picking, canvas controller internals, and viewport store behavior.
 
 import "@testing-library/jest-dom/vitest";
 
@@ -221,6 +221,44 @@ describe("LeafDisclosureOverlay", () => {
     });
 
     document.body.removeEventListener("click", onCanvasClick);
+  });
+
+  it("keeps content wheel events inside the disclosure so the canvas does not zoom", () => {
+    const canvasWheel = vi.fn((event: WheelEvent) => {
+      event.preventDefault();
+    });
+    const deckHost = document.createElement("div");
+    deckHost.addEventListener("wheel", canvasWheel, { passive: false });
+    document.body.append(deckHost);
+
+    try {
+      render(
+        <LeafDisclosureOverlay
+          canvas={{ height: 900, width: 1404 }}
+          disclosure={makeDisclosure("selected")}
+          viewport={{ target: [700, 450, 0], zoom: 0 }}
+        />,
+        { container: deckHost },
+      );
+
+      const scrollArea = screen.getByTestId(
+        "taxonomy-leaf-disclosure-content-scroll-area",
+      );
+      const scrollViewport = scrollArea.firstElementChild;
+      const wheelEvent = new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        deltaY: 72,
+      });
+
+      scrollViewport?.dispatchEvent(wheelEvent);
+
+      expect(canvasWheel).not.toHaveBeenCalled();
+      expect(wheelEvent.defaultPrevented).toBe(false);
+    } finally {
+      deckHost.removeEventListener("wheel", canvasWheel);
+      deckHost.remove();
+    }
   });
 
   it("updates position from DeckGL-provided viewport props", () => {
