@@ -27,7 +27,7 @@ def test_layout_lab_server_lists_fixtures() -> None:
             "name": "obsidian-sample",
             "node_count": 16,
             "edge_count": 18,
-        }
+        },
     ]
 
 
@@ -77,6 +77,20 @@ def test_layout_lab_server_returns_default_params() -> None:
     response = client.get("/params/default")
 
     assert response.status_code == 200
-    assert response.json()["simulation_ticks"] == 10
-    assert response.json()["radial_boundary_radius"] == 0.0
-    assert response.json()["center_gravity_strength"] > 0.0
+    assert response.json() == {
+        "alpha_min": 0.001,
+        "center_gravity_strength": 0.09,
+        "charge_strength": -70.0,
+        "collision_radius": 12.0,
+        "collision_strength": 0.9,
+        "link_base_distance": 96.0,
+        "link_base_strength": 1.04,
+        "link_distance_strength_factor": 70.0,
+        "link_strength_factor": 0.38,
+        "radial_boundary_radius": 1250.0,
+        "radial_boundary_strength": 0.18,
+        "seed_base_radius": 18.0,
+        "seed_radius_step": 36.0,
+        "simulation_ticks": 40,
+        "velocity_retention": 0.5,
+    }

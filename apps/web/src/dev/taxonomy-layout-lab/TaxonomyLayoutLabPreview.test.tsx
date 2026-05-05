@@ -124,6 +124,99 @@ describe("TaxonomyLayoutLabPreview", () => {
     });
   });
 
+  it("keeps the initial viewport stable while the same fixture is re-solved", () => {
+    const initialLayout: TaxonomyCardScopeLayoutSliceResponse = {
+      edges: [[1, 2, 0.9]],
+      layout_status: "ready",
+      layout_version: "taxonomy-card-scope-layout-v1",
+      nodes: [
+        { id: 1, scope: "inner", x: -10, y: 0 },
+        { id: 2, scope: "outer", x: 30, y: 20 },
+      ],
+      parent_taxonomy_node_id: null,
+      requested_bounds: {
+        max_x: 30,
+        max_y: 20,
+        min_x: -10,
+        min_y: 0,
+      },
+      route_path: "layout-lab/prod-heat-thermodynamics",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 1,
+    };
+    const reSolvedLayout: TaxonomyCardScopeLayoutSliceResponse = {
+      ...initialLayout,
+      nodes: [
+        { id: 1, scope: "inner", x: 900, y: 950 },
+        { id: 2, scope: "outer", x: 1100, y: 1050 },
+        { id: 3, scope: "outer", x: 1150, y: 1120 },
+      ],
+      requested_bounds: {
+        max_x: 1150,
+        max_y: 1120,
+        min_x: 900,
+        min_y: 950,
+      },
+    };
+
+    const { rerender } = render(
+      <TaxonomyLayoutLabPreview layout={initialLayout} />,
+    );
+
+    expect(screen.getByTestId("layout-lab-initial-target")).toHaveTextContent(
+      "10,10,0",
+    );
+
+    rerender(<TaxonomyLayoutLabPreview layout={reSolvedLayout} />);
+
+    expect(screen.getByTestId("layout-lab-point-count")).toHaveTextContent("3");
+    expect(screen.getByTestId("layout-lab-initial-target")).toHaveTextContent(
+      "10,10,0",
+    );
+  });
+
+  it("resets the initial viewport when the selected fixture changes", () => {
+    const initialLayout: TaxonomyCardScopeLayoutSliceResponse = {
+      edges: [[1, 2, 0.9]],
+      layout_status: "ready",
+      layout_version: "taxonomy-card-scope-layout-v1",
+      nodes: [
+        { id: 1, scope: "inner", x: -10, y: 0 },
+        { id: 2, scope: "outer", x: 30, y: 20 },
+      ],
+      parent_taxonomy_node_id: null,
+      requested_bounds: {
+        max_x: 30,
+        max_y: 20,
+        min_x: -10,
+        min_y: 0,
+      },
+      route_path: "layout-lab/prod-heat-thermodynamics",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 1,
+    };
+    const nextFixtureLayout: TaxonomyCardScopeLayoutSliceResponse = {
+      ...initialLayout,
+      requested_bounds: {
+        max_x: 1150,
+        max_y: 1120,
+        min_x: 900,
+        min_y: 950,
+      },
+      route_path: "layout-lab/obsidian-sample",
+    };
+
+    const { rerender } = render(
+      <TaxonomyLayoutLabPreview layout={initialLayout} />,
+    );
+
+    rerender(<TaxonomyLayoutLabPreview layout={nextFixtureLayout} />);
+
+    expect(screen.getByTestId("layout-lab-initial-target")).toHaveTextContent(
+      "1025,1035,0",
+    );
+  });
+
   it("renders an empty state before a layout has loaded", () => {
     render(<TaxonomyLayoutLabPreview layout={null} />);
 

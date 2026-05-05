@@ -1,7 +1,7 @@
 // abstract: Production leaf-scene preview for the standalone taxonomy layout lab.
 // out_of_scope: Layout solver requests and parameter form controls.
 
-import { useMemo, useState } from "react";
+import { type MutableRefObject, useMemo, useRef, useState } from "react";
 
 import type { TaxonomyCardScopeLayoutSliceResponse } from "../../features/taxonomy-view/data/taxonomyViewQueries";
 import { LeafDeckScene } from "../../features/taxonomy-view/page/leaf/LeafDeckScene";
@@ -19,7 +19,14 @@ interface TaxonomyLayoutLabPreviewProps {
 export function TaxonomyLayoutLabPreview({
   layout,
 }: TaxonomyLayoutLabPreviewProps) {
-  const initialViewport = useMemo(() => buildInitialViewport(layout), [layout]);
+  const initialViewportRef = useRef<{
+    readonly fixtureKey: string;
+    readonly viewport: LeafOrthographicViewport;
+  } | null>(null);
+  const initialViewport = useMemo(
+    () => getInitialViewportForLayout(layout, initialViewportRef),
+    [layout],
+  );
   const [hoveredPointNodeId, setHoveredPointNodeId] = useState<number | null>(
     null,
   );
@@ -104,4 +111,26 @@ function buildInitialViewport(
     target: [centerX, centerY, 0],
     zoom,
   };
+}
+
+function getInitialViewportForLayout(
+  layout: TaxonomyCardScopeLayoutSliceResponse | null,
+  initialViewportRef: MutableRefObject<{
+    readonly fixtureKey: string;
+    readonly viewport: LeafOrthographicViewport;
+  } | null>,
+) {
+  if (!layout) {
+    initialViewportRef.current = null;
+    return buildInitialViewport(null);
+  }
+
+  const fixtureKey = layout.route_path;
+  if (initialViewportRef.current?.fixtureKey === fixtureKey) {
+    return initialViewportRef.current.viewport;
+  }
+
+  const viewport = buildInitialViewport(layout);
+  initialViewportRef.current = { fixtureKey, viewport };
+  return viewport;
 }

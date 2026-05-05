@@ -6,7 +6,7 @@ Out of scope: Production API router wiring and taxonomy persistence.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException
@@ -16,10 +16,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from modules.taxonomy.dto import TaxonomyCardScopeLayout
-from modules.taxonomy.layout import (
-    TAXONOMY_CARD_SCOPE_LAYOUT_PRODUCTION_PARAMS,
-    TaxonomyCardScopeLayoutParams,
-)
+from modules.taxonomy.layout import TaxonomyCardScopeLayoutParams
 from modules.taxonomy.layout_lab import (
     DEFAULT_LAYOUT_LAB_FIXTURE,
     LayoutLabFixtureNotFoundError,
@@ -27,9 +24,22 @@ from modules.taxonomy.layout_lab import (
     solve_layout_lab_fixture,
 )
 
-LAYOUT_LAB_DEFAULT_PARAMS = replace(
-    TAXONOMY_CARD_SCOPE_LAYOUT_PRODUCTION_PARAMS,
-    simulation_ticks=10,
+LAYOUT_LAB_DEFAULT_PARAMS = TaxonomyCardScopeLayoutParams(
+    seed_base_radius=18.0,
+    seed_radius_step=36.0,
+    simulation_ticks=40,
+    alpha_min=0.001,
+    velocity_retention=0.5,
+    link_base_distance=96.0,
+    link_distance_strength_factor=70.0,
+    link_base_strength=1.04,
+    link_strength_factor=0.38,
+    charge_strength=-70.0,
+    collision_radius=12.0,
+    collision_strength=0.9,
+    center_gravity_strength=0.09,
+    radial_boundary_radius=1250.0,
+    radial_boundary_strength=0.18,
 )
 
 
