@@ -49,7 +49,7 @@ describe("createApp", () => {
     expect(response.type).toBe("text/html");
     expect(response.text).toContain("Knowledge App");
     expect(response.text).toContain(
-      'window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp"}',
+      'window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp","searchMaxConnected":20,"searchMaxMatched":6}',
     );
   });
 
@@ -71,7 +71,7 @@ describe("createApp", () => {
     expect(response.status).toBe(200);
     expect(response.text).toContain("Knowledge Dev");
     expect(response.text).toContain(
-      'window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp"}',
+      'window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp","searchMaxConnected":20,"searchMaxMatched":6}',
     );
   });
 });

@@ -30,7 +30,11 @@ function getCodeBlock(text: string): HTMLElement {
 beforeEach(() => {
   Object.defineProperty(window, "__KNOWLEDGE_RUNTIME_CONFIG__", {
     configurable: true,
-    value: { mcpPublicBaseUrl: MCP_PUBLIC_BASE_URL },
+    value: {
+      mcpPublicBaseUrl: MCP_PUBLIC_BASE_URL,
+      searchMaxConnected: 20,
+      searchMaxMatched: 6,
+    },
   });
 });
 

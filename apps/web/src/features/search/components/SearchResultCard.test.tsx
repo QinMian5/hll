@@ -77,9 +77,14 @@ describe("SearchResultCard", () => {
       "search-result-card-content",
     );
 
-    expect(card).toHaveClass("h-[200px]", "gap-2", "px-2", "py-2");
+    expect(card).toHaveClass(
+      "h-search-result-card-height",
+      "gap-2",
+      "px-2",
+      "py-2",
+    );
     expect(card).toHaveClass("shadow-none");
-    expect(card).not.toHaveClass("h-[176px]", "gap-3", "px-4");
+    expect(card).not.toHaveClass("h-[200px]", "h-[176px]", "gap-3", "px-4");
     expect(card).not.toHaveClass("md:w-[316px]");
     expect(card).not.toHaveClass("shadow-[0_18px_52px_rgba(107,132,189,0.09)]");
     expect(contentRegion).toHaveClass(

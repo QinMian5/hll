@@ -12,7 +12,7 @@ interface RelatedResultItemProps {
 export function RelatedResultItem({ onSelect, title }: RelatedResultItemProps) {
   return (
     <button
-      className="group/related-result relative flex w-full shrink-0 items-center gap-search-related-result-gap rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.7)] px-search-related-result-padding-x py-search-related-result-padding-y text-left text-[14px] leading-5 font-medium text-[#131c2d] transition-[opacity,transform,border-color,background-color] duration-150 will-change-transform group-hover/search-suggestions-list:opacity-80 group-focus-within/search-suggestions-list:opacity-80 hover:z-10 hover:-translate-y-0.5 hover:scale-[var(--scale-search-related-result-hover)] hover:border-[#006bff]/40 hover:bg-[rgba(255,255,255,0.88)] hover:opacity-100 focus-visible:z-10 focus-visible:-translate-y-0.5 focus-visible:scale-[var(--scale-search-related-result-hover)] focus-visible:border-[#006bff]/40 focus-visible:bg-[rgba(255,255,255,0.88)] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+      className="group/related-result relative flex min-h-search-related-result-height w-full shrink-0 items-center gap-search-related-result-gap rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.7)] px-search-related-result-padding-x py-search-related-result-padding-y text-left text-[14px] leading-5 font-medium text-[#131c2d] transition-[opacity,transform,border-color,background-color] duration-150 will-change-transform group-hover/search-suggestions-list:opacity-80 group-focus-within/search-suggestions-list:opacity-80 hover:z-10 hover:-translate-y-0.5 hover:scale-[var(--scale-search-related-result-hover)] hover:border-[#006bff]/40 hover:bg-[rgba(255,255,255,0.88)] hover:opacity-100 focus-visible:z-10 focus-visible:-translate-y-0.5 focus-visible:scale-[var(--scale-search-related-result-hover)] focus-visible:border-[#006bff]/40 focus-visible:bg-[rgba(255,255,255,0.88)] focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
       data-testid="related-result-item"
       onClick={() => {
         onSelect(title);
@@ -50,10 +50,10 @@ export function RelatedResultItemSkeleton() {
   return (
     <div
       aria-hidden="true"
-      className="flex h-10 w-full shrink-0 items-center justify-between gap-search-related-result-gap rounded-lg border border-knowledge-border-subtle bg-[rgba(255,255,255,0.7)] px-search-related-result-padding-x py-search-related-result-padding-y"
+      className="flex min-h-search-related-result-height w-full shrink-0 items-center justify-between gap-search-related-result-gap rounded-lg border border-knowledge-border-subtle bg-[rgba(255,255,255,0.7)] px-search-related-result-padding-x py-search-related-result-padding-y"
       data-testid="related-result-item-skeleton"
     >
-      <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col items-start gap-1 overflow-hidden">
         <Skeleton className="h-3 w-[58%] max-w-36 shrink-0" />
         <Skeleton className="h-2 w-[40%] max-w-24 shrink-0" />
       </div>

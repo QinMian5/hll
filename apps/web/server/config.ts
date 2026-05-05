@@ -22,6 +22,8 @@ const OptionalUrlStringSchema = OptionalTrimmedStringSchema.refine(
 const PositiveIntegerEnvSchema = z.coerce.number().int().positive();
 
 const WebServerEnvSchema = z.object({
+  KNOWLEDGE_API_SEARCH_MAX_CONNECTED: PositiveIntegerEnvSchema,
+  KNOWLEDGE_API_SEARCH_MAX_MATCHED: PositiveIntegerEnvSchema,
   KNOWLEDGE_WEB_COOKIE_DOMAIN: OptionalTrimmedStringSchema,
   KNOWLEDGE_WEB_COOKIE_SECURE: BooleanStringSchema,
   KNOWLEDGE_WEB_INTERNAL_API_BASE_URL: z.string().trim().url(),
@@ -137,6 +139,8 @@ export interface WebServerConfig {
   readonly quotaRedisPrefix: string;
   readonly quotaRouteOverrides: QuotaRouteOverrides;
   readonly redisUrl: string;
+  readonly searchMaxConnected: number;
+  readonly searchMaxMatched: number;
   readonly sessionSecret: string;
   readonly trustProxy: boolean;
 }
@@ -249,6 +253,8 @@ export function loadWebServerConfig(
       },
     },
     redisUrl: parsed.KNOWLEDGE_WEB_REDIS_URL,
+    searchMaxConnected: parsed.KNOWLEDGE_API_SEARCH_MAX_CONNECTED,
+    searchMaxMatched: parsed.KNOWLEDGE_API_SEARCH_MAX_MATCHED,
     sessionSecret: parsed.KNOWLEDGE_WEB_SESSION_SECRET,
     trustProxy: parsed.KNOWLEDGE_WEB_TRUST_PROXY,
   };

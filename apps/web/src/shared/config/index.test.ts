@@ -10,8 +10,14 @@ describe("resolveBrowserRuntimeConfig", () => {
     expect(
       resolveBrowserRuntimeConfig({
         mcpPublicBaseUrl: "http://localhost:8002/mcp",
+        searchMaxConnected: 20,
+        searchMaxMatched: 6,
       }),
-    ).toEqual({ mcpPublicBaseUrl: "http://localhost:8002/mcp" });
+    ).toEqual({
+      mcpPublicBaseUrl: "http://localhost:8002/mcp",
+      searchMaxConnected: 20,
+      searchMaxMatched: 6,
+    });
   });
 
   it("does not expose private or internal origins to browser code", () => {
@@ -20,8 +26,14 @@ describe("resolveBrowserRuntimeConfig", () => {
         KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_BASE_URL: "http://mcp:8080",
         PRIVATE_API_BASE_URL: "https://api.example.com/",
         mcpPublicBaseUrl: "http://localhost:8002/mcp",
+        searchMaxConnected: 20,
+        searchMaxMatched: 6,
       }),
-    ).toEqual({ mcpPublicBaseUrl: "http://localhost:8002/mcp" });
+    ).toEqual({
+      mcpPublicBaseUrl: "http://localhost:8002/mcp",
+      searchMaxConnected: 20,
+      searchMaxMatched: 6,
+    });
   });
 
   it("requires a public MCP endpoint", () => {
@@ -36,5 +48,22 @@ describe("resolveBrowserRuntimeConfig", () => {
         mcpPublicBaseUrl: "not a url",
       }),
     ).toThrow("Invalid browser runtime config: mcpPublicBaseUrl.");
+  });
+
+  it("requires positive integer search result limits", () => {
+    expect(() =>
+      resolveBrowserRuntimeConfig({
+        mcpPublicBaseUrl: "http://localhost:8002/mcp",
+        searchMaxConnected: 20,
+      }),
+    ).toThrow("Missing browser runtime config: searchMaxMatched.");
+
+    expect(() =>
+      resolveBrowserRuntimeConfig({
+        mcpPublicBaseUrl: "http://localhost:8002/mcp",
+        searchMaxConnected: 20,
+        searchMaxMatched: 0,
+      }),
+    ).toThrow("Invalid browser runtime config: searchMaxMatched.");
   });
 });

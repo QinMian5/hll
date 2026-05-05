@@ -211,6 +211,8 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-workspace-proposal-status-gap: 6px;
   --spacing-knowledge-workspace-proposal-status-slot: 80px;
   --spacing-knowledge-empty-state-padding: 24px;
+  --spacing-search-result-card-height: 200px;
+  --spacing-search-related-result-height: 40px;
   --spacing-search-related-result-gap: 8px;
   --spacing-search-related-result-icon-size: 24px;
   --spacing-search-related-result-padding-x: 12px;

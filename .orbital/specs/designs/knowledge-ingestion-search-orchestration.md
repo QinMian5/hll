@@ -97,6 +97,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
 - Limits:
   - `matched_cards` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_MATCHED`
   - `connected_titles` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_CONNECTED`
+  - The web BFF exposes those same bounded result counts through browser runtime configuration so Search loading skeletons render the same number of placeholders as the configured maximum result counts.
 
 ### Workspace Proposal Endpoints
 - Private API endpoints support proposal creation, current-user proposal listing, reviewer pending-queue listing, withdrawal, rejection, and accept/apply.

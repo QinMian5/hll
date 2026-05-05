@@ -3,7 +3,8 @@
 
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import { type FormEvent, lazy, Suspense, useState } from "react";
+import { type FormEvent, lazy, Suspense, useMemo, useState } from "react";
+import { resolveBrowserRuntimeConfig } from "../../../shared/config";
 import { Button } from "../../../shared/ui/button";
 import { WebApiRequestError } from "../../../shared/web-api/errors";
 import { useWebSession } from "../../../shared/web-api/useWebSession";
@@ -32,28 +33,22 @@ const SearchResultCard = lazy(() =>
   })),
 );
 
-const SEARCH_LOADING_CARD_SKELETON_KEYS = [
-  "search-result-card-skeleton-1",
-  "search-result-card-skeleton-2",
-  "search-result-card-skeleton-3",
-  "search-result-card-skeleton-4",
-  "search-result-card-skeleton-5",
-  "search-result-card-skeleton-6",
-] as const;
-const RELATED_LOADING_ITEM_SKELETON_KEYS = [
-  "related-result-item-skeleton-1",
-  "related-result-item-skeleton-2",
-  "related-result-item-skeleton-3",
-  "related-result-item-skeleton-4",
-  "related-result-item-skeleton-5",
-  "related-result-item-skeleton-6",
-  "related-result-item-skeleton-7",
-  "related-result-item-skeleton-8",
-  "related-result-item-skeleton-9",
-  "related-result-item-skeleton-10",
-  "related-result-item-skeleton-11",
-  "related-result-item-skeleton-12",
-] as const;
+interface BrowserRuntimeConfigWindow extends Window {
+  readonly __KNOWLEDGE_RUNTIME_CONFIG__?: Record<string, unknown>;
+}
+
+function readBrowserRuntimeConfig(): Record<string, unknown> {
+  return (
+    (window as BrowserRuntimeConfigWindow).__KNOWLEDGE_RUNTIME_CONFIG__ ?? {}
+  );
+}
+
+function createSkeletonKeys(prefix: string, count: number): readonly string[] {
+  return Array.from(
+    { length: count },
+    (_item, index) => `${prefix}-${index + 1}`,
+  );
+}
 
 function normalizeQuery(value: string | undefined): string {
   return value?.trim() ?? "";
@@ -81,6 +76,10 @@ export function SearchPage() {
   const search = useSearch({ from: "/search" }) as { q?: string };
   const query = normalizeQuery(search.q);
   const hasQuery = query.length > 0;
+  const browserRuntimeConfig = useMemo(
+    () => resolveBrowserRuntimeConfig(readBrowserRuntimeConfig()),
+    [],
+  );
   const session = useWebSession();
   const searchQuery = useSearchQuery(query, {
     enabled: hasQuery,
@@ -254,13 +253,21 @@ export function SearchPage() {
                   </section>
                 ) : (
                   <div
-                    className="group/search-results-grid grid w-full auto-rows-[200px] grid-cols-1 gap-2 pb-1 sm:grid-cols-2 lg:auto-rows-[200px] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
+                    className="group/search-results-grid grid w-full auto-rows-[var(--spacing-search-result-card-height)] grid-cols-1 gap-2 pb-1 sm:grid-cols-2 lg:auto-rows-[var(--spacing-search-result-card-height)] lg:grid-cols-2 lg:gap-4 min-[1680px]:grid-cols-3"
                     data-testid="search-results-grid"
                   >
                     {isSearchLoading ? (
-                      <SearchResultCardSkeletonList />
+                      <SearchResultCardSkeletonList
+                        count={browserRuntimeConfig.searchMaxMatched}
+                      />
                     ) : (
-                      <Suspense fallback={<SearchResultCardSkeletonList />}>
+                      <Suspense
+                        fallback={
+                          <SearchResultCardSkeletonList
+                            count={browserRuntimeConfig.searchMaxMatched}
+                          />
+                        }
+                      >
                         {matchedCards.map((card) => (
                           <SearchResultCard
                             content={card.content}
@@ -295,7 +302,9 @@ export function SearchPage() {
                 data-testid="search-suggestions-scroll-area"
               >
                 {isSearchLoading ? (
-                  <RelatedResultItemSkeletonList />
+                  <RelatedResultItemSkeletonList
+                    count={browserRuntimeConfig.searchMaxConnected}
+                  />
                 ) : (
                   connectedTitles.map((suggestion) => (
                     <RelatedResultItem
@@ -334,14 +343,14 @@ export function SearchPage() {
   );
 }
 
-function SearchResultCardSkeletonList() {
-  return SEARCH_LOADING_CARD_SKELETON_KEYS.map((key) => (
+function SearchResultCardSkeletonList({ count }: { readonly count: number }) {
+  return createSkeletonKeys("search-result-card-skeleton", count).map((key) => (
     <SearchResultCardSkeleton key={key} />
   ));
 }
 
-function RelatedResultItemSkeletonList() {
-  return RELATED_LOADING_ITEM_SKELETON_KEYS.map((key) => (
-    <RelatedResultItemSkeleton key={key} />
-  ));
+function RelatedResultItemSkeletonList({ count }: { readonly count: number }) {
+  return createSkeletonKeys("related-result-item-skeleton", count).map(
+    (key) => <RelatedResultItemSkeleton key={key} />,
+  );
 }

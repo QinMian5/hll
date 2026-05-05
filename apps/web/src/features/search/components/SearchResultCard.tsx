@@ -36,7 +36,7 @@ export function SearchResultCard({
 
   return (
     <div
-      className="group/card relative flex h-[200px] w-full shrink-0 flex-col items-start gap-2 overflow-visible rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] px-2 py-2 shadow-none transition-[opacity,transform,border-color] duration-150 will-change-transform group-hover/search-results-grid:opacity-80 hover:z-10 hover:-translate-y-1 hover:scale-[1.008] hover:border-[#006bff]/40 hover:opacity-100 focus-within:z-10 focus-within:-translate-y-1 focus-within:scale-[1.008] focus-within:border-[#006bff]/40 focus-within:opacity-100"
+      className="group/card relative flex h-search-result-card-height w-full shrink-0 flex-col items-start gap-2 overflow-visible rounded-lg border border-[rgba(214,227,247,0.86)] bg-[rgba(255,255,255,0.88)] px-2 py-2 shadow-none transition-[opacity,transform,border-color] duration-150 will-change-transform group-hover/search-results-grid:opacity-80 hover:z-10 hover:-translate-y-1 hover:scale-[1.008] hover:border-[#006bff]/40 hover:opacity-100 focus-within:z-10 focus-within:-translate-y-1 focus-within:scale-[1.008] focus-within:border-[#006bff]/40 focus-within:opacity-100"
       data-testid="search-result-card"
     >
       <span

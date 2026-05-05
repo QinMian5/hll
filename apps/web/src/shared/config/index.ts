@@ -3,6 +3,25 @@
 
 export interface BrowserRuntimeConfig {
   readonly mcpPublicBaseUrl: string;
+  readonly searchMaxConnected: number;
+  readonly searchMaxMatched: number;
+}
+
+function resolvePositiveIntegerConfig(
+  env: Record<string, unknown>,
+  key: "searchMaxConnected" | "searchMaxMatched",
+): number {
+  const value = env[key];
+
+  if (typeof value !== "number") {
+    throw new Error(`Missing browser runtime config: ${key}.`);
+  }
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`Invalid browser runtime config: ${key}.`);
+  }
+
+  return value;
 }
 
 export function resolveBrowserRuntimeConfig(
@@ -18,5 +37,9 @@ export function resolveBrowserRuntimeConfig(
     throw new Error("Invalid browser runtime config: mcpPublicBaseUrl.");
   }
 
-  return { mcpPublicBaseUrl };
+  return {
+    mcpPublicBaseUrl,
+    searchMaxConnected: resolvePositiveIntegerConfig(env, "searchMaxConnected"),
+    searchMaxMatched: resolvePositiveIntegerConfig(env, "searchMaxMatched"),
+  };
 }

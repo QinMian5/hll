@@ -34,9 +34,18 @@ import * as searchQueries from "../data/searchQueries";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  Reflect.deleteProperty(window, "__KNOWLEDGE_RUNTIME_CONFIG__");
 });
 
 beforeEach(() => {
+  Object.defineProperty(window, "__KNOWLEDGE_RUNTIME_CONFIG__", {
+    configurable: true,
+    value: {
+      mcpPublicBaseUrl: "http://localhost:8002/mcp",
+      searchMaxConnected: 9,
+      searchMaxMatched: 4,
+    },
+  });
   window.scrollTo = vi.fn();
   vi.stubGlobal(
     "fetch",
@@ -206,11 +215,23 @@ describe("SearchPage", () => {
       "disabled:hover:bg-knowledge-brand-disabled",
     );
     expect(screen.getAllByTestId("search-result-card-skeleton")).toHaveLength(
-      6,
+      4,
     );
     expect(screen.getAllByTestId("related-result-item-skeleton")).toHaveLength(
-      12,
+      9,
     );
+    expect(screen.getAllByTestId("search-result-card-skeleton")[0]).toHaveClass(
+      "h-search-result-card-height",
+    );
+    expect(
+      screen.getAllByTestId("search-result-card-skeleton")[0],
+    ).not.toHaveClass("h-[200px]");
+    expect(
+      screen.getAllByTestId("related-result-item-skeleton")[0],
+    ).toHaveClass("min-h-search-related-result-height");
+    expect(
+      screen.getAllByTestId("related-result-item-skeleton")[0],
+    ).not.toHaveClass("h-10");
     expect(screen.queryByText("Existing result")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Existing related result" }),
@@ -317,13 +338,13 @@ describe("SearchPage", () => {
     );
     expect(screen.getByTestId("search-results-grid")).toHaveClass(
       "group/search-results-grid",
-      "auto-rows-[200px]",
+      "auto-rows-[var(--spacing-search-result-card-height)]",
       "grid-cols-1",
       "gap-2",
       "sm:grid-cols-2",
       "lg:grid-cols-2",
       "min-[1680px]:grid-cols-3",
-      "lg:auto-rows-[200px]",
+      "lg:auto-rows-[var(--spacing-search-result-card-height)]",
       "lg:gap-4",
     );
     expect(screen.getByTestId("search-results-scroll-area")).toHaveClass(
@@ -333,6 +354,8 @@ describe("SearchPage", () => {
     );
     expect(screen.getByTestId("search-results-grid")).toHaveClass("pb-1");
     expect(screen.getByTestId("search-results-grid")).not.toHaveClass(
+      "auto-rows-[200px]",
+      "lg:auto-rows-[200px]",
       "md:w-[984px]",
       "md:grid-cols-[repeat(3,316px)]",
       "xl:grid-cols-3",
@@ -367,6 +390,7 @@ describe("SearchPage", () => {
       screen.getByRole("button", { name: "Adjacency matrix" }),
     ).toHaveClass(
       "items-center",
+      "min-h-search-related-result-height",
       "px-search-related-result-padding-x",
       "py-search-related-result-padding-y",
       "hover:-translate-y-0.5",
@@ -463,11 +487,13 @@ describe("SearchPage", () => {
 
     expect(relatedItem).toHaveClass("items-center");
     expect(relatedItem).not.toHaveClass(
+      "h-search-related-result-height",
+      "h-10",
       "h-[38px]",
       "md:h-[42px]",
       "overflow-hidden",
     );
-    expect(relatedItem.className).not.toMatch(/\bmin-h-/);
+    expect(relatedItem).toHaveClass("min-h-search-related-result-height");
     expect(relatedTitle).toHaveClass("whitespace-normal", "break-words");
     expect(relatedTitle).not.toHaveClass("truncate", "whitespace-nowrap");
     expect(iconSlot).toHaveClass(

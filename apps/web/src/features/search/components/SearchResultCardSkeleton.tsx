@@ -7,7 +7,7 @@ export function SearchResultCardSkeleton() {
   return (
     <div
       aria-hidden="true"
-      className="relative flex h-[200px] w-full shrink-0 flex-col items-start gap-2 overflow-hidden rounded-lg border border-knowledge-border-card bg-knowledge-surface-card p-2"
+      className="relative flex h-search-result-card-height w-full shrink-0 flex-col items-start gap-2 overflow-hidden rounded-lg border border-knowledge-border-card bg-knowledge-surface-card p-2"
       data-testid="search-result-card-skeleton"
     >
       <div className="flex h-6 w-full shrink-0 items-center justify-between overflow-hidden">

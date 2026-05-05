@@ -19,15 +19,19 @@ const TEST_CONFIG = loadWebServerConfig(
 );
 
 describe("browser runtime config", () => {
-  it("serializes exactly the public MCP endpoint", () => {
+  it("serializes browser-safe runtime configuration", () => {
     expect(createBrowserRuntimeConfig(TEST_CONFIG)).toEqual({
       mcpPublicBaseUrl: "http://localhost:8002/mcp",
+      searchMaxConnected: 20,
+      searchMaxMatched: 6,
     });
   });
 
   it("escapes HTML-breaking characters in serialized config", () => {
     const script = serializeBrowserRuntimeConfig({
       mcpPublicBaseUrl: "https://knowledge.example/mcp?<script>",
+      searchMaxConnected: 20,
+      searchMaxMatched: 6,
     });
 
     expect(script).not.toContain("mcp?<script>");
@@ -38,7 +42,7 @@ describe("browser runtime config", () => {
     const html = "<html><head><title>Knowledge</title></head><body></body>";
 
     expect(injectBrowserRuntimeConfig(html, TEST_CONFIG)).toBe(
-      '<html><head><title>Knowledge</title><script>window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp"};</script></head><body></body>',
+      '<html><head><title>Knowledge</title><script>window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp","searchMaxConnected":20,"searchMaxMatched":6};</script></head><body></body>',
     );
   });
 
@@ -46,7 +50,7 @@ describe("browser runtime config", () => {
     const html = '<html><body><div id="root"></div></body></html>';
 
     expect(injectBrowserRuntimeConfig(html, TEST_CONFIG)).toBe(
-      '<html><body><div id="root"></div></body></html><script>window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp"};</script>',
+      '<html><body><div id="root"></div></body></html><script>window.__KNOWLEDGE_RUNTIME_CONFIG__={"mcpPublicBaseUrl":"http://localhost:8002/mcp","searchMaxConnected":20,"searchMaxMatched":6};</script>',
     );
   });
 });

@@ -5,6 +5,8 @@ import type { WebServerConfig } from "./config.js";
 
 export interface BrowserRuntimeConfigPayload {
   readonly mcpPublicBaseUrl: string;
+  readonly searchMaxConnected: number;
+  readonly searchMaxMatched: number;
 }
 
 export function createBrowserRuntimeConfig(
@@ -12,6 +14,8 @@ export function createBrowserRuntimeConfig(
 ): BrowserRuntimeConfigPayload {
   return {
     mcpPublicBaseUrl: config.mcpPublicBaseUrl,
+    searchMaxConnected: config.searchMaxConnected,
+    searchMaxMatched: config.searchMaxMatched,
   };
 }
 

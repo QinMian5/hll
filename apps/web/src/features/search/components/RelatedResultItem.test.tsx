@@ -28,6 +28,7 @@ describe("RelatedResultItem", () => {
     expect(item).toHaveClass(
       "items-center",
       "gap-search-related-result-gap",
+      "min-h-search-related-result-height",
       "px-search-related-result-padding-x",
       "py-search-related-result-padding-y",
       "text-[14px]",
@@ -35,7 +36,7 @@ describe("RelatedResultItem", () => {
       "font-medium",
     );
     expect(item).not.toHaveClass("h-[38px]", "md:h-[42px]", "overflow-hidden");
-    expect(item.className).not.toMatch(/\bmin-h-/);
+    expect(item).not.toHaveClass("h-search-related-result-height", "h-10");
     expect(title).toHaveClass("whitespace-normal", "break-words");
     expect(title).not.toHaveClass("truncate", "whitespace-nowrap");
     expect(icon).toHaveClass(

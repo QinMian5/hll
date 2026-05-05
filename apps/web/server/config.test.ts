@@ -45,6 +45,17 @@ describe("web server config", () => {
     expect(config.mcpPublicBaseUrl).toBe("http://localhost:8002/mcp");
   });
 
+  it("loads search result limits from API env values for browser loading states", () => {
+    const config = loadWebServerConfig({
+      ...TEST_ENV,
+      KNOWLEDGE_API_SEARCH_MAX_CONNECTED: "13",
+      KNOWLEDGE_API_SEARCH_MAX_MATCHED: "4",
+    });
+
+    expect(config.searchMaxConnected).toBe(13);
+    expect(config.searchMaxMatched).toBe(4);
+  });
+
   it("requires an explicit public MCP endpoint", () => {
     const env = createWebServerTestEnv({
       KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL: "http://localhost:8002/mcp",
@@ -54,6 +65,13 @@ describe("web server config", () => {
 
     expect(() => loadWebServerConfig(envWithoutPublicMcpUrl)).toThrow();
     expect(KNOWLEDGE_WEB_MCP_PUBLIC_BASE_URL).toBeDefined();
+  });
+
+  it("requires explicit search result limit env values instead of code defaults", () => {
+    const { KNOWLEDGE_API_SEARCH_MAX_MATCHED, ...env } = TEST_ENV;
+
+    expect(() => loadWebServerConfig(env)).toThrow();
+    expect(KNOWLEDGE_API_SEARCH_MAX_MATCHED).toBeDefined();
   });
 
   it("requires a PAT fingerprint secret", () => {
