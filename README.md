@@ -105,8 +105,17 @@ better as humans maintain it and agents use it.
   tests.
 - [MCP integration notes](docs/mcp.md): service boundary, authentication model,
   tool surface, and development endpoint.
+- [Licensing guide](docs/licensing.md): software, data, and knowledge-content
+  license boundaries.
 - [Web MCP client setup](https://knowledge.orbitalis.org/docs): the product
   docs route for end-user MCP client setup.
+
+## Licensing
+
+Software source, configuration, generated contract clients, scripts, and
+developer documentation are licensed under the Apache License, Version 2.0.
+Knowledge content, source-derived datasets, exported database snapshots, and
+archived data artifacts are governed separately by [DATA_LICENSE.md](DATA_LICENSE.md).
 
 ## Development Quickstart
 
