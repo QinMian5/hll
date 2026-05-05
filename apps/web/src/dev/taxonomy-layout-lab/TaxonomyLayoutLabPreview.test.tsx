@@ -3,35 +3,66 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../features/taxonomy-view/page/leaf/LeafDeckScene", () => ({
-  LeafDeckScene: ({
-    initialViewport,
-    scene,
-  }: {
-    readonly initialViewport: {
-      readonly target: readonly [number, number, number];
-      readonly zoom: number;
-    };
-    readonly scene: {
-      readonly edges: ReadonlyArray<unknown>;
-      readonly pointNodes: ReadonlyArray<unknown>;
-    };
-  }) => (
-    <div data-testid="layout-lab-production-scene">
-      <div data-testid="layout-lab-point-count">{scene.pointNodes.length}</div>
-      <div data-testid="layout-lab-edge-count">{scene.edges.length}</div>
-      <div data-testid="layout-lab-initial-target">
-        {initialViewport.target.join(",")}
-      </div>
-    </div>
-  ),
-}));
+const leafSceneRenderCount = vi.hoisted(() => ({ current: 0 }));
+
+vi.mock("../../features/taxonomy-view/page/leaf/LeafDeckScene", async () => {
+  const React = await vi.importActual<typeof import("react")>("react");
+
+  return {
+    LeafDeckScene: ({
+      initialViewport,
+      onViewportChange,
+      scene,
+    }: {
+      readonly initialViewport: {
+        readonly target: readonly [number, number, number];
+        readonly zoom: number;
+      };
+      readonly onViewportChange: (viewport: {
+        readonly target: readonly [number, number, number];
+        readonly zoom: number;
+      }) => void;
+      readonly scene: {
+        readonly edges: ReadonlyArray<unknown>;
+        readonly pointNodes: ReadonlyArray<unknown>;
+      };
+    }) => {
+      leafSceneRenderCount.current += 1;
+      React.useEffect(() => {
+        onViewportChange({
+          target: [...initialViewport.target] as const,
+          zoom: initialViewport.zoom,
+        });
+      }, [initialViewport, onViewportChange]);
+
+      return (
+        <div data-testid="layout-lab-production-scene">
+          <div data-testid="layout-lab-point-count">
+            {scene.pointNodes.length}
+          </div>
+          <div data-testid="layout-lab-edge-count">{scene.edges.length}</div>
+          <div data-testid="layout-lab-initial-target">
+            {initialViewport.target.join(",")}
+          </div>
+        </div>
+      );
+    },
+  };
+});
 
 import type { TaxonomyCardScopeLayoutSliceResponse } from "../../features/taxonomy-view/data/taxonomyViewQueries";
 import { TaxonomyLayoutLabPreview } from "./TaxonomyLayoutLabPreview";
+
+afterEach(() => {
+  cleanup();
+});
+
+beforeEach(() => {
+  leafSceneRenderCount.current = 0;
+});
 
 describe("TaxonomyLayoutLabPreview", () => {
   it("renders layout data through the production leaf scene component", () => {
@@ -63,6 +94,34 @@ describe("TaxonomyLayoutLabPreview", () => {
     expect(screen.getByTestId("layout-lab-initial-target")).toHaveTextContent(
       "10,10,0",
     );
+  });
+
+  it("does not feed production viewport snapshots back into initial viewport", async () => {
+    const layout: TaxonomyCardScopeLayoutSliceResponse = {
+      edges: [[1, 2, 0.9]],
+      layout_status: "ready",
+      layout_version: "taxonomy-card-scope-layout-v1",
+      nodes: [
+        { id: 1, scope: "inner", x: -10, y: 0 },
+        { id: 2, scope: "outer", x: 30, y: 20 },
+      ],
+      parent_taxonomy_node_id: null,
+      requested_bounds: {
+        max_x: 30,
+        max_y: 20,
+        min_x: -10,
+        min_y: 0,
+      },
+      route_path: "layout-lab/obsidian-sample",
+      scope_kind: "taxonomy_node",
+      taxonomy_node_id: 1,
+    };
+
+    render(<TaxonomyLayoutLabPreview layout={layout} />);
+
+    await waitFor(() => {
+      expect(leafSceneRenderCount.current).toBe(1);
+    });
   });
 
   it("renders an empty state before a layout has loaded", () => {

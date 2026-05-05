@@ -1,7 +1,7 @@
 // abstract: Production leaf-scene preview for the standalone taxonomy layout lab.
 // out_of_scope: Layout solver requests and parameter form controls.
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import type { TaxonomyCardScopeLayoutSliceResponse } from "../../features/taxonomy-view/data/taxonomyViewQueries";
 import { LeafDeckScene } from "../../features/taxonomy-view/page/leaf/LeafDeckScene";
@@ -20,8 +20,6 @@ export function TaxonomyLayoutLabPreview({
   layout,
 }: TaxonomyLayoutLabPreviewProps) {
   const initialViewport = useMemo(() => buildInitialViewport(layout), [layout]);
-  const [viewport, setViewport] =
-    useState<LeafOrthographicViewport>(initialViewport);
   const [hoveredPointNodeId, setHoveredPointNodeId] = useState<number | null>(
     null,
   );
@@ -29,12 +27,6 @@ export function TaxonomyLayoutLabPreview({
     null,
   );
   const scene = useMemo(() => buildScene(layout), [layout]);
-
-  useEffect(() => {
-    setViewport(initialViewport);
-    setHoveredPointNodeId(null);
-    setSelectedPointNodeId(null);
-  }, [initialViewport]);
 
   if (!layout || !scene) {
     return (
@@ -56,7 +48,7 @@ export function TaxonomyLayoutLabPreview({
         disclosure={null}
         hiddenLabelNodeId={null}
         hoveredPointNodeId={hoveredPointNodeId}
-        initialViewport={viewport}
+        initialViewport={initialViewport}
         isPointInteractionEnabled={true}
         onCanvasClick={() => {
           setSelectedPointNodeId(null);
@@ -67,8 +59,7 @@ export function TaxonomyLayoutLabPreview({
           );
         }}
         onPointHover={setHoveredPointNodeId}
-        onViewportFrameChange={setViewport}
-        onViewportChange={setViewport}
+        onViewportChange={() => undefined}
         scene={scene}
       />
     </div>
