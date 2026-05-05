@@ -1,0 +1,42 @@
+{
+  "name": "obsidian-sample",
+  "generated_at": "2026-05-04T00:00:00+00:00",
+  "nodes": [
+    { "id": 1, "scope": "inner" },
+    { "id": 2, "scope": "inner" },
+    { "id": 3, "scope": "inner" },
+    { "id": 4, "scope": "inner" },
+    { "id": 5, "scope": "inner" },
+    { "id": 6, "scope": "outer" },
+    { "id": 7, "scope": "outer" },
+    { "id": 8, "scope": "outer" },
+    { "id": 9, "scope": "outer" },
+    { "id": 10, "scope": "outer" },
+    { "id": 11, "scope": "outer" },
+    { "id": 12, "scope": "outer" },
+    { "id": 13, "scope": "outer" },
+    { "id": 14, "scope": "outer" },
+    { "id": 15, "scope": "outer" },
+    { "id": 16, "scope": "outer" }
+  ],
+  "edges": [
+    { "source_node_id": 1, "target_node_id": 2, "strength": 1.0 },
+    { "source_node_id": 1, "target_node_id": 3, "strength": 0.92 },
+    { "source_node_id": 1, "target_node_id": 4, "strength": 0.78 },
+    { "source_node_id": 2, "target_node_id": 5, "strength": 0.86 },
+    { "source_node_id": 3, "target_node_id": 5, "strength": 0.74 },
+    { "source_node_id": 4, "target_node_id": 6, "strength": 0.68 },
+    { "source_node_id": 5, "target_node_id": 7, "strength": 0.72 },
+    { "source_node_id": 6, "target_node_id": 8, "strength": 0.5 },
+    { "source_node_id": 7, "target_node_id": 9, "strength": 0.52 },
+    { "source_node_id": 8, "target_node_id": 10, "strength": 0.42 },
+    { "source_node_id": 9, "target_node_id": 11, "strength": 0.44 },
+    { "source_node_id": 10, "target_node_id": 12, "strength": 0.36 },
+    { "source_node_id": 11, "target_node_id": 13, "strength": 0.38 },
+    { "source_node_id": 12, "target_node_id": 14, "strength": 0.34 },
+    { "source_node_id": 13, "target_node_id": 15, "strength": 0.32 },
+    { "source_node_id": 14, "target_node_id": 16, "strength": 0.3 },
+    { "source_node_id": 2, "target_node_id": 9, "strength": 0.56 },
+    { "source_node_id": 3, "target_node_id": 12, "strength": 0.48 }
+  ]
+}

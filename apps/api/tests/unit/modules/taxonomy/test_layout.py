@@ -8,8 +8,14 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from math import hypot
 
+import pytest
+
 from modules.taxonomy.dto import TaxonomyCardScopeLayoutEdge, TaxonomyCardScopeLayoutNode
-from modules.taxonomy.layout import build_card_scope_layout, slice_card_scope_layout
+from modules.taxonomy.layout import (
+    TaxonomyCardScopeLayoutParams,
+    build_card_scope_layout,
+    slice_card_scope_layout,
+)
 
 
 def _node_position(
@@ -105,6 +111,109 @@ def test_build_card_scope_layout_uses_scaled_seed_radius_for_single_node() -> No
         "max_x": 200.0,
         "max_y": 0.0,
     }
+
+
+def test_build_card_scope_layout_accepts_seed_radius_parameters() -> None:
+    layout = build_card_scope_layout(
+        nodes=[TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=0.0, y=0.0)],
+        edges=[],
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+        params=TaxonomyCardScopeLayoutParams(seed_base_radius=40.0, seed_radius_step=10.0),
+    )
+
+    assert [(node.x, node.y) for node in layout.nodes] == [(50.0, 0.0)]
+    assert layout.world_bounds.model_dump() == {
+        "min_x": 50.0,
+        "min_y": 0.0,
+        "max_x": 50.0,
+        "max_y": 0.0,
+    }
+
+
+def test_taxonomy_card_scope_layout_params_reject_invalid_values() -> None:
+    with pytest.raises(ValueError, match="alpha_min"):
+        TaxonomyCardScopeLayoutParams(alpha_min=1.0)
+
+    with pytest.raises(ValueError, match="simulation_ticks"):
+        TaxonomyCardScopeLayoutParams(simulation_ticks=-1)
+
+
+def test_center_gravity_pulls_each_node_toward_origin() -> None:
+    nodes = [
+        TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=12, scope="inner", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=13, scope="outer", x=0.0, y=0.0),
+    ]
+    seeded = build_card_scope_layout(
+        nodes=nodes,
+        edges=[],
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+        params=TaxonomyCardScopeLayoutParams(
+            seed_base_radius=100.0,
+            seed_radius_step=0.0,
+            simulation_ticks=0,
+        ),
+    )
+
+    centered = build_card_scope_layout(
+        nodes=nodes,
+        edges=[],
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+        params=TaxonomyCardScopeLayoutParams(
+            seed_base_radius=100.0,
+            seed_radius_step=0.0,
+            simulation_ticks=1,
+            velocity_retention=1.0,
+            charge_strength=0.0,
+            collision_strength=0.0,
+            center_gravity_strength=0.4,
+        ),
+    )
+
+    for node in nodes:
+        assert hypot(*_node_position(centered.nodes, node.id)) < hypot(
+            *_node_position(seeded.nodes, node.id),
+        )
+
+
+def test_radial_boundary_pulls_nodes_inside_soft_circle() -> None:
+    nodes = [
+        TaxonomyCardScopeLayoutNode(id=11, scope="inner", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=12, scope="inner", x=0.0, y=0.0),
+        TaxonomyCardScopeLayoutNode(id=13, scope="outer", x=0.0, y=0.0),
+    ]
+    seeded = build_card_scope_layout(
+        nodes=nodes,
+        edges=[],
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+        params=TaxonomyCardScopeLayoutParams(
+            seed_base_radius=120.0,
+            seed_radius_step=0.0,
+            simulation_ticks=0,
+        ),
+    )
+
+    bounded = build_card_scope_layout(
+        nodes=nodes,
+        edges=[],
+        generated_at=datetime(2026, 4, 29, 12, 0, tzinfo=UTC),
+        params=TaxonomyCardScopeLayoutParams(
+            seed_base_radius=120.0,
+            seed_radius_step=0.0,
+            simulation_ticks=1,
+            velocity_retention=1.0,
+            charge_strength=0.0,
+            collision_strength=0.0,
+            center_gravity_strength=0.0,
+            radial_boundary_radius=50.0,
+            radial_boundary_strength=0.6,
+        ),
+    )
+
+    for node in nodes:
+        assert hypot(*_node_position(bounded.nodes, node.id)) < hypot(
+            *_node_position(seeded.nodes, node.id),
+        )
 
 
 def test_slice_card_scope_layout_returns_only_nodes_and_edges_inside_bounds() -> None:

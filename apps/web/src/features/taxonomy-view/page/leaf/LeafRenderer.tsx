@@ -23,10 +23,8 @@ import {
   useTaxonomyCardScopeNodeDetailsQuery,
   useTaxonomyCardScopeNodeTitlesQuery,
 } from "../../data/taxonomyViewQueries";
-import type {
-  LayoutViewport,
-  TaxonomyLayoutNode,
-} from "../layout/taxonomyLayoutTypes";
+import type { LayoutViewport } from "../layout/taxonomyLayoutTypes";
+import { buildRenderableLeafLayout } from "./leafLayoutAdapter";
 import {
   LEAF_HYDRATION_OVERSCAN,
   LEAF_LAYOUT_TILE_SIZE,
@@ -60,13 +58,6 @@ const LeafDeckScene = lazy(() =>
   })),
 );
 
-const LEAF_POINT_DIAMETER = 16;
-
-interface RenderableLeafLayout {
-  readonly edges: TaxonomyCardScopeLayoutSliceResponse["edges"];
-  readonly nodes: TaxonomyLayoutNode[];
-}
-
 function toLayoutBounds(
   bounds: LeafWorldBounds,
 ): TaxonomyCardScopeLayoutBounds {
@@ -75,40 +66,6 @@ function toLayoutBounds(
     max_y: bounds.bottom,
     min_x: bounds.left,
     min_y: bounds.top,
-  };
-}
-
-function buildRenderableLeafLayout(
-  layoutSlice: TaxonomyCardScopeLayoutSliceResponse | undefined,
-): RenderableLeafLayout {
-  if (!layoutSlice) {
-    return { edges: [], nodes: [] };
-  }
-
-  return {
-    edges: layoutSlice.edges,
-    nodes: layoutSlice.nodes.map((node) => ({
-      data: {
-        depth: 0,
-        graphNodeId: node.id,
-        label: "",
-        renderMode: "point" as const,
-        scope: node.scope,
-        targetNodeId: null,
-        tooltip: "",
-      },
-      id: `leaf-${node.id}`,
-      position: {
-        x: node.x - LEAF_POINT_DIAMETER / 2,
-        y: node.y - LEAF_POINT_DIAMETER / 2,
-      },
-      style: {
-        borderRadius: `${LEAF_POINT_DIAMETER}px`,
-        height: LEAF_POINT_DIAMETER,
-        width: LEAF_POINT_DIAMETER,
-      },
-      type: "bubble" as const,
-    })),
   };
 }
 
