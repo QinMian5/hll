@@ -145,6 +145,20 @@ vi.mock("./LeafDeckScene", () => ({
         onClick={() => {
           const nextViewport = {
             target: initialViewport.target,
+            zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM + 2,
+          };
+
+          onViewportFrameChange?.(nextViewport);
+          onViewportChange(nextViewport);
+        }}
+        type="button"
+      >
+        Zoom to 400
+      </button>
+      <button
+        onClick={() => {
+          const nextViewport = {
+            target: initialViewport.target,
             zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM - 0.1,
           };
 
@@ -320,6 +334,21 @@ function makeLeafLayoutSliceResponse(): TaxonomyCardScopeLayoutSliceResponse {
   };
 }
 
+function makeDenseLeafLayoutSliceResponse(
+  nodeCount: number,
+): TaxonomyCardScopeLayoutSliceResponse {
+  return {
+    ...makeLeafLayoutSliceResponse(),
+    edges: [],
+    nodes: Array.from({ length: nodeCount }, (_, index) => ({
+      id: index + 1,
+      scope: "inner" as const,
+      x: (index % 16) * 10 - 75,
+      y: Math.floor(index / 16) * 10 - 45,
+    })),
+  };
+}
+
 function makeLeafTitlesResponse(): TaxonomyCardScopeNodeTitlesResponse {
   return {
     nodes: [
@@ -375,6 +404,51 @@ function installSuccessfulQueryMocks() {
     (_routePath, _nodeIds, options) =>
       ({
         data: options.enabled ? makeLeafTitlesResponse() : undefined,
+        error: null,
+        isError: false,
+        isPending: false,
+      }) as unknown as ReturnType<
+        typeof taxonomyViewQueries.useTaxonomyCardScopeNodeTitlesQuery
+      >,
+  );
+  mockUseTaxonomyCardScopeNodeDetailsQuery.mockImplementation(
+    (_routePath, nodeIds, options) =>
+      ({
+        data: options.enabled ? makeLeafDetailsResponse(nodeIds) : undefined,
+        error: null,
+        isError: false,
+        isPending: false,
+      }) as unknown as ReturnType<
+        typeof taxonomyViewQueries.useTaxonomyCardScopeNodeDetailsQuery
+      >,
+  );
+}
+
+function installDenseTitleQueryMocks(nodeCount: number) {
+  mockUseTaxonomyCardScopeLayoutSliceQuery.mockImplementation(
+    (_routePath, _bounds, _layoutIdentity, options) =>
+      ({
+        data: options.enabled
+          ? makeDenseLeafLayoutSliceResponse(nodeCount)
+          : undefined,
+        error: null,
+        isError: false,
+        isPending: false,
+      }) as unknown as ReturnType<
+        typeof taxonomyViewQueries.useTaxonomyCardScopeLayoutSliceQuery
+      >,
+  );
+  mockUseTaxonomyCardScopeNodeTitlesQuery.mockImplementation(
+    (_routePath, nodeIds, options) =>
+      ({
+        data: options.enabled
+          ? {
+              nodes: nodeIds.map((nodeId) => ({
+                id: nodeId,
+                title: `Title ${nodeId}`,
+              })),
+            }
+          : undefined,
         error: null,
         isError: false,
         isPending: false,
@@ -487,6 +561,34 @@ describe("LeafRenderer", () => {
       },
       expect.objectContaining({ enabled: true }),
     );
+  });
+
+  it("increases the visible title budget as zoom creates more screen spacing", async () => {
+    installDenseTitleQueryMocks(160);
+
+    render(
+      <LeafRenderer
+        leafView={makeLeafView()}
+        viewport={{ height: 900, width: 1404 }}
+      />,
+    );
+
+    expect(
+      await screen.findByTestId("leaf-scene-point-count"),
+    ).toHaveTextContent("160");
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("leaf-scene-title-label-count"),
+      ).toHaveTextContent("80");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Zoom to 400" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("leaf-scene-title-label-count"),
+      ).toHaveTextContent("160");
+    });
   });
 
   it("hydrates title labels at zoom 2 and moves the hovered title into the hover disclosure", async () => {

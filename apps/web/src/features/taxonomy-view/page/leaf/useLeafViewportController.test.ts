@@ -16,6 +16,7 @@ import {
   isLeafPointTitleModeActive,
   leafPointTitleOpacity,
   selectLeafHydrationNodeIds,
+  selectLeafTitleLabelBudget,
   snapLeafWorldBoundsToTile,
 } from "./useLeafViewportController";
 
@@ -84,6 +85,29 @@ describe("leaf viewport controller helpers", () => {
     expect(leafPointTitleOpacity(LEAF_POINT_TITLE_FADE_END_ZOOM + 0.001)).toBe(
       1,
     );
+  });
+
+  it("increases the title label budget as zoom increases", () => {
+    const canvas = { height: 900, width: 1404 };
+
+    expect(
+      selectLeafTitleLabelBudget({
+        canvas,
+        zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+      }),
+    ).toBe(80);
+    expect(
+      selectLeafTitleLabelBudget({
+        canvas,
+        zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM + 1,
+      }),
+    ).toBe(160);
+    expect(
+      selectLeafTitleLabelBudget({
+        canvas,
+        zoom: LEAF_POINT_TITLE_ACTIVATION_ZOOM + 2,
+      }),
+    ).toBe(320);
   });
 
   it("computes world and overscan bounds from orthographic viewport state", () => {

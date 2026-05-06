@@ -28,7 +28,6 @@ import { buildRenderableLeafLayout } from "./leafLayoutAdapter";
 import {
   LEAF_HYDRATION_OVERSCAN,
   LEAF_LAYOUT_TILE_SIZE,
-  LEAF_MAX_TITLE_LABELS,
 } from "./leafRendererConfig";
 import type {
   LeafDisclosureState,
@@ -46,6 +45,7 @@ import {
   isLeafPointTitleHydrationActive,
   isLeafPointTitleModeActive,
   selectLeafHydrationNodeIds,
+  selectLeafTitleLabelBudget,
   snapLeafWorldBoundsToTile,
 } from "./useLeafViewportController";
 
@@ -303,12 +303,17 @@ export function LeafRenderer({
   const visibleTitleNodeIds = useMemo(
     () =>
       selectLeafTitleNodeIdsByPriority({
-        maxNodeCount: LEAF_MAX_TITLE_LABELS,
+        maxNodeCount: selectLeafTitleLabelBudget({
+          canvas: canvasViewport,
+          zoom: deferredDeckViewportSnapshot.zoom,
+        }),
         neighborNodeIdsByNodeId: leafSceneBase.neighborNodeIdsByNodeId,
         priorityNodeIds: [selectedNodeId, hoveredPointNodeId],
         visibleNodeIds: visibleHydrationNodeIds,
       }),
     [
+      canvasViewport,
+      deferredDeckViewportSnapshot.zoom,
       hoveredPointNodeId,
       leafSceneBase.neighborNodeIdsByNodeId,
       selectedNodeId,
