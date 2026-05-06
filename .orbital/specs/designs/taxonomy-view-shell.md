@@ -53,7 +53,9 @@ out_of_scope: Shared app-shell navigation, taxonomy API payload semantics, rende
   - **Branch bubble composition:** Branch bubbles follow the approved desktop and mobile branch frame structure: halo, surface, centered label, and size tiers projected from the Figma content components. Bubble sizing, label box sizing, and glow spread should match the Figma branch frame families rather than generic circle defaults.
   - **Card-scope shell inheritance:** Card-scope mode mounts inside the same `TaxonomyCanvas` content slot and inherits the desktop/mobile shell geometry, breadcrumb placement, and status overlay placement. Point/card internals remain governed by `taxonomy-view-layouts.md`.
   - **Breadcrumb overlay:** Breadcrumb navigation is positioned at the top-left inside the canvas as a floating overlay. Desktop uses `24px` top and left offsets. Mobile uses `20px` top and left offsets. The breadcrumb uses light inline text navigation with chevron separators and does not consume vertical layout space outside the flow scene.
-  - **Loading overlay:** Pending query state renders as a centered overlay above the canvas content. The canvas frame stays visible and sized identically while the loading layer is shown.
+  - **Loading overlay:** Pending query state renders as an in-canvas transition layer above the canvas content. When a prior successful Graph View state exists, the prior scene and breadcrumb remain visible underneath a muted scrim while the next route loads. When no prior successful state exists, the canvas frame stays visible and sized identically while the loading layer is shown.
+  - **Transition target copy:** User-initiated branch and breadcrumb navigation may provide the target label to the loading layer. The loading copy identifies the target when available and falls back to generic taxonomy loading copy when the pending route was entered directly or has no known label.
+  - **Pending interaction boundary:** The transition scrim prevents interaction with the preserved scene while the next route is loading. Browser navigation remains governed by the active URL path.
   - **Error overlay:** Error state renders in the same overlay region as loading, preserving the same canvas geometry. The error message remains accessible with alert semantics.
   - **Card-scope layout readiness overlay:** A taxonomy `layout_not_ready` response renders a specific in-canvas preparation overlay with alert semantics and a retry action. The overlay preserves the current Graph View route and canvas geometry.
   - **Manual retry rule:** The first-version readiness overlay uses user-initiated retry. It may read the backend `Retry-After` value for retry affordance timing, but it does not aggressively auto-poll.
@@ -62,6 +64,7 @@ out_of_scope: Shared app-shell navigation, taxonomy API payload semantics, rende
 - **Interactions:**
   - Clicking a branch node navigates to the child node's returned canonical Graph View path and keeps the user inside the same mounted canvas.
   - Clicking a breadcrumb item navigates to the selected ancestor's returned canonical Graph View path while preserving shell geometry.
+  - During user-initiated route transitions, the latest successful breadcrumb remains visible until the requested route returns authoritative breadcrumb data.
   - Root state shows the breadcrumb overlay in its root form.
   - Card-scope state keeps the same shell and canvas while rendering the scope-scoped nodes in the dedicated deck.gl scene.
   - Browser back and forward navigation restore prior Graph View route paths and reload the matching root, branch, or card-scope state through the same query rules.
@@ -85,6 +88,8 @@ out_of_scope: Shared app-shell navigation, taxonomy API payload semantics, rende
   - Branch bubble glow, sizing, layering, and label centering match the approved desktop and mobile Graph View Figma frames.
   - Breadcrumb renders inside the canvas at top-left, uses the approved desktop and mobile offsets, and reads as inline text navigation with chevron separators.
   - Loading and error states render as overlays inside the canvas instead of replacing the page layout.
+  - Loading route transitions preserve the latest successful scene and breadcrumb under a muted, non-interactive canvas scrim when such a scene exists.
+  - Loading route transitions identify the clicked target when the target label is available.
   - Canvas dimensions remain stable across root, branch, card-scope, loading, and error states.
   - Branch drill-down and ancestor-jump interactions are supported.
   - Card-scope pan, zoom, and viewport-scoped rendering stay contained inside the same shell geometry.

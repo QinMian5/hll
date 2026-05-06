@@ -953,6 +953,89 @@ describe("TaxonomyViewPage", () => {
     );
   });
 
+  it("preserves the settled branch scene and breadcrumb while the next route is loading", async () => {
+    pathQueryStates.set(
+      "science/mathematics",
+      makeQueryResult({
+        data: makeBranchNodeView({
+          breadcrumb: [
+            {
+              depth: 0,
+              name: "Science",
+              parent_taxonomy_node_id: null,
+              route_path: "science",
+              route_slug: "science",
+              scope_kind: "taxonomy_node",
+              taxonomy_node_id: 2,
+            },
+            {
+              depth: 1,
+              name: "Mathematics",
+              parent_taxonomy_node_id: 2,
+              route_path: "science/mathematics",
+              route_slug: "mathematics",
+              scope_kind: "taxonomy_node",
+              taxonomy_node_id: 1,
+            },
+          ],
+          children: [
+            {
+              depth: 2,
+              descendant_card_count: 16,
+              name: "Algebra",
+              node_kind: "card_scope",
+              parent_taxonomy_node_id: 1,
+              route_path: "science/mathematics/algebra",
+              route_slug: "algebra",
+              scope_kind: "taxonomy_node",
+              taxonomy_node_id: 12,
+            },
+          ],
+          current_scope: {
+            depth: 1,
+            name: "Mathematics",
+            parent_taxonomy_node_id: 2,
+            route_path: "science/mathematics",
+            route_slug: "mathematics",
+            scope_kind: "taxonomy_node",
+            taxonomy_node_id: 1,
+          },
+        }),
+      }),
+    );
+    pathQueryStates.set(
+      "science/mathematics/algebra",
+      makeQueryResult({ isPending: true }),
+    );
+
+    const { router } = await renderWithRoute("/graph/science/mathematics");
+
+    const branchNode = within(screen.getByTestId("reactflow-mock"))
+      .getByText("Algebra")
+      .closest("[data-node-scope='branch']");
+
+    expect(branchNode).not.toBeNull();
+
+    fireEvent.click(branchNode as HTMLElement);
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        "/graph/science/mathematics/algebra",
+      ),
+    );
+
+    expect(screen.getByTestId("taxonomy-loading-overlay")).toHaveTextContent(
+      "Opening Algebra",
+    );
+    expect(screen.getByRole("button", { name: "Science" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mathematics" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByText("Algebra")).toBeInTheDocument();
+    expect(screen.getByTestId("taxonomy-transition-scrim")).toBeInTheDocument();
+  });
+
   it("keeps unresolved readable paths in the URL while showing the path error", async () => {
     pathQueryStates.set(
       "science/missing",

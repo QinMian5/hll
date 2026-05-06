@@ -10,6 +10,7 @@ import {
   lazy,
   Suspense,
   startTransition,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -125,6 +126,16 @@ type TaxonomyViewScope = Extract<
   TaxonomyNodeView,
   { readonly node_kind: "branch" }
 >["breadcrumb"][number];
+interface SettledTaxonomyView {
+  readonly data: TaxonomyNodeView;
+  readonly dataIdentity: string;
+  readonly routePath: string;
+}
+
+interface RouteTransitionTarget {
+  readonly label: string;
+  readonly routePath: string;
+}
 
 function taxonomyScopeKey(scope: TaxonomyViewScope) {
   return `${scope.scope_kind}:${scope.taxonomy_node_id ?? scope.route_path}`;
@@ -132,6 +143,26 @@ function taxonomyScopeKey(scope: TaxonomyViewScope) {
 
 function taxonomyChildLayoutId(child: TaxonomyViewChild) {
   return `${child.scope_kind}:${child.taxonomy_node_id ?? child.route_path}`;
+}
+
+function taxonomyViewDataIdentity(view: TaxonomyNodeView) {
+  const currentScopeKey = taxonomyScopeKey(view.current_scope);
+
+  if (view.node_kind === "branch") {
+    return `branch:${currentScopeKey}:${view.children
+      .map(taxonomyChildLayoutId)
+      .join("|")}`;
+  }
+
+  return [
+    "card_scope",
+    currentScopeKey,
+    view.layout_version,
+    view.generated_at,
+    view.layout_status,
+    view.node_count,
+    view.edge_count,
+  ].join(":");
 }
 
 function toBranchLayoutChildren(children: readonly TaxonomyViewChild[]) {
@@ -210,22 +241,41 @@ export function TaxonomyViewPage() {
     useState<SearchResultCardEditPayload | null>(null);
   const [suggestionError, setSuggestionError] = useState<string | undefined>();
   const [isSignInDialogOpen, setIsSignInDialogOpen] = useState(false);
+  const [lastSettledView, setLastSettledView] =
+    useState<SettledTaxonomyView | null>(null);
+  const [routeTransitionTarget, setRouteTransitionTarget] =
+    useState<RouteTransitionTarget | null>(null);
 
   const pathQuery = useTaxonomyNodeViewByPathQuery(activeRoutePath, {
     enabled: true,
   });
 
   const activeQuery = pathQuery;
-  const breadcrumbs = pathQuery.data?.breadcrumb ?? [];
+  const visibleTaxonomyView =
+    activeQuery.isPending && !pathQuery.data
+      ? lastSettledView?.data
+      : pathQuery.data;
+  const breadcrumbs = visibleTaxonomyView?.breadcrumb ?? [];
   const displayBreadcrumbs =
     breadcrumbs[0]?.parent_taxonomy_node_id === null &&
     breadcrumbs[0].name === "Root"
       ? breadcrumbs.slice(1)
       : breadcrumbs;
+  const rootBreadcrumbIsCurrent = rootMode && displayBreadcrumbs.length === 0;
   const currentBreadcrumbKey =
     displayBreadcrumbs.length > 0
       ? taxonomyScopeKey(displayBreadcrumbs[displayBreadcrumbs.length - 1])
       : undefined;
+  const activeTransitionTarget =
+    routeTransitionTarget?.routePath === activeRoutePath
+      ? routeTransitionTarget
+      : null;
+  const loadingTitle = activeTransitionTarget
+    ? `Opening ${activeTransitionTarget.label}`
+    : "Loading taxonomy view";
+  const loadingDescription = activeTransitionTarget
+    ? "Keeping your current taxonomy layer visible while the next view loads."
+    : "Fetching the latest taxonomy hierarchy snapshot from API.";
   const layoutCenter = useMemo(
     () => ({
       x: canvasViewport.width / 2,
@@ -257,6 +307,28 @@ export function TaxonomyViewPage() {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (activeQuery.isPending || activeQuery.isError || !pathQuery.data) {
+      return;
+    }
+
+    const dataIdentity = taxonomyViewDataIdentity(pathQuery.data);
+    setLastSettledView((currentView) =>
+      currentView?.routePath === activeRoutePath &&
+      currentView.dataIdentity === dataIdentity
+        ? currentView
+        : { data: pathQuery.data, dataIdentity, routePath: activeRoutePath },
+    );
+    setRouteTransitionTarget((currentTarget) =>
+      currentTarget?.routePath === activeRoutePath ? null : currentTarget,
+    );
+  }, [
+    activeQuery.isError,
+    activeQuery.isPending,
+    activeRoutePath,
+    pathQuery.data,
+  ]);
+
   function handleSuggestEdit(card: SearchResultCardEditPayload) {
     if (session.status === "loading") {
       return;
@@ -271,7 +343,8 @@ export function TaxonomyViewPage() {
     setSuggestionError(undefined);
   }
 
-  function navigateToGraphPath(routePath: string) {
+  function navigateToGraphPath(routePath: string, label: string) {
+    setRouteTransitionTarget({ label, routePath });
     startTransition(() => {
       if (routePath === "") {
         void navigate({ to: "/graph" });
@@ -310,21 +383,17 @@ export function TaxonomyViewPage() {
   }
 
   const branchFlowGraph = useMemo(() => {
-    if (activeQuery.isPending) {
-      return emptyBranchFlowGraph("pending");
-    }
-
     if (activeQuery.isError) {
       return emptyBranchFlowGraph("error");
     }
 
-    if (pathQuery.data?.node_kind !== "branch") {
+    if (visibleTaxonomyView?.node_kind !== "branch") {
       return emptyBranchFlowGraph("no-data");
     }
 
     const branchLayout = buildBranchLayout({
       center: layoutCenter,
-      children: toBranchLayoutChildren(pathQuery.data.children),
+      children: toBranchLayoutChildren(visibleTaxonomyView.children),
       viewport: canvasViewport,
     });
 
@@ -333,13 +402,7 @@ export function TaxonomyViewPage() {
       layoutIdentity: branchLayoutIdentity(branchLayout),
       nodes: branchLayout.nodes.map(toFlowNode),
     };
-  }, [
-    activeQuery.isError,
-    activeQuery.isPending,
-    canvasViewport,
-    layoutCenter,
-    pathQuery.data,
-  ]);
+  }, [activeQuery.isError, canvasViewport, layoutCenter, visibleTaxonomyView]);
   const routePathNotFound =
     activeQuery.isError && isTaxonomyRoutePathNotFound(activeQuery.error);
   const quotaExceeded =
@@ -371,11 +434,13 @@ export function TaxonomyViewPage() {
           data-testid="taxonomy-breadcrumb-overlay"
         >
           <button
-            aria-current={rootMode ? "page" : undefined}
+            aria-current={rootBreadcrumbIsCurrent ? "page" : undefined}
             className={
-              rootMode ? breadcrumbCurrentClasses : breadcrumbMutedClasses
+              rootBreadcrumbIsCurrent
+                ? breadcrumbCurrentClasses
+                : breadcrumbMutedClasses
             }
-            onClick={() => navigateToGraphPath("")}
+            onClick={() => navigateToGraphPath("", "Root")}
             type="button"
           >
             Root
@@ -399,26 +464,39 @@ export function TaxonomyViewPage() {
                   : breadcrumbMutedClasses
               }
               key={taxonomyScopeKey(item)}
-              onClick={() => navigateToGraphPath(item.route_path)}
+              onClick={() => navigateToGraphPath(item.route_path, item.name)}
               type="button"
             >
               {item.name}
             </button>,
           ])}
         </nav>
+        {activeQuery.isPending && lastSettledView ? (
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 z-20 bg-[#f8fafc]/62 backdrop-blur-[2px] backdrop-saturate-50"
+            data-testid="taxonomy-transition-scrim"
+          />
+        ) : null}
         {activeQuery.isPending ? (
           <section
             aria-busy="true"
             aria-live="polite"
-            className="absolute top-1/2 left-1/2 z-20 w-[min(420px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 rounded-[20px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-[22px] text-left shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+            className="absolute top-1/2 left-1/2 z-30 flex w-[min(340px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 items-start gap-3 rounded-xl border border-[rgba(148,163,184,0.28)] bg-[rgba(255,255,255,0.9)] px-4 py-3.5 text-left shadow-[0_18px_44px_rgba(15,23,42,0.13)] backdrop-blur-md"
             data-testid="taxonomy-loading-overlay"
           >
-            <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
-              Loading taxonomy view
-            </h2>
-            <p className="mt-2.5 mb-0 text-[#475569]">
-              Fetching the latest taxonomy hierarchy snapshot from API.
-            </p>
+            <span
+              aria-hidden="true"
+              className="mt-0.5 size-4 shrink-0 rounded-full border-2 border-[#2563eb]/20 border-t-[#2563eb] motion-safe:animate-spin motion-reduce:border-[#2563eb]/70"
+            />
+            <span>
+              <h2 className="m-0 text-[0.9rem] leading-5 font-medium text-[#0F172A]">
+                {loadingTitle}
+              </h2>
+              <p className="mt-1 mb-0 text-[0.8rem] leading-5 text-[#475569]">
+                {loadingDescription}
+              </p>
+            </span>
           </section>
         ) : null}
         {activeQuery.isError ? (
@@ -450,7 +528,7 @@ export function TaxonomyViewPage() {
             {routePathNotFound ? (
               <button
                 className={errorActionClasses}
-                onClick={() => navigateToGraphPath("")}
+                onClick={() => navigateToGraphPath("", "Root")}
                 type="button"
               >
                 Back to Root
@@ -470,11 +548,11 @@ export function TaxonomyViewPage() {
           </section>
         ) : null}
         <div className="taxonomy-flow-shell absolute inset-0 overflow-hidden">
-          {pathQuery.data?.node_kind === "card_scope" ? (
+          {visibleTaxonomyView?.node_kind === "card_scope" ? (
             <Suspense fallback={null}>
               <LeafRenderer
-                key={`${taxonomyScopeKey(pathQuery.data.current_scope)}:${pathQuery.data.layout_version}:${pathQuery.data.generated_at}`}
-                leafView={pathQuery.data}
+                key={`${taxonomyScopeKey(visibleTaxonomyView.current_scope)}:${visibleTaxonomyView.layout_version}:${visibleTaxonomyView.generated_at}`}
+                leafView={visibleTaxonomyView}
                 onSuggestEdit={handleSuggestEdit}
                 viewport={canvasViewport}
               />
@@ -500,7 +578,7 @@ export function TaxonomyViewPage() {
                   if (typeof targetRoutePath !== "string") {
                     return;
                   }
-                  navigateToGraphPath(targetRoutePath);
+                  navigateToGraphPath(targetRoutePath, node.data.label);
                 }}
                 proOptions={{ hideAttribution: true }}
               ></ReactFlow>
