@@ -73,10 +73,10 @@ function isNavigationItemActive(pathname: string, itemTo: AppRoute): boolean {
 const githubRepositoryUrl = "https://github.com/QinMian5/hll";
 
 const actionButtonClasses =
-  "inline-flex h-10 w-full items-center justify-center rounded-lg bg-[#006bff] px-3 text-[13px] leading-[18px] font-medium text-white transition-colors hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
+  "inline-flex h-10 w-full items-center justify-center rounded-lg bg-knowledge-brand px-3 text-knowledge-shell-action font-medium text-knowledge-text-inverse transition-colors hover:bg-knowledge-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand";
 
 const disabledActionButtonClasses =
-  "inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] px-3 text-[13px] leading-[18px] font-medium text-[#606e87]";
+  "inline-flex h-10 w-full items-center justify-center rounded-lg border border-knowledge-border-subtle bg-knowledge-surface-shell px-3 text-knowledge-shell-action font-medium text-knowledge-text-muted";
 
 const menuItemClasses =
   "flex h-account-menu-item-height w-full items-center gap-account-menu-item-gap rounded-account-menu-item px-account-menu-item-x text-left text-account-menu-item font-normal text-account-menu-text no-underline transition-colors hover:bg-account-menu-item-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-account-menu-focus";
@@ -106,7 +106,7 @@ function BrandMark() {
   return (
     <div
       aria-hidden="true"
-      className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#006bff] text-[16px] leading-5 font-black text-white"
+      className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-knowledge-brand text-knowledge-rich-title font-black text-knowledge-text-inverse"
     >
       K
     </div>
@@ -115,19 +115,19 @@ function BrandMark() {
 
 function BrandRow({ withClose }: { readonly withClose?: () => void }) {
   return (
-    <div className="flex h-[52px] w-full shrink-0 items-center gap-3 overflow-hidden bg-white p-2">
+    <div className="flex h-knowledge-shell-brand-row w-full shrink-0 items-center gap-3 overflow-hidden bg-knowledge-surface-card-solid p-2">
       <BrandMark />
-      <span className="min-w-0 flex-1 truncate text-[14px] leading-5 font-black text-[#131c2d]">
+      <span className="min-w-0 flex-1 truncate text-knowledge-shell-brand font-black text-knowledge-text-default">
         Knowledge Graph
       </span>
       {withClose ? (
         <button
           aria-label="Close navigation"
-          className="flex size-8 shrink-0 items-center justify-center bg-white text-[#131c2d] transition-colors hover:bg-[#eff6ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+          className="flex size-8 shrink-0 items-center justify-center bg-knowledge-surface-card-solid text-knowledge-text-default transition-colors hover:bg-knowledge-surface-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
           onClick={withClose}
           type="button"
         >
-          <X aria-hidden="true" className="size-[18px]" strokeWidth={2} />
+          <X aria-hidden="true" className="size-5" strokeWidth={2} />
         </button>
       ) : null}
     </div>
@@ -180,7 +180,7 @@ function GithubButton() {
   return (
     <a
       aria-label={summary === undefined ? "GitHub" : `GitHub ${label}`}
-      className="flex h-10 w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-lg border border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] px-3 text-[13px] leading-[18px] font-medium text-[#131c2d] no-underline transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+      className="flex h-10 w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-lg border border-knowledge-border-subtle bg-knowledge-surface-shell px-3 text-knowledge-shell-action font-medium text-knowledge-text-default no-underline transition-colors hover:bg-knowledge-surface-card-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
       href={repositoryUrl}
       rel="noreferrer"
       target="_blank"
@@ -226,7 +226,7 @@ function NavigationItem({
   return (
     <Link
       className={cn(
-        "flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-[14px] leading-5 no-underline transition-colors",
+        "flex h-10 w-full items-center gap-3 overflow-hidden rounded-lg px-3 text-knowledge-button no-underline transition-colors",
         isActive
           ? "bg-knowledge-surface-accent-soft font-medium text-knowledge-text-default"
           : "font-medium text-knowledge-text-muted hover:bg-knowledge-surface-hover hover:text-knowledge-text-default",
@@ -305,31 +305,31 @@ function UserAccountAction({
       aria-expanded={isMenuOpen}
       aria-label={`User menu, ${profile.name}`}
       className={cn(
-        "flex h-account-action-button-height w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-lg border border-[#e0e4eb] pl-2 pr-2.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]",
+        "flex h-account-action-button-height w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-lg border border-knowledge-border-subtle px-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand",
         isMenuOpen
-          ? "bg-[#eff6ff]"
-          : "bg-[rgba(255,255,255,0.72)] hover:bg-white",
+          ? "bg-knowledge-surface-accent-soft"
+          : "bg-knowledge-surface-shell hover:bg-knowledge-surface-card-solid",
       )}
       onClick={onToggleMenu}
       ref={buttonRef}
       type="button"
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-2xl bg-[#006bff] text-[13px] leading-4 font-semibold text-white">
+      <span className="flex size-8 shrink-0 items-center justify-center rounded-2xl bg-knowledge-brand text-knowledge-shell-user font-semibold text-knowledge-text-inverse">
         {profile.initial}
       </span>
       <span className="flex min-w-0 flex-1 flex-col items-start overflow-hidden">
-        <span className="w-full truncate text-[13px] leading-4 font-medium text-[#131c2d]">
+        <span className="w-full truncate text-knowledge-shell-user font-medium text-knowledge-text-default">
           {profile.name}
         </span>
         {profile.secondaryText === undefined ? null : (
-          <span className="w-full truncate text-[11px] leading-[14px] font-normal text-[#606e87]">
+          <span className="w-full truncate text-knowledge-shell-user-secondary font-normal text-knowledge-text-muted">
             {profile.secondaryText}
           </span>
         )}
       </span>
       <ChevronRight
         aria-hidden="true"
-        className="size-4 shrink-0 -rotate-90 text-[#606e87]"
+        className="size-4 shrink-0 -rotate-90 text-knowledge-text-muted"
         strokeWidth={2}
       />
     </button>
@@ -389,7 +389,7 @@ function SidebarContent({
   }
 
   return (
-    <div className="relative flex h-full w-full flex-col gap-shell-account-action-gap overflow-hidden bg-[rgba(255,255,255,0.72)] p-shell-account-action-inset-x">
+    <div className="relative flex h-full w-full flex-col gap-shell-account-action-gap overflow-hidden bg-knowledge-surface-shell p-shell-account-action-inset-x">
       <BrandRow withClose={onClose} />
       <NavigationItems onNavigate={handleNavigate} pathname={pathname} />
       <div
@@ -455,11 +455,11 @@ export function AppShell() {
 
   return (
     <div
-      className="flex h-screen min-h-screen w-full overflow-hidden bg-[#f8fafc] font-sans"
+      className="flex h-screen min-h-screen w-full overflow-hidden bg-knowledge-page-bg font-sans"
       data-testid="app-shell"
     >
       <aside
-        className="hidden h-screen shrink-0 border-r border-[#e0e4eb] md:flex md:w-60 lg:w-64 xl:w-72 2xl:w-80"
+        className="hidden h-screen shrink-0 border-r border-knowledge-border-subtle md:flex md:w-60 lg:w-64 xl:w-72 2xl:w-80"
         data-testid="app-shell-sidebar"
       >
         <SidebarContent
@@ -470,21 +470,21 @@ export function AppShell() {
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header
-          className="flex h-16 w-full shrink-0 items-center gap-3 overflow-hidden border-b border-[#e0e4eb] bg-[rgba(255,255,255,0.72)] px-4 md:hidden"
+          className="flex h-16 w-full shrink-0 items-center gap-3 overflow-hidden border-b border-knowledge-border-subtle bg-knowledge-surface-shell px-4 md:hidden"
           data-testid="app-shell-mobile-header"
         >
           <button
             aria-label="Open navigation"
-            className="flex size-9 shrink-0 items-center justify-center bg-white text-[#131c2d] transition-colors hover:bg-[#eff6ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+            className="flex size-9 shrink-0 items-center justify-center bg-knowledge-surface-card-solid text-knowledge-text-default transition-colors hover:bg-knowledge-surface-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
             onClick={() => {
               setIsDrawerOpen(true);
             }}
             type="button"
           >
-            <Menu aria-hidden="true" className="size-[18px]" strokeWidth={2} />
+            <Menu aria-hidden="true" className="size-5" strokeWidth={2} />
           </button>
           <BrandMark />
-          <span className="min-w-0 flex-1 truncate text-[14px] leading-5 font-black text-[#131c2d]">
+          <span className="min-w-0 flex-1 truncate text-knowledge-shell-brand font-black text-knowledge-text-default">
             Knowledge Graph
           </span>
         </header>
@@ -498,7 +498,7 @@ export function AppShell() {
           data-testid="app-shell-mobile-overlay"
         >
           <aside
-            className="h-full w-[320px] shrink-0 border-r border-[#e0e4eb] bg-[rgba(255,255,255,0.72)]"
+            className="h-full w-knowledge-shell-drawer-width shrink-0 border-r border-knowledge-border-subtle bg-knowledge-surface-shell"
             data-testid="app-shell-mobile-drawer"
           >
             <SidebarContent
@@ -510,7 +510,7 @@ export function AppShell() {
           </aside>
           <button
             aria-label="Close navigation scrim"
-            className="min-w-0 flex-1 cursor-default bg-[rgba(248,250,252,0.18)]"
+            className="min-w-0 flex-1 cursor-default bg-knowledge-surface-shell-scrim"
             onClick={closeDrawer}
             type="button"
           />

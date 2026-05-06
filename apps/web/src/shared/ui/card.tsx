@@ -11,7 +11,7 @@ export function Card({ className, ...props }: DivProps) {
   return (
     <div
       className={cn(
-        "rounded-[24px] border border-[rgba(223,232,247,0.98)] bg-[rgba(255,255,255,0.92)] shadow-[0_14px_28px_rgba(95,123,185,0.1)]",
+        "rounded-knowledge-card-large border border-knowledge-border-card-strong bg-knowledge-surface-card-strong shadow-knowledge-card",
         className,
       )}
       {...props}
@@ -29,7 +29,7 @@ export function CardTitle({ className, ...props }: DivProps) {
   return (
     <div
       className={cn(
-        "text-[16px] leading-[22px] font-medium text-[rgba(18,23,41,0.96)]",
+        "text-knowledge-rich-title font-medium text-knowledge-text-emphasis",
         className,
       )}
       {...props}

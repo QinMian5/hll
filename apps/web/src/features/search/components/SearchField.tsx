@@ -14,26 +14,26 @@ interface SearchFieldProps {
 }
 
 const fieldFormClasses = {
-  compact: "w-full max-w-[760px] shrink-0",
-  hero: "w-full max-w-[760px] shrink-0",
+  compact: "w-full max-w-knowledge-search-field-width shrink-0",
+  hero: "w-full max-w-knowledge-search-field-width shrink-0",
 } as const;
 
 const fieldContainerClasses = {
   compact:
-    "h-12 rounded-lg border border-[#e5e5e5] bg-white px-4 py-[9.5px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
-  hero: "h-12 rounded-lg border border-[#e5e5e5] bg-white px-4 py-[9.5px] shadow-[0_1px_2px_rgba(0,0,0,0.05)]",
+    "h-12 rounded-lg border border-knowledge-border-input bg-knowledge-surface-card-solid px-4 py-2 shadow-knowledge-input-strong",
+  hero: "h-12 rounded-lg border border-knowledge-border-input bg-knowledge-surface-card-solid px-4 py-2 shadow-knowledge-input-strong",
 } as const;
 
 const inputClasses = {
   compact:
-    "h-5 text-[14px] leading-5 font-normal text-[#0a0a0a] placeholder:text-[#606e87]",
-  hero: "h-5 text-[14px] leading-5 font-normal text-[#0a0a0a] placeholder:text-[#606e87]",
+    "h-5 text-knowledge-search-input font-normal text-knowledge-text-strong placeholder:text-knowledge-text-muted",
+  hero: "h-5 text-knowledge-search-input font-normal text-knowledge-text-strong placeholder:text-knowledge-text-muted",
 } as const;
 
 const searchButtonClasses = {
   compact:
-    "flex size-5 shrink-0 items-center justify-center rounded bg-transparent p-0 text-black shadow-none hover:bg-transparent hover:text-black",
-  hero: "flex size-5 shrink-0 items-center justify-center rounded bg-transparent p-0 text-black shadow-none hover:bg-transparent hover:text-black",
+    "flex size-5 shrink-0 items-center justify-center rounded bg-transparent p-0 text-knowledge-text-strong shadow-none hover:bg-transparent hover:text-knowledge-text-strong",
+  hero: "flex size-5 shrink-0 items-center justify-center rounded bg-transparent p-0 text-knowledge-text-strong shadow-none hover:bg-transparent hover:text-knowledge-text-strong",
 } as const;
 
 const searchIconClasses = {

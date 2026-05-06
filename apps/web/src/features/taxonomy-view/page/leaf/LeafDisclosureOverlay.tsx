@@ -24,15 +24,15 @@ interface LeafDisclosureOverlayProps {
 const DISCLOSURE_GAP_PX = 8;
 const DISCLOSURE_CARD_SIZE_CLASS =
   "[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-md)] [--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-md)] [--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-md)] lg:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-lg)] lg:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-lg)] lg:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-lg)] xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-xl)] xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-xl)] xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-xl)] 2xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-2xl)] 2xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-2xl)] 2xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-2xl)]";
-const DISCLOSURE_CARD_CLASS = `absolute top-0 left-0 z-[22] m-0 pointer-events-auto flex max-h-[var(--leaf-disclosure-card-height)] w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))] flex-col items-start gap-2 overflow-hidden rounded-knowledge-leaf-disclosure border border-[rgba(133,163,214,0.34)] bg-white px-4 py-4 text-left shadow-[0_8px_18px_rgba(59,82,125,0.1)] ${DISCLOSURE_CARD_SIZE_CLASS}`;
+const DISCLOSURE_CARD_CLASS = `absolute top-0 left-0 z-[22] m-0 pointer-events-auto flex max-h-[var(--leaf-disclosure-card-height)] w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))] flex-col items-start gap-2 overflow-hidden rounded-knowledge-leaf-disclosure border border-knowledge-leaf-disclosure-border bg-knowledge-surface-card-solid px-4 py-4 text-left shadow-knowledge-leaf-disclosure ${DISCLOSURE_CARD_SIZE_CLASS}`;
 const DISCLOSURE_TITLE_AREA_CLASS =
   "min-w-0 flex-1 whitespace-normal break-words";
 const DISCLOSURE_TITLE_TRACK_CLASS =
-  "min-w-0 whitespace-normal break-words [&_[data-testid=knowledge-rich-text-title]]:whitespace-normal [&_[data-testid=knowledge-rich-text-title]]:text-[13px] [&_[data-testid=knowledge-rich-text-title]]:leading-[18px] [&_[data-testid=knowledge-rich-text-title]]:font-medium [&_[data-testid=knowledge-rich-text-title]]:text-knowledge-text-default";
+  "min-w-0 whitespace-normal break-words [&_[data-testid=knowledge-rich-text-title]]:whitespace-normal [&_[data-testid=knowledge-rich-text-title]]:text-knowledge-leaf-disclosure-title [&_[data-testid=knowledge-rich-text-title]]:font-medium [&_[data-testid=knowledge-rich-text-title]]:text-knowledge-text-default";
 const DISCLOSURE_CONTENT_SCROLL_CLASS =
   "[--scroll-area-padding-right:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] max-h-[var(--leaf-disclosure-card-content-height)] min-h-0 w-full flex-1";
 const DISCLOSURE_CONTENT_VIEWPORT_CLASS =
-  "max-h-[var(--leaf-disclosure-card-content-height)] overflow-x-hidden overflow-y-auto overscroll-contain [&_[data-testid=knowledge-rich-text-content]]:text-[12px] [&_[data-testid=knowledge-rich-text-content]]:leading-[17px] [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-text-muted";
+  "max-h-[var(--leaf-disclosure-card-content-height)] overflow-x-hidden overflow-y-auto overscroll-contain [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-leaf-disclosure-body [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-text-muted";
 
 interface OverlayPosition {
   readonly left: number;
@@ -96,7 +96,7 @@ function LeafDisclosureHeader({
       {onSuggestEdit ? (
         <button
           aria-label={`Suggest edit for ${title}`}
-          className="flex size-6 shrink-0 items-center justify-center rounded-[4px] bg-white/0 p-1 text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
+          className="flex size-6 shrink-0 items-center justify-center rounded-knowledge-control-compact bg-transparent p-1 text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
           data-testid="taxonomy-leaf-disclosure-edit-button"
           onClick={(event) => {
             stopCanvasPropagation(event);

@@ -31,8 +31,7 @@ describe("RelatedResultItem", () => {
       "min-h-search-related-result-height",
       "px-search-related-result-padding-x",
       "py-search-related-result-padding-y",
-      "text-[14px]",
-      "leading-5",
+      "text-knowledge-search-input",
       "font-medium",
     );
     expect(item).not.toHaveClass("h-[38px]", "md:h-[42px]", "overflow-hidden");
@@ -60,17 +59,17 @@ describe("RelatedResultItem", () => {
       "hover:z-10",
       "hover:-translate-y-0.5",
       "hover:scale-[var(--scale-search-related-result-hover)]",
-      "hover:border-[#006bff]/40",
-      "hover:bg-[rgba(255,255,255,0.88)]",
+      "hover:border-knowledge-brand-hover-soft",
+      "hover:bg-knowledge-surface-card",
       "focus-visible:z-10",
       "focus-visible:-translate-y-0.5",
       "focus-visible:scale-[var(--scale-search-related-result-hover)]",
-      "focus-visible:border-[#006bff]/40",
-      "focus-visible:bg-[rgba(255,255,255,0.88)]",
+      "focus-visible:border-knowledge-brand-hover-soft",
+      "focus-visible:bg-knowledge-surface-card",
     );
     expect(hoverIcon).toHaveClass(
       "rounded-full",
-      "bg-[#006bff]",
+      "bg-knowledge-brand",
       "opacity-0",
       "group-hover/related-result:opacity-100",
       "group-focus-visible/related-result:opacity-100",

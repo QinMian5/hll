@@ -1,10 +1,16 @@
-// abstract: Route-level tests for the Overview placeholder page inside the shared app shell.
-// out_of_scope: Future Overview feature behavior beyond the approved placeholder state.
+// abstract: Route-level tests for the Overview project-introduction page inside the shared app shell.
+// out_of_scope: Live product metrics, backend data integration, and browser-level visual fidelity.
 
 import "@testing-library/jest-dom/vitest";
 
 import { RouterProvider } from "@tanstack/react-router";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../../app/providers";
@@ -36,7 +42,7 @@ beforeEach(() => {
 });
 
 describe("OverviewPage", () => {
-  it("renders a true routed placeholder page inside the shared shell", async () => {
+  it("explains the project thesis and knowledge flow", async () => {
     const router = createAppRouter({
       initialEntries: ["/overview"],
     });
@@ -50,11 +56,74 @@ describe("OverviewPage", () => {
     await waitFor(() =>
       expect(screen.getByTestId("overview-route-page")).toBeInTheDocument(),
     );
+    const page = within(screen.getByTestId("overview-route-page"));
+
     expect(
-      screen.getByRole("heading", { name: "Overview" }),
+      page.getByRole("heading", { name: "Humanity's Last Library" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Overview content is not implemented yet."),
+      page.getByText(
+        /A human-maintained knowledge network for agents to search, cite, and use\./,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      page.getByText(
+        /Models reason, humans maintain, and the network carries incrementally updated facts\./,
+      ),
+    ).toBeInTheDocument();
+    expect(page.getByText("Retrieval over memorization")).toBeInTheDocument();
+    expect(page.getByText("Human-reviewed updates")).toBeInTheDocument();
+    expect(page.getByText("Usage-informed structure")).toBeInTheDocument();
+
+    expect(
+      page.getByRole("img", { name: /Knowledge Loop diagram/ }),
+    ).toHaveAttribute("src", "/overview/knowledge-loop.png");
+    expect(
+      page.getByRole("img", {
+        name: /From Memorization to Retrieval diagram/,
+      }),
+    ).toHaveAttribute("src", "/overview/from-memorization-to-retrieval.png");
+    expect(page.queryByText("Knowledge Loop")).not.toBeInTheDocument();
+    expect(
+      page.queryByText("From Memorization to Retrieval"),
+    ).not.toBeInTheDocument();
+    expect(
+      page.queryByText("Agent-era knowledge infrastructure"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("surfaces current product entry points and honest limits", async () => {
+    const router = createAppRouter({
+      initialEntries: ["/overview"],
+    });
+
+    render(
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("overview-route-page")).toBeInTheDocument(),
+    );
+    const page = within(screen.getByTestId("overview-route-page"));
+
+    for (const link of [
+      ["Search", "/search"],
+      ["Graph View", "/graph"],
+      ["Docs", "/docs"],
+      ["Dashboard", "/dashboard"],
+      ["Workspace", "/workspace"],
+    ] as const) {
+      expect(
+        page.getByRole("link", { name: `Open ${link[0]} from Overview` }),
+      ).toHaveAttribute("href", link[1]);
+    }
+
+    expect(page.getByText(/Wikipedia-derived/)).toBeInTheDocument();
+    expect(page.getByText(/AI-assisted extraction/)).toBeInTheDocument();
+    expect(
+      page.getByText(/architecture experiment, not proof/),
     ).toBeInTheDocument();
   });
 });

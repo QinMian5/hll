@@ -47,11 +47,11 @@ import { TaxonomyFlowNode } from "./TaxonomyFlowNode";
 const DEFAULT_CANVAS_VIEWPORT = BRANCH_DESKTOP_REFERENCE_VIEWPORT;
 const DEFAULT_BRANCH_VIEWPORT = { x: 0, y: 0, zoom: 1 } as const;
 const breadcrumbMutedClasses =
-  "text-[13px] leading-[18px] font-normal text-[rgba(92,107,138,0.74)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0";
+  "text-knowledge-taxonomy-breadcrumb font-normal text-knowledge-taxonomy-breadcrumb-muted transition-colors hover:text-knowledge-taxonomy-breadcrumb-hover focus-visible:outline-0";
 const breadcrumbCurrentClasses =
-  "text-[13px] leading-[18px] font-medium text-[rgba(33,43,64,0.96)] transition-colors hover:text-[rgba(55,72,102,0.92)] focus-visible:outline-0";
+  "text-knowledge-taxonomy-breadcrumb font-medium text-knowledge-taxonomy-breadcrumb-active transition-colors hover:text-knowledge-taxonomy-breadcrumb-hover focus-visible:outline-0";
 const errorActionClasses =
-  "mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-[#006bff] px-4 text-[13px] leading-[18px] font-medium text-white transition-colors hover:bg-[#005fe0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]";
+  "mt-4 inline-flex h-10 items-center justify-center rounded-lg bg-knowledge-brand px-4 text-knowledge-shell-action font-medium text-knowledge-text-inverse transition-colors hover:bg-knowledge-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand";
 
 type BubbleFlowNode = Node<TaxonomyLayoutNodeData, "bubble">;
 
@@ -416,12 +416,12 @@ export function TaxonomyViewPage() {
 
   return (
     <main
-      className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f8fafc]"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-knowledge-page-bg"
       data-testid="taxonomy-shell-body"
     >
       <section
         aria-label="taxonomy canvas"
-        className="relative min-h-0 flex-1 overflow-hidden bg-[#f8fafc]"
+        className="relative min-h-0 flex-1 overflow-hidden bg-knowledge-page-bg"
         data-figma-desktop-node="702:3845"
         data-figma-mobile-node="702:3950"
         data-testid="taxonomy-canvas"
@@ -429,7 +429,7 @@ export function TaxonomyViewPage() {
       >
         <nav
           aria-label="taxonomy breadcrumb"
-          className="absolute top-5 left-5 z-20 flex max-w-[calc(100%-40px)] flex-wrap items-center gap-1.5 lg:top-6 lg:left-6 lg:max-w-[calc(100%-48px)]"
+          className="absolute top-5 left-5 z-20 flex max-w-[calc(100%-var(--spacing-knowledge-taxonomy-edge-inset))] flex-wrap items-center gap-1.5 lg:top-6 lg:left-6 lg:max-w-[calc(100%-var(--spacing-knowledge-taxonomy-edge-inset-desktop))]"
           data-breadcrumb-style="inline-text"
           data-testid="taxonomy-breadcrumb-overlay"
         >
@@ -448,7 +448,7 @@ export function TaxonomyViewPage() {
           {displayBreadcrumbs.flatMap((item) => [
             <ChevronRight
               aria-hidden="true"
-              className="size-3.5 shrink-0 text-[rgba(117,133,161,0.56)]"
+              className="size-3.5 shrink-0 text-knowledge-text-subtle"
               data-testid="taxonomy-breadcrumb-separator"
               key={`${taxonomyScopeKey(item)}-separator`}
             />,
@@ -474,7 +474,7 @@ export function TaxonomyViewPage() {
         {activeQuery.isPending && lastSettledView ? (
           <div
             aria-hidden="true"
-            className="absolute inset-0 z-20 bg-[#f8fafc]/62 backdrop-blur-[2px] backdrop-saturate-50"
+            className="absolute inset-0 z-20 bg-knowledge-page-bg/62 backdrop-blur-[2px] backdrop-saturate-50"
             data-testid="taxonomy-transition-scrim"
           />
         ) : null}
@@ -482,18 +482,18 @@ export function TaxonomyViewPage() {
           <section
             aria-busy="true"
             aria-live="polite"
-            className="absolute top-1/2 left-1/2 z-30 flex w-[min(340px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 items-start gap-3 rounded-xl border border-[rgba(148,163,184,0.28)] bg-[rgba(255,255,255,0.9)] px-4 py-3.5 text-left shadow-[0_18px_44px_rgba(15,23,42,0.13)] backdrop-blur-md"
+            className="absolute top-1/2 left-1/2 z-30 flex w-[min(var(--spacing-knowledge-taxonomy-toast-width),calc(100%-var(--spacing-knowledge-taxonomy-edge-inset)))] -translate-x-1/2 -translate-y-1/2 items-start gap-3 rounded-xl border border-knowledge-overlay-toast-border bg-knowledge-surface-card-glass px-4 py-4 text-left shadow-knowledge-overlay-toast backdrop-blur-md"
             data-testid="taxonomy-loading-overlay"
           >
             <span
               aria-hidden="true"
-              className="mt-0.5 size-4 shrink-0 rounded-full border-2 border-[#2563eb]/20 border-t-[#2563eb] motion-safe:animate-spin motion-reduce:border-[#2563eb]/70"
+              className="mt-0.5 size-4 shrink-0 rounded-full border-2 border-knowledge-spinner-soft border-t-knowledge-spinner motion-safe:animate-spin motion-reduce:border-knowledge-spinner-muted"
             />
             <span>
-              <h2 className="m-0 text-[0.9rem] leading-5 font-medium text-[#0F172A]">
+              <h2 className="m-0 text-knowledge-taxonomy-state-title font-medium text-knowledge-text-default">
                 {loadingTitle}
               </h2>
-              <p className="mt-1 mb-0 text-[0.8rem] leading-5 text-[#475569]">
+              <p className="mt-1 mb-0 text-knowledge-taxonomy-state-body text-knowledge-text-muted">
                 {loadingDescription}
               </p>
             </span>
@@ -501,11 +501,11 @@ export function TaxonomyViewPage() {
         ) : null}
         {activeQuery.isError ? (
           <section
-            className="absolute top-1/2 left-1/2 z-20 w-[min(420px,calc(100%-40px))] -translate-x-1/2 -translate-y-1/2 rounded-[20px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-[22px] text-left shadow-[0_18px_40px_rgba(15,23,42,0.14)]"
+            className="absolute top-1/2 left-1/2 z-20 w-[min(var(--spacing-knowledge-taxonomy-empty-width),calc(100%-var(--spacing-knowledge-taxonomy-edge-inset)))] -translate-x-1/2 -translate-y-1/2 rounded-knowledge-overlay border border-knowledge-overlay-panel-border bg-knowledge-surface-card-overlay p-6 text-left shadow-knowledge-overlay-panel"
             data-testid="taxonomy-error-overlay"
             role="alert"
           >
-            <h2 className="m-0 text-[1.1rem] text-[#0F172A]">
+            <h2 className="m-0 text-knowledge-dialog-title font-semibold text-knowledge-text-default">
               {routePathNotFound
                 ? "Graph path not found"
                 : quotaExceeded
@@ -514,7 +514,7 @@ export function TaxonomyViewPage() {
                     ? "Taxonomy layout unavailable"
                     : "Taxonomy view unavailable"}
             </h2>
-            <p className="mt-2.5 mb-0 text-[#475569]">
+            <p className="mt-2 mb-0 text-knowledge-body text-knowledge-text-muted">
               {routePathNotFound
                 ? "This taxonomy path does not exist."
                 : quotaExceeded

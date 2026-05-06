@@ -73,7 +73,7 @@ describe("LeafZoomControl", () => {
     );
     expect(control).toHaveClass(
       "left-1/2",
-      "w-[408px]",
+      "w-knowledge-leaf-zoom-width",
       "max-w-[calc(100%_-_2rem)]",
       "-translate-x-1/2",
       "md:landscape:translate-x-0",

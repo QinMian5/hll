@@ -15,6 +15,16 @@ The long-term goal is a feedback loop: high-quality human-maintained knowledge i
 consumed by many agents, and aggregate agent usage signals help improve retrieval,
 knowledge structure, and maintenance priorities over time.
 
+## Visual Overview
+
+<p align="center">
+  <img src="apps/web/public/overview/knowledge-loop.png" alt="Knowledge Loop" width="760">
+</p>
+
+<p align="center">
+  <img src="apps/web/public/overview/from-memorization-to-retrieval.png" alt="From Memorization to Retrieval" width="760">
+</p>
+
 ## Why It Exists
 
 Most public knowledge is packaged for human reading: pages, articles, search

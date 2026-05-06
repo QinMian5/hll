@@ -535,14 +535,14 @@ export function LeafRenderer({
     >
       {hydrationError ? (
         <section
-          className="absolute right-6 bottom-6 z-20 w-[min(360px,calc(100%-48px))] rounded-[10px] border border-[rgba(148,163,184,0.24)] bg-[rgba(255,255,255,0.94)] p-4 text-left shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
+          className="absolute right-6 bottom-6 z-20 w-[min(var(--spacing-knowledge-leaf-empty-width),calc(100%-var(--spacing-knowledge-taxonomy-edge-inset-desktop)))] rounded-knowledge-control border border-knowledge-overlay-panel-border bg-knowledge-surface-card-overlay p-4 text-left shadow-knowledge-leaf-empty"
           data-testid="taxonomy-leaf-hydration-error"
           role="alert"
         >
-          <h2 className="m-0 text-[0.95rem] text-[#0F172A]">
+          <h2 className="m-0 text-knowledge-title font-semibold text-knowledge-text-default">
             Leaf details unavailable
           </h2>
-          <p className="mt-2 mb-0 text-sm text-[#475569]">
+          <p className="mt-2 mb-0 text-knowledge-body text-knowledge-text-muted">
             {hydrationError.message}
           </p>
         </section>

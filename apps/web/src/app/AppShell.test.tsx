@@ -180,7 +180,7 @@ describe("AppShell", () => {
       expect(screen.getAllByText("Knowledge Graph").length).toBeGreaterThan(0),
     );
     expect(screen.getByTestId("app-shell")).toHaveClass(
-      "bg-[#f8fafc]",
+      "bg-knowledge-page-bg",
       "font-sans",
       "min-h-screen",
       "w-full",
@@ -327,8 +327,8 @@ describe("AppShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
 
     expect(screen.getByTestId("app-shell-mobile-drawer")).toHaveClass(
-      "w-[320px]",
-      "bg-[rgba(255,255,255,0.72)]",
+      "w-knowledge-shell-drawer-width",
+      "bg-knowledge-surface-shell",
     );
     expect(screen.getByTestId("app-shell-mobile-overlay")).toHaveClass(
       "md:hidden",
@@ -353,7 +353,7 @@ describe("AppShell", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Close navigation scrim" }),
-    ).toHaveClass("bg-[rgba(248,250,252,0.18)]");
+    ).toHaveClass("bg-knowledge-surface-shell-scrim");
 
     fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
 
@@ -421,10 +421,10 @@ describe("AppShell", () => {
       "gap-2.5",
       "rounded-md",
       "px-3",
-      "text-[14px]",
-      "text-[#131c2d]",
-      "hover:bg-[#eff6ff]",
-      "focus-visible:outline-[#006bff]",
+      "text-knowledge-button",
+      "text-knowledge-text-default",
+      "hover:bg-knowledge-surface-accent-soft",
+      "focus-visible:outline-knowledge-brand",
     ];
     const dashboardMenuItem = screen.getByRole("menuitem", {
       name: "Dashboard",

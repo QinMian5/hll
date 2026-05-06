@@ -16,16 +16,36 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --color-knowledge-brand-disabled: #8cb9ff;
   --color-knowledge-brand-hover: #005ee0;
   --color-knowledge-brand-pressed: #004bb3;
+  --color-knowledge-brand-hover-soft: rgb(0 107 255 / 40%);
   --color-knowledge-danger: #d83232;
   --color-knowledge-danger-disabled: #ee8f8f;
   --color-knowledge-danger-hover: #bf2525;
   --color-knowledge-danger-pressed: #991b1b;
   --color-knowledge-danger-soft: rgb(216 50 50 / 8%);
+  --color-knowledge-danger-surface: #fef2f2;
+  --color-knowledge-danger-surface-hover: #fee2e2;
+  --color-knowledge-danger-border: #fecaca;
+  --color-knowledge-danger-focus: #dc2626;
+  --color-knowledge-danger-text-strong: #991b1b;
   --color-knowledge-text-default: #131c2d;
+  --color-knowledge-text-strong: #0a0a0a;
   --color-knowledge-text-muted: #606e87;
+  --color-knowledge-text-soft: rgb(61 75 103 / 82%);
+  --color-knowledge-text-emphasis: rgb(18 23 41 / 96%);
+  --color-knowledge-text-subtle: rgb(117 133 161 / 56%);
   --color-knowledge-text-inverse: #ffffff;
+  --color-knowledge-page-bg: #f8fafc;
   --color-knowledge-surface-accent-soft: #eff6ff;
   --color-knowledge-surface-card: rgb(255 255 255 / 88%);
+  --color-knowledge-surface-card-glass: rgb(255 255 255 / 90%);
+  --color-knowledge-surface-card-solid: #ffffff;
+  --color-knowledge-surface-card-strong: rgb(255 255 255 / 92%);
+  --color-knowledge-surface-card-overlay: rgb(255 255 255 / 94%);
+  --color-knowledge-surface-card-muted: rgb(255 255 255 / 70%);
+  --color-knowledge-surface-code: rgb(222 230 244 / 75%);
+  --color-knowledge-surface-pre: rgb(232 238 247 / 92%);
+  --color-knowledge-surface-shell: rgb(255 255 255 / 72%);
+  --color-knowledge-surface-shell-scrim: rgb(248 250 252 / 18%);
   --color-knowledge-surface-control: rgb(255 255 255 / 62%);
   --color-knowledge-surface-control-hover: rgb(241 245 251 / 72%);
   --color-knowledge-surface-control-pressed: rgb(214 227 247 / 72%);
@@ -35,11 +55,34 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --color-knowledge-surface-input-readonly: rgb(248 250 252 / 94%);
   --color-knowledge-skeleton: #e2eaf6;
   --color-knowledge-border-card: rgb(214 227 247 / 86%);
+  --color-knowledge-border-card-strong: rgb(223 232 247 / 98%);
   --color-knowledge-border-control: rgb(214 227 247 / 96%);
+  --color-knowledge-border-field: #d9e0ea;
+  --color-knowledge-border-field-hover: #b7c2d0;
+  --color-knowledge-border-focus-soft: #bfdbfe;
   --color-knowledge-border-input: #e5e5e5;
   --color-knowledge-border-input-readonly: rgb(209 221 238 / 86%);
   --color-knowledge-border-subtle: #e0e4eb;
   --color-knowledge-divider-subtle: rgb(214 227 247 / 74%);
+  --color-knowledge-scrollbar-thumb: #e5e5e5;
+  --color-knowledge-overlay-panel-border: rgb(148 163 184 / 24%);
+  --color-knowledge-overlay-toast-border: rgb(148 163 184 / 28%);
+  --color-knowledge-spinner: #2563eb;
+  --color-knowledge-spinner-muted: rgb(37 99 235 / 70%);
+  --color-knowledge-spinner-soft: rgb(37 99 235 / 20%);
+  --color-knowledge-taxonomy-breadcrumb-muted: rgb(92 107 138 / 74%);
+  --color-knowledge-taxonomy-breadcrumb-active: rgb(33 43 64 / 96%);
+  --color-knowledge-taxonomy-breadcrumb-hover: rgb(55 72 102 / 92%);
+  --color-knowledge-graph-label: #183153;
+  --color-knowledge-bubble-border: #c8d7f0;
+  --color-knowledge-leaf-disclosure-border: rgb(133 163 214 / 34%);
+  --color-knowledge-leaf-zoom-track: #d9e2ee;
+  --color-knowledge-leaf-zoom-icon: #506279;
+  --color-knowledge-leaf-zoom-hover: #eef4ff;
+  --color-knowledge-leaf-zoom-focus: #78a3f3;
+  --color-knowledge-leaf-zoom-active: #78a3f3;
+  --color-knowledge-leaf-zoom-active-strong: #315fba;
+  --color-knowledge-leaf-zoom-tick: #9fb0c6;
   --color-docs-border-accent: rgb(147 197 253 / 90%);
   --color-docs-instruction-bg: #f8fafd;
   --color-docs-instruction-border: #d5e1f4;
@@ -74,6 +117,46 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --text-knowledge-body--line-height: 22px;
   --text-knowledge-caption: 13px;
   --text-knowledge-caption--line-height: 18px;
+  --text-knowledge-shell-brand: 14px;
+  --text-knowledge-shell-brand--line-height: 20px;
+  --text-knowledge-shell-action: 13px;
+  --text-knowledge-shell-action--line-height: 18px;
+  --text-knowledge-shell-user: 13px;
+  --text-knowledge-shell-user--line-height: 16px;
+  --text-knowledge-shell-user-secondary: 11px;
+  --text-knowledge-shell-user-secondary--line-height: 16px;
+  --text-knowledge-overview-hero-title: 32px;
+  --text-knowledge-overview-hero-title--line-height: 40px;
+  --text-knowledge-overview-hero-title-desktop: 44px;
+  --text-knowledge-overview-hero-title-desktop--line-height: 52px;
+  --text-knowledge-overview-subtitle: 16px;
+  --text-knowledge-overview-subtitle--line-height: 24px;
+  --text-knowledge-overview-section-title: 18px;
+  --text-knowledge-overview-section-title--line-height: 28px;
+  --text-knowledge-overview-card-title: 15px;
+  --text-knowledge-overview-card-title--line-height: 20px;
+  --text-knowledge-rich-content: 14px;
+  --text-knowledge-rich-content--line-height: 22px;
+  --text-knowledge-rich-content-compact: 13px;
+  --text-knowledge-rich-content-compact--line-height: 20px;
+  --text-knowledge-rich-title: 16px;
+  --text-knowledge-rich-title--line-height: 22px;
+  --text-knowledge-rich-title-compact: 15px;
+  --text-knowledge-rich-title-compact--line-height: 20px;
+  --text-knowledge-search-input: 14px;
+  --text-knowledge-search-input--line-height: 20px;
+  --text-knowledge-dialog-tab: 13px;
+  --text-knowledge-dialog-tab--line-height: 20px;
+  --text-knowledge-taxonomy-breadcrumb: 13px;
+  --text-knowledge-taxonomy-breadcrumb--line-height: 18px;
+  --text-knowledge-taxonomy-state-title: 14px;
+  --text-knowledge-taxonomy-state-title--line-height: 20px;
+  --text-knowledge-taxonomy-state-body: 13px;
+  --text-knowledge-taxonomy-state-body--line-height: 20px;
+  --text-knowledge-leaf-disclosure-title: 13px;
+  --text-knowledge-leaf-disclosure-title--line-height: 18px;
+  --text-knowledge-leaf-disclosure-body: 12px;
+  --text-knowledge-leaf-disclosure-body--line-height: 16px;
   --text-docs-client-label: 13px;
   --text-docs-client-label--line-height: 20px;
   --text-docs-page-title: 24px;
@@ -142,8 +225,42 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-action-button-x: 16px;
   --spacing-knowledge-action-button-content-gap: 8px;
   --spacing-knowledge-action-button-icon: 16px;
+  --spacing-knowledge-action-button-min-width: 92px;
   --spacing-knowledge-control: 40px;
   --spacing-knowledge-dialog-width: 480px;
+  --spacing-knowledge-dialog-width-compact: 440px;
+  --spacing-knowledge-dialog-width-suggestion: 560px;
+  --spacing-knowledge-field-min-height: 80px;
+  --spacing-knowledge-field-tall-min-height: 180px;
+  --spacing-knowledge-scrollbar-width: 6px;
+  --spacing-knowledge-shell-brand-row: 52px;
+  --spacing-knowledge-shell-drawer-width: 320px;
+  --spacing-knowledge-notification-width: 320px;
+  --spacing-knowledge-overview-rail-width: 1040px;
+  --spacing-knowledge-overview-hero-title-width: 720px;
+  --spacing-knowledge-overview-summary-width: 880px;
+  --spacing-knowledge-overview-entry-height: 148px;
+  --spacing-knowledge-search-field-width: 760px;
+  --spacing-knowledge-search-error-height: 200px;
+  --spacing-knowledge-search-related-panel-height: 200px;
+  --spacing-knowledge-settings-width: 720px;
+  --spacing-knowledge-settings-label-width: 240px;
+  --spacing-knowledge-settings-field-width: 360px;
+  --spacing-knowledge-settings-row-height: 72px;
+  --spacing-knowledge-settings-row-gap-desktop: 72px;
+  --spacing-knowledge-settings-row-padding-y-desktop: 20px;
+  --spacing-knowledge-taxonomy-edge-inset: 40px;
+  --spacing-knowledge-taxonomy-edge-inset-desktop: 48px;
+  --spacing-knowledge-taxonomy-toast-width: 340px;
+  --spacing-knowledge-taxonomy-empty-width: 420px;
+  --spacing-knowledge-leaf-empty-width: 360px;
+  --spacing-knowledge-leaf-zoom-width: 408px;
+  --spacing-knowledge-leaf-zoom-width-landscape: 52px;
+  --spacing-knowledge-leaf-zoom-height-landscape: 400px;
+  --spacing-knowledge-leaf-zoom-track-width: 240px;
+  --spacing-knowledge-leaf-zoom-track-height-landscape: 276px;
+  --spacing-knowledge-leaf-zoom-hit-width-landscape: 276px;
+  --spacing-knowledge-leaf-zoom-hit-height-landscape: 52px;
   --spacing-docs-client-icon-size: 36px;
   --spacing-docs-client-row-gap: 12px;
   --spacing-docs-client-row-height: 64px;
@@ -268,17 +385,62 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-account-menu-padding: 4px;
 
   --radius-knowledge-control: 8px;
+  --radius-knowledge-control-compact: 4px;
   --radius-docs-icon-button: 4px;
+  --radius-knowledge-card-large: 24px;
   --radius-knowledge-leaf-disclosure: 8px;
+  --radius-knowledge-overlay: 20px;
   --radius-knowledge-surface: 8px;
 
   --shadow-knowledge-input: 0 1px 2px rgb(16 24 40 / 4%);
+  --shadow-knowledge-input-strong: 0 1px 2px rgb(0 0 0 / 5%);
+  --shadow-knowledge-card: 0 14px 28px rgb(95 123 185 / 10%);
+  --shadow-knowledge-bubble-frame:
+    0 18px 40px rgb(160 184 221 / 20%), inset 0 1px 0 rgb(255 255 255 / 92%);
+  --shadow-knowledge-card-hover-affordance: 0 6px 14px rgb(0 107 255 / 20%);
+  --shadow-knowledge-danger: 0 12px 24px rgb(153 27 27 / 8%);
+  --shadow-knowledge-dialog-strong: 0 24px 80px rgb(38 51 82 / 22%);
+  --shadow-knowledge-dialog-soft: 0 18px 21px rgb(5 10 20 / 12%);
+  --shadow-knowledge-overlay-panel: 0 18px 40px rgb(15 23 42 / 14%);
+  --shadow-knowledge-overlay-toast: 0 18px 44px rgb(15 23 42 / 13%);
+  --shadow-knowledge-leaf-disclosure: 0 8px 18px rgb(59 82 125 / 10%);
+  --shadow-knowledge-leaf-empty: 0 18px 40px rgb(15 23 42 / 12%);
+  --shadow-knowledge-leaf-zoom: 0 16px 32px rgb(15 23 42 / 14%);
+  --shadow-knowledge-leaf-zoom-thumb: 0 2px 8px rgb(15 23 42 / 18%);
   --scale-search-related-result-hover: 1.004;
+  --scale-search-result-card-hover: 1.008;
   --radius-account-menu: 8px;
   --radius-account-menu-item: 6px;
+  --blur-knowledge-bubble-halo: 10px;
 
   --shadow-knowledge-dialog: 0 18px 26px rgb(107 132 189 / 9%);
   --drop-shadow-account-menu: 0 12px 12px rgb(38 51 82 / 12%);
+
+  --background-image-knowledge-bubble-surface: radial-gradient(
+    circle at 30% 26%,
+    rgb(255 255 255 / 98%) 0%,
+    rgb(237 244 255 / 94%) 44%,
+    rgb(221 232 251 / 90%) 72%,
+    rgb(206 220 246 / 86%) 100%
+  );
+  --background-image-knowledge-bubble-halo: radial-gradient(
+    circle,
+    rgb(214 228 255 / 58%) 0%,
+    rgb(214 228 255 / 22%) 52%,
+    transparent 76%
+  );
+  --background-image-knowledge-bubble-glow: radial-gradient(
+    circle at 40% 35%,
+    rgb(255 255 255 / 92%) 0%,
+    rgb(240 246 255 / 62%) 34%,
+    transparent 66%
+  );
+  --background-image-knowledge-bubble-sheen: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 88%) 0%,
+    rgb(255 255 255 / 18%) 45%,
+    transparent 78%
+  );
 }
 
 @layer base {
@@ -318,7 +480,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   body {
     margin: 0;
     min-height: 100vh;
-    background: #ffffff;
+    background: var(--color-knowledge-page-bg);
   }
 
   button,

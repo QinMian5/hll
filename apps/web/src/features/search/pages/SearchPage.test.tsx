@@ -367,7 +367,7 @@ describe("SearchPage", () => {
       "xl:grid-cols-3",
     );
     expect(screen.getByTestId("search-suggestions-panel")).toHaveClass(
-      "h-[200px]",
+      "h-knowledge-search-related-panel-height",
       "lg:h-full",
       "min-h-0",
       "min-w-0",
@@ -402,7 +402,7 @@ describe("SearchPage", () => {
       "hover:-translate-y-0.5",
       "hover:scale-[var(--scale-search-related-result-hover)]",
       "group-hover/search-suggestions-list:opacity-80",
-      "hover:border-[#006bff]/40",
+      "hover:border-knowledge-brand-hover-soft",
     );
     expect(
       within(

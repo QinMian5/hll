@@ -26,12 +26,12 @@ const bubbleFrameClasses = [
 const bubbleVariantClasses = {
   branch: {
     frame:
-      "border-[#c8d7f0]/70 bg-[radial-gradient(circle_at_30%_26%,rgba(255,255,255,0.98)_0%,rgba(237,244,255,0.94)_44%,rgba(221,232,251,0.9)_72%,rgba(206,220,246,0.86)_100%)] shadow-[0_18px_40px_rgba(160,184,221,0.2),inset_0_1px_0_rgba(255,255,255,0.92)]",
-    halo: "bg-[radial-gradient(circle,rgba(214,228,255,0.58)_0%,rgba(214,228,255,0.22)_52%,transparent_76%)] blur-[10px]",
-    glow: "bg-[radial-gradient(circle_at_40%_35%,rgba(255,255,255,0.92)_0%,rgba(240,246,255,0.62)_34%,transparent_66%)] opacity-95",
+      "border-knowledge-bubble-border/70 bg-[image:var(--background-image-knowledge-bubble-surface)] shadow-knowledge-bubble-frame",
+    halo: "bg-[image:var(--background-image-knowledge-bubble-halo)] blur-knowledge-bubble-halo",
+    glow: "bg-[image:var(--background-image-knowledge-bubble-glow)] opacity-95",
     sheen:
-      "bg-[linear-gradient(180deg,rgba(255,255,255,0.88)_0%,rgba(255,255,255,0.18)_45%,transparent_78%)] opacity-90",
-    label: "font-medium tracking-normal text-[#183153]",
+      "bg-[image:var(--background-image-knowledge-bubble-sheen)] opacity-90",
+    label: "font-medium tracking-normal text-knowledge-graph-label",
   },
 } as const;
 

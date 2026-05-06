@@ -241,19 +241,19 @@ export function SearchPage() {
                 </Button>
               </div>
               <div
-                className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pt-4 pr-4 pb-1 pl-2 [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
+                className="min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden pt-4 pr-4 pb-1 pl-2 [scrollbar-color:var(--color-knowledge-scrollbar-thumb)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-knowledge-scrollbar-width [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-knowledge-scrollbar-thumb [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-results-scroll-area"
               >
                 {errorCopy ? (
                   <section
-                    className="flex min-h-[200px] w-full flex-col justify-center rounded-lg border border-[#e0e4eb] bg-white px-5 py-4"
+                    className="flex min-h-knowledge-search-error-height w-full flex-col justify-center rounded-lg border border-knowledge-border-subtle bg-knowledge-surface-card-solid px-5 py-4"
                     data-testid="search-error-state"
                     role="alert"
                   >
-                    <h2 className="m-0 text-[16px] leading-6 font-semibold text-[#131c2d]">
+                    <h2 className="m-0 text-knowledge-title font-semibold text-knowledge-text-default">
                       {errorCopy.title}
                     </h2>
-                    <p className="mt-2 mb-0 text-[14px] leading-5 text-[#606e87]">
+                    <p className="mt-2 mb-0 text-knowledge-body text-knowledge-text-muted">
                       {errorCopy.body}
                     </p>
                   </section>
@@ -297,14 +297,14 @@ export function SearchPage() {
               </div>
             </section>
             <section
-              className="flex h-[200px] min-h-0 min-w-0 flex-col gap-2 lg:h-full lg:gap-4"
+              className="flex h-knowledge-search-related-panel-height min-h-0 min-w-0 flex-col gap-2 lg:h-full lg:gap-4"
               data-testid="search-suggestions-panel"
             >
               <h2 className="m-0 flex h-6 w-full shrink-0 items-center text-knowledge-search-section-title font-semibold text-knowledge-text-default lg:h-12 lg:text-knowledge-search-section-title-desktop">
                 Related Results
               </h2>
               <div
-                className="group/search-suggestions-list flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden pt-1 pr-1 pb-1 pl-px [scrollbar-color:#e5e5e5_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-[#e5e5e5] [&::-webkit-scrollbar-track]:bg-transparent"
+                className="group/search-suggestions-list flex min-h-0 w-full flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden pt-1 pr-1 pb-1 pl-px [scrollbar-color:var(--color-knowledge-scrollbar-thumb)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-knowledge-scrollbar-width [&::-webkit-scrollbar-thumb]:rounded-sm [&::-webkit-scrollbar-thumb]:bg-knowledge-scrollbar-thumb [&::-webkit-scrollbar-track]:bg-transparent"
                 data-testid="search-suggestions-scroll-area"
               >
                 {isSearchLoading ? (

@@ -129,7 +129,7 @@ export function SearchCardProposalDialog({
       <section
         aria-modal="true"
         aria-label={dialogTitle}
-        className="flex h-[min(var(--spacing-knowledge-dialog-lg-height-mobile),calc(100vh-32px))] w-[min(var(--spacing-knowledge-dialog-lg-width-mobile),calc(100vw-32px))] flex-col gap-knowledge-dialog-content-gap rounded-xl border border-knowledge-border-subtle bg-knowledge-surface-dialog p-knowledge-dialog-padding shadow-[0_18px_21px_rgba(5,10,20,0.12)] md:h-knowledge-dialog-lg-height-desktop md:w-knowledge-dialog-lg-width-desktop md:gap-knowledge-dialog-content-gap-desktop"
+        className="flex h-[min(var(--spacing-knowledge-dialog-lg-height-mobile),calc(100vh-32px))] w-[min(var(--spacing-knowledge-dialog-lg-width-mobile),calc(100vw-32px))] flex-col gap-knowledge-dialog-content-gap rounded-xl border border-knowledge-border-subtle bg-knowledge-surface-dialog p-knowledge-dialog-padding shadow-knowledge-dialog-soft md:h-knowledge-dialog-lg-height-desktop md:w-knowledge-dialog-lg-width-desktop md:gap-knowledge-dialog-content-gap-desktop"
         role="dialog"
       >
         <div className="flex h-knowledge-dialog-header-height shrink-0 items-center justify-between">
@@ -161,7 +161,7 @@ export function SearchCardProposalDialog({
                   <button
                     aria-pressed={isSelected}
                     className={cn(
-                      "inline-flex min-w-0 items-center justify-center gap-2 rounded-knowledge-control px-knowledge-dialog-mode-tab-padding-x text-[13px] leading-5 font-medium text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand",
+                      "inline-flex min-w-0 items-center justify-center gap-2 rounded-knowledge-control px-knowledge-dialog-mode-tab-padding-x text-knowledge-dialog-tab font-medium text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand",
                       isSelected &&
                         "border border-docs-border-accent bg-knowledge-surface-accent-soft font-semibold text-knowledge-brand hover:bg-knowledge-surface-accent-soft hover:text-knowledge-brand",
                     )}
@@ -302,7 +302,7 @@ export function SearchCardProposalDialog({
             )}
           </ScrollArea>
           {errorMessage ? (
-            <p className="m-0 rounded-md bg-knowledge-danger-soft px-3 py-2 text-[13px] leading-[18px] font-medium text-knowledge-danger">
+            <p className="m-0 rounded-md bg-knowledge-danger-soft px-3 py-2 text-knowledge-caption font-medium text-knowledge-danger">
               {errorMessage}
             </p>
           ) : null}

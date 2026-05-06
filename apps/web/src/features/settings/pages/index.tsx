@@ -44,16 +44,16 @@ function ErrorNotification({
 }) {
   return (
     <div
-      className="flex w-full items-start gap-3 rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2.5 text-[#991b1b] shadow-[0_12px_24px_rgba(153,27,27,0.08)] lg:absolute lg:top-0 lg:right-0 lg:w-[320px]"
+      className="flex w-full items-start gap-3 rounded-lg border border-knowledge-danger-border bg-knowledge-danger-surface px-3 py-3 text-knowledge-danger-text-strong shadow-knowledge-danger lg:absolute lg:top-0 lg:right-0 lg:w-knowledge-notification-width"
       role="alert"
     >
-      <span className="min-w-0 flex-1 text-[13px] leading-[18px] font-medium">
+      <span className="min-w-0 flex-1 text-knowledge-caption font-medium">
         {message}
       </span>
       {onDismiss ? (
         <button
           aria-label="Dismiss error"
-          className="flex size-5 shrink-0 items-center justify-center rounded-md text-[#991b1b] hover:bg-[#fee2e2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#dc2626]"
+          className="flex size-5 shrink-0 items-center justify-center rounded-md text-knowledge-danger-text-strong hover:bg-knowledge-danger-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-danger-focus"
           onClick={onDismiss}
           type="button"
         >
@@ -148,11 +148,11 @@ export function SettingsPage() {
 
   return (
     <main
-      className="relative h-full min-h-0 overflow-auto bg-[#f8fafc] px-4 pt-5 pb-8 lg:px-8 lg:pt-8"
+      className="relative h-full min-h-0 overflow-auto bg-knowledge-page-bg px-4 pt-5 pb-8 lg:px-8 lg:pt-8"
       data-testid="settings-route-page"
     >
       <section
-        className="relative flex w-full max-w-[720px] flex-col gap-4 lg:gap-6"
+        className="relative flex w-full max-w-knowledge-settings-width flex-col gap-4 lg:gap-6"
         data-testid="settings-column"
       >
         <PageHeader title="Settings" />
@@ -170,15 +170,15 @@ export function SettingsPage() {
         ) : null}
         {profileLoadError ? null : (
           <div
-            className="w-full rounded-lg border border-[#e0e4eb] bg-white"
+            className="w-full rounded-lg border border-knowledge-border-subtle bg-knowledge-surface-card-solid"
             data-testid="settings-panel"
           >
             <div
-              className="grid w-full grid-cols-1 gap-2 px-4 py-4 lg:h-[72px] lg:grid-cols-[240px_360px] lg:items-center lg:gap-[72px] lg:px-6 lg:py-[18px]"
+              className="grid w-full grid-cols-1 gap-2 px-4 py-4 lg:h-knowledge-settings-row-height lg:grid-cols-[var(--spacing-knowledge-settings-label-width)_var(--spacing-knowledge-settings-field-width)] lg:items-center lg:gap-knowledge-settings-row-gap-desktop lg:px-6 lg:py-knowledge-settings-row-padding-y-desktop"
               data-testid="settings-name-row"
             >
               <label
-                className="text-[14px] leading-5 font-medium text-[#131c2d]"
+                className="text-knowledge-button font-medium text-knowledge-text-default"
                 htmlFor="settings-name"
               >
                 Name
@@ -187,10 +187,10 @@ export function SettingsPage() {
                 aria-invalid={isFieldInvalid}
                 autoComplete="name"
                 className={cn(
-                  "h-9 w-full rounded-md border bg-white px-3 text-[14px] leading-5 font-normal text-[#131c2d] outline-none transition-colors placeholder:text-[#9aa6b2] focus:border-[#006bff] focus:ring-2 focus:ring-[#bfdbfe] lg:w-[360px]",
+                  "h-9 w-full rounded-md border bg-knowledge-surface-card-solid px-3 text-knowledge-search-input font-normal text-knowledge-text-default outline-none transition-colors placeholder:text-knowledge-input-placeholder focus:border-knowledge-brand focus:ring-2 focus:ring-knowledge-border-focus-soft lg:w-knowledge-settings-field-width",
                   isFieldInvalid
-                    ? "border-[#dc2626]"
-                    : "border-[#d9e0ea] hover:border-[#b7c2d0]",
+                    ? "border-knowledge-danger-focus"
+                    : "border-knowledge-border-field hover:border-knowledge-border-field-hover",
                 )}
                 disabled={!isProfileReady}
                 id="settings-name"

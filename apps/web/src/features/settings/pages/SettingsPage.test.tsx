@@ -84,7 +84,7 @@ describe("SettingsPage", () => {
       "lg:pt-8",
     );
     expect(screen.getByTestId("settings-column")).toHaveClass(
-      "max-w-[720px]",
+      "max-w-knowledge-settings-width",
       "gap-4",
       "lg:gap-6",
     );
@@ -93,15 +93,15 @@ describe("SettingsPage", () => {
       "gap-2",
       "px-4",
       "py-4",
-      "lg:h-[72px]",
-      "lg:grid-cols-[240px_360px]",
-      "lg:gap-[72px]",
+      "lg:h-knowledge-settings-row-height",
+      "lg:grid-cols-[var(--spacing-knowledge-settings-label-width)_var(--spacing-knowledge-settings-field-width)]",
+      "lg:gap-knowledge-settings-row-gap-desktop",
       "lg:px-6",
-      "lg:py-[18px]",
+      "lg:py-knowledge-settings-row-padding-y-desktop",
     );
     expect(await screen.findByLabelText("Name")).toHaveClass(
       "h-9",
-      "lg:w-[360px]",
+      "lg:w-knowledge-settings-field-width",
     );
     expect(screen.queryByText("Account")).not.toBeInTheDocument();
     expect(screen.queryByText(/saved/i)).not.toBeInTheDocument();
@@ -310,7 +310,7 @@ describe("SettingsPage", () => {
     );
     expect(input).toHaveValue("Ada Byron");
     expect(input).toHaveAttribute("aria-invalid", "true");
-    expect(input).toHaveClass("border-[#dc2626]");
+    expect(input).toHaveClass("border-knowledge-danger-focus");
     expect(
       screen.queryByTestId("settings-name-inline-error"),
     ).not.toBeInTheDocument();

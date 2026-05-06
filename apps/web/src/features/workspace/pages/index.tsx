@@ -130,7 +130,7 @@ function ProposalStatus({
   const meta = proposalStatusMeta[status];
 
   return (
-    <span className="flex h-5 items-center gap-knowledge-workspace-proposal-status-gap text-[12px] leading-[18px] font-medium text-knowledge-text-muted">
+    <span className="flex h-5 items-center gap-knowledge-workspace-proposal-status-gap text-knowledge-dashboard-quota-label font-medium text-knowledge-text-muted">
       <span
         aria-hidden="true"
         className={cn(

@@ -46,20 +46,20 @@ export function SuggestEditDialog({
   const isReasonEmpty = reason.trim() === "";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.22)] px-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-knowledge-overlay-scrim px-4">
       <section
         aria-modal="true"
         aria-label="Suggest edit"
-        className="flex w-full max-w-[560px] flex-col gap-4 rounded-lg border border-[#e0e4eb] bg-white p-4 shadow-[0_24px_80px_rgba(38,51,82,0.22)]"
+        className="flex w-full max-w-knowledge-dialog-width-suggestion flex-col gap-4 rounded-lg border border-knowledge-border-subtle bg-knowledge-surface-dialog p-4 shadow-knowledge-dialog-strong"
         role="dialog"
       >
         <div className="flex items-center gap-3">
-          <h2 className="m-0 min-w-0 flex-1 text-[18px] leading-6 font-semibold text-[#131c2d]">
+          <h2 className="m-0 min-w-0 flex-1 text-knowledge-dialog-title font-semibold text-knowledge-text-default">
             Suggest edit
           </h2>
           <button
             aria-label="Close suggest edit dialog"
-            className="flex size-8 shrink-0 items-center justify-center rounded-md text-[#606e87] hover:bg-[#eff6ff] hover:text-[#131c2d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+            className="flex size-8 shrink-0 items-center justify-center rounded-md text-knowledge-text-muted hover:bg-knowledge-surface-accent-soft hover:text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
             onClick={onClose}
             type="button"
           >
@@ -67,30 +67,30 @@ export function SuggestEditDialog({
           </button>
         </div>
         <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
-          <label className="flex flex-col gap-1 text-[13px] leading-[18px] font-medium text-[#131c2d]">
+          <label className="flex flex-col gap-1 text-knowledge-caption font-medium text-knowledge-text-default">
             Suggested title
             <input
-              className="h-10 rounded-lg border border-[#d6e3f7] px-3 text-[14px] leading-5 font-normal text-[#131c2d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+              className="h-10 rounded-lg border border-knowledge-border-control px-3 text-knowledge-search-input font-normal text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
               onChange={(event) => {
                 setSuggestedTitle(event.currentTarget.value);
               }}
               value={suggestedTitle}
             />
           </label>
-          <label className="flex flex-col gap-1 text-[13px] leading-[18px] font-medium text-[#131c2d]">
+          <label className="flex flex-col gap-1 text-knowledge-caption font-medium text-knowledge-text-default">
             Suggested content
             <textarea
-              className="min-h-[180px] resize-y rounded-lg border border-[#d6e3f7] px-3 py-2 text-[14px] leading-5 font-normal text-[#131c2d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+              className="min-h-knowledge-field-tall-min-height resize-y rounded-lg border border-knowledge-border-control px-3 py-2 text-knowledge-search-input font-normal text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
               onChange={(event) => {
                 setSuggestedContent(event.currentTarget.value);
               }}
               value={suggestedContent}
             />
           </label>
-          <label className="flex flex-col gap-1 text-[13px] leading-[18px] font-medium text-[#131c2d]">
+          <label className="flex flex-col gap-1 text-knowledge-caption font-medium text-knowledge-text-default">
             Reason
             <textarea
-              className="min-h-[80px] resize-y rounded-lg border border-[#d6e3f7] px-3 py-2 text-[14px] leading-5 font-normal text-[#131c2d] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+              className="min-h-knowledge-field-min-height resize-y rounded-lg border border-knowledge-border-control px-3 py-2 text-knowledge-search-input font-normal text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
               onChange={(event) => {
                 setReason(event.currentTarget.value);
               }}
@@ -99,20 +99,20 @@ export function SuggestEditDialog({
             />
           </label>
           {errorMessage ? (
-            <p className="m-0 rounded-md bg-[#fff1f2] px-3 py-2 text-[13px] leading-[18px] font-medium text-[#be123c]">
+            <p className="m-0 rounded-md bg-knowledge-danger-soft px-3 py-2 text-knowledge-caption font-medium text-knowledge-danger">
               {errorMessage}
             </p>
           ) : null}
           <div className="flex justify-end gap-2 pt-1">
             <button
-              className="h-10 rounded-lg border border-[#e0e4eb] bg-white px-4 text-[14px] leading-5 font-medium text-[#131c2d] hover:bg-[#f8fafc] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+              className="h-10 rounded-lg border border-knowledge-border-subtle bg-knowledge-surface-card-solid px-4 text-knowledge-button font-medium text-knowledge-text-default hover:bg-knowledge-page-bg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
               onClick={onClose}
               type="button"
             >
               Cancel
             </button>
             <button
-              className="h-10 rounded-lg bg-[#006bff] px-4 text-[14px] leading-5 font-medium text-white hover:bg-[#005fe0] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006bff]"
+              className="h-10 rounded-lg bg-knowledge-brand px-4 text-knowledge-button font-medium text-knowledge-text-inverse hover:bg-knowledge-brand-hover disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
               disabled={isSubmitting || isNoop || isReasonEmpty}
               type="submit"
             >

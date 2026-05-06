@@ -20,7 +20,7 @@ const buttonVariantClasses = {
 
 const buttonSizeClasses = {
   default:
-    "h-knowledge-control min-w-[92px] rounded-knowledge-control px-knowledge-action-button-x text-knowledge-button whitespace-nowrap",
+    "h-knowledge-control min-w-knowledge-action-button-min-width rounded-knowledge-control px-knowledge-action-button-x text-knowledge-button whitespace-nowrap",
   icon: "h-knowledge-icon-action w-knowledge-icon-action rounded-knowledge-control",
 } as const;
 

@@ -215,12 +215,12 @@ describe("SearchResultCard", () => {
       "group-hover/search-results-grid:opacity-80",
       "hover:opacity-100",
       "hover:-translate-y-1",
-      "hover:scale-[1.008]",
-      "hover:border-[#006bff]/40",
+      "hover:scale-[var(--scale-search-result-card-hover)]",
+      "hover:border-knowledge-brand-hover-soft",
       "focus-within:opacity-100",
       "focus-within:-translate-y-1",
-      "focus-within:scale-[1.008]",
-      "focus-within:border-[#006bff]/40",
+      "focus-within:scale-[var(--scale-search-result-card-hover)]",
+      "focus-within:border-knowledge-brand-hover-soft",
       "shadow-none",
     );
     expect(card).not.toHaveClass(
@@ -230,8 +230,8 @@ describe("SearchResultCard", () => {
     );
     expect(searchHint).toHaveClass(
       "absolute",
-      "top-[-8px]",
-      "right-[-12px]",
+      "-top-2",
+      "-right-3",
       "opacity-0",
       "group-hover/card:opacity-100",
       "group-focus-within/card:opacity-100",
