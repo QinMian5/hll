@@ -93,8 +93,9 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 - The operator precompute workflow discovers card-scope targets using the same taxonomy service semantics that determine whether a route renders as a card-scope view. It covers all currently user-reachable card-scope scopes, including any virtual card-scope scopes produced by the taxonomy view service.
 - The operator precompute workflow supports a queue-only mode that registers compute requests and exits after reporting queued, already-ready, refreshing, failed, and total target counts.
 - The operator precompute workflow supports a wait mode that processes or observes pending compute work until the selected target set has durable ready layouts, a configured timeout is reached, or an unrecoverable error occurs.
+- Wait mode supports bounded worker concurrency by running multiple existing runtime processing units against the same PostgreSQL compute request queue. The claim path remains responsible for singleflight behavior. The operator wrapper applies a precompute-only Compose resource override so the one-off runtime has a higher CPU quota than the long-running background runtime.
 - Operator precompute work uses the existing durable compute request table, layout input fingerprint, layout version, runtime claim/complete/fail semantics, PostgreSQL layout read model, and Redis hot-cache write path. It does not write layout payloads through a separate persistence path.
-- Operator precompute output is machine-readable enough for automation and human-readable enough for release readiness checks. It reports per-scope failures with route path, scope identity, status, and error text.
+- Operator precompute output is machine-readable enough for automation and human-readable enough for release readiness checks. It reports per-scope failures with route path, scope identity, status, and error text. Interactive wait runs emit progress counts without corrupting final JSON stdout.
 - Viewport layout slices are derived from cached full layouts and are not stored as independent Redis response caches.
 - Card-scope title and detail requests are not stored in Redis; frontend local/TanStack caches handle immediate repeated browser hydration.
 
@@ -116,7 +117,7 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 - Taxonomy card-scope layout hot-cache entries do not have a layout TTL setting.
 - Provider wiring injects cache ports into Search and taxonomy services at the API composition root.
 - Feature services remain testable without Redis by accepting optional cache ports or test doubles.
-- Operator precompute composition uses the same database, Redis, taxonomy repo, taxonomy service, and knowledge projection service wiring as the taxonomy view layout runtime. It runs as an explicit operator command rather than as a public HTTP endpoint.
+- Operator precompute composition uses the same database, Redis, taxonomy repo, taxonomy service, and knowledge projection service wiring as the taxonomy view layout runtime. It runs as an explicit operator command rather than as a public HTTP endpoint. The local wrapper requires an explicit environment selection for production and maps `dev` to the development Compose overlay and `prod` to the production Compose overlay. Production one-off precompute runs do not start Compose dependencies; they expect the production stack to already be running.
 - Operator precompute wait mode may process compute work in-process by calling the runtime processing unit, or it may observe an already-running taxonomy view layout runtime, but both modes must respect the same compute request state machine and must not start duplicate work for the same scope/version/input fingerprint.
 
 ## Failure Behavior

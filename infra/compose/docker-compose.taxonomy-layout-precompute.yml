@@ -1,0 +1,6 @@
+# abstract: One-off resource override for taxonomy layout precompute runs.
+# out_of_scope: Long-running service topology and API runtime defaults.
+
+services:
+  taxonomy_view_layout_runtime:
+    cpus: ${TAXONOMY_LAYOUT_PRECOMPUTE_CPUS:-4.0}

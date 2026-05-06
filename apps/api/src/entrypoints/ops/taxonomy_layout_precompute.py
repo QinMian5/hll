@@ -43,6 +43,7 @@ TaxonomyPrecomputeServiceFactory = Callable[
     [],
     AbstractAsyncContextManager[TaxonomyPrecomputeService],
 ]
+TaxonomyLayoutProgressReporter = Callable[[TaxonomyCardScopePrecomputeSummary], None]
 
 
 class TaxonomyLayoutRuntimeProcessor(Protocol):
@@ -58,6 +59,7 @@ class TaxonomyLayoutPrecomputeOptions:
     wait: bool = False
     timeout_seconds: float = 900.0
     poll_interval_seconds: float = 1.0
+    workers: int = 1
 
 
 @dataclass(slots=True, frozen=True)
@@ -73,21 +75,28 @@ async def run_precompute(
     options: TaxonomyLayoutPrecomputeOptions,
     sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
     monotonic: Callable[[], float] = time.monotonic,
+    progress_reporter: TaxonomyLayoutProgressReporter | None = None,
 ) -> TaxonomyLayoutPrecomputeRun:
     targets = await _list_targets(service_factory=service_factory)
     summary = await _prepare_targets(service_factory=service_factory, targets=targets)
     if not options.wait:
         return TaxonomyLayoutPrecomputeRun(summary=summary, timed_out=False)
 
+    _report_progress(progress_reporter=progress_reporter, summary=summary)
     deadline = monotonic() + options.timeout_seconds
     while summary.ready < summary.total and summary.failed == 0:
         if monotonic() >= deadline:
             return TaxonomyLayoutPrecomputeRun(summary=summary, timed_out=True)
 
-        processed = await process_next(service_factory=service_factory)
+        processed = await _process_next_batch(
+            service_factory=service_factory,
+            process_next=process_next,
+            workers=options.workers,
+        )
         if not processed and options.poll_interval_seconds > 0:
             await sleep(options.poll_interval_seconds)
         summary = await _prepare_targets(service_factory=service_factory, targets=targets)
+        _report_progress(progress_reporter=progress_reporter, summary=summary)
 
     return TaxonomyLayoutPrecomputeRun(summary=summary, timed_out=False)
 
@@ -130,6 +139,38 @@ def format_run(run: TaxonomyLayoutPrecomputeRun, *, as_json: bool) -> str:
     return "\n".join(lines)
 
 
+def format_progress(summary: TaxonomyCardScopePrecomputeSummary) -> str:
+    return (
+        "taxonomy layout precompute progress: "
+        f"ready={summary.ready}/{summary.total} "
+        f"queued={summary.queued} "
+        f"refreshing={summary.refreshing} "
+        f"failed={summary.failed}"
+    )
+
+
+async def _process_next_batch(
+    *,
+    service_factory: TaxonomyPrecomputeServiceFactory,
+    process_next: TaxonomyLayoutRuntimeProcessor,
+    workers: int,
+) -> bool:
+    processed_results = await asyncio.gather(
+        *[process_next(service_factory=service_factory) for _ in range(workers)]
+    )
+    return any(processed_results)
+
+
+def _report_progress(
+    *,
+    progress_reporter: TaxonomyLayoutProgressReporter | None,
+    summary: TaxonomyCardScopePrecomputeSummary,
+) -> None:
+    if progress_reporter is None:
+        return
+    progress_reporter(summary)
+
+
 async def _list_targets(
     *,
     service_factory: TaxonomyPrecomputeServiceFactory,
@@ -169,6 +210,7 @@ def _summary_from_results(
 async def _run_with_runtime(
     *,
     options: TaxonomyLayoutPrecomputeOptions,
+    progress_reporter: TaxonomyLayoutProgressReporter | None,
 ) -> TaxonomyLayoutPrecomputeRun:
     runtime = build_runtime()
     try:
@@ -176,6 +218,7 @@ async def _run_with_runtime(
             service_factory=lambda: open_taxonomy_layout_service(runtime),
             process_next=cast(TaxonomyLayoutRuntimeProcessor, process_next_card_scope_layout),
             options=options,
+            progress_reporter=progress_reporter,
         )
     finally:
         await runtime.redis.aclose()
@@ -187,28 +230,41 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--wait", action="store_true")
     parser.add_argument("--timeout-seconds", type=float, default=900.0)
     parser.add_argument("--poll-interval-seconds", type=float, default=1.0)
+    parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--no-progress", action="store_true")
     parser.add_argument("--json", action="store_true", dest="json_output")
     args = parser.parse_args(argv)
     if args.timeout_seconds < 0:
         parser.error("--timeout-seconds must be greater than or equal to 0.")
     if args.poll_interval_seconds < 0:
         parser.error("--poll-interval-seconds must be greater than or equal to 0.")
+    if args.workers < 1:
+        parser.error("--workers must be greater than or equal to 1.")
     return args
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    progress_reporter = None
+    if args.wait and not args.no_progress:
+        progress_reporter = _print_progress
     run = asyncio.run(
         _run_with_runtime(
             options=TaxonomyLayoutPrecomputeOptions(
                 wait=args.wait,
                 timeout_seconds=args.timeout_seconds,
                 poll_interval_seconds=args.poll_interval_seconds,
-            )
+                workers=args.workers,
+            ),
+            progress_reporter=progress_reporter,
         )
     )
     print(format_run(run, as_json=args.json_output))
     return exit_code_for_run(run)
+
+
+def _print_progress(summary: TaxonomyCardScopePrecomputeSummary) -> None:
+    print(format_progress(summary), file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":

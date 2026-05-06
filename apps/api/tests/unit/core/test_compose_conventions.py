@@ -29,6 +29,9 @@ TAXONOMY_VIEW_LAYOUT_RUN_SCRIPT = (
     REPO_ROOT / "infra" / "docker" / "api" / "run-taxonomy-view-layout-runtime.sh"
 )
 TAXONOMY_LAYOUT_PRECOMPUTE_SCRIPT = REPO_ROOT / "scripts" / "taxonomy-layout-precompute.sh"
+TAXONOMY_LAYOUT_PRECOMPUTE_COMPOSE = (
+    COMPOSE_DIR / "docker-compose.taxonomy-layout-precompute.yml"
+)
 RESOURCE_FIELDS = ("mem_limit", "memswap_limit", "cpus", "pids_limit")
 EXPECTED_PROD_RESOURCE_BUDGETS = {
     "postgres": {"mem_limit": "1536m", "memswap_limit": "1536m", "cpus": 1.5, "pids_limit": 256},
@@ -804,7 +807,22 @@ def test_taxonomy_view_layout_runtime_startup_script_uses_module_entrypoint() ->
 def test_taxonomy_layout_precompute_script_uses_operator_module_entrypoint() -> None:
     script = _read(TAXONOMY_LAYOUT_PRECOMPUTE_SCRIPT)
 
-    assert "uv run python -m entrypoints.ops.taxonomy_layout_precompute" in script
+    assert "docker compose" in script
+    assert "--environment" in script
+    assert "docker-compose.dev.yml" in script
+    assert "docker-compose.prod.yml" in script
+    assert "docker-compose.taxonomy-layout-precompute.yml" in script
+    assert "RUN_ARGS+=(--no-deps)" in script
+    assert "ensure_prod_external_volumes" in script
+    assert "taxonomy_view_layout_runtime" in script
+    assert "$ROOT_DIR/apps/api/src:/app/apps/api/src:ro" in script
+    assert "python -m entrypoints.ops.taxonomy_layout_precompute" in script
+
+
+def test_taxonomy_layout_precompute_compose_sets_four_cpu_default() -> None:
+    service = _service_data(TAXONOMY_LAYOUT_PRECOMPUTE_COMPOSE, "taxonomy_view_layout_runtime")
+
+    assert service["cpus"] == "${TAXONOMY_LAYOUT_PRECOMPUTE_CPUS:-4.0}"
 
 
 def test_dev_and_prod_compose_define_mcp_image_and_ingress_dependencies() -> None:
