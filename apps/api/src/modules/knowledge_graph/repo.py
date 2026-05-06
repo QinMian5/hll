@@ -6,7 +6,7 @@ Out of scope: HTTP concerns and cross-module orchestration policy.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime
 from typing import cast
 
@@ -45,6 +45,7 @@ _NODE_TAXONOMY_ASSIGNMENTS = table(
     "node_taxonomy_assignments",
     column("node_id"),
 )
+_EDGE_ID_QUERY_CHUNK_SIZE = 50_000
 
 
 def _canonical_edge_pair(node_a_id: int, node_b_id: int) -> tuple[int, int]:
@@ -53,6 +54,24 @@ def _canonical_edge_pair(node_a_id: int, node_b_id: int) -> tuple[int, int]:
     if node_a_id < node_b_id:
         return (node_a_id, node_b_id)
     return (node_b_id, node_a_id)
+
+
+def _chunk_unique_ids(values: Sequence[int], *, chunk_size: int) -> Iterator[tuple[int, ...]]:
+    if chunk_size < 1:
+        raise ValueError("chunk_size must be greater than or equal to 1.")
+
+    seen: set[int] = set()
+    chunk: list[int] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        chunk.append(value)
+        if len(chunk) == chunk_size:
+            yield tuple(chunk)
+            chunk = []
+    if chunk:
+        yield tuple(chunk)
 
 
 def _dot_product_to_similarity(dot_product: float) -> float:
@@ -345,21 +364,27 @@ class KnowledgeRepo:
         if not edge_ids:
             return []
 
-        rows = (
-            await self._session.execute(
-                select(Edge.node_a_id, Edge.node_b_id, Edge.strength)
-                .where(Edge.id.in_(edge_ids))
-                .order_by(Edge.node_a_id.asc(), Edge.node_b_id.asc())
+        edges: list[ProjectionEdge] = []
+        for edge_id_chunk in _chunk_unique_ids(
+            edge_ids,
+            chunk_size=_EDGE_ID_QUERY_CHUNK_SIZE,
+        ):
+            rows = (
+                await self._session.execute(
+                    select(Edge.node_a_id, Edge.node_b_id, Edge.strength)
+                    .where(Edge.id.in_(edge_id_chunk))
+                    .order_by(Edge.node_a_id.asc(), Edge.node_b_id.asc())
+                )
+            ).all()
+            edges.extend(
+                ProjectionEdge(
+                    node_a_id=row.node_a_id,
+                    node_b_id=row.node_b_id,
+                    strength=row.strength,
+                )
+                for row in rows
             )
-        ).all()
-        return [
-            ProjectionEdge(
-                node_a_id=row.node_a_id,
-                node_b_id=row.node_b_id,
-                strength=row.strength,
-            )
-            for row in rows
-        ]
+        return sorted(edges, key=lambda edge: (edge.node_a_id, edge.node_b_id))
 
     async def fetch_adjacent_edge_ids_for_node_ids(
         self,

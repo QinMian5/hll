@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from modules.knowledge_graph.dto import ProjectionEdge
 from modules.knowledge_graph.repo import (
     _canonical_edge_pair,
+    _chunk_unique_ids,
     _dot_product_to_similarity,
     _normalize_search_text,
     _title_match_boost,
@@ -20,6 +21,10 @@ from modules.knowledge_graph.repo import (
 def test_canonical_edge_pair_orders_node_ids() -> None:
     assert _canonical_edge_pair(7, 3) == (3, 7)
     assert _canonical_edge_pair(3, 7) == (3, 7)
+
+
+def test_chunk_unique_ids_deduplicates_and_splits_in_order() -> None:
+    assert list(_chunk_unique_ids([3, 1, 3, 2, 4], chunk_size=2)) == [(3, 1), (2, 4)]
 
 
 def test_dot_product_to_similarity_clamps_into_unit_interval() -> None:
