@@ -467,6 +467,25 @@ describe("AppShell", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  it("does not show opaque user identifiers in the account button", async () => {
+    stubSessionResponse({
+      status: "authenticated",
+      user: {
+        id: "ckmooOrru51k",
+        name: "Mian Qin",
+      },
+    });
+
+    renderWithRoute("/overview");
+
+    const accountButton = await screen.findByRole("button", {
+      name: "User menu, Mian Qin",
+    });
+
+    expect(accountButton).toHaveTextContent("Mian Qin");
+    expect(accountButton).not.toHaveTextContent("ckmooOrru51k");
+  });
+
   it("starts interactive sign-in before rendering protected account routes", async () => {
     renderWithRoute("/dashboard");
 

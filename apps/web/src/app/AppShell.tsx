@@ -44,9 +44,9 @@ interface AccountMenuLinkItem {
 }
 
 interface UserProfile {
-  readonly email: string;
   readonly initial: string;
   readonly name: string;
+  readonly secondaryText?: string;
 }
 
 const navItems: readonly NavItem[] = [
@@ -137,11 +137,14 @@ function BrandRow({ withClose }: { readonly withClose?: () => void }) {
 function profileFromSession(
   session: Extract<WebSessionResponse, { status: "authenticated" }>,
 ): UserProfile {
-  const name = session.user.name ?? session.user.email ?? session.user.id;
-  const email = session.user.email ?? session.user.id;
+  const name = session.user.name ?? session.user.email ?? "Account";
   const initial = name.trim().charAt(0).toUpperCase() || "U";
+  const secondaryText =
+    session.user.email !== undefined && session.user.email !== name
+      ? session.user.email
+      : undefined;
 
-  return { email, initial, name };
+  return { initial, name, secondaryText };
 }
 
 function SignInAction({ returnTo }: { readonly returnTo: string }) {
@@ -318,9 +321,11 @@ function UserAccountAction({
         <span className="w-full truncate text-[13px] leading-4 font-medium text-[#131c2d]">
           {profile.name}
         </span>
-        <span className="w-full truncate text-[11px] leading-[14px] font-normal text-[#606e87]">
-          {profile.email}
-        </span>
+        {profile.secondaryText === undefined ? null : (
+          <span className="w-full truncate text-[11px] leading-[14px] font-normal text-[#606e87]">
+            {profile.secondaryText}
+          </span>
+        )}
       </span>
       <ChevronRight
         aria-hidden="true"
