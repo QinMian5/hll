@@ -106,8 +106,6 @@ async def test_search_tool_returns_private_search_payload_and_records_usage() ->
     assert result == {
         "matched_cards": [
             {
-                "node_id": 1,
-                "current_version": 2,
                 "title": "Card A",
                 "content": "Alpha",
             }

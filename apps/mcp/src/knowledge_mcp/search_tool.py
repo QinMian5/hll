@@ -140,7 +140,9 @@ class SearchTool:
             response=response,
         )
         return {
-            "matched_cards": [card.model_dump(mode="json") for card in response.matched_cards],
+            "matched_cards": [
+                {"title": card.title, "content": card.content} for card in response.matched_cards
+            ],
             "connected_titles": response.connected_titles,
         }
 

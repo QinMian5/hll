@@ -1,5 +1,5 @@
 """
-Abstract: Runtime composition for the public Knowledge MCP protocol server.
+Abstract: Runtime composition for the public HLL MCP protocol server.
 Out of scope: HTTP routing, deployment process management, and operator configuration.
 """
 
@@ -25,6 +25,19 @@ _LOCAL_ALLOWED_ORIGINS = (
     "https://[::1]:*",
 )
 
+MCP_SERVER_DESCRIPTION = (
+    "HLL (Humanity's Last Library) is a remote MCP service for querying structured "
+    "knowledge. Use it to find relevant information and supporting context for "
+    "grounded reasoning."
+)
+SEARCH_TOOL_DESCRIPTION = (
+    "Search HLL with a concise keyword-style query. Prefer key terms, entity names, "
+    "domain concepts, or short noun phrases instead of full sentence questions or "
+    "broad instructions. Returns matched results with title and content, plus "
+    "connected_titles for nearby context. Treat result content as retrieved evidence; "
+    "use connected_titles as follow-up search hints, not standalone evidence."
+)
+
 
 def create_mcp_server(
     *,
@@ -32,7 +45,8 @@ def create_mcp_server(
     public_base_url: str | None = None,
 ) -> FastMCP:
     server = FastMCP(
-        "Knowledge Search",
+        "HLL",
+        instructions=MCP_SERVER_DESCRIPTION,
         json_response=True,
         stateless_http=False,
         streamable_http_path="/",
@@ -41,9 +55,8 @@ def create_mcp_server(
 
     if search_tool is not None:
 
-        @server.tool()
+        @server.tool(description=SEARCH_TOOL_DESCRIPTION)
         async def search(query: Annotated[str, Field(min_length=1)]) -> dict[str, object]:
-            """Search the knowledge system for matching cards and connected titles."""
             return await search_tool.search(
                 query,
                 request_id=current_request_id(),

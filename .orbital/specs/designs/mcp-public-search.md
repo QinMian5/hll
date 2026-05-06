@@ -50,8 +50,9 @@ out_of_scope: Browser web sessions, private FastAPI route ownership, non-search 
 - **Approach:** The repository exposes public model access through a dedicated MCP service rather than the browser BFF or private FastAPI app. The MCP service owns protocol handling, token exchange, quota enforcement, and usage attribution. Search execution is delegated to the private FastAPI search endpoint through generated internal contract artifacts, preserving the existing search module as the ranking and response-shape owner.
 - **Key Elements:**
   - **MCP runtime:** `apps/mcp` runs a Python MCP server using the official MCP Python SDK with Streamable HTTP transport.
+  - **MCP identity:** The public MCP server name is `HLL`. The server instructions describe HLL as a remote MCP service for querying structured knowledge and finding relevant information plus supporting context for grounded reasoning.
   - **Public endpoint:** Production routes `/mcp` on the public application host to the MCP service through the project-local nginx app gateway. The endpoint supports the MCP Streamable HTTP POST/GET contract.
-  - **Tool contract:** The service exposes exactly one tool named `search`. The input schema requires non-empty `query`. The output mirrors the private search contract: `matched_cards[]` with `node_id`, `current_version`, `title`, and `content`, plus `connected_titles[]`.
+  - **Tool contract:** The service exposes exactly one tool named `search`. The input schema requires non-empty `query`. The tool description tells MCP clients to use concise keyword-style queries, including key terms, entity names, domain concepts, and short noun phrases rather than full sentence questions or broad instructions. The public output contains `matched_cards[]` with `title` and `content`, plus `connected_titles[]`.
   - **PAT-backed authentication:** MCP clients send a Logto personal access token in the bearer header. The MCP service does not persist raw PATs, does not log them, and does not treat them as repository-owned API keys.
   - **Token exchange:** The MCP service uses a configured first-party Logto application credential to exchange the PAT for an access token with the MCP API resource audience and search scope. This is one service-owned token-exchange client, not one Logto application per user, token, device, or external model client.
   - **Access-token validation:** After token exchange, the service validates the resulting access token against the configured issuer, audience/resource, required search scope, expiration, and JWKS signing key. The user account identity is the token `sub`.
@@ -81,7 +82,7 @@ out_of_scope: Browser web sessions, private FastAPI route ownership, non-search 
 
 ## Validation
 - **Checks:**
-  - MCP tool contract tests verify initialization, tool listing, `search` input validation, and successful search result shape, including `node_id` and `current_version` on each matched card.
+  - MCP tool contract tests verify initialization, server identity, tool listing, `search` input guidance, input validation, and successful search result shape with `title` and `content` on each matched result.
   - Auth tests verify missing bearer rejection, malformed PAT rejection, token-exchange failure handling, issuer mismatch rejection, audience mismatch rejection, missing scope rejection, expired token rejection, and JWKS key rotation refresh.
   - Security tests verify raw PAT values are absent from logs, Redis values, database rows, and response payloads.
   - Architecture tests verify `apps/mcp` does not import `apps/api/src/**` and does not access non-MCP database tables directly.
@@ -89,7 +90,7 @@ out_of_scope: Browser web sessions, private FastAPI route ownership, non-search 
   - Agent-search analytics tests verify successful MCP `search` tool calls create `agent_search_events` rows with MCP session id, raw query, query hash, attribution fields, result exposure snapshot, and algorithm version, while excluded failure paths do not create analytics rows.
   - Dashboard internal endpoint tests verify service authentication, PAT-fingerprint usage filtering, lifetime successful search-call counts, latest usage timestamp calculation, user-subject quota summary reads, inactive-window responses, and absence of raw PAT values in request and response payloads.
   - Migration ownership tests verify MCP usage persistence is registered only under `apps/mcp` Alembic and uses the dedicated MCP database default schema.
-  - Internal API adapter tests verify generated client usage for `GET /api/v1/search`, matched-card `node_id/current_version/title/content` mapping, and safe mapping of private API failures.
+  - Internal API adapter tests verify generated client usage for `GET /api/v1/search`, private matched-card response mapping, public MCP result projection, and safe mapping of private API failures.
   - Compose/config tests verify `mcp` receives MCP-specific Logto, Redis, internal API, quota, and logging settings; production nginx exposes `/mcp`; production `/api/v1/*` remains private.
   - Contract drift checks verify the generated internal client is current with `packages/contracts/openapi/openapi.json`.
 - **Evidence:**

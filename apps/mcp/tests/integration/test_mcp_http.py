@@ -88,7 +88,22 @@ async def test_mcp_server_exposes_only_search_tool() -> None:
 
     tools = await server.list_tools()
 
+    assert server.name == "HLL"
+    assert (
+        server.instructions == "HLL (Humanity's Last Library) is a remote MCP service for querying "
+        "structured knowledge. Use it to find relevant information and supporting "
+        "context for grounded reasoning."
+    )
     assert [tool.name for tool in tools] == ["search"]
+    assert (
+        tools[0].description
+        == "Search HLL with a concise keyword-style query. Prefer key terms, entity "
+        "names, domain concepts, or short noun phrases instead of full sentence "
+        "questions or broad instructions. Returns matched results with title and "
+        "content, plus connected_titles for nearby context. Treat result content as "
+        "retrieved evidence; use connected_titles as follow-up search hints, not "
+        "standalone evidence."
+    )
 
 
 @pytest.mark.anyio

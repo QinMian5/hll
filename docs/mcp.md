@@ -3,7 +3,7 @@ abstract: Repository-level MCP service overview for public search access and int
 out_of_scope: Browser session flows, Logto tenant provisioning, and client-specific setup walkthroughs.
 ---
 
-# MCP Integration Notes
+# HLL MCP Integration Notes
 
 `apps/mcp` runs the public remote MCP service for Humanity's Last Library. It is
 the public programmatic access boundary for agent clients.
@@ -34,10 +34,13 @@ The first public MCP tool is:
 search
 ```
 
-The `search` tool accepts a non-empty query and returns the private search
-contract projected for agent use:
+The `search` tool accepts a non-empty query. Use concise keyword-style queries:
+prefer key terms, entity names, domain concepts, or short noun phrases instead
+of full sentence questions or broad instructions.
 
-- matched cards with `node_id`, `current_version`, `title`, and `content`
+The tool returns:
+
+- matched results with `title` and `content`
 - connected titles for nearby context
 
 The MCP service delegates search execution to the private API through generated

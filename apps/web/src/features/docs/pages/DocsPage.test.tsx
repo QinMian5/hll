@@ -15,10 +15,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DocsPage } from ".";
 
 const MCP_PUBLIC_BASE_URL = "http://localhost:8002/mcp";
-const CODEX_ADD_COMMAND = `codex mcp add knowledge --url ${MCP_PUBLIC_BASE_URL}`;
-const CODEX_CONFIG = `[mcp_servers.knowledge]\nurl = "${MCP_PUBLIC_BASE_URL}"\nhttp_headers = { Authorization = "Bearer <Dashboard PAT>" }`;
-const CLAUDE_ADD_COMMAND = `claude mcp add --transport http knowledge ${MCP_PUBLIC_BASE_URL} --header "Authorization: Bearer <Dashboard PAT>"`;
-const OPENCLAW_SET_COMMAND = `openclaw mcp set knowledge '{"url":"${MCP_PUBLIC_BASE_URL}","transport":"streamable-http","headers":{"Authorization":"Bearer <Dashboard PAT>"}}'`;
+const CODEX_ADD_COMMAND = `codex mcp add hll --url ${MCP_PUBLIC_BASE_URL}`;
+const CODEX_CONFIG = `[mcp_servers.hll]\nurl = "${MCP_PUBLIC_BASE_URL}"\nhttp_headers = { Authorization = "Bearer <Dashboard PAT>" }`;
+const CLAUDE_ADD_COMMAND = `claude mcp add --transport http hll ${MCP_PUBLIC_BASE_URL} --header "Authorization: Bearer <Dashboard PAT>"`;
+const OPENCLAW_SET_COMMAND = `openclaw mcp set hll '{"url":"${MCP_PUBLIC_BASE_URL}","transport":"streamable-http","headers":{"Authorization":"Bearer <Dashboard PAT>"}}'`;
 
 function getCodeBlock(text: string): HTMLElement {
   return screen.getByText(
@@ -92,8 +92,8 @@ describe("DocsPage", () => {
     const panel = screen.getByTestId("docs-setup-panel");
     expect(
       within(panel).getByTestId("docs-setup-panel-header"),
-    ).toHaveTextContent("Connect Knowledge to Codex");
-    expect(within(panel).getByText("Connect Knowledge to Codex")).toHaveClass(
+    ).toHaveTextContent("Connect HLL to Codex");
+    expect(within(panel).getByText("Connect HLL to Codex")).toHaveClass(
       "text-docs-panel-title",
     );
     expect(
@@ -150,11 +150,9 @@ describe("DocsPage", () => {
     );
     expect(getCodeBlock(CODEX_ADD_COMMAND)).toHaveClass("font-mono");
     expect(getCodeBlock(CODEX_CONFIG)).toHaveClass("font-mono");
-    expect(getCodeBlock("codex mcp get knowledge")).toHaveClass("font-mono");
+    expect(getCodeBlock("codex mcp get hll")).toHaveClass("font-mono");
     expect(getCodeBlock("codex mcp list")).toHaveClass("font-mono");
-    expect(
-      screen.queryByText("codex mcp login knowledge"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("codex mcp login hll")).not.toBeInTheDocument();
     expect(screen.queryByText(/OAuth/i)).not.toBeInTheDocument();
     expect(screen.queryByText("/mcp")).not.toBeInTheDocument();
 
@@ -175,7 +173,7 @@ describe("DocsPage", () => {
       ),
     ).toHaveLength(4);
     expect(getCodeBlock(CLAUDE_ADD_COMMAND)).toHaveClass("font-mono");
-    expect(getCodeBlock("claude mcp get knowledge")).toHaveClass("font-mono");
+    expect(getCodeBlock("claude mcp get hll")).toHaveClass("font-mono");
     expect(getCodeBlock("claude mcp list")).toHaveClass("font-mono");
     expect(screen.queryByText("/mcp")).not.toBeInTheDocument();
 
@@ -193,7 +191,7 @@ describe("DocsPage", () => {
       ),
     ).toHaveLength(4);
     expect(getCodeBlock(OPENCLAW_SET_COMMAND)).toHaveClass("font-mono");
-    expect(getCodeBlock("openclaw mcp show knowledge --json")).toHaveClass(
+    expect(getCodeBlock("openclaw mcp show hll --json")).toHaveClass(
       "font-mono",
     );
     expect(getCodeBlock("openclaw mcp list")).toHaveClass("font-mono");
@@ -221,7 +219,7 @@ describe("DocsPage", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: /^Copy configuration: \[mcp_servers\.knowledge\]/,
+        name: /^Copy configuration: \[mcp_servers\.hll\]/,
       }),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Copy / })).toHaveLength(4);

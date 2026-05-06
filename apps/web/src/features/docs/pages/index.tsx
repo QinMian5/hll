@@ -54,7 +54,7 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
       iconSrc: "/docs-clients/codex-icon.png",
       id: "codex",
       name: "Codex",
-      panelTitle: "Connect Knowledge to Codex",
+      panelTitle: "Connect HLL to Codex",
       steps: [
         {
           body: "Dashboard > Tokens > Create Token > Copy token",
@@ -64,15 +64,15 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
           title: "Create a Dashboard token",
         },
         {
-          command: `codex mcp add knowledge --url ${mcpPublicBaseUrl}`,
+          command: `codex mcp add hll --url ${mcpPublicBaseUrl}`,
           copyLabel: "Copy command",
-          description: "Add Knowledge as a Streamable HTTP MCP server.",
+          description: "Add HLL as a Streamable HTTP MCP server.",
           kind: "command",
           label: "Terminal",
           title: "Add the MCP server",
         },
         {
-          command: `[mcp_servers.knowledge]\nurl = "${mcpPublicBaseUrl}"\nhttp_headers = { Authorization = "Bearer <Dashboard PAT>" }`,
+          command: `[mcp_servers.hll]\nurl = "${mcpPublicBaseUrl}"\nhttp_headers = { Authorization = "Bearer <Dashboard PAT>" }`,
           copyLabel: "Copy configuration",
           description:
             "Add the Dashboard token to the Codex server entry in ~/.codex/config.toml.",
@@ -81,9 +81,9 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
           title: "Set bearer authentication",
         },
         {
-          command: "codex mcp get knowledge",
+          command: "codex mcp get hll",
           copyLabel: "Copy command",
-          description: "Review the saved Knowledge MCP definition.",
+          description: "Review the saved HLL MCP definition.",
           kind: "command",
           label: "Terminal",
           title: "Inspect the server",
@@ -91,8 +91,7 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
         {
           command: "codex mcp list",
           copyLabel: "Copy command",
-          description:
-            "Confirm Knowledge appears in the configured MCP server list.",
+          description: "Confirm HLL appears in the configured MCP server list.",
           kind: "command",
           label: "Terminal",
           title: "List configured servers",
@@ -104,7 +103,7 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
       iconSrc: "/docs-clients/claudecode-icon.png",
       id: "claude-code",
       name: "Claude Code",
-      panelTitle: "Connect Knowledge to Claude Code",
+      panelTitle: "Connect HLL to Claude Code",
       steps: [
         {
           body: "Dashboard > Tokens > Create Token > Copy token",
@@ -114,18 +113,18 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
           title: "Create a Dashboard token",
         },
         {
-          command: `claude mcp add --transport http knowledge ${mcpPublicBaseUrl} --header "Authorization: Bearer <Dashboard PAT>"`,
+          command: `claude mcp add --transport http hll ${mcpPublicBaseUrl} --header "Authorization: Bearer <Dashboard PAT>"`,
           copyLabel: "Copy command",
           description:
-            "Add Knowledge with HTTP transport and the Dashboard token in the Authorization header.",
+            "Add HLL with HTTP transport and the Dashboard token in the Authorization header.",
           kind: "command",
           label: "Terminal",
           title: "Add the MCP server with bearer authentication",
         },
         {
-          command: "claude mcp get knowledge",
+          command: "claude mcp get hll",
           copyLabel: "Copy command",
-          description: "Review the saved Knowledge MCP definition.",
+          description: "Review the saved HLL MCP definition.",
           kind: "command",
           label: "Terminal",
           title: "Inspect the server",
@@ -133,8 +132,7 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
         {
           command: "claude mcp list",
           copyLabel: "Copy command",
-          description:
-            "Confirm Knowledge appears in Claude Code's MCP server list.",
+          description: "Confirm HLL appears in Claude Code's MCP server list.",
           kind: "command",
           label: "Terminal",
           title: "List configured servers",
@@ -146,7 +144,7 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
       iconSrc: "/docs-clients/openclaw-icon.png",
       id: "openclaw",
       name: "OpenClaw",
-      panelTitle: "Connect Knowledge to OpenClaw",
+      panelTitle: "Connect HLL to OpenClaw",
       steps: [
         {
           body: "Dashboard > Tokens > Create Token > Copy token",
@@ -156,16 +154,16 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
           title: "Create a Dashboard token",
         },
         {
-          command: `openclaw mcp set knowledge '{"url":"${mcpPublicBaseUrl}","transport":"streamable-http","headers":{"Authorization":"Bearer <Dashboard PAT>"}}'`,
+          command: `openclaw mcp set hll '{"url":"${mcpPublicBaseUrl}","transport":"streamable-http","headers":{"Authorization":"Bearer <Dashboard PAT>"}}'`,
           copyLabel: "Copy command",
           description:
-            "Save Knowledge as a Streamable HTTP MCP server with the Dashboard token header.",
+            "Save HLL as a Streamable HTTP MCP server with the Dashboard token header.",
           kind: "command",
           label: "Terminal",
           title: "Save the MCP server with bearer authentication",
         },
         {
-          command: "openclaw mcp show knowledge --json",
+          command: "openclaw mcp show hll --json",
           copyLabel: "Copy command",
           description:
             "Review the registry entry. This does not validate live authentication.",
@@ -176,8 +174,7 @@ function createDocsClients(mcpPublicBaseUrl: string): readonly DocsClient[] {
         {
           command: "openclaw mcp list",
           copyLabel: "Copy command",
-          description:
-            "Confirm Knowledge appears in the OpenClaw MCP registry.",
+          description: "Confirm HLL appears in the OpenClaw MCP registry.",
           kind: "command",
           label: "Terminal",
           title: "List configured servers",
