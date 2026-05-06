@@ -209,6 +209,42 @@ export function buildLeafTitleLabelNodes(options: {
   });
 }
 
+export function selectLeafTitleNodeIdsByPriority(options: {
+  readonly maxNodeCount: number;
+  readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
+  readonly priorityNodeIds: readonly (number | null)[];
+  readonly visibleNodeIds: readonly number[];
+}): number[] {
+  if (options.maxNodeCount <= 0) {
+    return [];
+  }
+
+  const priorityNodeIds = new Set(
+    options.priorityNodeIds.filter(
+      (nodeId): nodeId is number => nodeId !== null,
+    ),
+  );
+  return [...new Set(options.visibleNodeIds)]
+    .sort((leftNodeId, rightNodeId) => {
+      const leftPriority = priorityNodeIds.has(leftNodeId) ? 1 : 0;
+      const rightPriority = priorityNodeIds.has(rightNodeId) ? 1 : 0;
+      if (leftPriority !== rightPriority) {
+        return rightPriority - leftPriority;
+      }
+
+      const leftDegree =
+        options.neighborNodeIdsByNodeId.get(leftNodeId)?.size ?? 0;
+      const rightDegree =
+        options.neighborNodeIdsByNodeId.get(rightNodeId)?.size ?? 0;
+      if (leftDegree !== rightDegree) {
+        return rightDegree - leftDegree;
+      }
+
+      return leftNodeId - rightNodeId;
+    })
+    .slice(0, options.maxNodeCount);
+}
+
 export function buildLeafSceneModel(
   input: BuildLeafSceneModelInput & {
     readonly titleLabelNodes?: readonly LeafSceneTitleLabelNode[];

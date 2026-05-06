@@ -233,6 +233,7 @@ export function LeafDeckScene({
           onPointHover(node?.graphNodeId ?? null);
         },
         pickable: isPointInteractionEnabled,
+        radiusMinPixels: 2,
         radiusUnits: "common",
         stroked: false,
       }),

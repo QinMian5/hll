@@ -417,7 +417,7 @@ describe("LeafRenderer", () => {
     );
     expect(
       screen.getByTestId("leaf-scene-first-point-radius"),
-    ).toHaveTextContent("8");
+    ).toHaveTextContent("3");
     await waitFor(() => {
       expect(mockUseTaxonomyCardScopeNodeTitlesQuery).toHaveBeenCalledWith(
         "math/algebra",

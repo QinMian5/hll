@@ -28,6 +28,7 @@ import { buildRenderableLeafLayout } from "./leafLayoutAdapter";
 import {
   LEAF_HYDRATION_OVERSCAN,
   LEAF_LAYOUT_TILE_SIZE,
+  LEAF_MAX_TITLE_LABELS,
 } from "./leafRendererConfig";
 import type {
   LeafDisclosureState,
@@ -37,6 +38,7 @@ import type {
 import {
   buildLeafSceneModelBase,
   buildLeafTitleLabelNodes,
+  selectLeafTitleNodeIdsByPriority,
 } from "./useLeafSceneModel";
 import {
   buildInitialLeafViewport,
@@ -266,7 +268,15 @@ export function LeafRenderer({
     setSelectedNodeId(null);
   }, [isPointTitleModeActive]);
 
-  const visibleTitleNodeIds = useMemo(() => {
+  const leafSceneBase = useMemo(
+    () =>
+      buildLeafSceneModelBase({
+        edges: leafLayout.edges,
+        layoutNodes: leafLayout.nodes,
+      }),
+    [leafLayout.edges, leafLayout.nodes],
+  );
+  const visibleHydrationNodeIds = useMemo(() => {
     if (!isPointTitleModeActive) {
       return [];
     }
@@ -276,6 +286,21 @@ export function LeafRenderer({
       viewportState.overscanBounds,
     );
   }, [isPointTitleModeActive, leafLayout.nodes, viewportState.overscanBounds]);
+  const visibleTitleNodeIds = useMemo(
+    () =>
+      selectLeafTitleNodeIdsByPriority({
+        maxNodeCount: LEAF_MAX_TITLE_LABELS,
+        neighborNodeIdsByNodeId: leafSceneBase.neighborNodeIdsByNodeId,
+        priorityNodeIds: [selectedNodeId, hoveredPointNodeId],
+        visibleNodeIds: visibleHydrationNodeIds,
+      }),
+    [
+      hoveredPointNodeId,
+      leafSceneBase.neighborNodeIdsByNodeId,
+      selectedNodeId,
+      visibleHydrationNodeIds,
+    ],
+  );
 
   const missingTitleNodeIds = useMemo(
     () =>
@@ -383,14 +408,6 @@ export function LeafRenderer({
     });
   }, [leafDetailsQuery.data]);
 
-  const leafSceneBase = useMemo(
-    () =>
-      buildLeafSceneModelBase({
-        edges: leafLayout.edges,
-        layoutNodes: leafLayout.nodes,
-      }),
-    [leafLayout.edges, leafLayout.nodes],
-  );
   const titleLabelNodes = useMemo(
     () =>
       buildLeafTitleLabelNodes({

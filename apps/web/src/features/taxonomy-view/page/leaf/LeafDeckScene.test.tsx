@@ -339,6 +339,7 @@ describe("LeafDeckScene", () => {
     expect(highlightEdgeLayer?.props.widthUnits).toBe("pixels");
     expect(pointLayer?.props.stroked).toBe(false);
     expect(pointLayer?.props.radiusUnits).toBe("common");
+    expect(pointLayer?.props.radiusMinPixels).toBe(2);
     expect(focusHaloLayer?.props.radiusUnits).toBe("common");
 
     const haloNodes = focusHaloLayer?.props.data as
@@ -353,6 +354,14 @@ describe("LeafDeckScene", () => {
     expect(getRadius).toBeTypeOf("function");
     expect(getRadius?.(activeHaloNode as LeafScenePointNode)).toBe(32);
     expect(getRadius?.(neighborHaloNode as LeafScenePointNode)).toBe(24);
+  });
+
+  it("uses low-opacity overview edges when no focus node is active", () => {
+    renderScene({ hiddenLabelNodeId: null });
+
+    const edgeLayer = findLayer("taxonomy-leaf-edges");
+
+    expect(edgeLayer?.props.getColor).toEqual([120, 163, 243, 51]);
   });
 
   it("renders disclosure cards through the DeckGL child render callback", () => {

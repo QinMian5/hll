@@ -4,7 +4,7 @@
 import type { TaxonomyCardScopeLayoutSliceResponse } from "../../data/taxonomyViewQueries";
 import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
 
-const LEAF_POINT_DIAMETER = 16;
+const LEAF_POINT_DIAMETER = 6;
 
 export interface RenderableLeafLayout {
   readonly edges: TaxonomyCardScopeLayoutSliceResponse["edges"];

@@ -7,6 +7,7 @@ import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
 import {
   buildLeafSceneModelBase,
   buildLeafTitleLabelNodes,
+  selectLeafTitleNodeIdsByPriority,
 } from "./useLeafSceneModel";
 
 function makeLayoutNodes(): readonly TaxonomyLayoutNode[] {
@@ -103,5 +104,23 @@ describe("buildLeafTitleLabelNodes", () => {
       [10, "Inner title"],
     ]);
     expect(labels[0]?.position).toEqual(scene.pointNodes[1]?.position);
+  });
+});
+
+describe("selectLeafTitleNodeIdsByPriority", () => {
+  it("keeps active nodes first, then higher-degree nodes", () => {
+    const selected = selectLeafTitleNodeIdsByPriority({
+      maxNodeCount: 3,
+      neighborNodeIdsByNodeId: new Map([
+        [10, new Set([11])],
+        [11, new Set([10, 12, 13])],
+        [12, new Set([11, 13])],
+        [13, new Set()],
+      ]),
+      priorityNodeIds: [13],
+      visibleNodeIds: [10, 11, 12, 13],
+    });
+
+    expect(selected).toEqual([13, 11, 12]);
   });
 });
