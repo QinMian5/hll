@@ -9,9 +9,9 @@ const buttonVariantClasses = {
   default:
     "bg-knowledge-brand text-knowledge-text-inverse hover:bg-knowledge-brand-hover active:bg-knowledge-brand-pressed disabled:bg-knowledge-brand-disabled disabled:hover:bg-knowledge-brand-disabled disabled:active:bg-knowledge-brand-disabled",
   danger:
-    "bg-knowledge-danger text-knowledge-text-inverse hover:bg-knowledge-danger-hover active:bg-knowledge-danger-pressed disabled:bg-knowledge-muted-surface disabled:text-knowledge-text-muted disabled:hover:bg-knowledge-muted-surface disabled:active:bg-knowledge-muted-surface",
+    "bg-knowledge-danger text-knowledge-text-inverse hover:bg-knowledge-danger-hover active:bg-knowledge-danger-pressed disabled:bg-knowledge-danger-disabled disabled:hover:bg-knowledge-danger-disabled disabled:active:bg-knowledge-danger-disabled",
   destructive:
-    "bg-knowledge-danger text-knowledge-text-inverse hover:bg-knowledge-danger-hover active:bg-knowledge-danger-pressed disabled:bg-knowledge-muted-surface disabled:text-knowledge-text-muted disabled:hover:bg-knowledge-muted-surface disabled:active:bg-knowledge-muted-surface",
+    "bg-knowledge-danger text-knowledge-text-inverse hover:bg-knowledge-danger-hover active:bg-knowledge-danger-pressed disabled:bg-knowledge-danger-disabled disabled:hover:bg-knowledge-danger-disabled disabled:active:bg-knowledge-danger-disabled",
   ghost:
     "bg-transparent text-knowledge-text-muted hover:bg-knowledge-surface-hover hover:text-knowledge-text-default active:bg-knowledge-surface-control-pressed disabled:hover:bg-transparent disabled:active:bg-transparent",
   secondary:

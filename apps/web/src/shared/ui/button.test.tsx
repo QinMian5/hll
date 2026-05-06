@@ -50,9 +50,9 @@ describe("Button", () => {
       "active:bg-knowledge-danger-pressed",
     );
     expect(screen.getByRole("button", { name: "Disabled delete" })).toHaveClass(
-      "disabled:bg-knowledge-muted-surface",
-      "disabled:text-knowledge-text-muted",
-      "disabled:hover:bg-knowledge-muted-surface",
+      "disabled:bg-knowledge-danger-disabled",
+      "disabled:hover:bg-knowledge-danger-disabled",
+      "disabled:active:bg-knowledge-danger-disabled",
     );
   });
 
