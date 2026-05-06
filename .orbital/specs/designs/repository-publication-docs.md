@@ -42,19 +42,21 @@ out_of_scope: Product feature behavior, deployment topology internals, and activ
   - Web app `/docs` product route for end-user MCP client setup.
 
 ## Design Approach
-- **Approach:** Use a vision-first, technical-proof-second README. The README introduces the project as agent-era knowledge infrastructure, states the current limits clearly, summarizes the architecture briefly, and links out to detailed docs.
+- **Approach:** Use a vision-first, technical-proof-second README. The README introduces the project as agent-era knowledge infrastructure, states the current limits clearly, summarizes the public workflow briefly, and links out to detailed docs.
 - **Key Elements:**
   - **Project name:** The public name is `Humanity's Last Library`.
-  - **Subtitle:** The public subtitle is `An upstream knowledge network for agents, maintained by humans.`
+  - **Subtitle:** The public subtitle is `A human-maintained knowledge network that agents can search, cite, and use.`
   - **Top presentation:** The README starts with a centered GitHub-renderable header containing the project name, subtitle, and a Website link.
-  - **README role:** The README explains why the project exists, the project bet, how the system works, current capabilities, current limits, architecture at a glance, documentation entrypoints, development quickstart, and project status.
+  - **README role:** The README explains what the project is, why it exists, the project bet, how the system works, current public capabilities, current limits, documentation entrypoints, licensing, and project status.
+  - **Visual placement:** The README does not use a standalone visual-overview block at the top. The memorization-to-retrieval visual appears inside `The Bet`, and the knowledge-loop visual appears inside `How It Works`.
   - **Code license:** Repository software source, configuration, generated contract clients, scripts, and developer documentation are licensed under Apache-2.0 unless a file or directory states otherwise.
   - **Data license boundary:** Knowledge-card content, source-derived datasets, exported database snapshots, and archived data artifacts are governed separately by `DATA_LICENSE.md`.
   - **Default knowledge-content license:** Repository-distributed knowledge content and source-derived datasets default to CC BY-SA 4.0 unless a more specific source license or artifact-level notice applies.
   - **Project-bet rule:** The README states the hypothesis that large models may perform better when more factual knowledge lives in an external, incrementally updateable, maintained knowledge network and the model learns how to retrieve, judge, and use that context instead of memorizing every fact in parameters.
   - **Current-limits rule:** The README states that the first corpus is bootstrapped from Wikipedia-derived material and that AI-assisted extraction is a real limitation relative to the long-term principle of human-maintained quality.
   - **No overclaiming rule:** The README must not claim that the initial corpus creates novel knowledge, solves knowledge quality immediately, or has a mature optimization loop beyond current MCP usage ledger and agent-search analytics capture.
-  - **How-it-works scope:** The README describes atomic cards, relations, human proposal/review maintenance, MCP/Search agent consumption, and agent usage signals as the top-level mechanisms.
+  - **How-it-works scope:** The README describes human review, the knowledge network, agent retrieval, and query-path signals as the top-level public workflow.
+  - **Capabilities scope:** The README presents capabilities from a public reader and agent-user perspective. Private service APIs, generated internal clients, source-pipeline internals, and detailed runbooks belong in linked docs rather than the root README.
   - **Repository docs boundary:** `docs/development.md` owns local setup, environment, command, contract, and test guidance.
   - **MCP docs boundary:** `docs/mcp.md` owns the repository-level public MCP service overview and integration notes.
   - **Licensing docs boundary:** `docs/licensing.md` owns the public human-readable license summary, while `LICENSE`, `NOTICE`, and `DATA_LICENSE.md` own the operative repository license notices.

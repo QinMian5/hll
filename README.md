@@ -1,29 +1,18 @@
 <div align="center">
   <h1>Humanity's Last Library</h1>
-  <p><strong>An upstream knowledge network for agents, maintained by humans.</strong></p>
+  <p><strong>A human-maintained knowledge network that agents can search, cite, and use.</strong></p>
   <p>
     <a href="https://knowledge.orbitalis.org">Website</a>
   </p>
 </div>
 
 Humanity's Last Library is a knowledge infrastructure project for the agent era.
-Agents are the downstream users: they search, retrieve, cite, and act on structured
-knowledge. Humans are the upstream maintainers: they review, correct, organize,
-and improve the knowledge network.
+It treats knowledge as an external, reviewable layer rather than something every
+model must memorize inside its parameters.
 
-The long-term goal is a feedback loop: high-quality human-maintained knowledge is
-consumed by many agents, and aggregate agent usage signals help improve retrieval,
-knowledge structure, and maintenance priorities over time.
-
-## Visual Overview
-
-<p align="center">
-  <img src="apps/web/public/overview/knowledge-loop.png" alt="Knowledge Loop" width="760">
-</p>
-
-<p align="center">
-  <img src="apps/web/public/overview/from-memorization-to-retrieval.png" alt="From Memorization to Retrieval" width="760">
-</p>
+Humans maintain quality upstream: they review, correct, organize, and improve
+structured knowledge. Agents use it downstream: they search, retrieve, cite, and
+act on relevant context through public retrieval surfaces.
 
 ## Why It Exists
 
@@ -46,6 +35,13 @@ This project explores a different boundary: what if models did not need to
 memorize as much factual knowledge, and instead learned how to find the right
 knowledge from an external, maintained network?
 
+This is the shift the project explores: from models memorizing every fact to
+agents retrieving from a maintained knowledge layer.
+
+<p align="center">
+  <img src="apps/web/public/overview/from-memorization-to-retrieval.png" alt="From Memorization to Retrieval" width="760">
+</p>
+
 If knowledge lives in a network of cards, relations, reviews, and usage signals,
 then updating knowledge becomes an incremental operation instead of a full
 retraining problem. New facts, corrections, and better structure can be added
@@ -54,29 +50,29 @@ everything to knowing how to retrieve, judge, and use the right context.
 
 ## How It Works
 
-- **Atomic knowledge cards:** each card represents one focused knowledge unit.
-- **Relations between cards:** links make local context and neighboring concepts
-  retrievable instead of leaving every result isolated.
-- **Human maintenance:** proposals, reviews, and apply audits keep formal changes
-  accountable.
-- **Agent consumption:** public MCP search and web-backed search expose the
-  knowledge network to downstream users and clients.
-- **Usage signals:** successful MCP search calls and agent-search events are
-  recorded today so future offline analysis can improve retrieval and knowledge
-  organization.
+The system is designed as a loop: humans maintain quality upstream, agents
+retrieve downstream, and query-path signals can improve retrieval over time.
 
-## Current Capabilities
+<p align="center">
+  <img src="apps/web/public/overview/knowledge-loop.png" alt="Knowledge Loop" width="760">
+</p>
+
+- **Human review:** proposed knowledge changes are reviewed, corrected,
+  approved, and applied before they become formal knowledge.
+- **Knowledge network:** accepted knowledge is represented as focused cards with
+  explicit relationships.
+- **Agent retrieval:** agents query the network, inspect matched cards, and
+  progressively reveal related context when needed.
+- **Query-path signals:** aggregate search paths from many agents can guide
+  future retrieval tuning, structure changes, and maintenance priorities.
+
+## What You Can Use Today
 
 - A public web application for browsing, search, account flows, and docs.
 - A public remote MCP service with a `search` tool for agent clients.
-- A private FastAPI service that owns search, ingestion, proposals, and graph
-  read surfaces.
-- Contract-driven internal clients generated from the authoritative OpenAPI
-  snapshot.
-- A source pipeline for bootstrapping candidate cards from external source
-  material.
-- MCP usage ledger storage for successful, quota-rejected, and search-error
-  outcomes, plus agent-search analytics for successful agent search activity.
+- Knowledge-card search surfaces designed for downstream agent consumption.
+- Initial usage-signal capture for agent searches, so future offline analysis
+  can improve retrieval quality and knowledge organization.
 
 ## Current Limits
 
@@ -94,31 +90,13 @@ improved through usage signals inside a better system boundary. The bet is not
 that the first dataset is special. The bet is that the structure can become
 better as humans maintain it and agents use it.
 
-## Architecture At A Glance
-
-- `apps/web` serves the browser application and BFF boundary.
-- `apps/mcp` serves the public remote MCP endpoint for agent clients.
-- `apps/api` owns the private API for search, ingestion, proposals, and graph
-  reads.
-- The knowledge graph stores cards, formal versions, relations, proposals,
-  reviews, and apply audits.
-- `apps/source_pipeline` bootstraps candidate cards and hands accepted cards to
-  ingestion.
-- `packages/contracts` stores OpenAPI snapshots and generated client artifacts.
-- Docker Compose and root `Makefile` commands provide the local execution
-  contract.
-
 ## Documentation
 
-- [Website](https://knowledge.orbitalis.org): the public web application.
-- [Development guide](docs/development.md): local setup, commands, contracts, and
-  tests.
-- [MCP integration notes](docs/mcp.md): service boundary, authentication model,
-  tool surface, and development endpoint.
-- [Licensing guide](docs/licensing.md): software, data, and knowledge-content
-  license boundaries.
-- [Web MCP client setup](https://knowledge.orbitalis.org/docs): the product
-  docs route for end-user MCP client setup.
+- **Use:** [Website](https://knowledge.orbitalis.org) and
+  [product docs](https://knowledge.orbitalis.org/docs).
+- **Integrate:** [MCP integration notes](docs/mcp.md).
+- **Build:** [Developer docs](docs/development.md).
+- **License:** [Licensing guide](docs/licensing.md).
 
 ## Licensing
 
@@ -126,18 +104,6 @@ Software source, configuration, generated contract clients, scripts, and
 developer documentation are licensed under the Apache License, Version 2.0.
 Knowledge content, source-derived datasets, exported database snapshots, and
 archived data artifacts are governed separately by [DATA_LICENSE.md](DATA_LICENSE.md).
-
-## Development Quickstart
-
-```bash
-make bootstrap
-make dev-up
-make test
-make check
-```
-
-In development, `make dev-up` refreshes development API data from the bootstrap
-snapshot and exposes the MCP service at `http://localhost:8002/mcp`.
 
 ## Project Status
 
