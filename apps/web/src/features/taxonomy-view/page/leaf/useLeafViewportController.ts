@@ -5,6 +5,8 @@ import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
 import {
   LEAF_INITIAL_POINT_TITLE_ZOOM,
   LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+  LEAF_POINT_TITLE_FADE_END_ZOOM,
+  LEAF_POINT_TITLE_FADE_START_ZOOM,
 } from "./leafRendererConfig";
 import type {
   BuildLeafViewportStateInput,
@@ -17,8 +19,25 @@ function scaleFromZoom(zoom: number) {
   return 2 ** zoom;
 }
 
+function clampUnitInterval(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
 export function isLeafPointTitleModeActive(zoom: number) {
   return zoom >= LEAF_POINT_TITLE_ACTIVATION_ZOOM;
+}
+
+export function isLeafPointTitleHydrationActive(zoom: number) {
+  return zoom >= LEAF_POINT_TITLE_FADE_START_ZOOM;
+}
+
+export function leafPointTitleOpacity(zoom: number) {
+  const progress = clampUnitInterval(
+    (zoom - LEAF_POINT_TITLE_FADE_START_ZOOM) /
+      (LEAF_POINT_TITLE_FADE_END_ZOOM - LEAF_POINT_TITLE_FADE_START_ZOOM),
+  );
+
+  return progress * progress * (3 - 2 * progress);
 }
 
 export function buildInitialLeafViewport(input: {

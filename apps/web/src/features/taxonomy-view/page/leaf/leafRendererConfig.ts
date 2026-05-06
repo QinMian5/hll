@@ -2,6 +2,10 @@
 // out_of_scope: Query orchestration and scene-layer instantiation.
 
 export const LEAF_POINT_TITLE_ACTIVATION_ZOOM = 0.85;
+export const LEAF_POINT_TITLE_FADE_START_ZOOM =
+  LEAF_POINT_TITLE_ACTIVATION_ZOOM - 0.35;
+export const LEAF_POINT_TITLE_FADE_END_ZOOM =
+  LEAF_POINT_TITLE_ACTIVATION_ZOOM + 0.05;
 export const LEAF_INITIAL_POINT_TITLE_ZOOM =
   LEAF_POINT_TITLE_ACTIVATION_ZOOM + 0.01;
 export const LEAF_HYDRATION_OVERSCAN = 320;
@@ -20,3 +24,4 @@ export const LEAF_POINT_HOVER_OPACITY = 1;
 export const LEAF_EDGE_BASE_OPACITY = 0.2;
 export const LEAF_EDGE_DIMMED_OPACITY = 0.22;
 export const LEAF_EDGE_ACTIVE_OPACITY = 0.88;
+export const LEAF_TITLE_LABEL_BASE_ALPHA = 232;

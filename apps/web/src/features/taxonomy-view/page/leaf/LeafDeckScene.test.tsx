@@ -15,6 +15,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LeafDeckScene } from "./LeafDeckScene";
 import {
   LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+  LEAF_POINT_TITLE_FADE_END_ZOOM,
+  LEAF_POINT_TITLE_FADE_START_ZOOM,
   LEAF_VIEWPORT_SNAPSHOT_INTERVAL_MS,
 } from "./leafRendererConfig";
 import type {
@@ -277,7 +279,13 @@ describe("LeafDeckScene", () => {
   });
 
   it("renders visible title labels through a non-pickable deck.gl TextLayer", () => {
-    renderScene({ hiddenLabelNodeId: 11 });
+    renderScene({
+      hiddenLabelNodeId: 11,
+      initialViewport: {
+        target: [0, 0, 0],
+        zoom: LEAF_POINT_TITLE_FADE_END_ZOOM,
+      },
+    });
 
     expect(screen.getByTestId("deck-gl-mock")).toHaveAttribute(
       "data-layer-count",
@@ -321,6 +329,24 @@ describe("LeafDeckScene", () => {
         ) => readonly [number, number]
       )(labels[0]),
     ).toEqual([10, 20]);
+  });
+
+  it("fades title-label opacity across the configured zoom band", () => {
+    renderScene({
+      hiddenLabelNodeId: null,
+      initialViewport: {
+        target: [0, 0, 0],
+        zoom:
+          (LEAF_POINT_TITLE_FADE_START_ZOOM + LEAF_POINT_TITLE_FADE_END_ZOOM) /
+          2,
+      },
+    });
+
+    const titleLayer = layerTestState.createdLayers.find(
+      (layer) => layer.type === "TextLayer",
+    );
+
+    expect(titleLayer?.props.getColor).toEqual([38, 52, 77, 116]);
   });
 
   it("uses world-sized points with fixed-width pixel edges", () => {

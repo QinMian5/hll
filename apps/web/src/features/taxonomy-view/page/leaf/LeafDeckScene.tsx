@@ -18,6 +18,7 @@ import {
   LEAF_POINT_HOVER_OPACITY,
   LEAF_POINT_INNER_OPACITY,
   LEAF_POINT_OUTER_OPACITY,
+  LEAF_TITLE_LABEL_BASE_ALPHA,
 } from "./leafRendererConfig";
 import type {
   LeafDisclosureState,
@@ -31,6 +32,7 @@ import {
   deckZoomToLeafZoomPercent,
   leafZoomPercentToDeckZoom,
 } from "./leafZoomControl";
+import { leafPointTitleOpacity } from "./useLeafViewportController";
 import { useLeafViewportStore } from "./useLeafViewportStore";
 
 interface LeafDeckSceneProps {
@@ -108,6 +110,10 @@ export function LeafDeckScene({
     onViewportSnapshotChange: onViewportChange,
   });
   const zoomPercent = deckZoomToLeafZoomPercent(viewState.zoom);
+  const titleLabelOpacity = leafPointTitleOpacity(viewState.zoom);
+  const titleLabelAlpha = Math.round(
+    LEAF_TITLE_LABEL_BASE_ALPHA * titleLabelOpacity,
+  );
   const publishZoomPercent = useCallback(
     (percent: number) => {
       const nextViewport = {
@@ -141,15 +147,17 @@ export function LeafDeckScene({
         : [],
     [focusNodeIds, scene.pointNodes],
   );
-  const visibleTitleLabelNodes = useMemo(
-    () =>
-      hiddenLabelNodeId === null
-        ? scene.titleLabelNodes
-        : scene.titleLabelNodes.filter(
-            (node) => node.graphNodeId !== hiddenLabelNodeId,
-          ),
-    [hiddenLabelNodeId, scene.titleLabelNodes],
-  );
+  const visibleTitleLabelNodes = useMemo(() => {
+    if (titleLabelOpacity <= 0) {
+      return [];
+    }
+
+    return hiddenLabelNodeId === null
+      ? scene.titleLabelNodes
+      : scene.titleLabelNodes.filter(
+          (node) => node.graphNodeId !== hiddenLabelNodeId,
+        );
+  }, [hiddenLabelNodeId, scene.titleLabelNodes, titleLabelOpacity]);
   const layers = useMemo(
     () => [
       new LineLayer<LeafSceneEdge>({
@@ -245,7 +253,7 @@ export function LeafDeckScene({
         fontSettings: TITLE_LABEL_FONT_SETTINGS,
         fontWeight: "500",
         getAlignmentBaseline: "top",
-        getColor: [38, 52, 77, 232],
+        getColor: [38, 52, 77, titleLabelAlpha],
         getPixelOffset: [0, 16],
         getPosition: (label) => [label.position.x, label.position.y],
         getSize: 24,
@@ -270,6 +278,7 @@ export function LeafDeckScene({
       onPointHover,
       scene.edges,
       scene.pointNodes,
+      titleLabelAlpha,
       visibleTitleLabelNodes,
     ],
   );

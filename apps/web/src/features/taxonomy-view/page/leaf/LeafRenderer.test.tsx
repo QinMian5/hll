@@ -12,7 +12,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
+import {
+  LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+  LEAF_POINT_TITLE_FADE_START_ZOOM,
+} from "./leafRendererConfig";
 
 vi.mock("../../data/taxonomyViewQueries", () => ({
   useTaxonomyCardScopeLayoutSliceQuery: vi.fn(),
@@ -151,6 +154,20 @@ vi.mock("./LeafDeckScene", () => ({
         type="button"
       >
         Zoom out
+      </button>
+      <button
+        onClick={() => {
+          const nextViewport = {
+            target: initialViewport.target,
+            zoom: LEAF_POINT_TITLE_FADE_START_ZOOM - 0.01,
+          };
+
+          onViewportFrameChange?.(nextViewport);
+          onViewportChange(nextViewport);
+        }}
+        type="button"
+      >
+        Zoom below label fade
       </button>
       <button
         onClick={() =>
@@ -655,7 +672,7 @@ describe("LeafRenderer", () => {
     );
   });
 
-  it("clears hover and selected state when returning below the title zoom", async () => {
+  it("clears interaction state below the title zoom while preserving fade-band labels", async () => {
     installSuccessfulQueryMocks();
 
     render(
@@ -683,13 +700,26 @@ describe("LeafRenderer", () => {
     });
     expect(
       screen.getByTestId("leaf-scene-title-label-count"),
-    ).toHaveTextContent("0");
+    ).toHaveTextContent("2");
+    expect(
+      screen.getByTestId("leaf-point-interaction-enabled"),
+    ).toHaveTextContent("false");
     expect(
       screen.queryByTestId("taxonomy-leaf-disclosure-overlay"),
     ).not.toBeInTheDocument();
     expect(screen.getByTestId("leaf-hidden-label-node-id")).toHaveTextContent(
       "none",
     );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Zoom below label fade" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("leaf-scene-title-label-count"),
+      ).toHaveTextContent("0");
+    });
   });
 
   it("toggles point-title mode from live deck zoom frames without waiting for a viewport snapshot", async () => {

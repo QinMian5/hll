@@ -43,6 +43,7 @@ import {
 import {
   buildInitialLeafViewport,
   buildLeafViewportState,
+  isLeafPointTitleHydrationActive,
   isLeafPointTitleModeActive,
   selectLeafHydrationNodeIds,
   snapLeafWorldBoundsToTile,
@@ -138,6 +139,8 @@ export function LeafRenderer({
   const [isPointTitleModeActive, setIsPointTitleModeActive] = useState(() =>
     isLeafPointTitleModeActive(initialDeckViewport.zoom),
   );
+  const [isPointTitleHydrationActive, setIsPointTitleHydrationActive] =
+    useState(() => isLeafPointTitleHydrationActive(initialDeckViewport.zoom));
   const [hoveredPointNodeId, setHoveredPointNodeId] = useState<number | null>(
     null,
   );
@@ -156,6 +159,9 @@ export function LeafRenderer({
     setIsPointTitleModeActive(
       isLeafPointTitleModeActive(initialDeckViewport.zoom),
     );
+    setIsPointTitleHydrationActive(
+      isLeafPointTitleHydrationActive(initialDeckViewport.zoom),
+    );
     setHoveredPointNodeId(null);
     setSelectedNodeId(null);
     setLeafTitleCache({});
@@ -168,6 +174,10 @@ export function LeafRenderer({
       liveViewportRef.current = viewport;
       setIsPointTitleModeActive((currentValue) => {
         const nextValue = isLeafPointTitleModeActive(viewport.zoom);
+        return currentValue === nextValue ? currentValue : nextValue;
+      });
+      setIsPointTitleHydrationActive((currentValue) => {
+        const nextValue = isLeafPointTitleHydrationActive(viewport.zoom);
         return currentValue === nextValue ? currentValue : nextValue;
       });
     },
@@ -277,7 +287,7 @@ export function LeafRenderer({
     [leafLayout.edges, leafLayout.nodes],
   );
   const visibleHydrationNodeIds = useMemo(() => {
-    if (!isPointTitleModeActive) {
+    if (!isPointTitleHydrationActive) {
       return [];
     }
 
@@ -285,7 +295,11 @@ export function LeafRenderer({
       leafLayout.nodes,
       viewportState.overscanBounds,
     );
-  }, [isPointTitleModeActive, leafLayout.nodes, viewportState.overscanBounds]);
+  }, [
+    isPointTitleHydrationActive,
+    leafLayout.nodes,
+    viewportState.overscanBounds,
+  ]);
   const visibleTitleNodeIds = useMemo(
     () =>
       selectLeafTitleNodeIdsByPriority({
@@ -314,7 +328,7 @@ export function LeafRenderer({
     cardScopeRoutePath,
     missingTitleNodeIds,
     {
-      enabled: isPointTitleModeActive && missingTitleNodeIds.length > 0,
+      enabled: isPointTitleHydrationActive && missingTitleNodeIds.length > 0,
     },
   );
 

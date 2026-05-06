@@ -4,11 +4,17 @@
 import { describe, expect, it } from "vitest";
 
 import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
-import { LEAF_POINT_TITLE_ACTIVATION_ZOOM } from "./leafRendererConfig";
+import {
+  LEAF_POINT_TITLE_ACTIVATION_ZOOM,
+  LEAF_POINT_TITLE_FADE_END_ZOOM,
+  LEAF_POINT_TITLE_FADE_START_ZOOM,
+} from "./leafRendererConfig";
 import {
   buildInitialLeafViewport,
   buildLeafViewportState,
+  isLeafPointTitleHydrationActive,
   isLeafPointTitleModeActive,
+  leafPointTitleOpacity,
   selectLeafHydrationNodeIds,
   snapLeafWorldBoundsToTile,
 } from "./useLeafViewportController";
@@ -51,6 +57,33 @@ describe("leaf viewport controller helpers", () => {
     expect(
       isLeafPointTitleModeActive(LEAF_POINT_TITLE_ACTIVATION_ZOOM + 0.001),
     ).toBe(true);
+  });
+
+  it("hydrates titles across a lower fade-start threshold", () => {
+    expect(
+      isLeafPointTitleHydrationActive(LEAF_POINT_TITLE_FADE_START_ZOOM - 0.001),
+    ).toBe(false);
+    expect(
+      isLeafPointTitleHydrationActive(LEAF_POINT_TITLE_FADE_START_ZOOM),
+    ).toBe(true);
+    expect(
+      isLeafPointTitleHydrationActive(LEAF_POINT_TITLE_ACTIVATION_ZOOM - 0.001),
+    ).toBe(true);
+  });
+
+  it("computes smooth title opacity across the fade zoom range", () => {
+    const midpointZoom =
+      (LEAF_POINT_TITLE_FADE_START_ZOOM + LEAF_POINT_TITLE_FADE_END_ZOOM) / 2;
+
+    expect(
+      leafPointTitleOpacity(LEAF_POINT_TITLE_FADE_START_ZOOM - 0.001),
+    ).toBe(0);
+    expect(leafPointTitleOpacity(LEAF_POINT_TITLE_FADE_START_ZOOM)).toBe(0);
+    expect(leafPointTitleOpacity(midpointZoom)).toBeCloseTo(0.5);
+    expect(leafPointTitleOpacity(LEAF_POINT_TITLE_FADE_END_ZOOM)).toBe(1);
+    expect(leafPointTitleOpacity(LEAF_POINT_TITLE_FADE_END_ZOOM + 0.001)).toBe(
+      1,
+    );
   });
 
   it("computes world and overscan bounds from orthographic viewport state", () => {
