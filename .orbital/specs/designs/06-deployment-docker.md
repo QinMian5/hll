@@ -32,6 +32,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Production search read chain is `shared proxy -> nginx -> web BFF -> api -> egress -> OpenAI Embeddings API + db`.
 - Production MCP search chain is `shared proxy -> nginx -> mcp -> api -> egress -> OpenAI Embeddings API + db`, with `mcp -> logto` for PAT token exchange and access-token validation metadata.
 - Production Dashboard token-management chain is `shared proxy -> nginx -> web BFF -> logto` for personal access token lifecycle operations and `web BFF -> mcp` over the backend network for usage summaries.
+- Production web asset delivery treats browser HTML as a revalidation-bound application shell and Vite hashed assets as immutable static resources. Missing hashed asset paths return non-cacheable `404` responses and do not route to the application shell. Browser-side Vite preload failures use one controlled browser-session reload to recover the current application shell.
 - Production ingestion write chain is `api -> redis -> worker -> egress -> OpenAI Embeddings API + db`.
 - Production card-scope layout compute chain is `api -> db compute request + db durable layout + redis hot cache -> taxonomy_view_layout_runtime -> db durable layout + redis hot cache`.
 - Development search read chain is `web BFF -> api -> OpenAI Embeddings API + db`.

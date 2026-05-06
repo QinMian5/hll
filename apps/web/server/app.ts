@@ -1,6 +1,7 @@
 // abstract: Express application assembly for the web BFF runtime.
 // out_of_scope: Auth policy, quota policy, and backend route forwarding implementations.
 
+import { join } from "node:path";
 import cookieParser from "cookie-parser";
 import express, {
   type Express,
@@ -63,7 +64,33 @@ export async function createApp(options: CreateAppOptions): Promise<Express> {
 
   if (runtime.kind === "production") {
     if (runtime.clientRoot !== undefined) {
-      app.use(express.static(runtime.clientRoot, { index: false }));
+      app.use(
+        "/assets",
+        express.static(join(runtime.clientRoot, "assets"), {
+          immutable: true,
+          index: false,
+          maxAge: "1y",
+        }),
+      );
+      app.use("/assets", (_request, response) => {
+        response
+          .status(404)
+          .set("Cache-Control", "no-store")
+          .json({
+            error: {
+              code: "static_asset_not_found",
+              message: "Static asset not found.",
+            },
+          });
+      });
+      app.use(
+        express.static(runtime.clientRoot, {
+          index: false,
+          setHeaders: (response) => {
+            response.setHeader("Cache-Control", "no-cache");
+          },
+        }),
+      );
     }
 
     app.use((request, response, next) => {
@@ -76,7 +103,7 @@ export async function createApp(options: CreateAppOptions): Promise<Express> {
         runtime.indexHtml,
         options.config,
       );
-      response.type("html").send(html);
+      response.set("Cache-Control", "no-cache").type("html").send(html);
     });
 
     return app;

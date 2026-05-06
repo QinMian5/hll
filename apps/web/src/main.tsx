@@ -5,8 +5,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
+import { installVitePreloadErrorReload } from "./app/preloadErrorHandler";
 import { AppProviders } from "./app/providers";
 import "./index.css";
+
+installVitePreloadErrorReload();
 
 const rootElement = document.getElementById("root");
 
