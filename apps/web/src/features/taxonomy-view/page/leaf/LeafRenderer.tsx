@@ -37,7 +37,7 @@ import type {
 import {
   buildLeafSceneModelBase,
   buildLeafTitleLabelNodes,
-  selectLeafTitleNodeIdsByPriority,
+  selectLeafTitleNodeIdsByScreenCollision,
 } from "./useLeafSceneModel";
 import {
   buildInitialLeafViewport,
@@ -45,7 +45,6 @@ import {
   isLeafPointTitleHydrationActive,
   isLeafPointTitleModeActive,
   selectLeafHydrationNodeIds,
-  selectLeafTitleLabelBudget,
   snapLeafWorldBoundsToTile,
 } from "./useLeafViewportController";
 
@@ -302,20 +301,22 @@ export function LeafRenderer({
   ]);
   const visibleTitleNodeIds = useMemo(
     () =>
-      selectLeafTitleNodeIdsByPriority({
-        maxNodeCount: selectLeafTitleLabelBudget({
-          canvas: canvasViewport,
-          zoom: deferredDeckViewportSnapshot.zoom,
-        }),
+      selectLeafTitleNodeIdsByScreenCollision({
+        canvas: canvasViewport,
         neighborNodeIdsByNodeId: leafSceneBase.neighborNodeIdsByNodeId,
+        pointNodes: leafSceneBase.pointNodes,
         priorityNodeIds: [selectedNodeId, hoveredPointNodeId],
+        titlesByNodeId: leafTitleCache,
+        viewport: deferredDeckViewportSnapshot,
         visibleNodeIds: visibleHydrationNodeIds,
       }),
     [
       canvasViewport,
-      deferredDeckViewportSnapshot.zoom,
+      deferredDeckViewportSnapshot,
       hoveredPointNodeId,
       leafSceneBase.neighborNodeIdsByNodeId,
+      leafSceneBase.pointNodes,
+      leafTitleCache,
       selectedNodeId,
       visibleHydrationNodeIds,
     ],
@@ -323,10 +324,10 @@ export function LeafRenderer({
 
   const missingTitleNodeIds = useMemo(
     () =>
-      visibleTitleNodeIds.filter(
+      visibleHydrationNodeIds.filter(
         (nodeId) => leafTitleCache[nodeId] === undefined,
       ),
-    [leafTitleCache, visibleTitleNodeIds],
+    [leafTitleCache, visibleHydrationNodeIds],
   );
 
   const leafTitlesQuery = useTaxonomyCardScopeNodeTitlesQuery(

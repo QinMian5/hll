@@ -563,7 +563,7 @@ describe("LeafRenderer", () => {
     );
   });
 
-  it("increases the visible title budget as zoom creates more screen spacing", async () => {
+  it("prefetches viewport title candidates while display labels use screen-space density", async () => {
     installDenseTitleQueryMocks(160);
 
     render(
@@ -577,17 +577,36 @@ describe("LeafRenderer", () => {
       await screen.findByTestId("leaf-scene-point-count"),
     ).toHaveTextContent("160");
     await waitFor(() => {
-      expect(
-        screen.getByTestId("leaf-scene-title-label-count"),
-      ).toHaveTextContent("80");
+      expect(mockUseTaxonomyCardScopeNodeTitlesQuery).toHaveBeenCalledWith(
+        "math/algebra",
+        expect.arrayContaining([1, 80, 160]),
+        expect.objectContaining({ enabled: true }),
+      );
+    });
+    expect(
+      mockUseTaxonomyCardScopeNodeTitlesQuery.mock.calls.some(
+        (call) => call[1].length === 160,
+      ),
+    ).toBe(true);
+
+    let initialTitleCount = 0;
+    await waitFor(() => {
+      initialTitleCount = Number(
+        screen.getByTestId("leaf-scene-title-label-count").textContent,
+      );
+      expect(initialTitleCount).toBeGreaterThan(0);
+      expect(initialTitleCount).toBeLessThan(160);
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Zoom to 400" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId("leaf-scene-title-label-count"),
-      ).toHaveTextContent("160");
+      const zoomedTitleCount = Number(
+        screen.getByTestId("leaf-scene-title-label-count").textContent,
+      );
+
+      expect(zoomedTitleCount).toBeGreaterThan(initialTitleCount);
+      expect(zoomedTitleCount).toBeLessThanOrEqual(160);
     });
   });
 

@@ -7,9 +7,6 @@ import {
   LEAF_POINT_TITLE_ACTIVATION_ZOOM,
   LEAF_POINT_TITLE_FADE_END_ZOOM,
   LEAF_POINT_TITLE_FADE_START_ZOOM,
-  LEAF_TITLE_LABEL_BASE_BUDGET,
-  LEAF_TITLE_LABEL_MAX_BUDGET,
-  LEAF_TITLE_LABEL_REFERENCE_CANVAS_AREA,
 } from "./leafRendererConfig";
 import type {
   BuildLeafViewportStateInput,
@@ -41,28 +38,6 @@ export function leafPointTitleOpacity(zoom: number) {
   );
 
   return progress * progress * (3 - 2 * progress);
-}
-
-export function selectLeafTitleLabelBudget(input: {
-  readonly canvas: { readonly height: number; readonly width: number };
-  readonly zoom: number;
-}) {
-  const canvasArea = Math.max(0, input.canvas.height * input.canvas.width);
-  const canvasScale = Math.sqrt(
-    canvasArea / LEAF_TITLE_LABEL_REFERENCE_CANVAS_AREA,
-  );
-  const zoomScale = Math.max(
-    1,
-    scaleFromZoom(input.zoom - LEAF_POINT_TITLE_ACTIVATION_ZOOM),
-  );
-
-  return Math.min(
-    LEAF_TITLE_LABEL_MAX_BUDGET,
-    Math.max(
-      LEAF_TITLE_LABEL_BASE_BUDGET,
-      Math.floor(LEAF_TITLE_LABEL_BASE_BUDGET * canvasScale * zoomScale),
-    ),
-  );
 }
 
 export function buildInitialLeafViewport(input: {

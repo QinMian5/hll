@@ -1,9 +1,22 @@
 // abstract: Scene-data shaping helpers for mapping leaf layout output into deck.gl-ready primitives.
 // out_of_scope: Viewport control and deck.gl layer construction.
 
-import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
+import type {
+  LayoutViewport,
+  TaxonomyLayoutNode,
+} from "../layout/taxonomyLayoutTypes";
+import {
+  LEAF_TITLE_LABEL_COLLISION_AVERAGE_CHAR_WIDTH_EM,
+  LEAF_TITLE_LABEL_COLLISION_MIN_WIDTH_EM,
+  LEAF_TITLE_LABEL_COLLISION_PADDING_PX,
+  LEAF_TITLE_LABEL_FONT_SIZE_PX,
+  LEAF_TITLE_LABEL_LINE_HEIGHT,
+  LEAF_TITLE_LABEL_MAX_WIDTH_EM,
+  LEAF_TITLE_LABEL_PIXEL_OFFSET_Y,
+} from "./leafRendererConfig";
 import type {
   BuildLeafSceneModelInput,
+  LeafOrthographicViewport,
   LeafSceneEdge,
   LeafSceneModel,
   LeafSceneModelBase,
@@ -209,23 +222,23 @@ export function buildLeafTitleLabelNodes(options: {
   });
 }
 
-export function selectLeafTitleNodeIdsByPriority(options: {
-  readonly maxNodeCount: number;
+function scaleFromZoom(zoom: number) {
+  return 2 ** zoom;
+}
+
+function sortLeafTitleNodeIdsByPriority(options: {
   readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
   readonly priorityNodeIds: readonly (number | null)[];
   readonly visibleNodeIds: readonly number[];
-}): number[] {
-  if (options.maxNodeCount <= 0) {
-    return [];
-  }
-
+}) {
   const priorityNodeIds = new Set(
     options.priorityNodeIds.filter(
       (nodeId): nodeId is number => nodeId !== null,
     ),
   );
-  return [...new Set(options.visibleNodeIds)]
-    .sort((leftNodeId, rightNodeId) => {
+
+  return [...new Set(options.visibleNodeIds)].sort(
+    (leftNodeId, rightNodeId) => {
       const leftPriority = priorityNodeIds.has(leftNodeId) ? 1 : 0;
       const rightPriority = priorityNodeIds.has(rightNodeId) ? 1 : 0;
       if (leftPriority !== rightPriority) {
@@ -241,8 +254,144 @@ export function selectLeafTitleNodeIdsByPriority(options: {
       }
 
       return leftNodeId - rightNodeId;
-    })
-    .slice(0, options.maxNodeCount);
+    },
+  );
+}
+
+interface ScreenBounds {
+  readonly bottom: number;
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+}
+
+function estimateLeafTitleScreenBounds(input: {
+  readonly canvas: LayoutViewport;
+  readonly pointNode: LeafScenePointNode;
+  readonly title: string;
+  readonly viewport: LeafOrthographicViewport;
+}): ScreenBounds {
+  const scale = scaleFromZoom(input.viewport.zoom);
+  const [targetX, targetY] = input.viewport.target;
+  const screenX =
+    (input.pointNode.position.x - targetX) * scale + input.canvas.width / 2;
+  const screenY =
+    (input.pointNode.position.y - targetY) * scale + input.canvas.height / 2;
+  const rawWidth =
+    input.title.length *
+    LEAF_TITLE_LABEL_FONT_SIZE_PX *
+    LEAF_TITLE_LABEL_COLLISION_AVERAGE_CHAR_WIDTH_EM;
+  const maxWidth =
+    LEAF_TITLE_LABEL_FONT_SIZE_PX * LEAF_TITLE_LABEL_MAX_WIDTH_EM;
+  const minWidth =
+    LEAF_TITLE_LABEL_FONT_SIZE_PX * LEAF_TITLE_LABEL_COLLISION_MIN_WIDTH_EM;
+  const width = Math.min(maxWidth, Math.max(minWidth, rawWidth));
+  const lineCount = Math.max(1, Math.ceil(rawWidth / maxWidth));
+  const height =
+    lineCount * LEAF_TITLE_LABEL_FONT_SIZE_PX * LEAF_TITLE_LABEL_LINE_HEIGHT;
+  const padding = LEAF_TITLE_LABEL_COLLISION_PADDING_PX;
+  const top = screenY + LEAF_TITLE_LABEL_PIXEL_OFFSET_Y;
+
+  return {
+    bottom: top + height + padding,
+    left: screenX - width / 2 - padding,
+    right: screenX + width / 2 + padding,
+    top: top - padding,
+  };
+}
+
+function screenBoundsOverlap(left: ScreenBounds, right: ScreenBounds) {
+  return !(
+    left.right < right.left ||
+    left.left > right.right ||
+    left.bottom < right.top ||
+    left.top > right.bottom
+  );
+}
+
+function screenBoundsIntersectCanvas(
+  bounds: ScreenBounds,
+  canvas: LayoutViewport,
+) {
+  return !(
+    bounds.right < 0 ||
+    bounds.left > canvas.width ||
+    bounds.bottom < 0 ||
+    bounds.top > canvas.height
+  );
+}
+
+export function selectLeafTitleNodeIdsByPriority(options: {
+  readonly maxNodeCount: number;
+  readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
+  readonly priorityNodeIds: readonly (number | null)[];
+  readonly visibleNodeIds: readonly number[];
+}): number[] {
+  if (options.maxNodeCount <= 0) {
+    return [];
+  }
+
+  return sortLeafTitleNodeIdsByPriority({
+    neighborNodeIdsByNodeId: options.neighborNodeIdsByNodeId,
+    priorityNodeIds: options.priorityNodeIds,
+    visibleNodeIds: options.visibleNodeIds,
+  }).slice(0, options.maxNodeCount);
+}
+
+export function selectLeafTitleNodeIdsByScreenCollision(options: {
+  readonly canvas: LayoutViewport;
+  readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
+  readonly pointNodes: readonly LeafScenePointNode[];
+  readonly priorityNodeIds: readonly (number | null)[];
+  readonly titlesByNodeId: Readonly<Record<number, string>>;
+  readonly viewport: LeafOrthographicViewport;
+  readonly visibleNodeIds: readonly number[];
+}): number[] {
+  if (options.canvas.width <= 0 || options.canvas.height <= 0) {
+    return [];
+  }
+
+  const pointNodesById = new Map(
+    options.pointNodes.map(
+      (pointNode) => [pointNode.graphNodeId, pointNode] as const,
+    ),
+  );
+  const acceptedBounds: ScreenBounds[] = [];
+  const selectedNodeIds: number[] = [];
+
+  for (const nodeId of sortLeafTitleNodeIdsByPriority({
+    neighborNodeIdsByNodeId: options.neighborNodeIdsByNodeId,
+    priorityNodeIds: options.priorityNodeIds,
+    visibleNodeIds: options.visibleNodeIds,
+  })) {
+    const pointNode = pointNodesById.get(nodeId);
+    const title = options.titlesByNodeId[nodeId];
+
+    if (!pointNode || title === undefined) {
+      continue;
+    }
+
+    const bounds = estimateLeafTitleScreenBounds({
+      canvas: options.canvas,
+      pointNode,
+      title,
+      viewport: options.viewport,
+    });
+
+    if (!screenBoundsIntersectCanvas(bounds, options.canvas)) {
+      continue;
+    }
+    if (
+      acceptedBounds.some((accepted) => screenBoundsOverlap(bounds, accepted))
+    ) {
+      continue;
+    }
+
+    acceptedBounds.push(bounds);
+    selectedNodeIds.push(nodeId);
+  }
+
+  return selectedNodeIds;
 }
 
 export function buildLeafSceneModel(

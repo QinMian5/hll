@@ -8,6 +8,7 @@ import {
   buildLeafSceneModelBase,
   buildLeafTitleLabelNodes,
   selectLeafTitleNodeIdsByPriority,
+  selectLeafTitleNodeIdsByScreenCollision,
 } from "./useLeafSceneModel";
 
 function makeLayoutNodes(): readonly TaxonomyLayoutNode[] {
@@ -122,5 +123,85 @@ describe("selectLeafTitleNodeIdsByPriority", () => {
     });
 
     expect(selected).toEqual([13, 11, 12]);
+  });
+});
+
+describe("selectLeafTitleNodeIdsByScreenCollision", () => {
+  it("keeps the higher-degree title when two labels collide on screen", () => {
+    const selected = selectLeafTitleNodeIdsByScreenCollision({
+      canvas: { height: 240, width: 400 },
+      neighborNodeIdsByNodeId: new Map([
+        [10, new Set([12])],
+        [11, new Set([12, 13, 14])],
+        [12, new Set()],
+      ]),
+      pointNodes: [
+        {
+          graphNodeId: 10,
+          id: "leaf-10",
+          position: { x: 0, y: 0 },
+          radius: 3,
+          scope: "inner",
+        },
+        {
+          graphNodeId: 11,
+          id: "leaf-11",
+          position: { x: 0, y: 0 },
+          radius: 3,
+          scope: "inner",
+        },
+        {
+          graphNodeId: 12,
+          id: "leaf-12",
+          position: { x: 160, y: 0 },
+          radius: 3,
+          scope: "outer",
+        },
+      ],
+      priorityNodeIds: [],
+      titlesByNodeId: {
+        10: "Low degree",
+        11: "High degree",
+        12: "Far title",
+      },
+      viewport: { target: [0, 0, 0], zoom: 0 },
+      visibleNodeIds: [10, 11, 12],
+    });
+
+    expect(selected).toEqual([11, 12]);
+  });
+
+  it("allows more labels as zoom spreads node anchors farther apart", () => {
+    const pointNodes = Array.from({ length: 8 }, (_, index) => ({
+      graphNodeId: index + 1,
+      id: `leaf-${index + 1}`,
+      position: { x: index * 16 - 56, y: 0 },
+      radius: 3,
+      scope: "inner" as const,
+    }));
+    const titlesByNodeId = Object.fromEntries(
+      pointNodes.map((pointNode) => [pointNode.graphNodeId, "Heat title"]),
+    );
+
+    const lowZoom = selectLeafTitleNodeIdsByScreenCollision({
+      canvas: { height: 240, width: 400 },
+      neighborNodeIdsByNodeId: new Map(),
+      pointNodes,
+      priorityNodeIds: [],
+      titlesByNodeId,
+      viewport: { target: [0, 0, 0], zoom: 0 },
+      visibleNodeIds: pointNodes.map((pointNode) => pointNode.graphNodeId),
+    });
+    const highZoom = selectLeafTitleNodeIdsByScreenCollision({
+      canvas: { height: 240, width: 400 },
+      neighborNodeIdsByNodeId: new Map(),
+      pointNodes,
+      priorityNodeIds: [],
+      titlesByNodeId,
+      viewport: { target: [0, 0, 0], zoom: 2 },
+      visibleNodeIds: pointNodes.map((pointNode) => pointNode.graphNodeId),
+    });
+
+    expect(lowZoom.length).toBeLessThan(highZoom.length);
   });
 });
