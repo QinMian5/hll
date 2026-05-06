@@ -7,9 +7,28 @@ import type { TaxonomyLayoutNode } from "../layout/taxonomyLayoutTypes";
 import {
   buildLeafSceneModelBase,
   buildLeafTitleLabelNodes,
+  type LeafTitleTextMeasurer,
   selectLeafTitleNodeIdsByPriority,
   selectLeafTitleNodeIdsByScreenCollision,
 } from "./useLeafSceneModel";
+
+function makeCharacterWidthMeasurer(
+  characterWidth: number,
+): LeafTitleTextMeasurer {
+  return {
+    measureText: (text: string) => {
+      const width = Array.from(text).length * characterWidth;
+
+      return {
+        actualBoundingBoxAscent: 16,
+        actualBoundingBoxDescent: 4,
+        actualBoundingBoxLeft: 0,
+        actualBoundingBoxRight: width,
+        width,
+      };
+    },
+  };
+}
 
 function makeLayoutNodes(): readonly TaxonomyLayoutNode[] {
   return [
@@ -164,11 +183,81 @@ describe("selectLeafTitleNodeIdsByScreenCollision", () => {
         11: "High degree",
         12: "Far title",
       },
+      textMeasurer: makeCharacterWidthMeasurer(10),
       viewport: { target: [0, 0, 0], zoom: 0 },
       visibleNodeIds: [10, 11, 12],
     });
 
     expect(selected).toEqual([11, 12]);
+  });
+
+  it("uses tight measured text bounds instead of padding short labels", () => {
+    const selected = selectLeafTitleNodeIdsByScreenCollision({
+      canvas: { height: 240, width: 400 },
+      neighborNodeIdsByNodeId: new Map(),
+      pointNodes: [
+        {
+          graphNodeId: 1,
+          id: "leaf-1",
+          position: { x: -20, y: 0 },
+          radius: 3,
+          scope: "inner",
+        },
+        {
+          graphNodeId: 2,
+          id: "leaf-2",
+          position: { x: 20, y: 0 },
+          radius: 3,
+          scope: "inner",
+        },
+      ],
+      priorityNodeIds: [],
+      textMeasurer: makeCharacterWidthMeasurer(8),
+      titlesByNodeId: {
+        1: "A",
+        2: "B",
+      },
+      viewport: { target: [0, 0, 0], zoom: 0 },
+      visibleNodeIds: [1, 2],
+    });
+
+    expect(selected).toEqual([1, 2]);
+  });
+
+  it("uses measured wrapping height when filtering lower-priority titles", () => {
+    const selected = selectLeafTitleNodeIdsByScreenCollision({
+      canvas: { height: 320, width: 800 },
+      neighborNodeIdsByNodeId: new Map([
+        [1, new Set([3, 4, 5])],
+        [2, new Set()],
+      ]),
+      pointNodes: [
+        {
+          graphNodeId: 1,
+          id: "leaf-1",
+          position: { x: 0, y: 0 },
+          radius: 3,
+          scope: "inner",
+        },
+        {
+          graphNodeId: 2,
+          id: "leaf-2",
+          position: { x: 100, y: 40 },
+          radius: 3,
+          scope: "inner",
+        },
+      ],
+      priorityNodeIds: [],
+      textMeasurer: makeCharacterWidthMeasurer(100),
+      titlesByNodeId: {
+        1: "aaaaa",
+        2: "b",
+      },
+      viewport: { target: [0, 0, 0], zoom: 0 },
+      visibleNodeIds: [1, 2],
+    });
+
+    expect(selected).toEqual([1]);
   });
 
   it("allows more labels as zoom spreads node anchors farther apart", () => {
@@ -188,6 +277,7 @@ describe("selectLeafTitleNodeIdsByScreenCollision", () => {
       neighborNodeIdsByNodeId: new Map(),
       pointNodes,
       priorityNodeIds: [],
+      textMeasurer: makeCharacterWidthMeasurer(10),
       titlesByNodeId,
       viewport: { target: [0, 0, 0], zoom: 0 },
       visibleNodeIds: pointNodes.map((pointNode) => pointNode.graphNodeId),
@@ -197,6 +287,7 @@ describe("selectLeafTitleNodeIdsByScreenCollision", () => {
       neighborNodeIdsByNodeId: new Map(),
       pointNodes,
       priorityNodeIds: [],
+      textMeasurer: makeCharacterWidthMeasurer(10),
       titlesByNodeId,
       viewport: { target: [0, 0, 0], zoom: 2 },
       visibleNodeIds: pointNodes.map((pointNode) => pointNode.graphNodeId),

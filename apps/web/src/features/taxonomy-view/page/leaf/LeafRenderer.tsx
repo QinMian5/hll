@@ -37,6 +37,7 @@ import type {
 import {
   buildLeafSceneModelBase,
   buildLeafTitleLabelNodes,
+  createLeafTitleCanvasTextMeasurer,
   selectLeafTitleNodeIdsByScreenCollision,
 } from "./useLeafSceneModel";
 import {
@@ -285,6 +286,7 @@ export function LeafRenderer({
       }),
     [leafLayout.edges, leafLayout.nodes],
   );
+  const titleTextMeasurer = useMemo(createLeafTitleCanvasTextMeasurer, []);
   const visibleHydrationNodeIds = useMemo(() => {
     if (!isPointTitleHydrationActive) {
       return [];
@@ -306,6 +308,7 @@ export function LeafRenderer({
         neighborNodeIdsByNodeId: leafSceneBase.neighborNodeIdsByNodeId,
         pointNodes: leafSceneBase.pointNodes,
         priorityNodeIds: [selectedNodeId, hoveredPointNodeId],
+        textMeasurer: titleTextMeasurer,
         titlesByNodeId: leafTitleCache,
         viewport: deferredDeckViewportSnapshot,
         visibleNodeIds: visibleHydrationNodeIds,
@@ -318,6 +321,7 @@ export function LeafRenderer({
       leafSceneBase.pointNodes,
       leafTitleCache,
       selectedNodeId,
+      titleTextMeasurer,
       visibleHydrationNodeIds,
     ],
   );

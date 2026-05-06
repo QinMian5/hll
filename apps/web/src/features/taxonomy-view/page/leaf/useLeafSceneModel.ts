@@ -6,10 +6,9 @@ import type {
   TaxonomyLayoutNode,
 } from "../layout/taxonomyLayoutTypes";
 import {
-  LEAF_TITLE_LABEL_COLLISION_AVERAGE_CHAR_WIDTH_EM,
-  LEAF_TITLE_LABEL_COLLISION_MIN_WIDTH_EM,
-  LEAF_TITLE_LABEL_COLLISION_PADDING_PX,
+  LEAF_TITLE_LABEL_FONT_FAMILY,
   LEAF_TITLE_LABEL_FONT_SIZE_PX,
+  LEAF_TITLE_LABEL_FONT_WEIGHT,
   LEAF_TITLE_LABEL_LINE_HEIGHT,
   LEAF_TITLE_LABEL_MAX_WIDTH_EM,
   LEAF_TITLE_LABEL_PIXEL_OFFSET_Y,
@@ -265,9 +264,187 @@ interface ScreenBounds {
   readonly top: number;
 }
 
+export interface LeafTitleTextMetrics {
+  readonly actualBoundingBoxAscent?: number;
+  readonly actualBoundingBoxDescent?: number;
+  readonly actualBoundingBoxLeft?: number;
+  readonly actualBoundingBoxRight?: number;
+  readonly width: number;
+}
+
+export interface LeafTitleTextMeasurer {
+  readonly measureText: (text: string) => LeafTitleTextMetrics;
+}
+
+const FALLBACK_AVERAGE_CHAR_WIDTH_EM = 0.54;
+
+function createFallbackLeafTitleTextMeasurer(): LeafTitleTextMeasurer {
+  return {
+    measureText: (text) => ({
+      actualBoundingBoxAscent: LEAF_TITLE_LABEL_FONT_SIZE_PX * 0.8,
+      actualBoundingBoxDescent: LEAF_TITLE_LABEL_FONT_SIZE_PX * 0.2,
+      actualBoundingBoxLeft: 0,
+      actualBoundingBoxRight:
+        Array.from(text).length *
+        LEAF_TITLE_LABEL_FONT_SIZE_PX *
+        FALLBACK_AVERAGE_CHAR_WIDTH_EM,
+      width:
+        Array.from(text).length *
+        LEAF_TITLE_LABEL_FONT_SIZE_PX *
+        FALLBACK_AVERAGE_CHAR_WIDTH_EM,
+    }),
+  };
+}
+
+export function createLeafTitleCanvasTextMeasurer(): LeafTitleTextMeasurer {
+  if (
+    typeof document === "undefined" ||
+    typeof CanvasRenderingContext2D === "undefined"
+  ) {
+    return createFallbackLeafTitleTextMeasurer();
+  }
+
+  const context = document.createElement("canvas").getContext("2d");
+
+  if (!context) {
+    return createFallbackLeafTitleTextMeasurer();
+  }
+
+  context.font = `${LEAF_TITLE_LABEL_FONT_WEIGHT} ${LEAF_TITLE_LABEL_FONT_SIZE_PX}px ${LEAF_TITLE_LABEL_FONT_FAMILY}`;
+
+  return {
+    measureText: (text) => context.measureText(text),
+  };
+}
+
+function measuredTextWidth(metrics: LeafTitleTextMetrics) {
+  const actualWidth =
+    typeof metrics.actualBoundingBoxLeft === "number" &&
+    typeof metrics.actualBoundingBoxRight === "number"
+      ? metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
+      : 0;
+
+  return Math.max(metrics.width, actualWidth);
+}
+
+function measuredTextHeight(metrics: LeafTitleTextMetrics) {
+  const actualHeight =
+    (metrics.actualBoundingBoxAscent ?? 0) +
+    (metrics.actualBoundingBoxDescent ?? 0);
+
+  return actualHeight > 0 ? actualHeight : LEAF_TITLE_LABEL_FONT_SIZE_PX;
+}
+
+function splitTokenIntoMeasuredLines(input: {
+  readonly maxWidth: number;
+  readonly textMeasurer: LeafTitleTextMeasurer;
+  readonly token: string;
+}) {
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const character of Array.from(input.token)) {
+    const nextLine = `${currentLine}${character}`;
+
+    if (
+      currentLine !== "" &&
+      measuredTextWidth(input.textMeasurer.measureText(nextLine)) >
+        input.maxWidth
+    ) {
+      lines.push(currentLine);
+      currentLine = character;
+      continue;
+    }
+
+    currentLine = nextLine;
+  }
+
+  return {
+    lines,
+    remainingLine: currentLine,
+  };
+}
+
+function wrapTitleIntoMeasuredLines(input: {
+  readonly maxWidth: number;
+  readonly textMeasurer: LeafTitleTextMeasurer;
+  readonly title: string;
+}) {
+  const tokens = input.title.trim().split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const token of tokens.length > 0 ? tokens : [""]) {
+    const nextLine = currentLine ? `${currentLine} ${token}` : token;
+
+    if (
+      measuredTextWidth(input.textMeasurer.measureText(nextLine)) <=
+      input.maxWidth
+    ) {
+      currentLine = nextLine;
+      continue;
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    if (
+      measuredTextWidth(input.textMeasurer.measureText(token)) <= input.maxWidth
+    ) {
+      currentLine = token;
+      continue;
+    }
+
+    const splitToken = splitTokenIntoMeasuredLines({
+      maxWidth: input.maxWidth,
+      textMeasurer: input.textMeasurer,
+      token,
+    });
+    lines.push(...splitToken.lines);
+    currentLine = splitToken.remainingLine;
+  }
+
+  if (currentLine || lines.length === 0) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+}
+
+function measureLeafTitleTextBounds(input: {
+  readonly textMeasurer: LeafTitleTextMeasurer;
+  readonly title: string;
+}) {
+  const maxWidth =
+    LEAF_TITLE_LABEL_FONT_SIZE_PX * LEAF_TITLE_LABEL_MAX_WIDTH_EM;
+  const lines = wrapTitleIntoMeasuredLines({
+    maxWidth,
+    textMeasurer: input.textMeasurer,
+    title: input.title,
+  });
+  const lineMetrics = lines.map((line) => input.textMeasurer.measureText(line));
+  const width = Math.min(
+    maxWidth,
+    Math.max(...lineMetrics.map((metrics) => measuredTextWidth(metrics))),
+  );
+  const glyphHeight = Math.max(
+    ...lineMetrics.map((metrics) => measuredTextHeight(metrics)),
+  );
+  const lineAdvance =
+    LEAF_TITLE_LABEL_FONT_SIZE_PX * LEAF_TITLE_LABEL_LINE_HEIGHT;
+  const height = glyphHeight + (lines.length - 1) * lineAdvance;
+
+  return {
+    height,
+    width,
+  };
+}
+
 function estimateLeafTitleScreenBounds(input: {
   readonly canvas: LayoutViewport;
   readonly pointNode: LeafScenePointNode;
+  readonly textMeasurer: LeafTitleTextMeasurer;
   readonly title: string;
   readonly viewport: LeafOrthographicViewport;
 }): ScreenBounds {
@@ -277,26 +454,17 @@ function estimateLeafTitleScreenBounds(input: {
     (input.pointNode.position.x - targetX) * scale + input.canvas.width / 2;
   const screenY =
     (input.pointNode.position.y - targetY) * scale + input.canvas.height / 2;
-  const rawWidth =
-    input.title.length *
-    LEAF_TITLE_LABEL_FONT_SIZE_PX *
-    LEAF_TITLE_LABEL_COLLISION_AVERAGE_CHAR_WIDTH_EM;
-  const maxWidth =
-    LEAF_TITLE_LABEL_FONT_SIZE_PX * LEAF_TITLE_LABEL_MAX_WIDTH_EM;
-  const minWidth =
-    LEAF_TITLE_LABEL_FONT_SIZE_PX * LEAF_TITLE_LABEL_COLLISION_MIN_WIDTH_EM;
-  const width = Math.min(maxWidth, Math.max(minWidth, rawWidth));
-  const lineCount = Math.max(1, Math.ceil(rawWidth / maxWidth));
-  const height =
-    lineCount * LEAF_TITLE_LABEL_FONT_SIZE_PX * LEAF_TITLE_LABEL_LINE_HEIGHT;
-  const padding = LEAF_TITLE_LABEL_COLLISION_PADDING_PX;
+  const textBounds = measureLeafTitleTextBounds({
+    textMeasurer: input.textMeasurer,
+    title: input.title,
+  });
   const top = screenY + LEAF_TITLE_LABEL_PIXEL_OFFSET_Y;
 
   return {
-    bottom: top + height + padding,
-    left: screenX - width / 2 - padding,
-    right: screenX + width / 2 + padding,
-    top: top - padding,
+    bottom: top + textBounds.height,
+    left: screenX - textBounds.width / 2,
+    right: screenX + textBounds.width / 2,
+    top,
   };
 }
 
@@ -343,6 +511,7 @@ export function selectLeafTitleNodeIdsByScreenCollision(options: {
   readonly neighborNodeIdsByNodeId: ReadonlyMap<number, ReadonlySet<number>>;
   readonly pointNodes: readonly LeafScenePointNode[];
   readonly priorityNodeIds: readonly (number | null)[];
+  readonly textMeasurer: LeafTitleTextMeasurer;
   readonly titlesByNodeId: Readonly<Record<number, string>>;
   readonly viewport: LeafOrthographicViewport;
   readonly visibleNodeIds: readonly number[];
@@ -374,6 +543,7 @@ export function selectLeafTitleNodeIdsByScreenCollision(options: {
     const bounds = estimateLeafTitleScreenBounds({
       canvas: options.canvas,
       pointNode,
+      textMeasurer: options.textMeasurer,
       title,
       viewport: options.viewport,
     });
