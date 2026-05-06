@@ -52,13 +52,13 @@ describe("buildRenderableLeafLayout", () => {
           },
           id: "leaf-10",
           position: {
-            x: 34,
-            y: 50,
+            x: 39,
+            y: 55,
           },
           style: {
-            borderRadius: "16px",
-            height: 16,
-            width: 16,
+            borderRadius: "6px",
+            height: 6,
+            width: 6,
           },
           type: "bubble",
         },
