@@ -56,20 +56,31 @@ export interface LeafSceneTitleLabelNode {
   readonly title: string;
 }
 
-export interface LeafDisclosureNode {
-  readonly content: string;
-  readonly currentVersion: number;
+export interface LeafDisclosureAnchorNode {
   readonly graphNodeId: number;
   readonly id: string;
   readonly position: LayoutPoint;
   readonly scope: "inner" | "outer";
+  readonly title?: string;
+}
+
+export interface LeafDisclosureReadyNode extends LeafDisclosureAnchorNode {
+  readonly content: string;
+  readonly currentVersion: number;
   readonly title: string;
 }
 
-export interface LeafDisclosureState {
-  readonly mode: "hover" | "selected";
-  readonly node: LeafDisclosureNode;
-}
+export type LeafDisclosureState =
+  | {
+      readonly mode: "hover" | "selected";
+      readonly node: LeafDisclosureReadyNode;
+      readonly status: "ready";
+    }
+  | {
+      readonly mode: "selected";
+      readonly node: LeafDisclosureAnchorNode;
+      readonly status: "loading";
+    };
 
 export interface BuildLeafSceneModelInput {
   readonly edges: readonly LeafEdgeLayoutInput[];

@@ -10,6 +10,7 @@ import type { SearchResultCardEditPayload } from "../../../search/components/Sea
 import type { LayoutViewport } from "../layout/taxonomyLayoutTypes";
 import { projectLeafWorldPoint } from "./leafProjection";
 import type {
+  LeafDisclosureReadyNode,
   LeafDisclosureState,
   LeafOrthographicViewport,
 } from "./leafSceneTypes";
@@ -22,6 +23,7 @@ interface LeafDisclosureOverlayProps {
 }
 
 const DISCLOSURE_GAP_PX = 8;
+const DISCLOSURE_CANVAS_MARGIN_PX = 12;
 const DISCLOSURE_CARD_SIZE_CLASS =
   "[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-md)] [--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-md)] [--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-md)] lg:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-lg)] lg:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-lg)] lg:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-lg)] xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-xl)] xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-xl)] xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-xl)] 2xl:[--leaf-disclosure-card-width:var(--spacing-knowledge-leaf-disclosure-width-2xl)] 2xl:[--leaf-disclosure-card-height:var(--spacing-knowledge-leaf-disclosure-height-2xl)] 2xl:[--leaf-disclosure-card-content-height:var(--spacing-knowledge-leaf-disclosure-content-height-2xl)]";
 const DISCLOSURE_CARD_CLASS = `absolute top-0 left-0 z-[22] m-0 pointer-events-auto flex max-h-[var(--leaf-disclosure-card-height)] w-[min(var(--leaf-disclosure-card-width),calc(100%_-_24px))] flex-col items-start gap-2 overflow-hidden rounded-knowledge-leaf-disclosure border border-knowledge-leaf-disclosure-border bg-knowledge-surface-card-solid px-4 py-4 text-left shadow-knowledge-leaf-disclosure ${DISCLOSURE_CARD_SIZE_CLASS}`;
@@ -33,10 +35,41 @@ const DISCLOSURE_CONTENT_SCROLL_CLASS =
   "[--scroll-area-padding-right:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] [--scroll-area-scrollbar-width:var(--spacing-knowledge-leaf-disclosure-scrollbar-width)] max-h-[var(--leaf-disclosure-card-content-height)] min-h-0 w-full flex-1";
 const DISCLOSURE_CONTENT_VIEWPORT_CLASS =
   "max-h-[var(--leaf-disclosure-card-content-height)] overflow-x-hidden overflow-y-auto overscroll-contain [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-leaf-disclosure-body [&_[data-testid=knowledge-rich-text-content]]:text-knowledge-text-muted";
+const DISCLOSURE_LOADING_CLASS =
+  "w-full text-knowledge-leaf-disclosure-body text-knowledge-text-muted";
+const DISCLOSURE_SIZE_STEPS = [
+  { height: 208, minWidth: 1536, width: 416 },
+  { height: 192, minWidth: 1280, width: 384 },
+  { height: 176, minWidth: 1024, width: 352 },
+  { height: 160, minWidth: 0, width: 320 },
+] as const;
 
 interface OverlayPosition {
   readonly left: number;
   readonly top: number;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function resolveCardSize(canvas: LayoutViewport) {
+  const size =
+    DISCLOSURE_SIZE_STEPS.find((step) => canvas.width >= step.minWidth) ??
+    DISCLOSURE_SIZE_STEPS[DISCLOSURE_SIZE_STEPS.length - 1];
+  const availableWidth = Math.max(
+    0,
+    canvas.width - DISCLOSURE_CANVAS_MARGIN_PX * 2,
+  );
+  const availableHeight = Math.max(
+    0,
+    canvas.height - DISCLOSURE_CANVAS_MARGIN_PX * 2,
+  );
+
+  return {
+    height: Math.min(size.height, availableHeight),
+    width: Math.min(size.width, availableWidth),
+  };
 }
 
 function resolvePosition(options: {
@@ -49,15 +82,33 @@ function resolvePosition(options: {
     options.viewport,
     options.disclosure.node.position,
   );
+  const cardSize = resolveCardSize(options.canvas);
+  const preferredLeft = projected.x - cardSize.width / 2;
+  const maxLeft = Math.max(
+    DISCLOSURE_CANVAS_MARGIN_PX,
+    options.canvas.width - DISCLOSURE_CANVAS_MARGIN_PX - cardSize.width,
+  );
+  const belowTop = projected.y + DISCLOSURE_GAP_PX;
+  const aboveTop = projected.y - DISCLOSURE_GAP_PX - cardSize.height;
+  const maxTop = Math.max(
+    DISCLOSURE_CANVAS_MARGIN_PX,
+    options.canvas.height - DISCLOSURE_CANVAS_MARGIN_PX - cardSize.height,
+  );
+  const preferredTop =
+    belowTop + cardSize.height <=
+      options.canvas.height - DISCLOSURE_CANVAS_MARGIN_PX ||
+    aboveTop < DISCLOSURE_CANVAS_MARGIN_PX
+      ? belowTop
+      : aboveTop;
 
   return {
-    left: projected.x,
-    top: projected.y + DISCLOSURE_GAP_PX,
+    left: clamp(preferredLeft, DISCLOSURE_CANVAS_MARGIN_PX, maxLeft),
+    top: clamp(preferredTop, DISCLOSURE_CANVAS_MARGIN_PX, maxTop),
   };
 }
 
 function disclosureTransform(position: OverlayPosition) {
-  return `translate3d(${position.left}px, ${position.top}px, 0px) translate(-50%, 0%)`;
+  return `translate3d(${position.left}px, ${position.top}px, 0px)`;
 }
 
 function stopCanvasPropagation(event: SyntheticEvent) {
@@ -73,7 +124,7 @@ function LeafDisclosureHeader({
   onSuggestEdit,
   title,
 }: {
-  readonly node: LeafDisclosureState["node"];
+  readonly node?: LeafDisclosureReadyNode;
   readonly onSuggestEdit?: (card: SearchResultCardEditPayload) => void;
   readonly title: string;
 }) {
@@ -93,7 +144,7 @@ function LeafDisclosureHeader({
           <KnowledgeRichText text={title} variant="title" />
         </div>
       </div>
-      {onSuggestEdit ? (
+      {node && onSuggestEdit ? (
         <button
           aria-label={`Suggest edit for ${title}`}
           className="flex size-6 shrink-0 items-center justify-center rounded-knowledge-control-compact bg-transparent p-1 text-knowledge-text-muted transition-colors hover:bg-knowledge-surface-hover hover:text-knowledge-text-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand"
@@ -130,6 +181,17 @@ function LeafDisclosureContent({ content }: { readonly content: string }) {
     >
       <KnowledgeRichText text={content} variant="content" />
     </ScrollArea>
+  );
+}
+
+function LeafDisclosureLoadingContent() {
+  return (
+    <div
+      className={DISCLOSURE_LOADING_CLASS}
+      data-testid="taxonomy-leaf-disclosure-loading"
+    >
+      Loading card content...
+    </div>
   );
 }
 
@@ -171,6 +233,7 @@ export function LeafDisclosureOverlay({
   const sharedProps = {
     className: DISCLOSURE_CARD_CLASS,
     "data-disclosure-mode": disclosure.mode,
+    "data-disclosure-status": disclosure.status,
     "data-testid": "taxonomy-leaf-disclosure-overlay",
     onClick: stopCanvasPropagation,
     onDoubleClick: stopCanvasPropagation,
@@ -184,28 +247,28 @@ export function LeafDisclosureOverlay({
       transform: disclosureTransform(currentPosition),
     },
   } as const;
-
-  if (disclosure.mode === "selected") {
-    return (
-      <dialog {...sharedProps} aria-label="Selected knowledge card" open>
-        <LeafDisclosureHeader
-          node={disclosure.node}
-          onSuggestEdit={onSuggestEdit}
-          title={disclosure.node.title}
-        />
-        <LeafDisclosureContent content={disclosure.node.content} />
-      </dialog>
-    );
-  }
+  const title = disclosure.node.title ?? "Loading card";
+  const isReady = disclosure.status === "ready";
+  const selectedProps =
+    disclosure.mode === "selected"
+      ? ({
+          "aria-label": "Selected knowledge card",
+          role: "dialog",
+        } as const)
+      : {};
 
   return (
-    <div {...sharedProps}>
+    <section {...sharedProps} {...selectedProps}>
       <LeafDisclosureHeader
-        node={disclosure.node}
+        node={isReady ? disclosure.node : undefined}
         onSuggestEdit={onSuggestEdit}
-        title={disclosure.node.title}
+        title={title}
       />
-      <LeafDisclosureContent content={disclosure.node.content} />
-    </div>
+      {isReady ? (
+        <LeafDisclosureContent content={disclosure.node.content} />
+      ) : (
+        <LeafDisclosureLoadingContent />
+      )}
+    </section>
   );
 }

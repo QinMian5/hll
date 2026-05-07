@@ -9,13 +9,18 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LeafDisclosureOverlay } from "./LeafDisclosureOverlay";
 import type { LeafDisclosureState } from "./leafSceneTypes";
 
+type ReadyDisclosureState = Extract<
+  LeafDisclosureState,
+  { readonly status: "ready" }
+>;
+
 afterEach(() => {
   cleanup();
 });
 
 function makeDisclosure(
-  mode: LeafDisclosureState["mode"],
-): LeafDisclosureState {
+  mode: ReadyDisclosureState["mode"],
+): ReadyDisclosureState {
   return {
     mode,
     node: {
@@ -27,12 +32,14 @@ function makeDisclosure(
       scope: "inner",
       title: "Equation \\(E=mc^2\\)",
     },
+    status: "ready",
   };
 }
 
 describe("LeafDisclosureOverlay", () => {
   it("uses one responsive maximum-height card contract for hover and selected disclosures", () => {
     const classNames: string[] = [];
+    const tagNames: string[] = [];
 
     for (const mode of ["hover", "selected"] as const) {
       const { unmount } = render(
@@ -45,6 +52,7 @@ describe("LeafDisclosureOverlay", () => {
 
       const disclosure = screen.getByTestId("taxonomy-leaf-disclosure-overlay");
       classNames.push(disclosure.className);
+      tagNames.push(disclosure.tagName);
 
       expect(disclosure).toHaveClass("rounded-knowledge-leaf-disclosure");
       expect(disclosure).toHaveClass(
@@ -87,6 +95,7 @@ describe("LeafDisclosureOverlay", () => {
     }
 
     expect(classNames[0]).toBe(classNames[1]);
+    expect(tagNames).toEqual(["SECTION", "SECTION"]);
   });
 
   it("lets short content hug its natural height instead of filling the maximum content region", () => {
@@ -198,6 +207,9 @@ describe("LeafDisclosureOverlay", () => {
     const disclosure = screen.getByTestId("taxonomy-leaf-disclosure-overlay");
 
     expect(disclosure).toHaveAttribute("data-disclosure-mode", "selected");
+    expect(disclosure.tagName).toBe("SECTION");
+    expect(disclosure).toHaveAttribute("role", "dialog");
+    expect(disclosure).toHaveAttribute("aria-label", "Selected knowledge card");
     expect(disclosure).toHaveTextContent("Equation");
     expect(disclosure).toHaveTextContent("Equation content");
     const editButton = screen.getByTestId(
@@ -272,9 +284,7 @@ describe("LeafDisclosureOverlay", () => {
 
     const disclosure = screen.getByTestId("taxonomy-leaf-disclosure-overlay");
 
-    expect(disclosure.style.transform).toBe(
-      "translate3d(702px, 458px, 0px) translate(-50%, 0%)",
-    );
+    expect(disclosure.style.transform).toBe("translate3d(510px, 458px, 0px)");
 
     rerender(
       <LeafDisclosureOverlay
@@ -284,9 +294,7 @@ describe("LeafDisclosureOverlay", () => {
       />,
     );
 
-    expect(disclosure.style.transform).toBe(
-      "translate3d(662px, 428px, 0px) translate(-50%, 0%)",
-    );
+    expect(disclosure.style.transform).toBe("translate3d(470px, 428px, 0px)");
   });
 
   it("does not remeasure layout when DeckGL provides a new viewport", () => {
@@ -328,21 +336,21 @@ describe("LeafDisclosureOverlay", () => {
     getBoundingClientRect.mockRestore();
   });
 
-  it("keeps the card centered to the projected point near the canvas edge", () => {
+  it("keeps the card inside the canvas when the projected point is near mobile edges", () => {
     const disclosure = makeDisclosure("selected");
     const edgeDisclosure = {
       ...disclosure,
       node: {
         ...disclosure.node,
-        position: { x: 1300, y: 450 },
+        position: { x: 184, y: 270 },
       },
-    } satisfies LeafDisclosureState;
+    } satisfies ReadyDisclosureState;
 
     render(
       <LeafDisclosureOverlay
-        canvas={{ height: 900, width: 1404 }}
+        canvas={{ height: 560, width: 390 }}
         disclosure={edgeDisclosure}
-        viewport={{ target: [700, 450, 0], zoom: 0 }}
+        viewport={{ target: [0, 0, 0], zoom: 0 }}
       />,
     );
 
@@ -351,7 +359,7 @@ describe("LeafDisclosureOverlay", () => {
     );
 
     expect(disclosureCard.style.transform).toBe(
-      "translate3d(1302px, 458px, 0px) translate(-50%, 0%)",
+      "translate3d(58px, 382px, 0px)",
     );
   });
 });

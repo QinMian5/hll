@@ -91,6 +91,86 @@ function buildDisclosureNode(options: {
   };
 }
 
+function buildSelectedDisclosure(options: {
+  readonly detail: TaxonomyCardScopeNodeDetailRecord | undefined;
+  readonly pointNode: LeafScenePointNode | undefined;
+  readonly title: string | undefined;
+}): LeafDisclosureState | null {
+  if (!options.pointNode) {
+    return null;
+  }
+
+  const readyNode = buildDisclosureNode({
+    detail: options.detail,
+    pointNode: options.pointNode,
+  });
+
+  if (readyNode) {
+    return { mode: "selected", node: readyNode, status: "ready" };
+  }
+
+  return {
+    mode: "selected",
+    node: {
+      graphNodeId: options.pointNode.graphNodeId,
+      id: options.pointNode.id,
+      position: options.pointNode.position,
+      scope: options.pointNode.scope,
+      title: options.title,
+    },
+    status: "loading",
+  };
+}
+
+function canUseFinePointerHover() {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function"
+  ) {
+    return true;
+  }
+
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
+function useFinePointerHoverEnabled() {
+  const [isFinePointerHoverEnabled, setIsFinePointerHoverEnabled] = useState(
+    canUseFinePointerHover,
+  );
+
+  useEffect(() => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.matchMedia !== "function"
+    ) {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const handleChange = () => {
+      setIsFinePointerHoverEnabled(mediaQuery.matches);
+    };
+
+    handleChange();
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleChange);
+
+      return () => {
+        mediaQuery.removeEventListener("change", handleChange);
+      };
+    }
+
+    mediaQuery.addListener(handleChange);
+
+    return () => {
+      mediaQuery.removeListener(handleChange);
+    };
+  }, []);
+
+  return isFinePointerHoverEnabled;
+}
+
 export function LeafRenderer({
   leafView,
   onSuggestEdit,
@@ -149,6 +229,7 @@ export function LeafRenderer({
   const [leafDetailCache, setLeafDetailCache] = useState<
     Record<number, TaxonomyCardScopeNodeDetailRecord>
   >({});
+  const isFinePointerHoverEnabled = useFinePointerHoverEnabled();
   const cardScopeRoutePath = leafView.current_scope.route_path;
 
   useEffect(() => {
@@ -267,13 +348,16 @@ export function LeafRenderer({
     [renderLeafLayoutSlice],
   );
 
+  const isHoverInteractionActive =
+    isPointTitleModeActive && isFinePointerHoverEnabled;
+
   useEffect(() => {
-    if (isPointTitleModeActive) {
+    if (isHoverInteractionActive) {
       return;
     }
 
     setHoveredPointNodeId(null);
-  }, [isPointTitleModeActive]);
+  }, [isHoverInteractionActive]);
 
   const leafSceneBase = useMemo(
     () =>
@@ -368,12 +452,12 @@ export function LeafRenderer({
       return [selectedNodeId];
     }
 
-    if (!isPointTitleModeActive) {
+    if (!isHoverInteractionActive) {
       return [];
     }
 
     return hoveredPointNodeId === null ? [] : [hoveredPointNodeId];
-  }, [hoveredPointNodeId, isPointTitleModeActive, selectedNodeId]);
+  }, [hoveredPointNodeId, isHoverInteractionActive, selectedNodeId]);
   const missingDetailNodeIds = useMemo(
     () =>
       detailTargetNodeIds.filter(
@@ -455,18 +539,17 @@ export function LeafRenderer({
     [scene.pointNodes],
   );
   const activeFocusNodeId =
-    selectedNodeId ?? (isPointTitleModeActive ? hoveredPointNodeId : null);
+    selectedNodeId ?? (isHoverInteractionActive ? hoveredPointNodeId : null);
   const disclosure = useMemo<LeafDisclosureState | null>(() => {
     if (selectedNodeId !== null) {
-      const node = buildDisclosureNode({
+      return buildSelectedDisclosure({
         detail: leafDetailCache[selectedNodeId],
         pointNode: pointNodesById.get(selectedNodeId),
+        title: leafTitleCache[selectedNodeId],
       });
-
-      return node ? { mode: "selected", node } : null;
     }
 
-    if (!isPointTitleModeActive) {
+    if (!isHoverInteractionActive) {
       return null;
     }
 
@@ -476,14 +559,15 @@ export function LeafRenderer({
         pointNode: pointNodesById.get(hoveredPointNodeId),
       });
 
-      return node ? { mode: "hover", node } : null;
+      return node ? { mode: "hover", node, status: "ready" } : null;
     }
 
     return null;
   }, [
     hoveredPointNodeId,
-    isPointTitleModeActive,
+    isHoverInteractionActive,
     leafDetailCache,
+    leafTitleCache,
     pointNodesById,
     selectedNodeId,
   ]);
@@ -498,14 +582,14 @@ export function LeafRenderer({
 
   const handlePointHover = useCallback(
     (nodeId: number | null) => {
-      if (!isPointTitleModeActive) {
+      if (!isHoverInteractionActive) {
         setHoveredPointNodeId(null);
         return;
       }
 
       setHoveredPointNodeId(nodeId);
     },
-    [isPointTitleModeActive],
+    [isHoverInteractionActive],
   );
   const handlePointClick = useCallback((nodeId: number) => {
     setSelectedNodeId((currentNodeId) =>
@@ -551,7 +635,7 @@ export function LeafRenderer({
           hiddenLabelNodeId={hiddenLabelNodeId}
           hoveredPointNodeId={hoveredPointNodeId}
           initialViewport={initialDeckViewport}
-          isPointHoverEnabled={isPointTitleModeActive}
+          isPointHoverEnabled={isHoverInteractionActive}
           onCanvasClick={handleCanvasClick}
           onPointClick={handlePointClick}
           onPointHover={handlePointHover}

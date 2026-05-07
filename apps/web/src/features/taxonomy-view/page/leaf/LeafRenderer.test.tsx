@@ -43,11 +43,12 @@ vi.mock("./LeafDeckScene", () => ({
     readonly disclosure?: {
       readonly mode: "hover" | "selected";
       readonly node: {
-        readonly content: string;
-        readonly currentVersion: number;
+        readonly content?: string;
+        readonly currentVersion?: number;
         readonly graphNodeId: number;
-        readonly title: string;
+        readonly title?: string;
       };
+      readonly status?: "loading" | "ready";
     } | null;
     readonly hiddenLabelNodeId: number | null;
     readonly hoveredPointNodeId: number | null;
@@ -104,20 +105,26 @@ vi.mock("./LeafDeckScene", () => ({
       {disclosure ? (
         <div
           data-disclosure-mode={disclosure.mode}
+          data-disclosure-status={disclosure.status ?? "ready"}
           data-testid="taxonomy-leaf-disclosure-overlay"
         >
-          <span>{disclosure.node.title}</span>
-          <span>{disclosure.node.content.replaceAll("*", "")}</span>
-          {onSuggestEdit ? (
+          <span>{disclosure.node.title ?? "Loading card"}</span>
+          {disclosure.status === "loading" ? (
+            <span>Loading card content...</span>
+          ) : null}
+          {disclosure.node.content ? (
+            <span>{disclosure.node.content.replaceAll("*", "")}</span>
+          ) : null}
+          {onSuggestEdit && disclosure.status !== "loading" ? (
             <button
               aria-label={`Suggest edit for ${disclosure.node.title}`}
               data-testid="taxonomy-leaf-disclosure-edit-button"
               onClick={() => {
                 onSuggestEdit({
-                  content: disclosure.node.content,
-                  currentVersion: disclosure.node.currentVersion,
+                  content: disclosure.node.content ?? "",
+                  currentVersion: disclosure.node.currentVersion ?? 0,
                   nodeId: disclosure.node.graphNodeId,
-                  title: disclosure.node.title,
+                  title: disclosure.node.title ?? "",
                 });
               }}
               type="button"
@@ -411,6 +418,42 @@ function installSuccessfulQueryMocks() {
         error: null,
         isError: false,
         isPending: false,
+      }) as unknown as ReturnType<
+        typeof taxonomyViewQueries.useTaxonomyCardScopeNodeDetailsQuery
+      >,
+  );
+}
+
+function installPendingDetailQueryMocks() {
+  mockUseTaxonomyCardScopeLayoutSliceQuery.mockImplementation(
+    (_routePath, _bounds, _layoutIdentity, options) =>
+      ({
+        data: options.enabled ? makeLeafLayoutSliceResponse() : undefined,
+        error: null,
+        isError: false,
+        isPending: false,
+      }) as unknown as ReturnType<
+        typeof taxonomyViewQueries.useTaxonomyCardScopeLayoutSliceQuery
+      >,
+  );
+  mockUseTaxonomyCardScopeNodeTitlesQuery.mockImplementation(
+    (_routePath, _nodeIds, options) =>
+      ({
+        data: options.enabled ? makeLeafTitlesResponse() : undefined,
+        error: null,
+        isError: false,
+        isPending: false,
+      }) as unknown as ReturnType<
+        typeof taxonomyViewQueries.useTaxonomyCardScopeNodeTitlesQuery
+      >,
+  );
+  mockUseTaxonomyCardScopeNodeDetailsQuery.mockImplementation(
+    (_routePath, _nodeIds, options) =>
+      ({
+        data: undefined,
+        error: null,
+        isError: false,
+        isPending: options.enabled,
       }) as unknown as ReturnType<
         typeof taxonomyViewQueries.useTaxonomyCardScopeNodeDetailsQuery
       >,
@@ -894,6 +937,48 @@ describe("LeafRenderer", () => {
     );
     expect(selectedDisclosure).toHaveTextContent("Equation content");
     expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
+      "10",
+    );
+  });
+
+  it("mounts the selected disclosure shell while selected detail is pending", async () => {
+    installPendingDetailQueryMocks();
+
+    render(
+      <LeafRenderer
+        leafView={makeLeafView()}
+        viewport={{ height: 560, width: 390 }}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Click 10" }));
+
+    await waitFor(() => {
+      expect(mockUseTaxonomyCardScopeNodeDetailsQuery).toHaveBeenCalledWith(
+        "math/algebra",
+        [10],
+        expect.objectContaining({ enabled: true }),
+      );
+    });
+
+    const selectedDisclosure = await screen.findByTestId(
+      "taxonomy-leaf-disclosure-overlay",
+    );
+
+    expect(selectedDisclosure).toHaveAttribute(
+      "data-disclosure-mode",
+      "selected",
+    );
+    expect(selectedDisclosure).toHaveAttribute(
+      "data-disclosure-status",
+      "loading",
+    );
+    expect(selectedDisclosure).toHaveTextContent("Equation");
+    expect(selectedDisclosure).toHaveTextContent("Loading card content...");
+    expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
+      "10",
+    );
+    expect(screen.getByTestId("leaf-hidden-label-node-id")).toHaveTextContent(
       "10",
     );
   });

@@ -559,6 +559,7 @@ describe("LeafDeckScene", () => {
             scope: "inner",
             title: "Visible title",
           },
+          status: "ready",
         }}
         hiddenLabelNodeId={10}
         hoveredPointNodeId={null}
@@ -576,10 +577,11 @@ describe("LeafDeckScene", () => {
 
     expect(disclosure.parentElement).toBe(screen.getByTestId("deck-gl-mock"));
     expect(disclosure).toHaveAttribute("data-disclosure-mode", "selected");
+    expect(disclosure).toHaveAttribute("data-disclosure-status", "ready");
     expect(disclosure).toHaveTextContent("Visible title");
     expect(disclosure).toHaveTextContent("Visible content");
     expect(disclosure).toHaveStyle({
-      transform: "translate3d(330px, 268px, 0px) translate(-50%, 0%)",
+      transform: "translate3d(170px, 268px, 0px)",
     });
   });
 });
