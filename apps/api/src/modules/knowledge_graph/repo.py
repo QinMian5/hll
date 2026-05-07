@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator, Sequence
 from datetime import UTC, datetime
-from typing import cast
+from typing import Protocol, cast
 
 from sqlalchemy import case, column, delete, func, insert, select, table, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -104,6 +104,20 @@ def _title_match_boost(*, title: str, query_text: str) -> tuple[int, int, int]:
     )
 
 
+class _VectorCandidateRow(Protocol):
+    id: int
+    current_version: int
+    title: str
+    content: str
+    cosine_distance: float
+
+
+def _rerank_vector_candidate_rows(
+    rows: Sequence[_VectorCandidateRow],
+) -> list[_VectorCandidateRow]:
+    return sorted(rows, key=lambda row: (float(row.cosine_distance), row.id))
+
+
 def _proposal_record(proposal: CardProposal) -> CardProposalRecord:
     return CardProposalRecord(
         id=proposal.id,
@@ -150,14 +164,15 @@ class KnowledgeRepo:
         query_embedding: list[float],
         limit: int,
     ) -> list[VectorSearchCandidate]:
-        cosine_distance = Node.embedding.cosine_distance(query_embedding)
+        cosine_distance = Node.embedding.cosine_distance(query_embedding).label("cosine_distance")
         statement = (
-            select(Node.id, Node.current_version, Node.title, Node.content)
+            select(Node.id, Node.current_version, Node.title, Node.content, cosine_distance)
             .where(Node.lifecycle_state == "active")
             .order_by(cosine_distance.asc(), Node.id.asc())
             .limit(limit)
         )
         rows = (await self._session.execute(statement)).all()
+        ranked_rows = _rerank_vector_candidate_rows(rows)
         return [
             VectorSearchCandidate(
                 node_id=row.id,
@@ -166,7 +181,7 @@ class KnowledgeRepo:
                 content=row.content,
                 vector_rank=index,
             )
-            for index, row in enumerate(rows, start=1)
+            for index, row in enumerate(ranked_rows, start=1)
         ]
 
     async def search_lexical_candidates(

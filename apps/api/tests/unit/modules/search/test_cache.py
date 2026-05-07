@@ -62,22 +62,44 @@ def test_normalize_search_query_collapses_whitespace_and_case_folds() -> None:
 def test_search_response_cache_key_uses_normalized_hashed_inputs() -> None:
     first = search_response_cache_key(
         query="  Graph  VIEW ",
+        embedding_model="text-embedding-3-small",
         max_matched=3,
         max_connected=5,
+        vector_candidate_pool_size=64,
     )
     second = search_response_cache_key(
         query="graph view",
+        embedding_model="text-embedding-3-small",
         max_matched=3,
         max_connected=5,
+        vector_candidate_pool_size=64,
     )
     changed_limit = search_response_cache_key(
         query="graph view",
+        embedding_model="text-embedding-3-small",
         max_matched=4,
         max_connected=5,
+        vector_candidate_pool_size=64,
+    )
+    changed_model = search_response_cache_key(
+        query="graph view",
+        embedding_model="text-embedding-3-large",
+        max_matched=3,
+        max_connected=5,
+        vector_candidate_pool_size=64,
+    )
+    changed_pool = search_response_cache_key(
+        query="graph view",
+        embedding_model="text-embedding-3-small",
+        max_matched=3,
+        max_connected=5,
+        vector_candidate_pool_size=32,
     )
 
     assert first == second
     assert first != changed_limit
+    assert first != changed_model
+    assert first != changed_pool
     assert first.startswith(
         f"knowledge:api:search-response:{SEARCH_RESPONSE_CACHE_SCHEMA_VERSION}:"
     )
@@ -116,11 +138,19 @@ async def test_search_response_cache_stores_and_reads_validated_payload() -> Non
 
     await cache.set(
         query="Graph View",
+        embedding_model="text-embedding-3-small",
         max_matched=3,
         max_connected=5,
+        vector_candidate_pool_size=64,
         response=response,
     )
-    cached = await cache.get(query="graph view", max_matched=3, max_connected=5)
+    cached = await cache.get(
+        query="graph view",
+        embedding_model="text-embedding-3-small",
+        max_matched=3,
+        max_connected=5,
+        vector_candidate_pool_size=64,
+    )
 
     assert cached == response
     assert redis.set_calls[0][2] == 60

@@ -95,6 +95,7 @@ def get_search_service(
         embedding_client=embedding_client,
         max_matched=settings.search_max_matched,
         max_connected=settings.search_max_connected,
+        vector_candidate_pool_size=settings.search_vector_candidate_pool_size,
         response_cache=SearchRedisResponseCache(
             redis=cast(RedisJsonProtocol, Redis.from_url(settings.redis_url)),
             ttl_seconds=settings.search_response_cache_ttl_seconds,

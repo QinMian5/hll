@@ -58,10 +58,23 @@ def test_nodes_search_vector_baseline_generates_values_and_index() -> None:
                     """
                 )
             ).scalar_one()
+            embedding_index_definition = connection.execute(
+                text(
+                    """
+                    SELECT indexdef
+                    FROM pg_indexes
+                    WHERE schemaname = 'public'
+                      AND tablename = 'nodes'
+                      AND indexname = 'ix_nodes_embedding_hnsw_cosine'
+                    """
+                )
+            ).scalar_one()
 
             assert "'hybrid'" in search_vector_text
             assert "'retriev'" in search_vector_text
             assert "USING gin" in index_definition
+            assert "USING hnsw" in embedding_index_definition
+            assert "vector_cosine_ops" in embedding_index_definition
     finally:
         if node_id is not None:
             with engine.begin() as connection:

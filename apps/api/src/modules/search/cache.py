@@ -17,7 +17,7 @@ from shared.cache import JsonRedisCache, RedisJsonProtocol
 
 SEARCH_RESPONSE_CACHE_SCHEMA_VERSION = "v1"
 SEARCH_EMBEDDING_CACHE_SCHEMA_VERSION = "v1"
-SEARCH_ALGORITHM_VERSION = "hybrid-rrf-title-boost-v1"
+SEARCH_ALGORITHM_VERSION = "hybrid-rrf-title-boost-ann-pool-v2"
 
 
 class SearchResponseCachePort(Protocol):
@@ -25,16 +25,20 @@ class SearchResponseCachePort(Protocol):
         self,
         *,
         query: str,
+        embedding_model: str,
         max_matched: int,
         max_connected: int,
+        vector_candidate_pool_size: int,
     ) -> SearchResponse | None: ...
 
     async def set(
         self,
         *,
         query: str,
+        embedding_model: str,
         max_matched: int,
         max_connected: int,
+        vector_candidate_pool_size: int,
         response: SearchResponse,
     ) -> None: ...
 
@@ -58,15 +62,19 @@ def normalize_search_query(query: str) -> str:
 def search_response_cache_key(
     *,
     query: str,
+    embedding_model: str,
     max_matched: int,
     max_connected: int,
+    vector_candidate_pool_size: int,
 ) -> str:
     digest = _stable_digest(
         {
             "query": normalize_search_query(query),
+            "embedding_model": embedding_model,
             "search_algorithm_version": SEARCH_ALGORITHM_VERSION,
             "max_matched": max_matched,
             "max_connected": max_connected,
+            "vector_candidate_pool_size": vector_candidate_pool_size,
         }
     )
     return f"knowledge:api:search-response:{SEARCH_RESPONSE_CACHE_SCHEMA_VERSION}:{digest}"
@@ -94,14 +102,18 @@ class SearchRedisResponseCache:
         self,
         *,
         query: str,
+        embedding_model: str,
         max_matched: int,
         max_connected: int,
+        vector_candidate_pool_size: int,
     ) -> SearchResponse | None:
         return await self._cache.get_model(
             key=search_response_cache_key(
                 query=query,
+                embedding_model=embedding_model,
                 max_matched=max_matched,
                 max_connected=max_connected,
+                vector_candidate_pool_size=vector_candidate_pool_size,
             ),
             model_type=SearchResponse,
         )
@@ -110,15 +122,19 @@ class SearchRedisResponseCache:
         self,
         *,
         query: str,
+        embedding_model: str,
         max_matched: int,
         max_connected: int,
+        vector_candidate_pool_size: int,
         response: SearchResponse,
     ) -> None:
         await self._cache.set_model(
             key=search_response_cache_key(
                 query=query,
+                embedding_model=embedding_model,
                 max_matched=max_matched,
                 max_connected=max_connected,
+                vector_candidate_pool_size=vector_candidate_pool_size,
             ),
             value=response,
             ttl_seconds=self._ttl_seconds,

@@ -49,6 +49,8 @@ class _StubRepo:
     lexical_candidates: list[LexicalSearchCandidate] | None = None
     title_mention_candidates: list[SimilarNodeCandidate] | None = None
     semantic_candidates: list[SimilarNodeCandidate] | None = None
+    vector_candidate_limits: list[int] = field(default_factory=list)
+    lexical_candidate_limits: list[int] = field(default_factory=list)
     title_mention_limits: list[int] = field(default_factory=list)
     semantic_candidate_limits: list[int] = field(default_factory=list)
     semantic_excluded_node_ids: list[list[int]] = field(default_factory=list)
@@ -78,7 +80,7 @@ class _StubRepo:
         limit: int,
     ) -> list[VectorSearchCandidate]:
         assert query_embedding
-        assert limit == 5
+        self.vector_candidate_limits.append(limit)
         assert self.vector_candidates is not None
         return self.vector_candidates
 
@@ -89,7 +91,7 @@ class _StubRepo:
         limit: int,
     ) -> list[LexicalSearchCandidate]:
         assert query_text == "quantum mechanics"
-        assert limit == 5
+        self.lexical_candidate_limits.append(limit)
         assert self.lexical_candidates is not None
         return self.lexical_candidates
 
@@ -609,6 +611,52 @@ class _StubTaxonomyProjectionPort:
 
 @pytest.mark.anyio
 async def test_search_searchable_cards_returns_records_with_node_id_title_content() -> None:
+    repo = _StubRepo(
+        vector_candidates=[
+            VectorSearchCandidate(
+                node_id=1,
+                current_version=1,
+                title="Card A",
+                content="Alpha",
+                vector_rank=1,
+            ),
+            VectorSearchCandidate(
+                node_id=2,
+                current_version=3,
+                title="Card B",
+                content="Beta",
+                vector_rank=2,
+            ),
+        ],
+        lexical_candidates=[],
+    )
+    service = KnowledgeGraphService(
+        repo=repo,
+        edge_title_mention_top_k=0,
+        edge_semantic_top_k=10,
+        edge_semantic_min_strength=0.5,
+        edge_semantic_candidate_limit=10,
+    )
+    result = await service.search_searchable_cards(
+        query_text="quantum mechanics",
+        query_embedding=[0.1] * 8,
+        limit=5,
+        vector_candidate_limit=64,
+    )
+
+    records = result.matches
+    assert result.vector_candidate_count == 2
+    assert repo.vector_candidate_limits == [64]
+    assert repo.lexical_candidate_limits == [5]
+    assert len(records) == 2
+    assert records[0].node_id == 1
+    assert records[0].current_version == 1
+    assert records[0].title == "Card A"
+    assert records[0].content == "Alpha"
+
+
+@pytest.mark.anyio
+async def test_search_searchable_cards_rejects_vector_candidate_limit_below_final_limit() -> None:
     service = KnowledgeGraphService(
         repo=_StubRepo(
             vector_candidates=[
@@ -634,17 +682,13 @@ async def test_search_searchable_cards_returns_records_with_node_id_title_conten
         edge_semantic_min_strength=0.5,
         edge_semantic_candidate_limit=10,
     )
-    records = await service.search_searchable_cards(
-        query_text="quantum mechanics",
-        query_embedding=[0.1] * 8,
-        limit=5,
-    )
-
-    assert len(records) == 2
-    assert records[0].node_id == 1
-    assert records[0].current_version == 1
-    assert records[0].title == "Card A"
-    assert records[0].content == "Alpha"
+    with pytest.raises(ValueError, match="vector_candidate_limit"):
+        await service.search_searchable_cards(
+            query_text="quantum mechanics",
+            query_embedding=[0.1] * 8,
+            limit=5,
+            vector_candidate_limit=4,
+        )
 
 
 @pytest.mark.anyio
@@ -716,13 +760,15 @@ async def test_search_searchable_cards_prioritizes_title_matches_over_content_on
         edge_semantic_candidate_limit=10,
     )
 
-    records = await service.search_searchable_cards(
+    result = await service.search_searchable_cards(
         query_text="quantum mechanics",
         query_embedding=[0.1] * 8,
         limit=5,
+        vector_candidate_limit=64,
     )
 
-    assert [record.node_id for record in records] == [1, 3, 2, 4]
+    assert [record.node_id for record in result.matches] == [1, 3, 2, 4]
+    assert result.vector_candidate_count == 3
 
 
 @pytest.mark.anyio
@@ -746,13 +792,15 @@ async def test_search_searchable_cards_preserves_vector_only_fallback() -> None:
         edge_semantic_candidate_limit=10,
     )
 
-    records = await service.search_searchable_cards(
+    result = await service.search_searchable_cards(
         query_text="quantum mechanics",
         query_embedding=[0.1] * 8,
         limit=5,
+        vector_candidate_limit=64,
     )
 
-    assert [record.node_id for record in records] == [8]
+    assert [record.node_id for record in result.matches] == [8]
+    assert result.vector_candidate_count == 1
 
 
 @pytest.mark.anyio
@@ -1189,6 +1237,45 @@ async def test_submit_edit_card_proposal_stores_unified_pending_payload() -> Non
 
 
 @pytest.mark.anyio
+async def test_submit_delete_card_proposal_stores_target_card_content() -> None:
+    repo = _ProposalRepo(
+        card_versions_by_key={
+            (10, 3): CardVersionSnapshot(
+                node_id=10,
+                version=3,
+                title="Physics",
+                content="Physics studies matter, motion, energy, and force.",
+            )
+        }
+    )
+    service = _proposal_service(repo)
+
+    record = await service.submit_card_proposal(
+        proposal_type="delete",
+        submitted_by_user_id="logto-user-123",
+        target_node_id=10,
+        base_version=3,
+        reason="Duplicate card.",
+    )
+
+    assert record.status == "pending_review"
+    assert repo.created_proposals == [
+        (
+            "delete",
+            "logto-user-123",
+            "Duplicate card.",
+            {
+                "target_node_id": 10,
+                "base_version": 3,
+                "target_title": "Physics",
+                "target_content": "Physics studies matter, motion, energy, and force.",
+            },
+        )
+    ]
+    assert repo.committed is True
+
+
+@pytest.mark.anyio
 async def test_submit_card_proposal_requires_common_reason() -> None:
     repo = _ProposalRepo(
         card_versions_by_key={
@@ -1312,7 +1399,12 @@ async def test_accept_delete_card_proposal_archives_node_and_records_outcome() -
                 submitted_by_user_id="contributor",
                 reviewed_by_user_id=None,
                 review_note=None,
-                payload={"target_node_id": 11, "base_version": 2},
+                payload={
+                    "target_node_id": 11,
+                    "base_version": 2,
+                    "target_title": "Physics",
+                    "target_content": "Duplicate physics card.",
+                },
                 created_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
                 updated_at=datetime(2026, 4, 28, 18, 0, tzinfo=UTC),
                 reviewed_at=None,

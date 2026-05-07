@@ -89,6 +89,9 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
   - Cache details are governed by `api-read-model-cache.md`.
 - Ranking:
   - query embedding retrieves semantic vector candidates from `Node.embedding`
+  - semantic vector retrieval uses the PostgreSQL pgvector HNSW cosine index declared on `Node.embedding`
+  - semantic vector retrieval fetches a bounded candidate pool before final result truncation
+  - the repository exact-reranks the returned vector candidate pool by cosine distance and node id before assigning vector ranks
   - PostgreSQL full-text search retrieves lexical candidates from weighted `Node.title` and `Node.content`
   - title text carries higher lexical weight than content text
   - fused ranking uses reciprocal-rank fusion over vector and lexical candidate ranks
@@ -97,7 +100,14 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
 - Limits:
   - `matched_cards` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_MATCHED`
   - `connected_titles` count is bounded by environment variable `KNOWLEDGE_API_SEARCH_MAX_CONNECTED`
+  - semantic vector candidate pool size is bounded by environment variable `KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE`
+  - semantic vector candidate pool size must be greater than or equal to `KNOWLEDGE_API_SEARCH_MAX_MATCHED`
+  - `KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE` is a required runtime setting owned by API settings, environment files, and Compose environment projection.
   - The web BFF exposes those same bounded result counts through browser runtime configuration so Search loading skeletons render the same number of placeholders as the configured maximum result counts.
+- Performance targets:
+  - common Search cold-cache probes should complete within `1-2` seconds when measured from the API container against a warmed application process and available dependencies
+  - Search response-cache hits should complete below `200` milliseconds when measured from the public web path
+  - runtime performance verification records measured timings and query plans as release evidence rather than changing the public response contract
 
 ### Workspace Proposal Endpoints
 - Private API endpoints support proposal creation, current-user proposal listing, reviewer pending-queue listing, withdrawal, rejection, and accept/apply.
@@ -267,14 +277,18 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
 - `job-queue-mcp` is required for taxonomy classification queue execution and result reads.
 - OpenAI Embeddings API is required for worker ingestion and search query embedding.
 - PostgreSQL full-text search is required for lexical card retrieval and ranking.
+- PostgreSQL pgvector HNSW indexing is required for bounded-latency semantic candidate retrieval.
 - PostgreSQL remains persistent source of truth.
 - Runtime configuration values are sourced from `.env` via `pydantic-settings`.
 - Edge initialization configuration is sourced from `KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K`, `KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K`, `KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH`, and `KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT`.
+- Search vector candidate-pool configuration is sourced from `KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE`.
 
 ## Failure Handling
 - Invalid request payloads are client-visible as `4xx`.
 - Enqueue/worker/embedding/materialization failures for ingestion remain internal-only for endpoint behavior.
 - Internal failures must be logged with correlation/debug-friendly fields.
+- Search requests log stage timing fields for cache lookup, embedding lookup/provider calls, vector candidate retrieval, lexical retrieval, connected-title retrieval, cache writes, and total request time without logging raw query text.
+- Search requests log configured vector candidate pool size and actual retrieved vector candidate count.
 - Taxonomy view endpoints expose backend-owned card-scope layout coordinates only through the viewport-bounded card-scope layout endpoint.
 - Taxonomy classification workers do not write knowledge APIs or databases.
 - Taxonomy classification result processing moves assignments only after local validation against current taxonomy truth.
@@ -306,7 +320,13 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
   - `GET /api/v1/search` contract checks
   - search ranking checks verifying exact-title and title-token lexical matches rank ahead of content-only matches
   - search ranking checks verifying semantic vector candidates remain eligible when lexical matches are absent
+  - search ranking checks verifying vector candidate pools are exact-reranked before reciprocal-rank fusion
   - search ranking checks verifying reciprocal-rank fusion produces deterministic ordering and tie-breaking
+  - search configuration checks verifying `KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE` cannot be lower than `KNOWLEDGE_API_SEARCH_MAX_MATCHED`
+  - environment and Compose checks verifying `KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE` is projected as a required API runtime setting
+  - search persistence checks verifying the `Node.embedding` HNSW cosine index is represented in SQLAlchemy metadata and Alembic schema projection
+  - search observability checks verifying Search timing logs include stage durations and avoid raw query text
+  - runtime performance checks verifying common cold-cache Search probes meet the `1-2` second target and response-cache hits meet the sub-`200` millisecond target in the selected deployment environment
   - Workspace proposal creation contract checks
   - Workspace proposal checks verifying valid create/edit submissions create pending proposals
   - Workspace proposal checks verifying unknown base versions, empty proposed values, and no-op edit proposals are rejected

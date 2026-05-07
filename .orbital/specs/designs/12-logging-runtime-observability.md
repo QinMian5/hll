@@ -21,7 +21,8 @@ out_of_scope: Request correlation identifiers, global error-governance refactor,
 - Runtime logs must persist to one rotating file.
 - Logging initialization must be centralized and deterministic per process.
 - Non-entrypoint modules must consume logger instances without performing logging setup.
-- The design must keep extension points open without introducing additional logging frameworks in this round.
+- Search runtime logs must expose stage timing fields that identify cache, embedding, retrieval, connected-title, cache-write, and total request latency without logging raw query text.
+- The design keeps extension points open without introducing additional logging frameworks.
 
 ## Logging Module Contract
 - `apps/api/src/core/logging.py` is the single logging-infrastructure module.
@@ -62,7 +63,7 @@ out_of_scope: Request correlation identifiers, global error-governance refactor,
   - `KNOWLEDGE_API_LOG_LEVEL=INFO`
   - `KNOWLEDGE_API_LOG_FILE_MAX_BYTES=10485760` (10MB)
   - `KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT=5`
-- `LOG_NAMESPACE_ROOT` is not required in this round.
+- `LOG_NAMESPACE_ROOT` is outside the logging baseline.
 - This round does not add request-correlation-specific configuration.
 
 ## Entrypoint Ownership
@@ -81,13 +82,20 @@ out_of_scope: Request correlation identifiers, global error-governance refactor,
 - Silent fallback behavior for failed handler setup is forbidden.
 - Runtime continues only after successful logging initialization.
 
-## Error and Request-ID Boundary for This Round
-- This round does not introduce a new request-ID module.
-- This round does not expand global error-governance contracts.
-- Existing error contracts may continue to emit current fields, but logging work in this round must not depend on new request-correlation mechanisms.
+## Error and Request-ID Boundary
+- The logging baseline does not define a request-ID module.
+- The logging baseline does not expand global error-governance contracts.
+- Existing error contracts may continue to emit current fields, but logging behavior must not depend on request-correlation mechanisms.
 - Error logs must remain debug-usable through semantic fields such as `event`, `error_code` (when present), and `exception_class`.
 
-## Deferred to Later Phases
+## Search Performance Timing Logs
+- Search timing logs are emitted by the API runtime at the Search orchestration and knowledge-graph retrieval boundaries.
+- Timing fields use milliseconds and include cache lookup, embedding lookup/provider calls, vector candidate retrieval, lexical retrieval, connected-title retrieval, cache writes, and total request time.
+- Search timing logs include normalized-query hash, cache-hit flags, configured result limits, vector candidate pool size, actual retrieved vector candidate count, result counts, and status.
+- Search timing logs exclude raw query text, raw embeddings, card content, card titles, user identifiers, and session identifiers.
+- Search timing logs remain text-formatted through the existing handler topology.
+
+## Out of Scope
 - Dedicated per-namespace files.
 - Remote log shipping backends.
 - JSON structured logging.

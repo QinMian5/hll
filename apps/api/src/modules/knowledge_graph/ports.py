@@ -8,10 +8,10 @@ from __future__ import annotations
 from typing import Protocol
 
 from modules.knowledge_graph.dto import (
-    KnowledgeCardMatch,
     ProjectionCardNode,
     ProjectionCardTitle,
     ProjectionEdge,
+    SearchableCardResult,
     TaxonomyClassificationNodeInput,
 )
 
@@ -23,7 +23,8 @@ class KnowledgeGraphReadPort(Protocol):
         query_text: str,
         query_embedding: list[float],
         limit: int,
-    ) -> list[KnowledgeCardMatch]: ...
+        vector_candidate_limit: int,
+    ) -> SearchableCardResult: ...
 
     async def get_connected_titles(
         self,

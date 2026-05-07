@@ -42,7 +42,7 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 
 ### Search Response Cache
 - Caches final `SearchResponse` payloads for `GET /api/v1/search`.
-- Cache key inputs include normalized query text, `search_algorithm_version`, `search_max_matched`, `search_max_connected`, and response cache schema version.
+- Cache key inputs include normalized query text, embedding model, `search_algorithm_version`, `search_max_matched`, `search_max_connected`, semantic vector candidate pool size, and response cache schema version.
 - Normalized query text is derived by trimming, collapsing whitespace, and case-folding the submitted query.
 - Cache key stores a hash of normalized inputs rather than raw query text.
 - TTL is configured by `KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS` and defaults to `60` seconds.
@@ -140,7 +140,8 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 - Search cache tests verify embedding cache hits bypass the embedding provider while preserving hybrid retrieval behavior.
 - Search cache tests verify cache misses write response and embedding entries with configured TTLs.
 - Search cache tests verify malformed cached payloads and Redis failures fall back to authoritative read flow.
-- Search key tests verify normalized query, limits, embedding model, and algorithm/cache versions affect keys as specified.
+- Search key tests verify normalized query, embedding model, limits, semantic vector candidate pool size, and algorithm/cache versions affect response keys as specified.
+- Search key tests verify semantic vector candidate pool size affects response cache keys.
 - Taxonomy cache tests verify root, branch node, and branch path view cache hits return validated payloads.
 - Taxonomy cache tests verify miss, malformed payload, and Redis failure behavior.
 - Taxonomy service and repository tests verify missing durable full card-scope layout read models return `503 layout_not_ready` with `Retry-After` and register at most one compute request for concurrent callers.

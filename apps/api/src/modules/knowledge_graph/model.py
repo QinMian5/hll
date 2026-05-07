@@ -87,6 +87,13 @@ class Node(Base):
             name="lifecycle_state",
         ),
         Index("ix_nodes_search_vector", "search_vector", postgresql_using="gin"),
+        Index(
+            "ix_nodes_embedding_hnsw_cosine",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+            postgresql_with={"m": 16, "ef_construction": 64},
+        ),
     )
 
 

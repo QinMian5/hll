@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     embedding_timeout_seconds: float = Field(gt=0)
     search_max_matched: int = Field(ge=1)
     search_max_connected: int = Field(ge=1)
+    search_vector_candidate_pool_size: int = Field(ge=1)
     search_response_cache_ttl_seconds: int = Field(ge=1)
     search_embedding_cache_ttl_seconds: int = Field(ge=1)
     taxonomy_view_cache_ttl_seconds: int = Field(ge=1)
@@ -46,7 +47,12 @@ class Settings(BaseSettings):
     taxonomy_classification_max_workers: int = Field(ge=1)
 
     @model_validator(mode="after")
-    def validate_edge_initialization_settings(self) -> Self:
+    def validate_runtime_settings(self) -> Self:
+        if self.search_vector_candidate_pool_size < self.search_max_matched:
+            raise ValueError(
+                "search_vector_candidate_pool_size must be greater than or equal to "
+                "search_max_matched."
+            )
         if self.edge_semantic_candidate_limit < self.edge_semantic_top_k:
             raise ValueError(
                 "edge_semantic_candidate_limit must be greater than or equal to "

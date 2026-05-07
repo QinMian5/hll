@@ -58,13 +58,14 @@ async def test_hybrid_search_exact_title_ranks_ahead_of_content_only_match(
         embedding=_embedding(0.9, 0.1),
     )
 
-    matches = await _service(db_session).search_searchable_cards(
+    result = await _service(db_session).search_searchable_cards(
         query_text="quantum mechanics",
         query_embedding=_embedding(1.0, 0.0),
         limit=2,
+        vector_candidate_limit=8,
     )
 
-    assert [match.node_id for match in matches] == [exact_title.id, content_only.id]
+    assert [match.node_id for match in result.matches] == [exact_title.id, content_only.id]
 
 
 async def test_hybrid_search_title_tokens_rank_ahead_of_content_only_match(
@@ -83,13 +84,14 @@ async def test_hybrid_search_title_tokens_rank_ahead_of_content_only_match(
         embedding=_embedding(0.9, 0.1),
     )
 
-    matches = await _service(db_session).search_searchable_cards(
+    result = await _service(db_session).search_searchable_cards(
         query_text="quantum mechanics",
         query_embedding=_embedding(1.0, 0.0),
         limit=2,
+        vector_candidate_limit=8,
     )
 
-    assert [match.node_id for match in matches] == [token_title.id, content_only.id]
+    assert [match.node_id for match in result.matches] == [token_title.id, content_only.id]
 
 
 async def test_hybrid_search_keeps_vector_only_candidate_when_lexical_has_no_match(
@@ -102,10 +104,12 @@ async def test_hybrid_search_keeps_vector_only_candidate_when_lexical_has_no_mat
         embedding=_embedding(1.0, 0.0),
     )
 
-    matches = await _service(db_session).search_searchable_cards(
+    result = await _service(db_session).search_searchable_cards(
         query_text="nonexistentlexicalterm",
         query_embedding=_embedding(1.0, 0.0),
         limit=1,
+        vector_candidate_limit=8,
     )
 
-    assert [match.node_id for match in matches] == [semantic_match.id]
+    assert [match.node_id for match in result.matches] == [semantic_match.id]
+    assert result.vector_candidate_count >= 1

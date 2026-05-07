@@ -19,6 +19,7 @@ RUNTIME_REQUIRED_ENV = {
     "KNOWLEDGE_API_EMBEDDING_TIMEOUT_SECONDS": "10",
     "KNOWLEDGE_API_SEARCH_MAX_MATCHED": "3",
     "KNOWLEDGE_API_SEARCH_MAX_CONNECTED": "7",
+    "KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE": "64",
     "KNOWLEDGE_API_EDGE_TITLE_MENTION_TOP_K": "2",
     "KNOWLEDGE_API_EDGE_SEMANTIC_TOP_K": "4",
     "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH": "0.61",
@@ -150,6 +151,33 @@ def test_load_settings_rejects_semantic_candidate_limit_below_semantic_top_k(
         },
     )
     with pytest.raises(ValidationError, match="edge_semantic_candidate_limit"):
+        config_module.Settings()
+
+
+def test_load_settings_reads_search_vector_candidate_pool_size_from_environment(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        RUNTIME_REQUIRED_ENV
+        | {"KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE": "32"},
+    )
+    settings = config_module.Settings()
+    assert settings.search_vector_candidate_pool_size == 32
+
+
+def test_load_settings_rejects_search_vector_candidate_pool_below_max_matched(
+    isolated_env: pytest.MonkeyPatch,
+) -> None:
+    _set_env(
+        isolated_env,
+        RUNTIME_REQUIRED_ENV
+        | {
+            "KNOWLEDGE_API_SEARCH_MAX_MATCHED": "6",
+            "KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE": "5",
+        },
+    )
+    with pytest.raises(ValidationError, match="search_vector_candidate_pool_size"):
         config_module.Settings()
 
 

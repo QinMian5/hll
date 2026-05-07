@@ -20,6 +20,7 @@ from modules.knowledge_graph.dto import (
     ProjectionCardNode,
     ProjectionCardTitle,
     ProjectionEdge,
+    SearchableCardResult,
     SimilarNodeCandidate,
     TaxonomyClassificationNodeInput,
     VectorSearchCandidate,
@@ -317,13 +318,16 @@ class KnowledgeGraphService:
         query_text: str,
         query_embedding: list[float],
         limit: int,
-    ) -> list[KnowledgeCardMatch]:
+        vector_candidate_limit: int,
+    ) -> SearchableCardResult:
         if limit <= 0:
-            return []
+            return SearchableCardResult(matches=[], vector_candidate_count=0)
+        if vector_candidate_limit < limit:
+            raise ValueError("vector_candidate_limit must be greater than or equal to limit.")
 
         vector_candidates = await self._repo.search_vector_candidates(
             query_embedding=query_embedding,
-            limit=limit,
+            limit=vector_candidate_limit,
         )
         lexical_candidates = await self._repo.search_lexical_candidates(
             query_text=query_text,
@@ -380,7 +384,10 @@ class KnowledgeGraphService:
                 match.node_id,
             )
 
-        return sorted(matches_by_node_id.values(), key=sort_key)[:limit]
+        return SearchableCardResult(
+            matches=sorted(matches_by_node_id.values(), key=sort_key)[:limit],
+            vector_candidate_count=len(vector_candidates),
+        )
 
     async def get_connected_titles(
         self,
@@ -672,6 +679,8 @@ class KnowledgeGraphService:
             return {
                 "target_node_id": target_node_id,
                 "base_version": base_version,
+                "target_title": base.title,
+                "target_content": base.content,
             }
 
         raise CardProposalValidationError("Unsupported proposal type.")

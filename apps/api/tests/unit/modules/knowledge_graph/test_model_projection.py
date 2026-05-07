@@ -53,6 +53,21 @@ def test_nodes_projection_contains_weighted_search_vector() -> None:
     assert indexes_by_name["ix_nodes_search_vector"].dialect_options["postgresql"]["using"] == "gin"
 
 
+def test_nodes_projection_contains_hnsw_cosine_embedding_index() -> None:
+    table = cast(Table, Node.__table__)
+    indexes_by_name = {index.name: index for index in table.indexes}
+
+    index = indexes_by_name["ix_nodes_embedding_hnsw_cosine"]
+    assert index.dialect_options["postgresql"]["using"] == "hnsw"
+    assert index.dialect_options["postgresql"]["ops"] == {
+        "embedding": "vector_cosine_ops",
+    }
+    assert index.dialect_options["postgresql"]["with"] == {
+        "m": 16,
+        "ef_construction": 64,
+    }
+
+
 def test_nodes_current_version_is_required_positive_integer() -> None:
     table = cast(Table, Node.__table__)
     current_version = table.c.current_version

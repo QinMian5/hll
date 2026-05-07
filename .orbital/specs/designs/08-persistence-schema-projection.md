@@ -56,10 +56,14 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `current_version`: non-null integer, server default `1`.
 - `embedding`: non-null `Vector(1536)`.
 - `lifecycle_state`: non-null text identifying active or archived card state.
+- `search_vector`: non-null persisted weighted PostgreSQL full-text search vector derived from title and content.
 - `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
 - `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
 - Required constraints:
   - `current_version >= 1`
+- Required indexes:
+  - GIN index on `search_vector`.
+  - HNSW index on `embedding` using the pgvector cosine-distance operator class.
 
 ### Card Versions
 - `id`: integer primary key.
@@ -103,6 +107,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `reviewed_by_user_id`: nullable text containing the reviewer Logto user id.
 - `review_note`: nullable text.
 - `payload`: non-null structured proposal payload.
+- `payload` for delete proposals carries target node id, base version, target title, and target content from the referenced formal card version.
 - `created_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`.
 - `updated_at`: non-null timestamp with timezone, server default `CURRENT_TIMESTAMP`, auto-refreshed on row update.
 - `reviewed_at`: nullable timestamp with timezone.

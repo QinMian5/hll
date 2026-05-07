@@ -25,6 +25,13 @@ class KnowledgeCardMatch(BaseModel):
     content: NonEmptyString
 
 
+class SearchableCardResult(BaseModel):
+    model_config = ConfigDict(frozen=True, strict=True)
+
+    matches: list[KnowledgeCardMatch]
+    vector_candidate_count: int = Field(ge=0)
+
+
 class VectorSearchCandidate(BaseModel):
     model_config = ConfigDict(frozen=True, strict=True)
 

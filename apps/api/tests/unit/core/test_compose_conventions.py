@@ -475,9 +475,9 @@ def test_base_api_service_passes_taxonomy_view_cache_ttl_env_contract() -> None:
     environment = api["environment"]
 
     assert isinstance(environment, dict)
+    assert "KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE" in environment
     assert "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS" in environment
     assert "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS" in environment
-    assert "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS" in environment
     assert "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS" in environment
 
 
@@ -486,6 +486,7 @@ def test_base_worker_service_passes_required_cache_ttl_env_contract() -> None:
     environment = worker["environment"]
 
     assert isinstance(environment, dict)
+    assert "KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE" in environment
     assert "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS" in environment
     assert "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS" in environment
 
