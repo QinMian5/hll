@@ -161,7 +161,7 @@ describe("AppShell", () => {
       "data-nav-state",
       "inactive",
     );
-    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "MCP Setup" })).toHaveAttribute(
       "data-nav-state",
       "inactive",
     );
@@ -233,7 +233,7 @@ describe("AppShell", () => {
       "href",
       "/search",
     );
-    expect(screen.getByRole("link", { name: "Docs" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "MCP Setup" })).toHaveAttribute(
       "href",
       "/docs",
     );
@@ -360,7 +360,7 @@ describe("AppShell", () => {
       screen
         .getByTestId("app-shell-mobile-drawer")
         .querySelector('a[href="/docs"]'),
-    ).toHaveTextContent("Docs");
+    ).toHaveTextContent("MCP Setup");
     expect(
       screen
         .getByTestId("app-shell-mobile-drawer")

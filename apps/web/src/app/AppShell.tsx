@@ -53,7 +53,7 @@ const navItems: readonly NavItem[] = [
   { icon: House, label: "Overview", to: "/overview" },
   { icon: Network, label: "Graph View", to: "/graph" },
   { icon: SearchIcon, label: "Search", to: "/search" },
-  { icon: BookOpen, label: "Docs", to: "/docs" },
+  { icon: BookOpen, label: "MCP Setup", to: "/docs" },
 ];
 
 const accountMenuItems: readonly AccountMenuLinkItem[] = [
