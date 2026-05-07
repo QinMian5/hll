@@ -96,10 +96,23 @@ describe("buildLeafSceneModelBase", () => {
     expect(
       scene.highlightEdgesByNodeId.get(10)?.map((edge) => edge.id),
     ).toEqual(["10:11"]);
-    expect([
-      ...((scene.focusNodeIdsByNodeId.get(11) as ReadonlySet<number>) ??
-        new Set()),
-    ]).toEqual([11, 10, 12]);
+    const focusNodeIds = scene.focusNodeIdsByNodeId.get(11);
+
+    expect(focusNodeIds).toBeDefined();
+    expect([...(focusNodeIds as ReadonlySet<number>)]).toEqual([11, 10, 12]);
+  });
+
+  it("precomputes empty edge and self-focus entries for isolated point nodes", () => {
+    const scene = buildLeafSceneModelBase({
+      edges: [[10, 11, 0.8]],
+      layoutNodes: makeLayoutNodes(),
+    });
+
+    const focusNodeIds = scene.focusNodeIdsByNodeId.get(12);
+
+    expect(scene.highlightEdgesByNodeId.get(12)).toEqual([]);
+    expect(focusNodeIds).toBeDefined();
+    expect([...(focusNodeIds as ReadonlySet<number>)]).toEqual([12]);
   });
 });
 

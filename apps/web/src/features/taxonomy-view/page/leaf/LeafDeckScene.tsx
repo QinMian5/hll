@@ -70,6 +70,10 @@ const TITLE_LABEL_FONT_SETTINGS = {
   sdf: true,
   smoothing: 0.1,
 } as const;
+const TITLE_LABEL_INNER_DIM_RATIO =
+  LEAF_POINT_DIMMED_OPACITY / LEAF_POINT_INNER_OPACITY;
+const TITLE_LABEL_OUTER_DIM_RATIO =
+  LEAF_POINT_DIMMED_OPACITY / LEAF_POINT_OUTER_OPACITY;
 
 const leafView = new OrthographicView({
   controller: true,
@@ -134,17 +138,32 @@ export function LeafDeckScene({
   );
   const highlightedEdges = useMemo(
     () =>
-      activeFocusNodeId
-        ? (scene.highlightEdgesByNodeId.get(activeFocusNodeId) ?? [])
-        : [],
+      activeFocusNodeId === null
+        ? []
+        : (scene.highlightEdgesByNodeId.get(activeFocusNodeId) ?? []),
     [activeFocusNodeId, scene.highlightEdgesByNodeId],
   );
-  const focusNodeIds = useMemo(
-    () =>
-      activeFocusNodeId
-        ? (scene.focusNodeIdsByNodeId.get(activeFocusNodeId) ?? null)
-        : null,
-    [activeFocusNodeId, scene.focusNodeIdsByNodeId],
+  const focusNodeIds = useMemo(() => {
+    if (activeFocusNodeId === null) {
+      return undefined;
+    }
+
+    return scene.focusNodeIdsByNodeId.get(activeFocusNodeId);
+  }, [activeFocusNodeId, scene.focusNodeIdsByNodeId]);
+  const getTitleLabelColor = useCallback(
+    (label: LeafSceneTitleLabelNode) => {
+      if (!focusNodeIds || focusNodeIds.has(label.graphNodeId)) {
+        return [38, 52, 77, titleLabelAlpha] as const;
+      }
+
+      const dimRatio =
+        label.scope === "inner"
+          ? TITLE_LABEL_INNER_DIM_RATIO
+          : TITLE_LABEL_OUTER_DIM_RATIO;
+
+      return [38, 52, 77, Math.round(titleLabelAlpha * dimRatio)] as const;
+    },
+    [focusNodeIds, titleLabelAlpha],
   );
   const visibleTitleLabelNodes = useMemo(() => {
     if (titleLabelOpacity <= 0) {
@@ -240,7 +259,7 @@ export function LeafDeckScene({
         fontSettings: TITLE_LABEL_FONT_SETTINGS,
         fontWeight: LEAF_TITLE_LABEL_FONT_WEIGHT,
         getAlignmentBaseline: "top",
-        getColor: [38, 52, 77, titleLabelAlpha],
+        getColor: getTitleLabelColor,
         getPixelOffset: [0, LEAF_TITLE_LABEL_PIXEL_OFFSET_Y],
         getPosition: (label) => [label.position.x, label.position.y],
         getSize: LEAF_TITLE_LABEL_FONT_SIZE_PX,
@@ -264,7 +283,7 @@ export function LeafDeckScene({
       onPointHover,
       scene.edges,
       scene.pointNodes,
-      titleLabelAlpha,
+      getTitleLabelColor,
       visibleTitleLabelNodes,
     ],
   );

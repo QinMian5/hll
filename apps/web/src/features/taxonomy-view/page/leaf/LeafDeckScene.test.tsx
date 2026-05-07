@@ -118,9 +118,21 @@ function makeScene(): LeafSceneModel {
       [11, new Set(["10:11"])],
     ]),
     edges: [edge],
-    focusNodeIdsByNodeId: new Map([[10, new Set([10, 11])]]),
-    highlightEdgesByNodeId: new Map([[10, [edge]]]),
-    neighborNodeIdsByNodeId: new Map([[10, new Set([11])]]),
+    focusNodeIdsByNodeId: new Map([
+      [10, new Set([10, 11])],
+      [11, new Set([11, 10])],
+      [12, new Set([12])],
+    ]),
+    highlightEdgesByNodeId: new Map([
+      [10, [edge]],
+      [11, [edge]],
+      [12, []],
+    ]),
+    neighborNodeIdsByNodeId: new Map([
+      [10, new Set([11])],
+      [11, new Set([10])],
+      [12, new Set()],
+    ]),
     pointNodes: [
       {
         graphNodeId: 10,
@@ -198,6 +210,17 @@ function renderScene(options: {
 
 function findLayer(id: string) {
   return layerTestState.createdLayers.find((layer) => layer.props.id === id);
+}
+
+function getTitleLabelColor(
+  layer: ReturnType<typeof findLayer>,
+  label: LeafSceneTitleLabelNode,
+) {
+  const getColor = layer?.props.getColor;
+
+  return typeof getColor === "function"
+    ? (getColor as (label: LeafSceneTitleLabelNode) => readonly number[])(label)
+    : getColor;
 }
 
 describe("LeafDeckScene", () => {
@@ -320,11 +343,12 @@ describe("LeafDeckScene", () => {
     });
     expect(titleLayer?.props.getSize).toBe(24);
     expect(titleLayer?.props.maxWidth).toBe(16);
-    expect(titleLayer?.props.getColor).toEqual([38, 52, 77, 232]);
-
     const labels = titleLayer?.props.data as readonly LeafSceneTitleLabelNode[];
 
     expect(labels.map((label) => label.graphNodeId)).toEqual([10]);
+    expect(getTitleLabelColor(titleLayer, labels[0])).toEqual([
+      38, 52, 77, 232,
+    ]);
     expect(
       (titleLayer?.props.getText as (label: LeafSceneTitleLabelNode) => string)(
         labels[0],
@@ -353,8 +377,11 @@ describe("LeafDeckScene", () => {
     const titleLayer = layerTestState.createdLayers.find(
       (layer) => layer.type === "TextLayer",
     );
+    const labels = titleLayer?.props.data as readonly LeafSceneTitleLabelNode[];
 
-    expect(titleLayer?.props.getColor).toEqual([38, 52, 77, 116]);
+    expect(getTitleLabelColor(titleLayer, labels[0])).toEqual([
+      38, 52, 77, 116,
+    ]);
   });
 
   it("uses opacity-only point focus with world-sized points and fixed-width pixel edges", () => {
@@ -399,6 +426,70 @@ describe("LeafDeckScene", () => {
     expect(getFillColor?.(unrelatedPointNode as LeafScenePointNode)).toEqual([
       120, 163, 243, 71,
     ]);
+  });
+
+  it("applies the point focus dimming semantics to titles, including isolated active points", () => {
+    const scene = {
+      ...makeScene(),
+      titleLabelNodes: [
+        ...makeScene().titleLabelNodes,
+        {
+          graphNodeId: 12,
+          id: "leaf-12",
+          position: { x: 50, y: 60 },
+          scope: "outer" as const,
+          title: "Isolated title",
+        },
+      ],
+    };
+
+    render(
+      <LeafDeckScene
+        activeFocusNodeId={12}
+        disclosure={null}
+        hiddenLabelNodeId={null}
+        hoveredPointNodeId={null}
+        initialViewport={{
+          target: [0, 0, 0],
+          zoom: LEAF_POINT_TITLE_FADE_END_ZOOM,
+        }}
+        isPointHoverEnabled={true}
+        onCanvasClick={vi.fn()}
+        onPointClick={vi.fn()}
+        onPointHover={vi.fn()}
+        onViewportChange={vi.fn()}
+        scene={scene}
+      />,
+    );
+
+    const pointLayer = findLayer("taxonomy-leaf-points");
+    const titleLayer = findLayer("taxonomy-leaf-title-labels");
+    const pointNodes = pointLayer?.props.data as
+      | readonly LeafScenePointNode[]
+      | undefined;
+    const labels = titleLayer?.props.data as readonly LeafSceneTitleLabelNode[];
+    const activePointNode = pointNodes?.find((node) => node.graphNodeId === 12);
+    const unrelatedPointNode = pointNodes?.find(
+      (node) => node.graphNodeId === 10,
+    );
+    const activeTitle = labels.find((label) => label.graphNodeId === 12);
+    const unrelatedTitle = labels.find((label) => label.graphNodeId === 10);
+    const getFillColor = pointLayer?.props.getFillColor as
+      | ((node: LeafScenePointNode) => readonly number[])
+      | undefined;
+
+    expect(getFillColor?.(activePointNode as LeafScenePointNode)).toEqual([
+      120, 163, 243, 255,
+    ]);
+    expect(getFillColor?.(unrelatedPointNode as LeafScenePointNode)).toEqual([
+      120, 163, 243, 71,
+    ]);
+    expect(
+      getTitleLabelColor(titleLayer, activeTitle as LeafSceneTitleLabelNode),
+    ).toEqual([38, 52, 77, 232]);
+    expect(
+      getTitleLabelColor(titleLayer, unrelatedTitle as LeafSceneTitleLabelNode),
+    ).toEqual([38, 52, 77, 68]);
   });
 
   it("uses low-opacity overview edges when no focus node is active", () => {

@@ -73,9 +73,17 @@ function toEdgeMap(nodes: readonly TaxonomyLayoutNode[]) {
   return new Map(nodes.map((node) => [node.id, nodeCenter(node)] as const));
 }
 
-function toAdjacencyMaps(input: BuildLeafSceneModelInput) {
+function toAdjacencyMaps(
+  input: BuildLeafSceneModelInput,
+  pointNodes: readonly LeafScenePointNode[],
+) {
   const edgeIdsByNodeId = new Map<number, Set<string>>();
   const neighborNodeIdsByNodeId = new Map<number, Set<number>>();
+
+  for (const node of pointNodes) {
+    edgeIdsByNodeId.set(node.graphNodeId, new Set<string>());
+    neighborNodeIdsByNodeId.set(node.graphNodeId, new Set<number>());
+  }
 
   for (const [sourceId, targetId] of input.edges) {
     const edgeId = `${sourceId}:${targetId}`;
@@ -150,8 +158,8 @@ export function buildLeafSceneModelBase(
   input: BuildLeafSceneModelInput,
 ): LeafSceneModelBase {
   const positionsByNodeId = toEdgeMap(input.layoutNodes);
-  const adjacency = toAdjacencyMaps(input);
   const pointNodes = toPointNodes(input.layoutNodes);
+  const adjacency = toAdjacencyMaps(input, pointNodes);
   const edges: LeafSceneEdge[] = input.edges.map(
     ([sourceId, targetId, strength]) => {
       const source = positionsByNodeId.get(`leaf-${sourceId}`);
