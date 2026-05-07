@@ -136,6 +136,13 @@ function makeScene(): LeafSceneModel {
         radius: 4,
         scope: "outer",
       },
+      {
+        graphNodeId: 12,
+        id: "leaf-12",
+        position: { x: 50, y: 60 },
+        radius: 4,
+        scope: "outer",
+      },
     ],
     titleLabelNodes: [
       {
@@ -289,7 +296,7 @@ describe("LeafDeckScene", () => {
 
     expect(screen.getByTestId("deck-gl-mock")).toHaveAttribute(
       "data-layer-count",
-      "5",
+      "4",
     );
 
     const titleLayer = layerTestState.createdLayers.find(
@@ -349,12 +356,11 @@ describe("LeafDeckScene", () => {
     expect(titleLayer?.props.getColor).toEqual([38, 52, 77, 116]);
   });
 
-  it("uses world-sized points with fixed-width pixel edges", () => {
+  it("uses opacity-only point focus with world-sized points and fixed-width pixel edges", () => {
     renderScene({ activeFocusNodeId: 10, hiddenLabelNodeId: null });
 
     const edgeLayer = findLayer("taxonomy-leaf-edges");
     const highlightEdgeLayer = findLayer("taxonomy-leaf-highlight-edges");
-    const focusHaloLayer = findLayer("taxonomy-leaf-focus-halos");
     const pointLayer = findLayer("taxonomy-leaf-points");
 
     expect(edgeLayer?.props.getWidth).toBeTypeOf("function");
@@ -366,20 +372,32 @@ describe("LeafDeckScene", () => {
     expect(pointLayer?.props.stroked).toBe(false);
     expect(pointLayer?.props.radiusUnits).toBe("common");
     expect(pointLayer?.props.radiusMinPixels).toBe(2);
-    expect(focusHaloLayer?.props.radiusUnits).toBe("common");
+    expect(findLayer("taxonomy-leaf-focus-halos")).toBeUndefined();
 
-    const haloNodes = focusHaloLayer?.props.data as
+    const pointNodes = pointLayer?.props.data as
       | readonly LeafScenePointNode[]
       | undefined;
-    const activeHaloNode = haloNodes?.find((node) => node.graphNodeId === 10);
-    const neighborHaloNode = haloNodes?.find((node) => node.graphNodeId === 11);
-    const getRadius = focusHaloLayer?.props.getRadius as
-      | ((node: LeafScenePointNode) => number)
+    const activePointNode = pointNodes?.find((node) => node.graphNodeId === 10);
+    const neighborPointNode = pointNodes?.find(
+      (node) => node.graphNodeId === 11,
+    );
+    const unrelatedPointNode = pointNodes?.find(
+      (node) => node.graphNodeId === 12,
+    );
+    const getFillColor = pointLayer?.props.getFillColor as
+      | ((node: LeafScenePointNode) => readonly number[])
       | undefined;
 
-    expect(getRadius).toBeTypeOf("function");
-    expect(getRadius?.(activeHaloNode as LeafScenePointNode)).toBe(32);
-    expect(getRadius?.(neighborHaloNode as LeafScenePointNode)).toBe(24);
+    expect(getFillColor).toBeTypeOf("function");
+    expect(getFillColor?.(activePointNode as LeafScenePointNode)).toEqual([
+      120, 163, 243, 255,
+    ]);
+    expect(getFillColor?.(neighborPointNode as LeafScenePointNode)).toEqual([
+      120, 163, 243, 173,
+    ]);
+    expect(getFillColor?.(unrelatedPointNode as LeafScenePointNode)).toEqual([
+      120, 163, 243, 71,
+    ]);
   });
 
   it("uses low-opacity overview edges when no focus node is active", () => {

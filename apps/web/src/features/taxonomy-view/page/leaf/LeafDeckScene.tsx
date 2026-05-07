@@ -146,13 +146,6 @@ export function LeafDeckScene({
         : null,
     [activeFocusNodeId, scene.focusNodeIdsByNodeId],
   );
-  const focusHaloNodes = useMemo(
-    () =>
-      focusNodeIds
-        ? scene.pointNodes.filter((node) => focusNodeIds.has(node.graphNodeId))
-        : [],
-    [focusNodeIds, scene.pointNodes],
-  );
   const visibleTitleLabelNodes = useMemo(() => {
     if (titleLabelOpacity <= 0) {
       return [];
@@ -189,22 +182,6 @@ export function LeafDeckScene({
         widthUnits: "pixels",
       }),
       new ScatterplotLayer<LeafScenePointNode>({
-        data: focusHaloNodes,
-        filled: true,
-        getFillColor: (node) => [
-          LEAF_POINT_COLOR_RGB[0],
-          LEAF_POINT_COLOR_RGB[1],
-          LEAF_POINT_COLOR_RGB[2],
-          node.graphNodeId === activeFocusNodeId ? 48 : 34,
-        ],
-        getPosition: (node) => [node.position.x, node.position.y],
-        getRadius: (node) => (node.graphNodeId === activeFocusNodeId ? 32 : 24),
-        id: "taxonomy-leaf-focus-halos",
-        pickable: false,
-        radiusUnits: "common",
-        stroked: false,
-      }),
-      new ScatterplotLayer<LeafScenePointNode>({
         data: scene.pointNodes,
         filled: true,
         getFillColor: (node) => {
@@ -213,12 +190,14 @@ export function LeafDeckScene({
               ? LEAF_POINT_INNER_OPACITY
               : LEAF_POINT_OUTER_OPACITY;
           const opacity = focusNodeIds
-            ? Math.max(
-                focusNodeIds.has(node.graphNodeId)
-                  ? baseOpacity
-                  : LEAF_POINT_DIMMED_OPACITY,
-                node.graphNodeId === hoveredPointNodeId ? 0.46 : 0,
-              )
+            ? node.graphNodeId === activeFocusNodeId
+              ? LEAF_POINT_HOVER_OPACITY
+              : Math.max(
+                  focusNodeIds.has(node.graphNodeId)
+                    ? baseOpacity
+                    : LEAF_POINT_DIMMED_OPACITY,
+                  node.graphNodeId === hoveredPointNodeId ? 0.46 : 0,
+                )
             : node.graphNodeId === hoveredPointNodeId
               ? LEAF_POINT_HOVER_OPACITY
               : baseOpacity;
@@ -275,7 +254,6 @@ export function LeafDeckScene({
     ],
     [
       activeFocusNodeId,
-      focusHaloNodes,
       focusNodeIds,
       highlightedEdges,
       hoveredPointNodeId,
