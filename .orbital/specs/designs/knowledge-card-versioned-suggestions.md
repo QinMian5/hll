@@ -95,7 +95,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 - All `create`, `edit`, and `delete` proposals require a non-empty common `reason` explaining why the contributor recommends the proposed change.
 - `create` proposal payload contains proposed title and proposed content.
 - `edit` proposal payload contains target node id, base version, suggested title, and suggested content.
-- `delete` proposal payload contains target node id and base version.
+- `delete` proposal payload contains target node id, base version, target title, and target content read from the referenced formal card version.
 - Contributors may withdraw only their own pending proposals.
 - Reviewer rejection transitions a pending proposal to `rejected` and may include a review note.
 - Reviewer acceptance transitions a pending proposal to `accepted_applied` only after the formal domain change and audit record are written.
@@ -135,6 +135,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 - Anonymous Search proposal activation opens the sign-in-required dialog.
 - Search proposal submission uses the unified proposal contracts.
 - Search proposal submission requires a non-empty `Reason` field for add-card, edit-card, and delete-card modes.
+- Search delete proposal submission stores the target card title and content from the referenced base version so Workspace proposal detail can render the proposed deletion's real card content from the proposal record.
 - Search Card Proposal Dialog delete mode renders the selected card title and content through shared Input/Textarea `ReadOnly` states rather than disabled controls, preserving selectable content while distinguishing it from editable Reason input.
 - Workspace does not expose contributor-facing create/edit/delete proposal forms.
 - Workspace `My Proposals` shows the current user's proposal status.

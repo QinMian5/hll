@@ -173,7 +173,12 @@ describe("card proposal routes", () => {
     const acceptCardProposal = vi.fn(async () => ({
       created_at: "2026-04-28T18:00:00Z",
       id: 199,
-      payload: { target_node_id: 10 },
+      payload: {
+        base_version: 1,
+        target_content: "Duplicate card content.",
+        target_node_id: 10,
+        target_title: "Duplicate card",
+      },
       proposal_type: "delete" as const,
       reason: "Duplicate card.",
       reviewed_at: "2026-04-28T19:00:00Z",

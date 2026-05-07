@@ -128,6 +128,45 @@ describe("WorkspacePage", () => {
     expect(mutate).toHaveBeenCalledWith(42);
   });
 
+  it("renders delete proposal target card content from the proposal payload", () => {
+    mockUseMyProposalsQuery.mockReturnValue(
+      queryResult({
+        data: {
+          proposals: [
+            {
+              ...proposal,
+              id: 43,
+              payload: {
+                base_version: 1,
+                target_content:
+                  "Physics studies matter, motion, energy, and force.",
+                target_node_id: 450,
+                target_title: "Physics",
+              },
+              proposal_type: "delete",
+              reason: "Duplicate card.",
+            },
+          ],
+        },
+        error: null,
+        isError: false,
+      }),
+    );
+
+    render(<WorkspacePage />);
+
+    expect(screen.getByDisplayValue("Physics")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue(
+        "Physics studies matter, motion, energy, and force.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Card #450")).not.toBeInTheDocument();
+    expect(
+      screen.queryByDisplayValue("Target card #450"),
+    ).not.toBeInTheDocument();
+  });
+
   it("disables proposal cancellation after review is complete", () => {
     mockUseMyProposalsQuery.mockReturnValue(
       queryResult({

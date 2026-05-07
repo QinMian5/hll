@@ -63,8 +63,9 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - The Search Card Proposal Dialog exposes create, edit, and request-deletion modes.
 - The Search Card Proposal Dialog labels the contributor explanation field `Reason` and requires it for create, edit, and request-deletion modes.
 - Search-submitted proposals use the same unified proposal model tracked by Workspace.
+- Search delete proposal records include the target card title and content captured from the referenced base version.
 - Workspace does not expose contributor-facing create/edit/delete proposal forms.
-- A proposal submitted from Search appears in `My Proposals` and is reviewed through role-governed service flows outside the Workspace route.
+- A proposal submitted from Search appears in `My Proposals` with its proposal-owned title and content, and is reviewed through role-governed service flows outside the Workspace route.
 
 ## Access Boundary And Data Flow
 - Browser code calls only BFF-owned `/web-api/*` endpoints for Workspace behavior.
@@ -107,11 +108,12 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
   - Delete acceptance soft-archives the target card and ordinary Search/Graph View reads omit archived cards by default.
   - Search edit submission creates the unified `edit` proposal type.
   - Search create submission creates the unified `create` proposal type.
-  - Search delete submission creates the unified `delete` proposal type.
+  - Search delete submission creates the unified `delete` proposal type with target title and target content in its payload.
   - Workspace desktop and mobile page headers use the shared routed-page header height, title typography, subtitle typography, and title-gap tokens.
   - Workspace `My Proposals` desktop and mobile headers do not show a top-right `Contributor` role badge.
   - Workspace with no current-user proposals renders the Figma-approved `No Proposals Yet` rail empty state and vertically centered `No Proposal Selected` detail-panel empty state without subtitles or add icons.
   - Workspace proposal detail fields render with shared `ReadOnly` input and textarea state, not disabled state.
+  - Workspace proposal detail fields show payload-owned proposed, suggested, or target card content for create, edit, and delete proposal types.
   - Workspace populated proposal details render a fixed bottom action bar with a secondary `Cancel Proposal` button using the shared Lucide `X` icon.
   - Workspace cancellation is enabled only for current-user `pending_review` proposals and uses the BFF-mediated withdrawal endpoint.
   - Frontend Workspace API integration consumes generated contracts rather than handwritten backend schemas.

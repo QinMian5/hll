@@ -94,9 +94,8 @@ function proposalDisplayTitle(proposal: CardProposalResponse): string {
     readPayloadString(payload, [
       "proposed_title",
       "suggested_title",
-      "title",
-      "current_title",
-    ]) ?? `Card #${String(payload.target_node_id ?? proposal.id)}`
+      "target_title",
+    ]) ?? ""
   );
 }
 
@@ -106,9 +105,8 @@ function proposalDisplayContent(proposal: CardProposalResponse): string {
     readPayloadString(payload, [
       "proposed_content",
       "suggested_content",
-      "content",
-      "current_content",
-    ]) ?? `Target card #${String(payload.target_node_id ?? proposal.id)}`
+      "target_content",
+    ]) ?? ""
   );
 }
 

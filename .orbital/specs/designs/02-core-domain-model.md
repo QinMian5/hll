@@ -46,7 +46,7 @@ out_of_scope: API endpoint contracts, SQL migration scripts, Figma UI designs, n
 - Type-specific payloads carry:
   - `create`: proposed title and proposed content.
   - `edit`: target node id, base version, suggested title, and suggested content.
-  - `delete`: target node id and base version.
+  - `delete`: target node id, base version, target title, and target content from the referenced formal card version.
 - Proposals that reference existing cards bind to formal card versions as review baselines.
 
 ### ProposalApplyAudit
