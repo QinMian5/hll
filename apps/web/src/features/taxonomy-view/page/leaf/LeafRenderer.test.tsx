@@ -30,7 +30,7 @@ vi.mock("./LeafDeckScene", () => ({
     hiddenLabelNodeId,
     hoveredPointNodeId,
     initialViewport,
-    isPointInteractionEnabled,
+    isPointHoverEnabled,
     onSuggestEdit,
     onCanvasClick,
     onPointClick,
@@ -55,7 +55,7 @@ vi.mock("./LeafDeckScene", () => ({
       readonly target: readonly [number, number, number];
       readonly zoom: number;
     };
-    readonly isPointInteractionEnabled: boolean;
+    readonly isPointHoverEnabled: boolean;
     readonly onCanvasClick: () => void;
     readonly onSuggestEdit?: (card: {
       readonly content: string;
@@ -90,8 +90,8 @@ vi.mock("./LeafDeckScene", () => ({
         {hiddenLabelNodeId ?? "none"}
       </div>
       <div data-testid="leaf-initial-viewport-zoom">{initialViewport.zoom}</div>
-      <div data-testid="leaf-point-interaction-enabled">
-        {String(isPointInteractionEnabled)}
+      <div data-testid="leaf-point-hover-enabled">
+        {String(isPointHoverEnabled)}
       </div>
       <div data-testid="leaf-scene-point-count">{scene.pointNodes.length}</div>
       <div data-testid="leaf-scene-first-point-radius">
@@ -222,7 +222,7 @@ vi.mock("./LeafDeckScene", () => ({
       </button>
       <button
         onClick={() => {
-          if (isPointInteractionEnabled) {
+          if (isPointHoverEnabled) {
             onPointHover(10);
           }
         }}
@@ -232,7 +232,7 @@ vi.mock("./LeafDeckScene", () => ({
       </button>
       <button
         onClick={() => {
-          if (isPointInteractionEnabled) {
+          if (isPointHoverEnabled) {
             onPointHover(11);
           }
         }}
@@ -242,7 +242,7 @@ vi.mock("./LeafDeckScene", () => ({
       </button>
       <button
         onClick={() => {
-          if (isPointInteractionEnabled) {
+          if (isPointHoverEnabled) {
             onPointHover(null);
           }
         }}
@@ -250,14 +250,7 @@ vi.mock("./LeafDeckScene", () => ({
       >
         Leave point
       </button>
-      <button
-        onClick={() => {
-          if (isPointInteractionEnabled) {
-            onPointClick(10);
-          }
-        }}
-        type="button"
-      >
+      <button onClick={() => onPointClick(10)} type="button">
         Click 10
       </button>
       <button onClick={onCanvasClick} type="button">
@@ -489,9 +482,9 @@ describe("LeafRenderer", () => {
       ).toHaveTextContent("2");
     });
     expect(screen.getByTestId("leaf-scene-edge-count")).toHaveTextContent("1");
-    expect(
-      screen.getByTestId("leaf-point-interaction-enabled"),
-    ).toHaveTextContent("true");
+    expect(screen.getByTestId("leaf-point-hover-enabled")).toHaveTextContent(
+      "true",
+    );
     expect(mockUseTaxonomyCardScopeLayoutSliceQuery).toHaveBeenCalledWith(
       "math/algebra",
       {
@@ -793,7 +786,7 @@ describe("LeafRenderer", () => {
     );
   });
 
-  it("clears interaction state below the title zoom while preserving fade-band labels", async () => {
+  it("keeps selected disclosure below the title zoom while preserving fade-band labels", async () => {
     installSuccessfulQueryMocks();
 
     render(
@@ -816,20 +809,20 @@ describe("LeafRenderer", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
-        "none",
+        "10",
       );
     });
     expect(
       screen.getByTestId("leaf-scene-title-label-count"),
     ).toHaveTextContent("2");
+    expect(screen.getByTestId("leaf-point-hover-enabled")).toHaveTextContent(
+      "false",
+    );
     expect(
-      screen.getByTestId("leaf-point-interaction-enabled"),
-    ).toHaveTextContent("false");
-    expect(
-      screen.queryByTestId("taxonomy-leaf-disclosure-overlay"),
-    ).not.toBeInTheDocument();
+      screen.getByTestId("taxonomy-leaf-disclosure-overlay"),
+    ).toHaveTextContent("Equation content");
     expect(screen.getByTestId("leaf-hidden-label-node-id")).toHaveTextContent(
-      "none",
+      "10",
     );
 
     fireEvent.click(
@@ -841,9 +834,54 @@ describe("LeafRenderer", () => {
         screen.getByTestId("leaf-scene-title-label-count"),
       ).toHaveTextContent("0");
     });
+    expect(
+      screen.getByTestId("taxonomy-leaf-disclosure-overlay"),
+    ).toHaveTextContent("Equation content");
   });
 
-  it("toggles point-title mode from live deck zoom frames without waiting for a viewport snapshot", async () => {
+  it("loads selected disclosure from a low-zoom point click", async () => {
+    installSuccessfulQueryMocks();
+
+    render(
+      <LeafRenderer
+        leafView={makeLeafView()}
+        viewport={{ height: 900, width: 1404 }}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Zoom out" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("leaf-point-hover-enabled")).toHaveTextContent(
+        "false",
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Click 10" }));
+
+    await waitFor(() => {
+      expect(mockUseTaxonomyCardScopeNodeDetailsQuery).toHaveBeenCalledWith(
+        "math/algebra",
+        [10],
+        expect.objectContaining({ enabled: true }),
+      );
+    });
+
+    const selectedDisclosure = await screen.findByTestId(
+      "taxonomy-leaf-disclosure-overlay",
+    );
+
+    expect(selectedDisclosure).toHaveAttribute(
+      "data-disclosure-mode",
+      "selected",
+    );
+    expect(selectedDisclosure).toHaveTextContent("Equation content");
+    expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
+      "10",
+    );
+  });
+
+  it("toggles point hover mode from live deck zoom frames without waiting for a viewport snapshot", async () => {
     installSuccessfulQueryMocks();
 
     render(
@@ -854,7 +892,7 @@ describe("LeafRenderer", () => {
     );
 
     expect(
-      await screen.findByTestId("leaf-point-interaction-enabled"),
+      await screen.findByTestId("leaf-point-hover-enabled"),
     ).toHaveTextContent("true");
 
     fireEvent.click(screen.getByRole("button", { name: "Click 10" }));
@@ -864,20 +902,23 @@ describe("LeafRenderer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Live zoom out" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId("leaf-point-interaction-enabled"),
-      ).toHaveTextContent("false");
+      expect(screen.getByTestId("leaf-point-hover-enabled")).toHaveTextContent(
+        "false",
+      );
     });
     expect(
-      screen.queryByTestId("taxonomy-leaf-disclosure-overlay"),
-    ).not.toBeInTheDocument();
+      screen.getByTestId("taxonomy-leaf-disclosure-overlay"),
+    ).toHaveTextContent("Equation content");
+    expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
+      "10",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Live zoom in" }));
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId("leaf-point-interaction-enabled"),
-      ).toHaveTextContent("true");
+      expect(screen.getByTestId("leaf-point-hover-enabled")).toHaveTextContent(
+        "true",
+      );
     });
   });
 });

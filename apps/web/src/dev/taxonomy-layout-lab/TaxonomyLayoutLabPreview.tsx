@@ -56,7 +56,7 @@ export function TaxonomyLayoutLabPreview({
         hiddenLabelNodeId={null}
         hoveredPointNodeId={hoveredPointNodeId}
         initialViewport={initialViewport}
-        isPointInteractionEnabled={true}
+        isPointHoverEnabled={true}
         onCanvasClick={() => {
           setSelectedPointNodeId(null);
         }}

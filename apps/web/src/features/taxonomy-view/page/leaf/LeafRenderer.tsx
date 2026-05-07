@@ -275,7 +275,6 @@ export function LeafRenderer({
     }
 
     setHoveredPointNodeId(null);
-    setSelectedNodeId(null);
   }, [isPointTitleModeActive]);
 
   const leafSceneBase = useMemo(
@@ -367,12 +366,12 @@ export function LeafRenderer({
   }, [leafTitlesQuery.data]);
 
   const detailTargetNodeIds = useMemo(() => {
-    if (!isPointTitleModeActive) {
-      return [];
-    }
-
     if (selectedNodeId !== null) {
       return [selectedNodeId];
+    }
+
+    if (!isPointTitleModeActive) {
+      return [];
     }
 
     return hoveredPointNodeId === null ? [] : [hoveredPointNodeId];
@@ -389,7 +388,7 @@ export function LeafRenderer({
     cardScopeRoutePath,
     missingDetailNodeIds,
     {
-      enabled: isPointTitleModeActive && missingDetailNodeIds.length > 0,
+      enabled: missingDetailNodeIds.length > 0,
     },
   );
 
@@ -457,14 +456,9 @@ export function LeafRenderer({
       ),
     [scene.pointNodes],
   );
-  const activeFocusNodeId = isPointTitleModeActive
-    ? (selectedNodeId ?? hoveredPointNodeId)
-    : null;
+  const activeFocusNodeId =
+    selectedNodeId ?? (isPointTitleModeActive ? hoveredPointNodeId : null);
   const disclosure = useMemo<LeafDisclosureState | null>(() => {
-    if (!isPointTitleModeActive) {
-      return null;
-    }
-
     if (selectedNodeId !== null) {
       const node = buildDisclosureNode({
         detail: leafDetailCache[selectedNodeId],
@@ -472,6 +466,10 @@ export function LeafRenderer({
       });
 
       return node ? { mode: "selected", node } : null;
+    }
+
+    if (!isPointTitleModeActive) {
+      return null;
     }
 
     if (hoveredPointNodeId !== null) {
@@ -511,18 +509,11 @@ export function LeafRenderer({
     },
     [isPointTitleModeActive],
   );
-  const handlePointClick = useCallback(
-    (nodeId: number) => {
-      if (!isPointTitleModeActive) {
-        return;
-      }
-
-      setSelectedNodeId((currentNodeId) =>
-        currentNodeId === nodeId ? null : nodeId,
-      );
-    },
-    [isPointTitleModeActive],
-  );
+  const handlePointClick = useCallback((nodeId: number) => {
+    setSelectedNodeId((currentNodeId) =>
+      currentNodeId === nodeId ? null : nodeId,
+    );
+  }, []);
   const handleCanvasClick = useCallback(() => {
     setSelectedNodeId(null);
   }, []);
@@ -554,7 +545,7 @@ export function LeafRenderer({
           hiddenLabelNodeId={hiddenLabelNodeId}
           hoveredPointNodeId={hoveredPointNodeId}
           initialViewport={initialDeckViewport}
-          isPointInteractionEnabled={isPointTitleModeActive}
+          isPointHoverEnabled={isPointTitleModeActive}
           onCanvasClick={handleCanvasClick}
           onPointClick={handlePointClick}
           onPointHover={handlePointHover}

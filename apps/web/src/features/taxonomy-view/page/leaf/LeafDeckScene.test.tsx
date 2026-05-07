@@ -167,6 +167,7 @@ function renderScene(options: {
   readonly activeFocusNodeId?: number | null;
   readonly initialViewport?: LeafOrthographicViewport;
   readonly hiddenLabelNodeId: number | null;
+  readonly isPointHoverEnabled?: boolean;
   readonly onViewportChange?: (viewport: LeafOrthographicViewport) => void;
   readonly onViewportFrameChange?: (viewport: LeafOrthographicViewport) => void;
 }) {
@@ -182,7 +183,7 @@ function renderScene(options: {
       initialViewport={
         options.initialViewport ?? { target: [0, 0, 0], zoom: 0 }
       }
-      isPointInteractionEnabled={true}
+      isPointHoverEnabled={options.isPointHoverEnabled ?? true}
       onCanvasClick={vi.fn()}
       onPointClick={vi.fn()}
       onPointHover={vi.fn()}
@@ -408,6 +409,50 @@ describe("LeafDeckScene", () => {
     expect(edgeLayer?.props.getColor).toEqual([120, 163, 243, 51]);
   });
 
+  it("keeps points clickable while low-zoom hover is disabled", () => {
+    const onPointClick = vi.fn();
+    const onPointHover = vi.fn();
+
+    render(
+      <LeafDeckScene
+        activeFocusNodeId={null}
+        disclosure={null}
+        hiddenLabelNodeId={null}
+        hoveredPointNodeId={null}
+        initialViewport={{ target: [0, 0, 0], zoom: 0 }}
+        isPointHoverEnabled={false}
+        onCanvasClick={vi.fn()}
+        onPointClick={onPointClick}
+        onPointHover={onPointHover}
+        onViewportChange={vi.fn()}
+        scene={makeScene()}
+      />,
+    );
+
+    const pointLayer = findLayer("taxonomy-leaf-points");
+    const pointNodes = pointLayer?.props.data as
+      | readonly LeafScenePointNode[]
+      | undefined;
+
+    expect(pointLayer?.props.pickable).toBe(true);
+    expect(pointLayer?.props.onClick).toBeTypeOf("function");
+    expect(pointLayer?.props.onHover).toBeTypeOf("function");
+
+    (
+      pointLayer?.props.onClick as (info: {
+        readonly object: LeafScenePointNode;
+      }) => boolean
+    )({ object: pointNodes?.[0] as LeafScenePointNode });
+    (
+      pointLayer?.props.onHover as (info: {
+        readonly object: LeafScenePointNode;
+      }) => void
+    )({ object: pointNodes?.[0] as LeafScenePointNode });
+
+    expect(onPointClick).toHaveBeenCalledWith(10);
+    expect(onPointHover).toHaveBeenCalledWith(null);
+  });
+
   it("renders disclosure cards through the DeckGL child render callback", () => {
     render(
       <LeafDeckScene
@@ -427,7 +472,7 @@ describe("LeafDeckScene", () => {
         hiddenLabelNodeId={10}
         hoveredPointNodeId={null}
         initialViewport={{ target: [0, 0, 0], zoom: 0 }}
-        isPointInteractionEnabled={true}
+        isPointHoverEnabled={true}
         onCanvasClick={vi.fn()}
         onPointClick={vi.fn()}
         onPointHover={vi.fn()}

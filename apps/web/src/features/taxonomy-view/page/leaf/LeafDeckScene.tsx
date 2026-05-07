@@ -47,7 +47,7 @@ interface LeafDeckSceneProps {
   readonly hiddenLabelNodeId: number | null;
   readonly hoveredPointNodeId: number | null;
   readonly initialViewport: LeafOrthographicViewport;
-  readonly isPointInteractionEnabled: boolean;
+  readonly isPointHoverEnabled: boolean;
   readonly onCanvasClick: () => void;
   readonly onPointClick: (nodeId: number) => void;
   readonly onPointHover: (nodeId: number | null) => void;
@@ -103,7 +103,7 @@ export function LeafDeckScene({
   hoveredPointNodeId,
   onViewportFrameChange,
   onViewportChange,
-  isPointInteractionEnabled,
+  isPointHoverEnabled,
   initialViewport,
   onCanvasClick,
   onPointClick,
@@ -223,9 +223,11 @@ export function LeafDeckScene({
         },
         onHover: (info) => {
           const node = info.object;
-          onPointHover(node?.graphNodeId ?? null);
+          onPointHover(
+            isPointHoverEnabled ? (node?.graphNodeId ?? null) : null,
+          );
         },
-        pickable: isPointInteractionEnabled,
+        pickable: true,
         radiusMinPixels: 2,
         radiusUnits: "common",
         stroked: false,
@@ -257,7 +259,7 @@ export function LeafDeckScene({
       focusNodeIds,
       highlightedEdges,
       hoveredPointNodeId,
-      isPointInteractionEnabled,
+      isPointHoverEnabled,
       onPointClick,
       onPointHover,
       scene.edges,
