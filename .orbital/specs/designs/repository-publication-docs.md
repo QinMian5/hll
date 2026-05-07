@@ -17,7 +17,7 @@ out_of_scope: Product feature behavior, deployment topology internals, and activ
 
 ## Constraint Projection
 - **Governing Constraints:** Repository documentation must support one consistent contributor entrypoint, keep active docs synchronized with current truth, and preserve the distinction between public product access surfaces and internal service APIs.
-- **Detail Commitments:** The root README is the concise public release entrypoint for Humanity's Last Library. Repository `docs/` files carry contributor, integration, and licensing detail. The web app `/docs` route carries end-user MCP client setup guidance. Active `.orbital/specs/` documents remain implementation truth for project maintainers and are not the primary public-reader documentation entrypoint.
+- **Detail Commitments:** The root README is the concise public release entrypoint for Humanity's Last Library. Repository `docs/` files carry contributor, MCP client setup, and licensing detail. The web app `/docs` route carries the same end-user MCP client setup guidance in the product UI. Active `.orbital/specs/` documents remain implementation truth for project maintainers and are not the primary public-reader documentation entrypoint.
 - **Update Rule:** Requirement-level governance remains stable while publication structure, README positioning, and repository docs placement stay in this design document.
 
 ## Inputs & Outputs
@@ -28,7 +28,7 @@ out_of_scope: Product feature behavior, deployment topology internals, and activ
 - **Outputs:**
   - A concise root README for public release readers.
   - Repository developer documentation for local setup, command usage, contracts, and tests.
-  - Repository MCP documentation for service boundary, tool surface, authentication model, and integration notes.
+  - Repository MCP documentation for connecting Codex, Claude Code, and OpenClaw to the public MCP endpoint.
   - Repository licensing documentation that separates software code licensing from knowledge-content and data licensing.
   - Explicit links that keep detailed runbook material out of the README.
 - **Artifacts:**
@@ -58,9 +58,9 @@ out_of_scope: Product feature behavior, deployment topology internals, and activ
   - **How-it-works scope:** The README describes human review, the knowledge network, agent retrieval, and query-path signals as the top-level public workflow.
   - **Capabilities scope:** The README presents capabilities from a public reader and agent-user perspective. Private service APIs, generated internal clients, source-pipeline internals, and detailed runbooks belong in linked docs rather than the root README.
   - **Repository docs boundary:** `docs/development.md` owns local setup, environment, command, contract, and test guidance.
-  - **MCP docs boundary:** `docs/mcp.md` owns the repository-level public MCP service overview and integration notes.
+  - **MCP docs boundary:** `docs/mcp.md` owns end-user MCP client setup for Codex, Claude Code, and OpenClaw using Dashboard personal access tokens.
   - **Licensing docs boundary:** `docs/licensing.md` owns the public human-readable license summary, while `LICENSE`, `NOTICE`, and `DATA_LICENSE.md` own the operative repository license notices.
-  - **Web docs boundary:** The web app `/docs` route remains the end-user MCP client setup surface for Codex, Claude Code, and OpenClaw, and README links to the production docs route.
+  - **Web docs boundary:** The web app `/docs` route remains the product UI version of the same MCP client setup surface for Codex, Claude Code, and OpenClaw, and README links to the production docs route.
   - **Specs boundary:** `.orbital/specs/` remains active design truth for maintainers and is not presented as the main public documentation path.
 - **Interactions:**
   1. A public reader starts at `README.md`.

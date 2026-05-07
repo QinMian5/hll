@@ -102,4 +102,4 @@ endpoint is:
 http://localhost:8002/mcp
 ```
 
-See [MCP integration notes](mcp.md) for the MCP service boundary.
+Client setup walkthroughs live in [MCP client setup](mcp.md).

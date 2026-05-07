@@ -1,80 +1,107 @@
 ---
-abstract: Repository-level MCP service overview for public search access and integration boundaries.
-out_of_scope: Browser session flows, Logto tenant provisioning, and client-specific setup walkthroughs.
+abstract: End-user MCP client setup guide for connecting Codex, Claude Code, and OpenClaw to Humanity's Last Library.
+out_of_scope: MCP service implementation, private API boundaries, Logto tenant provisioning, and local service development.
 ---
 
-# HLL MCP Integration Notes
+# HLL MCP Client Setup
 
-`apps/mcp` runs the public remote MCP service for Humanity's Last Library. It is
-the public programmatic access boundary for agent clients.
+Humanity's Last Library exposes a public remote MCP endpoint that agent clients
+can use to search the knowledge network.
 
-## Endpoint
-
-The MCP service exposes a Streamable HTTP MCP endpoint at:
+Use the production endpoint:
 
 ```text
-/mcp
+https://knowledge.orbitalis.org/mcp
 ```
 
-In local development, `make dev-up` exposes it at:
+## Prepare A Dashboard Token
+
+Create a personal access token before configuring a client:
 
 ```text
-http://localhost:8002/mcp
+Dashboard > Tokens > Create Token > Copy token
 ```
 
-Production deployments expose the endpoint through the public web host. The
-[web app docs route](https://knowledge.orbitalis.org/docs) is the end-user setup
-surface for supported MCP clients.
-
-## Tool Surface
-
-The first public MCP tool is:
+Use the copied token wherever the examples below show:
 
 ```text
-search
+<Dashboard PAT>
 ```
 
-The `search` tool accepts a non-empty query. Use concise keyword-style queries:
-prefer key terms, entity names, domain concepts, or short noun phrases instead
-of full sentence questions or broad instructions.
+## Codex
 
-The tool returns:
+Add HLL as a Streamable HTTP MCP server:
 
-- matched results with `title` and `content`
-- connected titles for nearby context
-
-The MCP service delegates search execution to the private API through generated
-internal contract artifacts. It does not import private API internals or access
-knowledge graph tables directly.
-
-## Authentication
-
-MCP clients authenticate with:
-
-```http
-Authorization: Bearer <Logto personal access token>
+```bash
+codex mcp add hll --url https://knowledge.orbitalis.org/mcp
 ```
 
-The service exchanges the presented personal access token through Logto,
-validates the resulting access token, enforces account-level quota, and computes
-a server-secret PAT fingerprint for attribution. Raw personal access tokens must
-not be stored in logs, Redis, PostgreSQL, or response payloads.
+Add the Dashboard token to the Codex server entry in `~/.codex/config.toml`:
 
-## Usage And Analytics
+```toml
+[mcp_servers.hll]
+url = "https://knowledge.orbitalis.org/mcp"
+http_headers = { Authorization = "Bearer <Dashboard PAT>" }
+```
 
-The MCP service records usage events for successful tool calls,
-quota-rejected calls, and backend search errors after quota is reserved.
-Successful `search` calls also create agent-search analytics records.
+Inspect the saved server:
 
-These records are a current capability, but the optimization loop is still a
-future direction. The intent is to use aggregate agent search behavior to improve
-retrieval, knowledge structure, and maintenance priorities over time.
+```bash
+codex mcp get hll
+```
 
-## Boundaries
+Confirm HLL appears in the configured MCP server list:
 
-- MCP owns protocol handling, public token authentication, quota, usage
-  attribution, and MCP-only analytics.
-- The private API owns search semantics and the authoritative OpenAPI contract.
-- The web BFF owns browser sessions, Dashboard token management, and browser
-  data endpoints.
-- The web app docs route owns client-specific setup guidance for end users.
+```bash
+codex mcp list
+```
+
+## Claude Code
+
+Add HLL with HTTP transport and bearer authentication:
+
+```bash
+claude mcp add --transport http hll https://knowledge.orbitalis.org/mcp --header "Authorization: Bearer <Dashboard PAT>"
+```
+
+Inspect the saved server:
+
+```bash
+claude mcp get hll
+```
+
+Confirm HLL appears in Claude Code's MCP server list:
+
+```bash
+claude mcp list
+```
+
+## OpenClaw
+
+Save HLL as a Streamable HTTP MCP server with the Dashboard token header:
+
+```bash
+openclaw mcp set hll '{"url":"https://knowledge.orbitalis.org/mcp","transport":"streamable-http","headers":{"Authorization":"Bearer <Dashboard PAT>"}}'
+```
+
+Inspect the saved server:
+
+```bash
+openclaw mcp show hll --json
+```
+
+Confirm HLL appears in the OpenClaw MCP registry:
+
+```bash
+openclaw mcp list
+```
+
+## Notes
+
+- Keep Dashboard tokens private. Do not commit them to source control or paste
+  them into shared logs.
+- The current public MCP tool is `search`.
+- Prefer concise keyword-style search queries: entity names, domain concepts,
+  or short noun phrases work better than broad instructions.
+- The same setup guidance is available in the web product docs at
+  [knowledge.orbitalis.org/docs](https://knowledge.orbitalis.org/docs).

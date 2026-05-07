@@ -94,7 +94,7 @@ better as humans maintain it and agents use it.
 
 - **Use:** [Website](https://knowledge.orbitalis.org) and
   [product docs](https://knowledge.orbitalis.org/docs).
-- **Integrate:** [MCP integration notes](docs/mcp.md).
+- **Connect:** [MCP client setup](docs/mcp.md).
 - **Build:** [Developer docs](docs/development.md).
 - **License:** [Licensing guide](docs/licensing.md).
 
