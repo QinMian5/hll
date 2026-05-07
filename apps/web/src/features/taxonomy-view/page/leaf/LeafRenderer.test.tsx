@@ -719,6 +719,23 @@ describe("LeafRenderer", () => {
       title: "Equation \\(E=mc^2\\)",
     });
 
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId("taxonomy-leaf-disclosure-overlay"),
+      ).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId("leaf-hidden-label-node-id")).toHaveTextContent(
+      "none",
+    );
+    expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
+      "none",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Click 10" }));
+    expect(
+      await screen.findByTestId("taxonomy-leaf-disclosure-overlay"),
+    ).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Click 10" }));
 
     await waitFor(() => {

@@ -517,6 +517,14 @@ export function LeafRenderer({
   const handleCanvasClick = useCallback(() => {
     setSelectedNodeId(null);
   }, []);
+  const handleSuggestEdit = useCallback(
+    (card: SearchResultCardEditPayload) => {
+      setHoveredPointNodeId(null);
+      setSelectedNodeId(null);
+      onSuggestEdit?.(card);
+    },
+    [onSuggestEdit],
+  );
 
   return (
     <div
@@ -549,7 +557,7 @@ export function LeafRenderer({
           onCanvasClick={handleCanvasClick}
           onPointClick={handlePointClick}
           onPointHover={handlePointHover}
-          onSuggestEdit={onSuggestEdit}
+          onSuggestEdit={onSuggestEdit ? handleSuggestEdit : undefined}
           onViewportFrameChange={handleViewportFrameChange}
           onViewportChange={setDeckViewportSnapshot}
           scene={scene}
