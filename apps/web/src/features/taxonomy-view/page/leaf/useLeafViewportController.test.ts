@@ -101,13 +101,9 @@ describe("leaf viewport controller helpers", () => {
 
   it("starts the initial leaf viewport just above the point-title threshold", () => {
     const compactViewport = buildInitialLeafViewport({
-      canvas: { height: 800, width: 1200 },
-      padding: 160,
       worldBounds: { bottom: 120, left: -200, right: 200, top: -120 },
     });
     const wideViewport = buildInitialLeafViewport({
-      canvas: { height: 800, width: 1200 },
-      padding: 160,
       worldBounds: { bottom: 500, left: -1400, right: 1400, top: -500 },
     });
 

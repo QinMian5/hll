@@ -41,8 +41,6 @@ export function leafPointTitleOpacity(zoom: number) {
 }
 
 export function buildInitialLeafViewport(input: {
-  readonly canvas: { readonly height: number; readonly width: number };
-  readonly padding: number;
   readonly worldBounds: LeafWorldBounds;
 }): LeafOrthographicViewport {
   const centerX = (input.worldBounds.left + input.worldBounds.right) / 2;

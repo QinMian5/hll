@@ -898,6 +898,40 @@ describe("LeafRenderer", () => {
     );
   });
 
+  it("keeps selected disclosure when mobile viewport dimensions change", async () => {
+    installSuccessfulQueryMocks();
+    const leafView = makeLeafView();
+    const { rerender } = render(
+      <LeafRenderer
+        leafView={leafView}
+        viewport={{ height: 640, width: 390 }}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Click 10" }));
+
+    expect(
+      await screen.findByTestId("taxonomy-leaf-disclosure-overlay"),
+    ).toHaveTextContent("Equation content");
+    expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
+      "10",
+    );
+
+    rerender(
+      <LeafRenderer
+        leafView={leafView}
+        viewport={{ height: 560, width: 390 }}
+      />,
+    );
+
+    expect(
+      screen.getByTestId("taxonomy-leaf-disclosure-overlay"),
+    ).toHaveTextContent("Equation content");
+    expect(screen.getByTestId("leaf-active-focus-node-id")).toHaveTextContent(
+      "10",
+    );
+  });
+
   it("toggles point hover mode from live deck zoom frames without waiting for a viewport snapshot", async () => {
     installSuccessfulQueryMocks();
 

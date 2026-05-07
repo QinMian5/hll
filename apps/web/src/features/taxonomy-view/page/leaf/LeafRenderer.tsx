@@ -118,11 +118,9 @@ export function LeafRenderer({
   const initialDeckViewport = useMemo(
     () =>
       buildInitialLeafViewport({
-        canvas: viewport,
-        padding: LEAF_HYDRATION_OVERSCAN,
         worldBounds: leafWorldBounds,
       }),
-    [leafWorldBounds, viewport],
+    [leafWorldBounds],
   );
   const leafLayoutIdentity = useMemo(
     () => ({
