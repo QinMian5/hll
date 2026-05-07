@@ -16,7 +16,7 @@ class TaxonomyViewResponseModel(BaseModel):
 
 
 class TaxonomyViewScopeResponse(TaxonomyViewResponseModel):
-    scope_kind: Literal["taxonomy_node", "virtual_unclassified"]
+    scope_kind: Literal["taxonomy_node"]
     taxonomy_node_id: int | None = Field(default=None, gt=0)
     parent_taxonomy_node_id: int | None = Field(default=None, gt=0)
     name: str = Field(min_length=1)
@@ -109,7 +109,7 @@ class TaxonomyNodeCardScopeViewResponse(TaxonomyViewResponseModel):
 
 
 class TaxonomyCardScopeLayoutSliceResponse(TaxonomyViewResponseModel):
-    scope_kind: Literal["taxonomy_node", "virtual_unclassified"]
+    scope_kind: Literal["taxonomy_node"]
     taxonomy_node_id: int | None = Field(default=None, gt=0)
     parent_taxonomy_node_id: int | None = Field(default=None, gt=0)
     route_path: str

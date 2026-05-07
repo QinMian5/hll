@@ -44,7 +44,6 @@ ROOT_NODE_NAME = "Root"
 UNCLASSIFIED_NODE_NAME = "Unclassified"
 TAXONOMY_PROJECTION_EDGE_INSERT_BATCH_SIZE = 10_000
 TAXONOMY_NODE_SCOPE_KIND = "taxonomy_node"
-VIRTUAL_UNCLASSIFIED_SCOPE_KIND = "virtual_unclassified"
 _LAYOUT_COMPUTE_RUNNING_RECOVERY_AFTER = timedelta(minutes=30)
 
 
@@ -582,33 +581,17 @@ class TaxonomyRepo:
         for node in tree_nodes:
             child_ids_by_parent.setdefault(node.parent_id, []).append(node.id)
 
-        direct_counts = dict.fromkeys(node_by_id, 0)
-        for count in await self.list_assignment_counts():
-            if count.taxonomy_node_id in direct_counts:
-                direct_counts[count.taxonomy_node_id] = count.card_count
-
-        descendant_counts = dict(direct_counts)
-        for node in sorted(
-            node_by_id.values(),
-            key=lambda item: (item.depth, item.id),
-            reverse=True,
-        ):
-            if node.parent_id is not None:
-                descendant_counts[node.parent_id] += descendant_counts[node.id]
-
         result: dict[int, TaxonomyScopeIdentity] = {}
         for node_id, taxonomy_node_id in taxonomy_node_ids_by_node_id.items():
-            visible_child_ids = [
-                child_id
-                for child_id in child_ids_by_parent.get(taxonomy_node_id, [])
-                if descendant_counts[child_id] > 0
-            ]
+            taxonomy_node = node_by_id.get(taxonomy_node_id)
+            if (
+                taxonomy_node is None
+                or taxonomy_node.parent_id is None
+                or child_ids_by_parent.get(taxonomy_node_id)
+            ):
+                continue
             result[node_id] = TaxonomyScopeIdentity(
-                scope_kind=(
-                    VIRTUAL_UNCLASSIFIED_SCOPE_KIND
-                    if visible_child_ids
-                    else TAXONOMY_NODE_SCOPE_KIND
-                ),
+                scope_kind=TAXONOMY_NODE_SCOPE_KIND,
                 taxonomy_node_id=taxonomy_node_id,
             )
         return result

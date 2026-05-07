@@ -162,14 +162,20 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `id`: integer primary key.
 - `parent_id`: nullable foreign key to `taxonomy_nodes.id`.
 - `name`: non-null text.
+- `route_slug`: non-null text.
 - `depth`: non-null integer.
 - Required constraints:
   - `depth >= 0`
+  - `route_slug <> ''`
   - uniqueness over `(parent_id, name)`
+  - uniqueness over `(parent_id, route_slug)`
   - unique partial index over `(parent_id, lower(name))` where `parent_id IS NOT NULL`, preventing same-level child names that differ only by case
   - partial unique index enforcing at most one row with `parent_id IS NULL`
 - Required read-order rule:
   - sibling rows selected with `ORDER BY name ASC`.
+- Route-slug rule:
+  - route slugs are derived by taxonomy-owned import or mutation services.
+  - sibling route slugs are unique under one parent.
 - Root rule:
   - exactly one row represents the real `Root` node; storage enforces at most one root row and taxonomy bootstrap/service code ensures root availability.
 - Persisted-node rule:
@@ -189,7 +195,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 
 ### Taxonomy Scope Projection Edges
 - Composite primary key: `(scope_kind, taxonomy_node_id, edge_id)`.
-- `scope_kind`: non-null text identifying whether the projection belongs to a real taxonomy node scope or a virtual Unclassified child scope.
+- `scope_kind`: non-null text identifying the real taxonomy node scope kind.
 - `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
 - `edge_id`: non-null foreign key to `edges.id` with `ondelete="CASCADE"`.
 - Required indexes:
@@ -201,7 +207,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 
 ### Taxonomy Card-Scope Layouts
 - `id`: integer primary key.
-- `scope_kind`: non-null text identifying whether the layout belongs to a real taxonomy node scope or a virtual Unclassified child scope.
+- `scope_kind`: non-null text identifying the real taxonomy node scope kind.
 - `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
 - `layout_version`: non-null text identifying the active backend layout algorithm and payload shape.
 - `input_fingerprint`: non-null text containing the SHA-256 fingerprint of the graph membership, scoped node roles, projected edges, and edge strengths used to build the layout.
@@ -210,7 +216,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `created_at`: non-null timestamp with timezone.
 - `updated_at`: non-null timestamp with timezone.
 - Required constraints:
-  - scope kind in `taxonomy_node`, `virtual_unclassified`.
+  - scope kind is `taxonomy_node`.
   - uniqueness over `(scope_kind, taxonomy_node_id, layout_version)`.
 - Required indexes:
   - index on `(scope_kind, taxonomy_node_id)`.
@@ -222,7 +228,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 
 ### Taxonomy Card-Scope Layout Compute Requests
 - `id`: integer primary key.
-- `scope_kind`: non-null text identifying whether the request targets a real taxonomy node scope or a virtual Unclassified child scope.
+- `scope_kind`: non-null text identifying the real taxonomy node scope kind.
 - `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
 - `layout_version`: non-null text identifying the target backend layout algorithm and payload shape.
 - `input_fingerprint`: non-null text identifying the graph input fingerprint requested for computation.
@@ -236,7 +242,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 - `created_at`: non-null timestamp with timezone.
 - `updated_at`: non-null timestamp with timezone.
 - Required constraints:
-  - scope kind in `taxonomy_node`, `virtual_unclassified`.
+  - scope kind is `taxonomy_node`.
   - status in `pending`, `running`, `succeeded`, `failed`.
   - `attempt_count >= 0`.
   - uniqueness over `(scope_kind, taxonomy_node_id, layout_version)`.
@@ -331,7 +337,7 @@ out_of_scope: Runtime session lifecycle, migration execution policy, and API tra
 
 ### Taxonomy Classification Projection Refresh Requests
 - Composite primary key: `(scope_kind, taxonomy_node_id)`.
-- `scope_kind`: non-null text identifying whether the refresh belongs to a real taxonomy node scope or a virtual Unclassified child scope.
+- `scope_kind`: non-null text identifying the real taxonomy node scope kind.
 - `taxonomy_node_id`: non-null foreign key to `taxonomy_nodes.id` with `ondelete="CASCADE"`.
 - `last_error`: nullable text.
 - `created_at`: non-null timestamp with timezone.

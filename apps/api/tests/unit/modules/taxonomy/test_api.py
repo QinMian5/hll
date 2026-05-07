@@ -16,7 +16,7 @@ from httpx import AsyncClient
 
 from core.errors import ApplicationError, DomainError, ErrorCode
 from entrypoints.api import providers as api_providers
-from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND, VIRTUAL_UNCLASSIFIED_SCOPE_KIND
+from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND
 from modules.taxonomy.schema import (
     TaxonomyCardScopeLayoutNodeResponse,
     TaxonomyCardScopeLayoutSliceResponse,
@@ -504,7 +504,7 @@ async def test_card_scope_layout_routes_return_503_when_layout_is_not_ready(
         error = response.json()["error"]
         assert error["code"] == "layout_not_ready"
         assert error["details"] == {
-            "scope_kind": VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
+            "scope_kind": TAXONOMY_NODE_SCOPE_KIND,
             "taxonomy_node_id": 2,
         }
 
@@ -530,7 +530,7 @@ def _layout_not_ready_error() -> ApplicationError:
         message="Taxonomy card-scope layout is being prepared.",
         hint="Retry this request shortly.",
         safe_details={
-            "scope_kind": VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
+            "scope_kind": TAXONOMY_NODE_SCOPE_KIND,
             "taxonomy_node_id": 2,
         },
     )

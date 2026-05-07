@@ -73,7 +73,7 @@ out_of_scope: API endpoint contracts, SQL migration scripts, Figma UI designs, n
 
 ## Lifecycle And Apply Rules
 - Reviewer acceptance is the only proposal transition that applies formal knowledge changes.
-- `create` acceptance creates a new active `Node`, creates `CardVersion(version=1)`, and leaves taxonomy assignment to the existing Root/Unclassified default.
+- `create` acceptance creates a new active `Node`, creates `CardVersion(version=1)`, and leaves taxonomy assignment to the standard direct `Root` assignment flow.
 - `edit` acceptance creates a new `CardVersion` and updates the target node projection.
 - `delete` acceptance marks the target node archived rather than physically deleting it.
 - `rejected` and `withdrawn` proposals do not change formal card state.

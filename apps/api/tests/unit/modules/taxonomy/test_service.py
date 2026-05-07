@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from core.errors import ApplicationError, ErrorCode
+from core.errors import ApplicationError, DomainError, ErrorCode
 from modules.knowledge_graph.dto import ProjectionEdge
 from modules.taxonomy import service as taxonomy_service_module
 from modules.taxonomy.dto import (
@@ -26,7 +26,7 @@ from modules.taxonomy.dto import (
     TaxonomyNodeRecord,
     TaxonomyScopeIdentity,
 )
-from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND, VIRTUAL_UNCLASSIFIED_SCOPE_KIND
+from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND
 from modules.taxonomy.service import TaxonomyService
 
 
@@ -350,8 +350,6 @@ async def test_card_scope_precompute_targets_match_user_enterable_card_scopes() 
     ] == [
         ("math", TAXONOMY_NODE_SCOPE_KIND, 3),
         ("science/heat", TAXONOMY_NODE_SCOPE_KIND, 4),
-        ("science/unclassified", VIRTUAL_UNCLASSIFIED_SCOPE_KIND, 2),
-        ("unclassified", VIRTUAL_UNCLASSIFIED_SCOPE_KIND, 1),
     ]
 
 
@@ -483,7 +481,7 @@ async def test_card_scope_precompute_prepare_reports_failed_current_compute() ->
 
 
 @pytest.mark.anyio
-async def test_root_view_adds_virtual_unclassified_only_when_root_has_cards_and_children() -> None:
+async def test_root_view_hides_root_direct_cards_when_root_has_visible_children() -> None:
     repo = _StubRepo(
         tree_nodes=_tree(),
         assignment_counts=[
@@ -497,10 +495,43 @@ async def test_root_view_adds_virtual_unclassified_only_when_root_has_cards_and_
 
     assert [(child.name, child.scope_kind, child.node_kind) for child in view.children] == [
         ("Science", TAXONOMY_NODE_SCOPE_KIND, "card_scope"),
-        ("Unclassified", VIRTUAL_UNCLASSIFIED_SCOPE_KIND, "card_scope"),
     ]
-    assert view.children[1].taxonomy_node_id is None
-    assert view.children[1].parent_taxonomy_node_id == 1
+
+
+@pytest.mark.anyio
+async def test_node_view_hides_direct_cards_when_node_has_real_children() -> None:
+    repo = _StubRepo(
+        tree_nodes=_precompute_tree(),
+        assignment_counts=[
+            TaxonomyAssignmentCount(taxonomy_node_id=2, card_count=3),
+            TaxonomyAssignmentCount(taxonomy_node_id=4, card_count=5),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    view = await service.get_node_view(node_id=2)
+
+    assert view.node_kind == "branch"
+    assert [(child.name, child.scope_kind, child.node_kind) for child in view.children] == [
+        ("Heat", TAXONOMY_NODE_SCOPE_KIND, "card_scope"),
+    ]
+
+
+@pytest.mark.anyio
+async def test_unclassified_route_path_is_not_a_taxonomy_view_scope() -> None:
+    repo = _StubRepo(
+        tree_nodes=_precompute_tree(),
+        assignment_counts=[
+            TaxonomyAssignmentCount(taxonomy_node_id=2, card_count=3),
+            TaxonomyAssignmentCount(taxonomy_node_id=4, card_count=5),
+        ],
+    )
+    service = TaxonomyService(repo=repo)
+
+    with pytest.raises(DomainError) as exc_info:
+        await service.get_node_view_by_route_path(route_path="science/unclassified")
+
+    assert exc_info.value.code is ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND
 
 
 @pytest.mark.anyio
@@ -670,7 +701,7 @@ async def test_build_and_cache_card_scope_layout_offloads_sync_layout_build(
 @pytest.mark.anyio
 async def test_set_current_assignment_refreshes_previous_and_current_scope_identities() -> None:
     previous_scope = TaxonomyScopeIdentity(
-        scope_kind=VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
+        scope_kind=TAXONOMY_NODE_SCOPE_KIND,
         taxonomy_node_id=1,
     )
     current_scope = TaxonomyScopeIdentity(
@@ -680,7 +711,7 @@ async def test_set_current_assignment_refreshes_previous_and_current_scope_ident
     repo = _StubRepo(
         scope_identity_results=[{41: previous_scope}, {41: current_scope}],
         assigned_node_ids_by_scope={
-            (VIRTUAL_UNCLASSIFIED_SCOPE_KIND, 1): [11],
+            (TAXONOMY_NODE_SCOPE_KIND, 1): [11],
             (TAXONOMY_NODE_SCOPE_KIND, 2): [41],
         },
         set_result=TaxonomyAssignmentRecord(
@@ -703,7 +734,7 @@ async def test_set_current_assignment_refreshes_previous_and_current_scope_ident
 
     assert result.node_id == 41
     assert repo.scope_identity_by_node_id_calls == [[41], [41]]
-    assert repo.cleared_scope_identities == [current_scope, previous_scope]
-    assert repo.added_scope_batches == [(current_scope, [101]), (previous_scope, [101])]
-    assert projection_port.adjacent_requests == [[41], [11]]
+    assert repo.cleared_scope_identities == [previous_scope, current_scope]
+    assert repo.added_scope_batches == [(previous_scope, [101]), (current_scope, [101])]
+    assert projection_port.adjacent_requests == [[11], [41]]
     assert repo.committed is True

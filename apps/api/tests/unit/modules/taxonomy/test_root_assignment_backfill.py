@@ -168,13 +168,8 @@ async def test_apply_backfills_missing_assignments_and_rebuilds_projection() -> 
     assert repo.ensure_calls == 1
     assert repo.bulk_assign_calls == [1]
     assert repo.cleared_projection is True
-    assert projection_port.requests == [[11, 12]]
-    assert repo.projection_batches == [
-        (
-            TaxonomyScopeIdentity(scope_kind=TAXONOMY_NODE_SCOPE_KIND, taxonomy_node_id=1),
-            [101, 102],
-        )
-    ]
+    assert projection_port.requests == []
+    assert repo.projection_batches == []
     assert repo.committed is True
     assert repo.rolled_back is False
 

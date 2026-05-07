@@ -24,7 +24,6 @@ from modules.knowledge_graph.model import Node
 from modules.taxonomy.model import TaxonomyNode
 from modules.taxonomy.repo import (
     TAXONOMY_NODE_SCOPE_KIND,
-    VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
     TaxonomyRepo,
 )
 from modules.taxonomy.route_path import slugify_taxonomy_route_segment
@@ -716,7 +715,6 @@ async def test_valid_child_result_records_projection_refresh_without_sync_rebuil
     assert assignment is not None
     assert assignment.taxonomy_node.id == science_scope.id
     assert await _projection_refresh_scope_keys(db_session) == [
-        (TAXONOMY_NODE_SCOPE_KIND, root_scope.id),
         (TAXONOMY_NODE_SCOPE_KIND, science_scope.id),
     ]
 
@@ -778,9 +776,7 @@ async def test_batch_result_processing_deduplicates_projection_refresh_requests(
 
     assert processed_count == 2
     assert await _projection_refresh_scope_keys(db_session) == [
-        (TAXONOMY_NODE_SCOPE_KIND, root_scope.id),
         (TAXONOMY_NODE_SCOPE_KIND, science_scope.id),
-        (VIRTUAL_UNCLASSIFIED_SCOPE_KIND, root_scope.id),
     ]
 
 

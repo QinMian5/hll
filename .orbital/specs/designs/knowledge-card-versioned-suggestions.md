@@ -101,7 +101,7 @@ out_of_scope: Figma canvas construction, notification workflows, collaborative c
 - Reviewer acceptance transitions a pending proposal to `accepted_applied` only after the formal domain change and audit record are written.
 
 ## Apply Semantics
-- `create` acceptance creates a formal card and its initial card version. The created card enters taxonomy browsing through the existing Root/Unclassified default assignment rule.
+- `create` acceptance creates a formal card and its initial card version. The created card receives the standard direct `Root` taxonomy assignment and becomes Graph View visible after classification moves it into a browse-visible taxonomy card scope.
 - `edit` acceptance creates a new formal version for the target card and updates the current projection.
 - `delete` acceptance soft-archives the target card. Ordinary Search and Graph View results omit archived cards by default.
 - Apply operations are backend-owned, permission-checked, and atomic at the service boundary.

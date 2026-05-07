@@ -53,7 +53,7 @@ class TaxonomyAssignmentRecord(BaseModel):
     assigned_at: datetime
 
 
-TaxonomyScopeKind = Literal["taxonomy_node", "virtual_unclassified"]
+TaxonomyScopeKind = Literal["taxonomy_node"]
 TaxonomyCardScopeLayoutStatus = Literal["ready", "refreshing"]
 TaxonomyCardScopeLayoutComputeStatus = Literal["pending", "running", "succeeded", "failed"]
 TaxonomyCardScopePrecomputeStatus = Literal["ready", "queued", "refreshing", "failed"]

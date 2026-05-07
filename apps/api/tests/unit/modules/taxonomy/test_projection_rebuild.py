@@ -114,3 +114,48 @@ async def test_rebuild_scope_projection_edges_repopulates_active_scope_rows() ->
             [501, 502],
         ),
     ]
+
+
+@pytest.mark.anyio
+async def test_rebuild_scope_projection_edges_excludes_hidden_backlog_assignments() -> None:
+    repo = _StubRepo(
+        tree_nodes=[
+            TaxonomyNodeRecord(id=1, parent_id=None, name="Root", route_slug="root", depth=0),
+            TaxonomyNodeRecord(id=2, parent_id=1, name="Science", route_slug="science", depth=1),
+            TaxonomyNodeRecord(id=3, parent_id=2, name="Heat", route_slug="heat", depth=2),
+            TaxonomyNodeRecord(id=4, parent_id=1, name="Math", route_slug="math", depth=1),
+        ],
+        assignment_counts=[
+            TaxonomyAssignmentCount(taxonomy_node_id=1, card_count=2),
+            TaxonomyAssignmentCount(taxonomy_node_id=2, card_count=3),
+            TaxonomyAssignmentCount(taxonomy_node_id=3, card_count=5),
+            TaxonomyAssignmentCount(taxonomy_node_id=4, card_count=7),
+        ],
+        assigned_node_ids_by_scope={
+            (TAXONOMY_NODE_SCOPE_KIND, 3): [31, 32],
+            (TAXONOMY_NODE_SCOPE_KIND, 4): [41],
+        },
+    )
+    projection_port = _StubProjectionPort(
+        edge_ids_by_node_tuple={
+            (31, 32): [601],
+            (41,): [701],
+        }
+    )
+
+    await rebuild_taxonomy_scope_projection_edges(
+        repo=repo,
+        projection_port=projection_port,
+    )
+
+    assert projection_port.adjacent_requests == [[41], [31, 32]]
+    assert repo.add_calls == [
+        (
+            TaxonomyScopeIdentity(scope_kind=TAXONOMY_NODE_SCOPE_KIND, taxonomy_node_id=4),
+            [701],
+        ),
+        (
+            TaxonomyScopeIdentity(scope_kind=TAXONOMY_NODE_SCOPE_KIND, taxonomy_node_id=3),
+            [601],
+        ),
+    ]

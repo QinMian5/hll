@@ -221,11 +221,13 @@ function encodeRoutePath(routePath: string): string {
 async function fetchTaxonomyNodeViewByPath(
   routePath: string,
 ): Promise<TaxonomyNodeView> {
-  const endpoint =
-    routePath === ""
-      ? "/web-api/taxonomy/view/path"
-      : `/web-api/taxonomy/view/path/${encodeRoutePath(routePath)}`;
-  const result = await fetchWebApiJson<unknown>(endpoint);
+  if (routePath === "") {
+    throw new Error("Taxonomy path query requires a non-empty route path.");
+  }
+
+  const result = await fetchWebApiJson<unknown>(
+    `/web-api/taxonomy/view/path/${encodeRoutePath(routePath)}`,
+  );
 
   return normalizeTaxonomyNodeViewPayload(result);
 }

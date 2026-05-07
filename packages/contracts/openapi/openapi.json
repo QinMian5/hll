@@ -595,10 +595,7 @@
             "type": "string"
           },
           "scope_kind": {
-            "enum": [
-              "taxonomy_node",
-              "virtual_unclassified"
-            ],
+            "const": "taxonomy_node",
             "title": "Scope Kind",
             "type": "string"
           },
@@ -975,10 +972,7 @@
             "type": "string"
           },
           "scope_kind": {
-            "enum": [
-              "taxonomy_node",
-              "virtual_unclassified"
-            ],
+            "const": "taxonomy_node",
             "title": "Scope Kind",
             "type": "string"
           },
@@ -1042,10 +1036,7 @@
             "type": "string"
           },
           "scope_kind": {
-            "enum": [
-              "taxonomy_node",
-              "virtual_unclassified"
-            ],
+            "const": "taxonomy_node",
             "title": "Scope Kind",
             "type": "string"
           },

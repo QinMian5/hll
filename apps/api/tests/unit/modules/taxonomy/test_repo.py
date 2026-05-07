@@ -336,6 +336,82 @@ async def test_list_assignment_counts_returns_grouped_taxonomy_node_counts() -> 
 
 
 @pytest.mark.anyio
+async def test_list_scope_identities_for_node_ids_returns_only_visible_card_scopes() -> None:
+    class _AssignmentRow:
+        def __init__(self, node_id: int, taxonomy_node_id: int) -> None:
+            self.node_id = node_id
+            self.taxonomy_node_id = taxonomy_node_id
+
+    class _AssignmentCountRow:
+        def __init__(self, taxonomy_node_id: int, card_count: int) -> None:
+            self.taxonomy_node_id = taxonomy_node_id
+            self.card_count = card_count
+
+    session = _StubSession(
+        execute_results=[
+            _StubExecuteResult(
+                rows=[
+                    _AssignmentRow(10, 1),
+                    _AssignmentRow(11, 2),
+                    _AssignmentRow(12, 3),
+                    _AssignmentRow(13, 4),
+                ]
+            ),
+            _StubExecuteResult(
+                rows=[
+                    _AssignmentCountRow(1, 2),
+                    _AssignmentCountRow(2, 3),
+                    _AssignmentCountRow(3, 5),
+                    _AssignmentCountRow(4, 7),
+                ]
+            ),
+        ],
+        scalars_results=[
+            _StubScalarResult(
+                [
+                    TaxonomyNode(
+                        id=1,
+                        parent_id=None,
+                        name="Root",
+                        route_slug="root",
+                        depth=0,
+                    ),
+                    TaxonomyNode(
+                        id=2,
+                        parent_id=1,
+                        name="Science",
+                        route_slug="science",
+                        depth=1,
+                    ),
+                    TaxonomyNode(
+                        id=3,
+                        parent_id=2,
+                        name="Heat",
+                        route_slug="heat",
+                        depth=2,
+                    ),
+                    TaxonomyNode(
+                        id=4,
+                        parent_id=1,
+                        name="Math",
+                        route_slug="math",
+                        depth=1,
+                    ),
+                ]
+            )
+        ],
+    )
+    repo = _repo_with_stub(session)
+
+    identities = await repo.list_scope_identities_for_node_ids(node_ids=[10, 11, 12, 13])
+
+    assert identities == {
+        12: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=3),
+        13: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=4),
+    }
+
+
+@pytest.mark.anyio
 async def test_list_assigned_node_ids_for_scope_returns_sorted_node_ids() -> None:
     class _AssignedNodeRow:
         def __init__(self, node_id: int) -> None:
@@ -369,7 +445,7 @@ async def test_list_projected_edge_ids_for_scope_returns_sorted_edge_ids() -> No
     )
     repo = _repo_with_stub(session)
     scope_identity = TaxonomyScopeIdentity(
-        scope_kind="virtual_unclassified",
+        scope_kind="taxonomy_node",
         taxonomy_node_id=44,
     )
 

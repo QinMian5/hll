@@ -1,5 +1,5 @@
 ---
-abstract: Job-queue-backed taxonomy classification orchestration for incrementally moving cards through visible Unclassified card scopes.
+abstract: Job-queue-backed taxonomy classification orchestration for incrementally moving directly assigned cards through taxonomy child categories.
 out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechanics, and HTTP-triggered classification APIs.
 ---
 
@@ -27,8 +27,8 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - **Dependency boundary:** `taxonomy_classification` consumes `knowledge_graph` service ports for card input data and consumes `taxonomy` service ports for scope lookup, child lookup, and assignment movement.
   - **Queue boundary:** Classification jobs are submitted to the `taxonomy_classification` queue in `job-queue-mcp`.
   - **Producer/result-reader SDK boundary:** `taxonomy_classification` uses the upstream `job_queue_mcp_client.producer.AsyncClient` and `job_queue_mcp_client.auth.ClientCredentialsTokenProvider` public facades directly for batch job submission, batch result reads, and machine-to-machine token acquisition. The module owns classification payload construction, output schema export, local linkage persistence, result validation, and assignment movement.
-  - **Direct-assignment view rule:** Cards directly assigned to a taxonomy scope are exposed in taxonomy browsing as that scope's visible `Unclassified` card scope.
-  - **Seed submission rule:** Operator scripts enqueue cards directly assigned to selected taxonomy scopes at run time, which is operator-facing submission for cards in selected scope `Unclassified` card scopes. Runtime continuation only follows cards whose accepted classification result produced a real assignment move; it does not continuously scan all card assignments.
+  - **Direct-assignment candidate rule:** Cards directly assigned to a taxonomy scope are classification candidates for that scope even when Graph View browsing does not expose those cards.
+  - **Seed submission rule:** Operator scripts enqueue cards directly assigned to selected taxonomy scopes at run time. Runtime continuation only follows cards whose accepted classification result produced a real assignment move; it does not continuously scan all card assignments.
   - **Single-card job rule:** One knowledge card is processed by exactly one queue job for one scope classification attempt.
   - **Node context contract:** The worker receives only the selected card's `title` and `content`, the current scope breadcrumb path, and available sibling target category names.
   - **Human-structure rule:** The worker must choose among existing direct child category names of the current scope or choose `Unclassified` to keep the card in the current scope. The worker cannot create taxonomy nodes, request new taxonomy nodes, or move a card to the parent scope.
@@ -75,11 +75,11 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - **Payload:** one JSON object containing:
   - `scope_path`: current root-to-scope breadcrumb path, formatted as names separated by ` / `, for example `Root / Science / Mathematics`
   - `card`: `{title, content}`
-  - `children`: array of target category options for the scope, each item containing only `name`; it contains each direct child category plus one virtual `Unclassified` option.
+  - `children`: array of target category options for the scope, each item containing only `name`; it contains each direct child category plus one keep-current-scope `Unclassified` option.
 - **Instruction:** task-specific guidance tells the worker only to classify the supplied card within the supplied taxonomy scope path into exactly one supplied direct child taxonomy category, or choose `Unclassified` when no child fits. Output formatting and case-insensitive name matching are enforced by the separate output schema and runtime validation, not repeated in the instruction text.
 - **Output schema:** one JSON object containing:
   - `{ "target_name": <non-empty child name or Unclassified> }`
-- **Result-use rule:** Publishing a valid move depends on structural validation against current taxonomy state. A `target_name` matches either a direct child of the scope or the virtual `Unclassified` option case-insensitively.
+- **Result-use rule:** Publishing a valid move depends on structural validation against current taxonomy state. A `target_name` matches either a direct child of the scope or the keep-current-scope `Unclassified` option case-insensitively.
 - **Producer idempotency rule:** The remote producer idempotency key is derived from the committed local classification job id. Re-running an interrupted operator submission reuses the same producer idempotency key for the same local active submission intent and receives the existing remote job id instead of creating a duplicate remote job.
 
 ## Runtime State
@@ -130,7 +130,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
 - Low-frequency reconcile reads outstanding linked jobs in batches. Ready batch items are applied through existing per-job validation and assignment movement. Not-ready items whose remote state is a terminal non-accepted state mark the local job terminal; other not-ready items remain outstanding. Not-found items record a local job error while leaving the job outstanding for operator visibility.
 - Local assignment movement remains per job and serial within a runtime tick so assignment locks and taxonomy validation keep existing conservative semantics while remote result I/O is batched.
 - A real assignment move inserts a continuation request in the same transaction as accepted-result processing and projection refresh request creation. A keep-current-scope result does not insert a continuation request.
-- Assignment movement records affected source and target `(scope_kind, taxonomy_node_id)` identities as projection refresh requests. Request insertion is idempotent by scope identity and happens in the same transaction as the accepted-result job/event processing state.
+- Assignment movement records affected browse-visible taxonomy card-scope identities as projection refresh requests. Request insertion is idempotent by scope identity and happens in the same transaction as the accepted-result job/event processing state.
 - Continuation submission is a local buffered follow-up step. The runtime checks pending continuation request count and oldest request age only after result event or reconcile work has been committed for the tick. It claims continuation requests when the pending count reaches the configured continuation request batch size or the oldest pending request reaches the configured continuation flush interval.
 - Each claimed request validates that the card is still assigned to the request target scope, that the target scope has direct child categories, and that no active classification job already exists for the card and target scope. Eligible requests create or reuse a local classification job intent, and valid no-op stop conditions delete their continuation requests without remote submission.
 - Continuation producer submission uses the same configured queue name, producer SDK boundary, producer item-count batch ceiling, request body limits, and `taxonomy-classification-job:{local_job_id}` idempotency rule as operator submission. Eligible continuation jobs are submitted through the shared producer batch-create path after local job intents are committed. Job Queue endpoints, credentials, and queue names remain runtime configuration, not module constants.
@@ -217,7 +217,7 @@ out_of_scope: Taxonomy tree persistence ownership, worker-side execution mechani
   - Runtime tests verify terminal non-accepted queue states stop repeated processing for that job.
   - Runtime batch result-read tests verify accepted-result webhook events and low-frequency reconcile use the batch result-read SDK, preserve per-job validation semantics, and handle ready, not-ready, not-found, and terminal-state items correctly.
   - Reconcile tests verify outstanding job links are checked at low frequency through the batch result-read surface.
-  - Continuation request tests verify moved cards are submitted for their current target scope only when the scope has direct child categories, no active job for that card and scope, and the direct assignment is exposed through that scope's visible `Unclassified` card scope.
+  - Continuation request tests verify moved cards are submitted for their current target scope only when the scope has direct child categories, no active job for that card and scope, and the card remains directly assigned to that scope.
   - Continuation request tests verify pending requests wait below the configured batch threshold until the configured flush interval elapses.
   - Continuation producer tests verify pending continuation requests reaching the configured batch threshold are submitted through the shared producer batch-create path.
   - Continuation request tests verify no-child, stale-assignment, and already-active-job requests are completed without remote submission.

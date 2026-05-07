@@ -1158,9 +1158,7 @@ async def test_materialize_card_from_ingestion_creates_node_and_threshold_edges(
     repo = _StubRepo(created_nodes=[], created_edges=[])
     taxonomy_projection_port = _StubTaxonomyProjectionPort(
         scope_lookup_by_node_id={
-            99: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1),
             4: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=8),
-            11: TaxonomyScopeIdentity(scope_kind="virtual_unclassified", taxonomy_node_id=4),
         }
     )
     service = KnowledgeGraphService(
@@ -1186,10 +1184,7 @@ async def test_materialize_card_from_ingestion_creates_node_and_threshold_edges(
         (99, 11, 0.5),
     ]
     assert taxonomy_projection_port.add_calls == [
-        (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1), [500]),
         (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=8), [500]),
-        (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1), [501]),
-        (TaxonomyScopeIdentity(scope_kind="virtual_unclassified", taxonomy_node_id=4), [501]),
     ]
     assert repo.committed is True
     assert repo.rolled_back is False
@@ -1454,9 +1449,7 @@ async def test_materialize_card_from_ingestion_rolls_back_and_reraises() -> None
     )
     taxonomy_projection_port = _StubTaxonomyProjectionPort(
         scope_lookup_by_node_id={
-            99: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1),
             4: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=8),
-            11: TaxonomyScopeIdentity(scope_kind="virtual_unclassified", taxonomy_node_id=4),
         }
     )
     service = KnowledgeGraphService(
@@ -1479,6 +1472,5 @@ async def test_materialize_card_from_ingestion_rolls_back_and_reraises() -> None
     assert repo.rolled_back is True
     assert taxonomy_projection_port.root_assignment_calls == [99]
     assert taxonomy_projection_port.add_calls == [
-        (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=1), [500]),
         (TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=8), [500]),
     ]

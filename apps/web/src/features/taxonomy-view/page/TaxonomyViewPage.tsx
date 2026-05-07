@@ -25,7 +25,9 @@ import { useCreateSuggestedEditMutation } from "../../search/data/searchQueries"
 import { suggestedEditErrorMessage } from "../../search/suggestedEditErrors";
 import {
   type TaxonomyNodeView,
+  type TaxonomyRootView,
   useTaxonomyNodeViewByPathQuery,
+  useTaxonomyRootViewQuery,
 } from "../data/taxonomyViewQueries";
 
 export {
@@ -122,12 +124,10 @@ type TaxonomyViewBranch = Extract<
   { readonly node_kind: "branch" }
 >;
 type TaxonomyViewChild = TaxonomyViewBranch["children"][number];
-type TaxonomyViewScope = Extract<
-  TaxonomyNodeView,
-  { readonly node_kind: "branch" }
->["breadcrumb"][number];
+type TaxonomyViewScope = TaxonomyViewBranch["breadcrumb"][number];
+type VisibleTaxonomyView = TaxonomyRootView | TaxonomyNodeView;
 interface SettledTaxonomyView {
-  readonly data: TaxonomyNodeView;
+  readonly data: VisibleTaxonomyView;
   readonly dataIdentity: string;
   readonly routePath: string;
 }
@@ -145,7 +145,26 @@ function taxonomyChildLayoutId(child: TaxonomyViewChild) {
   return `${child.scope_kind}:${child.taxonomy_node_id ?? child.route_path}`;
 }
 
-function taxonomyViewDataIdentity(view: TaxonomyNodeView) {
+function isTaxonomyNodeView(
+  view: VisibleTaxonomyView | undefined,
+): view is TaxonomyNodeView {
+  return view !== undefined && "node_kind" in view;
+}
+
+function isTaxonomyBranchView(
+  view: VisibleTaxonomyView | undefined,
+): view is TaxonomyRootView | TaxonomyViewBranch {
+  return (
+    view !== undefined &&
+    (!isTaxonomyNodeView(view) || view.node_kind === "branch")
+  );
+}
+
+function taxonomyViewDataIdentity(view: VisibleTaxonomyView) {
+  if (!isTaxonomyNodeView(view)) {
+    return `root:${view.children.map(taxonomyChildLayoutId).join("|")}`;
+  }
+
   const currentScopeKey = taxonomyScopeKey(view.current_scope);
 
   if (view.node_kind === "branch") {
@@ -246,15 +265,17 @@ export function TaxonomyViewPage() {
   const [routeTransitionTarget, setRouteTransitionTarget] =
     useState<RouteTransitionTarget | null>(null);
 
+  const rootQuery = useTaxonomyRootViewQuery({
+    enabled: rootMode,
+  });
   const pathQuery = useTaxonomyNodeViewByPathQuery(activeRoutePath, {
-    enabled: true,
+    enabled: !rootMode,
   });
 
-  const activeQuery = pathQuery;
+  const activeQuery = rootMode ? rootQuery : pathQuery;
+  const activeData = rootMode ? rootQuery.data : pathQuery.data;
   const visibleTaxonomyView =
-    activeQuery.isPending && !pathQuery.data
-      ? lastSettledView?.data
-      : pathQuery.data;
+    activeQuery.isPending && !activeData ? lastSettledView?.data : activeData;
   const breadcrumbs = visibleTaxonomyView?.breadcrumb ?? [];
   const displayBreadcrumbs =
     breadcrumbs[0]?.parent_taxonomy_node_id === null &&
@@ -308,26 +329,21 @@ export function TaxonomyViewPage() {
   }, []);
 
   useEffect(() => {
-    if (activeQuery.isPending || activeQuery.isError || !pathQuery.data) {
+    if (activeQuery.isPending || activeQuery.isError || !activeData) {
       return;
     }
 
-    const dataIdentity = taxonomyViewDataIdentity(pathQuery.data);
+    const dataIdentity = taxonomyViewDataIdentity(activeData);
     setLastSettledView((currentView) =>
       currentView?.routePath === activeRoutePath &&
       currentView.dataIdentity === dataIdentity
         ? currentView
-        : { data: pathQuery.data, dataIdentity, routePath: activeRoutePath },
+        : { data: activeData, dataIdentity, routePath: activeRoutePath },
     );
     setRouteTransitionTarget((currentTarget) =>
       currentTarget?.routePath === activeRoutePath ? null : currentTarget,
     );
-  }, [
-    activeQuery.isError,
-    activeQuery.isPending,
-    activeRoutePath,
-    pathQuery.data,
-  ]);
+  }, [activeQuery.isError, activeQuery.isPending, activeRoutePath, activeData]);
 
   function handleSuggestEdit(card: SearchResultCardEditPayload) {
     if (session.status === "loading") {
@@ -387,7 +403,7 @@ export function TaxonomyViewPage() {
       return emptyBranchFlowGraph("error");
     }
 
-    if (visibleTaxonomyView?.node_kind !== "branch") {
+    if (!isTaxonomyBranchView(visibleTaxonomyView)) {
       return emptyBranchFlowGraph("no-data");
     }
 
@@ -548,7 +564,8 @@ export function TaxonomyViewPage() {
           </section>
         ) : null}
         <div className="taxonomy-flow-shell absolute inset-0 overflow-hidden">
-          {visibleTaxonomyView?.node_kind === "card_scope" ? (
+          {isTaxonomyNodeView(visibleTaxonomyView) &&
+          visibleTaxonomyView.node_kind === "card_scope" ? (
             <Suspense fallback={null}>
               <LeafRenderer
                 key={`${taxonomyScopeKey(visibleTaxonomyView.current_scope)}:${visibleTaxonomyView.layout_version}:${visibleTaxonomyView.generated_at}`}

@@ -143,15 +143,20 @@ describe("taxonomy view route", () => {
     });
   });
 
-  it("calls the internal taxonomy path API with the empty root route path", async () => {
+  it("does not expose an empty taxonomy path route for the root view", async () => {
     const client = createClient();
     const app = await createTestApp({ client });
 
     const response = await request(app).get("/web-api/taxonomy/view/path");
 
-    expect(response.status).toBe(200);
-    expect(client.getTaxonomyNodeByPath).toHaveBeenCalledWith("");
-    expect(response.body.node_kind).toBe("branch");
+    expect(response.status).toBe(404);
+    expect(client.getTaxonomyNodeByPath).not.toHaveBeenCalled();
+    expect(response.body).toEqual({
+      error: {
+        code: "web_api_route_not_found",
+        message: "Web API route not found.",
+      },
+    });
   });
 
   it("preserves taxonomy layout readiness errors from the internal API", async () => {

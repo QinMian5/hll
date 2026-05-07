@@ -121,10 +121,10 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 ### taxonomy Module
 - **Responsibilities:**
   - Own authoritative persisted operator-managed taxonomy tree.
-  - Own the real single `Root` node and visible virtual `Unclassified` card scopes over direct assignments.
+  - Own the real single `Root` node and browse-visible taxonomy branch and card-scope payloads.
   - Own current knowledge-node to taxonomy-node assignment truth.
   - Own taxonomy import and operator structure mutation orchestration.
-  - Own default direct assignment of newly created knowledge nodes to `Root`, exposed in taxonomy browsing through the root `Unclassified` card scope.
+  - Own default direct assignment of newly created knowledge nodes to `Root` as classification backlog.
   - Own assignment movement between valid taxonomy nodes.
   - Own taxonomy drill-down view read contracts:
     - `GET /api/v1/taxonomy/view/root`
@@ -143,7 +143,7 @@ out_of_scope: Detailed implementation, framework-specific wiring, and storage-en
 
 ### taxonomy_classification Module
 - **Responsibilities:**
-  - Own operator-triggered job submission for cards directly assigned to selected taxonomy scopes and exposed through selected scope `Unclassified` card scopes.
+  - Own operator-triggered job submission for cards directly assigned to selected taxonomy scopes.
   - Own job-queue-backed classification runtime state and result consumption.
   - Submit one `taxonomy_classification` queue job per selected card.
   - Consume notification-only webhooks and low-frequency reconcile for queue results.

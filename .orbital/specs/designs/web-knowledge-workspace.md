@@ -41,10 +41,10 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
 - Type-specific payloads:
   - `create`: proposed title and proposed content.
   - `edit`: target node id, base version, suggested title, and suggested content.
-  - `delete`: target node id and base version.
+  - `delete`: target node id, base version, target title, and target content from the referenced formal card version.
 
 ## Proposal Semantics
-- `create` acceptance creates a formal card and its initial version. The accepted card enters taxonomy browsing through the existing default assignment rule: direct `Root` assignment exposed as visible `Unclassified` until classification moves it.
+- `create` acceptance creates a formal card and its initial version. The accepted card receives the standard direct `Root` taxonomy assignment and becomes Graph View visible after classification moves it into a browse-visible taxonomy card scope.
 - `edit` acceptance creates a new formal card version for the target card and updates the current card projection.
 - `delete` acceptance performs soft archive rather than physical deletion. Archived cards are hidden from ordinary Search and Graph View results by default while versions, proposals, audit records, and maintenance visibility remain available.
 - `rejected` proposals carry a reviewer note when useful.
@@ -103,7 +103,7 @@ out_of_scope: Figma canvas construction, implementation plan steps, notification
   - Reviewers can reject pending proposals with reviewer notes through role-governed service flows outside the Workspace route.
   - Reviewer acceptance applies the formal domain change and transitions the proposal to `accepted_applied`.
   - Reviewer acceptance writes an independent audit record.
-  - Create acceptance creates a formal card and uses the existing Root/Unclassified taxonomy default.
+  - Create acceptance creates a formal card and applies the standard direct `Root` taxonomy assignment.
   - Edit acceptance creates a new formal card version for the target card.
   - Delete acceptance soft-archives the target card and ordinary Search/Graph View reads omit archived cards by default.
   - Search edit submission creates the unified `edit` proposal type.

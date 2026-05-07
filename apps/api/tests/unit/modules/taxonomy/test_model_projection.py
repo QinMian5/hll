@@ -19,6 +19,14 @@ from modules.taxonomy.model import (
 from shared.db.base import Base
 
 
+def _check_constraint_sql(table: Table) -> list[str]:
+    return [
+        str(constraint.sqltext)
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    ]
+
+
 def test_projection_registers_required_tables() -> None:
     table_names = set(Base.metadata.tables)
     assert {
@@ -134,6 +142,8 @@ def test_taxonomy_card_scope_layout_projection_contains_durable_read_model_key()
     assert {"scope_kind", "taxonomy_node_id", "layout_version"} in unique_column_sets
     assert table.c.input_fingerprint.nullable is False
     assert table.c.layout_payload.nullable is False
+    assert any("scope_kind IN ('taxonomy_node')" in sql for sql in _check_constraint_sql(table))
+    assert all("virtual_unclassified" not in sql for sql in _check_constraint_sql(table))
     assert {"scope_kind", "taxonomy_node_id"} in index_column_sets
     assert {"input_fingerprint"} in index_column_sets
 
@@ -153,5 +163,7 @@ def test_taxonomy_card_scope_layout_compute_requests_projection_contains_singlef
     assert table.c.input_fingerprint.nullable is False
     assert table.c.status.nullable is False
     assert table.c.attempt_count.nullable is False
+    assert any("scope_kind IN ('taxonomy_node')" in sql for sql in _check_constraint_sql(table))
+    assert all("virtual_unclassified" not in sql for sql in _check_constraint_sql(table))
     assert {"status", "requested_at"} in index_column_sets
     assert {"scope_kind", "taxonomy_node_id"} in index_column_sets

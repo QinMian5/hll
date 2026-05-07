@@ -40,8 +40,6 @@ from modules.taxonomy.layout import (
 )
 from modules.taxonomy.repo import (
     TAXONOMY_NODE_SCOPE_KIND,
-    UNCLASSIFIED_NODE_NAME,
-    VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
 )
 from modules.taxonomy.route_path import join_taxonomy_route_path
 from modules.taxonomy.schema import (
@@ -303,22 +301,6 @@ def _view_scope_from_record(
     )
 
 
-def _virtual_unclassified_scope_from_parent(
-    parent: TaxonomyNodeRecord,
-    *,
-    parent_route_path: str,
-) -> TaxonomyViewScopeResponse:
-    return TaxonomyViewScopeResponse(
-        scope_kind=VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
-        taxonomy_node_id=None,
-        parent_taxonomy_node_id=parent.id,
-        name=UNCLASSIFIED_NODE_NAME,
-        route_slug="unclassified",
-        route_path=join_taxonomy_route_path([parent_route_path, "unclassified"]),
-        depth=parent.depth + 1,
-    )
-
-
 class TaxonomyService:
     def __init__(
         self,
@@ -368,7 +350,6 @@ class TaxonomyService:
             node_by_id=tree_context.node_by_id,
             child_ids_by_parent=tree_context.child_ids_by_parent,
         )
-        direct_counts = await self._load_direct_card_counts(node_by_id=tree_context.node_by_id)
         root_child_ids = sorted(
             tree_context.child_ids_by_parent.get(tree_context.root.id, []),
             key=lambda node_id: (
@@ -383,14 +364,6 @@ class TaxonomyService:
             descendant_counts=descendant_counts,
             route_paths_by_id=tree_context.route_paths_by_id,
         )
-        if direct_counts[tree_context.root.id] > 0 and children:
-            children.append(
-                _virtual_unclassified_child_response(
-                    parent=tree_context.root,
-                    parent_route_path=tree_context.route_paths_by_id[tree_context.root.id],
-                    direct_card_count=direct_counts[tree_context.root.id],
-                )
-            )
         view = TaxonomyRootViewResponse(breadcrumb=[], children=children)
         await self._set_cached_root_view(view)
         return view
@@ -445,7 +418,6 @@ class TaxonomyService:
             node_by_id=tree_context.node_by_id,
             child_ids_by_parent=tree_context.child_ids_by_parent,
         )
-        direct_counts = await self._load_direct_card_counts(node_by_id=tree_context.node_by_id)
         targets: list[TaxonomyCardScopePrecomputeTarget] = []
         for node in sorted(
             tree_context.node_by_id.values(),
@@ -459,21 +431,6 @@ class TaxonomyService:
                 descendant_counts=descendant_counts,
             )
             if visible_child_ids:
-                if direct_counts[node.id] > 0:
-                    virtual_scope = _virtual_unclassified_scope_from_parent(
-                        node,
-                        parent_route_path=tree_context.route_paths_by_id[node.id],
-                    )
-                    targets.append(
-                        TaxonomyCardScopePrecomputeTarget(
-                            scope_identity=TaxonomyScopeIdentity(
-                                scope_kind=VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
-                                taxonomy_node_id=node.id,
-                            ),
-                            route_path=virtual_scope.route_path,
-                            name=virtual_scope.name,
-                        )
-                    )
                 continue
 
             targets.append(
@@ -590,38 +547,7 @@ class TaxonomyService:
             return _real_scope_from_node(node=tree_context.root, tree_context=tree_context)
 
         cursor = tree_context.root
-        segments = route_path.split("/")
-        for index, segment in enumerate(segments):
-            if segment == "unclassified":
-                if index != len(segments) - 1:
-                    raise _route_path_not_found(route_path)
-                resolved_scope = _ResolvedTaxonomyScope(
-                    identity=TaxonomyScopeIdentity(
-                        scope_kind=VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
-                        taxonomy_node_id=cursor.id,
-                    ),
-                    current_scope=_virtual_unclassified_scope_from_parent(
-                        cursor,
-                        parent_route_path=tree_context.route_paths_by_id[cursor.id],
-                    ),
-                    breadcrumb=[
-                        *_real_scope_from_node(
-                            node=cursor,
-                            tree_context=tree_context,
-                        ).breadcrumb,
-                        _virtual_unclassified_scope_from_parent(
-                            cursor,
-                            parent_route_path=tree_context.route_paths_by_id[cursor.id],
-                        ),
-                    ],
-                )
-                await _resolve_card_scope_visibility(
-                    service=self,
-                    resolved_scope=resolved_scope,
-                    tree_context=tree_context,
-                )
-                return resolved_scope
-
+        for segment in route_path.split("/"):
             matches = [
                 child_id
                 for child_id in tree_context.child_ids_by_parent.get(cursor.id, [])
@@ -746,7 +672,10 @@ class TaxonomyService:
             descendant_counts=descendant_counts,
         )
 
-        if resolved_scope.identity.scope_kind == TAXONOMY_NODE_SCOPE_KIND and visible_child_ids:
+        if _node_has_real_children(
+            node_id=current_node.id,
+            child_ids_by_parent=tree_context.child_ids_by_parent,
+        ):
             children = _view_children_from_node_ids(
                 child_ids=visible_child_ids,
                 node_by_id=tree_context.node_by_id,
@@ -754,19 +683,19 @@ class TaxonomyService:
                 descendant_counts=descendant_counts,
                 route_paths_by_id=tree_context.route_paths_by_id,
             )
-            if direct_counts[current_node.id] > 0:
-                children.append(
-                    _virtual_unclassified_child_response(
-                        parent=current_node,
-                        parent_route_path=tree_context.route_paths_by_id[current_node.id],
-                        direct_card_count=direct_counts[current_node.id],
-                    )
-                )
             return TaxonomyNodeBranchViewResponse(
                 node_kind="branch",
                 current_scope=resolved_scope.current_scope,
                 breadcrumb=resolved_scope.breadcrumb,
                 children=children,
+            )
+
+        if direct_counts[current_node.id] <= 0 or current_node.id == tree_context.root.id:
+            return TaxonomyNodeBranchViewResponse(
+                node_kind="branch",
+                current_scope=resolved_scope.current_scope,
+                breadcrumb=resolved_scope.breadcrumb,
+                children=[],
             )
 
         resolved_layout = await self._load_card_scope_layout(scope_identity=resolved_scope.identity)
@@ -1015,7 +944,12 @@ class TaxonomyService:
                 return {node_id: cached_counts.get(node_id, 0) for node_id in node_by_id}
             await self._acquire_descendant_counts_lock()
 
-        descendant_counts = await self._load_direct_card_counts(node_by_id=node_by_id)
+        direct_counts = await self._load_direct_card_counts(node_by_id=node_by_id)
+        descendant_counts = _visible_direct_card_counts(
+            node_by_id=node_by_id,
+            child_ids_by_parent=child_ids_by_parent,
+            direct_counts=direct_counts,
+        )
 
         for node in sorted(
             node_by_id.values(),
@@ -1400,10 +1334,9 @@ def _view_children_from_node_ids(
             route_path=route_paths_by_id[node_id],
             node_kind=(
                 "branch"
-                if _visible_child_ids(
+                if _node_has_real_children(
                     node_id=node_id,
                     child_ids_by_parent=child_ids_by_parent,
-                    descendant_counts=descendant_counts,
                 )
                 else "card_scope"
             ),
@@ -1434,25 +1367,6 @@ def _real_child_response(
     )
 
 
-def _virtual_unclassified_child_response(
-    *,
-    parent: TaxonomyNodeRecord,
-    parent_route_path: str,
-    direct_card_count: int,
-) -> TaxonomyViewChildResponse:
-    return TaxonomyViewChildResponse(
-        scope_kind=VIRTUAL_UNCLASSIFIED_SCOPE_KIND,
-        taxonomy_node_id=None,
-        parent_taxonomy_node_id=parent.id,
-        name=UNCLASSIFIED_NODE_NAME,
-        route_slug="unclassified",
-        route_path=join_taxonomy_route_path([parent_route_path, "unclassified"]),
-        depth=parent.depth + 1,
-        node_kind="card_scope",
-        descendant_card_count=direct_card_count,
-    )
-
-
 def _visible_child_ids(
     *,
     node_id: int,
@@ -1464,6 +1378,35 @@ def _visible_child_ids(
         for child_id in sorted(child_ids_by_parent.get(node_id, []), key=lambda item: item)
         if descendant_counts[child_id] > 0
     ]
+
+
+def _node_has_real_children(
+    *,
+    node_id: int,
+    child_ids_by_parent: dict[int | None, list[int]],
+) -> bool:
+    return bool(child_ids_by_parent.get(node_id))
+
+
+def _visible_direct_card_counts(
+    *,
+    node_by_id: dict[int, TaxonomyNodeRecord],
+    child_ids_by_parent: dict[int | None, list[int]],
+    direct_counts: dict[int, int],
+) -> dict[int, int]:
+    root_ids = set(child_ids_by_parent.get(None, []))
+    return {
+        node_id: (
+            direct_counts[node_id]
+            if node_id not in root_ids
+            and not _node_has_real_children(
+                node_id=node_id,
+                child_ids_by_parent=child_ids_by_parent,
+            )
+            else 0
+        )
+        for node_id in node_by_id
+    }
 
 
 def _build_route_paths_by_id(
@@ -1566,18 +1509,15 @@ async def _resolve_card_scope_visibility(
         child_ids_by_parent=tree_context.child_ids_by_parent,
         descendant_counts=descendant_counts,
     )
-    if resolved_scope.identity.scope_kind == VIRTUAL_UNCLASSIFIED_SCOPE_KIND:
-        if direct_counts[current_node_id] <= 0 or not visible_child_ids:
-            raise DomainError(
-                code=ErrorCode.DOMAIN_TAXONOMY_RESOURCE_NOT_FOUND,
-                message=(
-                    f"Taxonomy route path {resolved_scope.current_scope.route_path!r} "
-                    "was not found."
-                ),
-                hint="Use an existing taxonomy route path and retry.",
-            )
-        return
-    if visible_child_ids:
+    if (
+        current_node_id == tree_context.root.id
+        or direct_counts[current_node_id] <= 0
+        or _node_has_real_children(
+            node_id=current_node_id,
+            child_ids_by_parent=tree_context.child_ids_by_parent,
+        )
+        or visible_child_ids
+    ):
         raise ApplicationError(
             code=ErrorCode.APPLICATION_TAXONOMY_INPUT_INVALID,
             message="Card-scope request requires a card-scope route path.",

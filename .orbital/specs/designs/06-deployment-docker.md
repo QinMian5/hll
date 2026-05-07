@@ -121,7 +121,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Compose files must reference role startup commands. Long inline runtime invocation details stay out of environment-specific compose service definitions.
 - API role command owns API logging bootstrap and then starts FastAPI serving.
 - Worker role command owns worker logging bootstrap and then starts Dramatiq worker serving.
-- Taxonomy view layout runtime role command owns API logging bootstrap and then starts the long-running Redis-backed card-scope layout compute loop.
+- Taxonomy view layout runtime role command owns API logging bootstrap and then starts the long-running PostgreSQL compute-request card-scope layout loop, writing durable layout rows and refreshing Redis hot-cache entries.
 - Web role command starts the Express BFF server and serves the built Vite assets from the same process.
 - MCP role command owns MCP logging bootstrap and then starts the Streamable HTTP MCP server.
 - Orchestrator role command owns source-pipeline runtime bootstrap and then starts the long-running local event and reconcile loop.

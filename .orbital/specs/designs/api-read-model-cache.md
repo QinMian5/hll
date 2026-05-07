@@ -90,7 +90,7 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 - PostgreSQL compute request state prevents duplicate compute requests for concurrent callers targeting the same scope/version/input fingerprint.
 - The API request path does not run the CPU-bound card-scope layout simulation.
 - The taxonomy view layout runtime consumes pending PostgreSQL compute requests, runs the deterministic layout simulation, writes the durable full layout entry, refreshes the Redis hot cache, and records compute success or failure.
-- The operator precompute workflow discovers card-scope targets using the same taxonomy service semantics that determine whether a route renders as a card-scope view. It covers all currently user-reachable card-scope scopes, including any virtual card-scope scopes produced by the taxonomy view service.
+- The operator precompute workflow discovers card-scope targets using the same taxonomy service semantics that determine whether a real taxonomy-node route renders as a card-scope view. It covers all currently user-reachable taxonomy card scopes.
 - The operator precompute workflow supports a queue-only mode that registers compute requests and exits after reporting queued, already-ready, refreshing, failed, and total target counts.
 - The operator precompute workflow supports a wait mode that processes or observes pending compute work until the selected target set has durable ready layouts, a configured timeout is reached, or an unrecoverable error occurs.
 - Wait mode supports bounded worker concurrency by running multiple existing runtime processing units against the same PostgreSQL compute request queue. The claim path remains responsible for singleflight behavior. The operator wrapper applies a precompute-only Compose resource override so the one-off runtime has a higher CPU quota than the long-running background runtime.
@@ -148,7 +148,7 @@ out_of_scope: Redis service topology, frontend query caching, MCP quota state, a
 - Taxonomy service tests verify stale durable full card-scope layout read models return data with `layout_status = "refreshing"` and register a background refresh request.
 - Taxonomy cache tests verify card-scope metadata and viewport layout request handlers do not run the CPU-bound layout simulation on cache miss.
 - Taxonomy runtime tests verify the taxonomy view layout runtime consumes pending PostgreSQL compute requests and writes durable full layout read models plus Redis hot-cache entries.
-- Taxonomy operator tests verify precompute target discovery uses the same card-scope semantics as taxonomy view responses and includes virtual card-scope scopes when they are user-reachable.
+- Taxonomy operator tests verify precompute target discovery uses the same real taxonomy-node card-scope semantics as taxonomy view responses.
 - Taxonomy operator tests verify queue-only precompute registers compute requests without building layouts directly.
 - Taxonomy operator tests verify wait-mode precompute uses the runtime processing path, reports ready and failed target counts, and exits non-zero on timeout or failed selected targets.
 - Settings tests verify API cache TTL settings parse from environment and do not include a taxonomy card-scope layout TTL.

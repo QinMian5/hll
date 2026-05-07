@@ -194,14 +194,6 @@ export function createTaxonomyViewRouter(
   );
 
   router.get(
-    "/path",
-    options.quotaMiddleware,
-    async (_request, response, next) => {
-      await sendTaxonomyPathResponse(options, "", response, next);
-    },
-  );
-
-  router.get(
     "/path/*routePath",
     options.quotaMiddleware,
     async (request, response, next) => {

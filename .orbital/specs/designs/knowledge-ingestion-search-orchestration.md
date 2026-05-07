@@ -24,7 +24,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
 
 ### taxonomy
 - Owns persisted operator-managed LCC taxonomy tree and current direct node-to-taxonomy assignment truth.
-- Owns the real single `Root` node and path-addressed virtual Unclassified view scopes.
+- Owns the real single `Root` node and path-addressed real taxonomy branch and card scopes.
 - Owns taxonomy import and operator structure mutation orchestration.
 - Owns default assignment of new knowledge nodes directly to `Root`.
 - Owns assignment movement between valid real taxonomy nodes.
@@ -153,7 +153,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
     - `current_scope` with explicit real taxonomy scope identity
     - `breadcrumb[]` ordered root-to-current with explicit real taxonomy scope identity
   - branch payload includes visible `children[]` direct child scopes
-  - card-scope metadata payload includes `layout_version`, `world_bounds`, `node_count`, `edge_count`, and `generated_at`
+  - card-scope metadata payload includes `layout_version`, `layout_status`, `world_bounds`, `node_count`, `edge_count`, and `generated_at`
   - card-scope metadata payload excludes full graph nodes, graph edges, node titles, node content, and `current_version`
 - Failure:
   - `404` when taxonomy node id is unknown.
@@ -163,14 +163,11 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
 - Route: `GET /api/v1/taxonomy/view/path/{route_path:path}`
 - Request:
   - `route_path` is a slash-joined canonical LCC slug path excluding the system `Root` segment.
-  - appending `/unclassified` addresses a visible virtual Unclassified card scope below the parent taxonomy route path.
 - Response:
   - same response union as `GET /api/v1/taxonomy/view/nodes/{node_id}` for real taxonomy nodes
-  - card-scope metadata payload for resolved virtual Unclassified scopes
   - response nodes include `route_slug` and `route_path`
 - Failure:
   - `404` when any path segment does not resolve below its current parent.
-  - `404` when an `unclassified` segment does not resolve to a visible virtual Unclassified scope.
   - `404` when taxonomy root is unavailable.
 
 ### Taxonomy Card-Scope Layout Viewport Endpoint
@@ -181,12 +178,14 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
 - Response:
   - explicit scope identity and `route_path`
   - `layout_version`
+  - `layout_status`
   - `requested_bounds`
   - `nodes[]` ordered by `id ASC`; each item has `id`, `scope`, `x`, and `y`
   - `edges[]` ordered by `(source_node_id ASC, target_node_id ASC)`; each item is `[source_node_id, target_node_id, strength]`
 - Failure:
   - `404` when `route_path` does not resolve to a card scope.
   - `404` when taxonomy root is unavailable.
+  - `503 layout_not_ready` when the durable full card-scope layout read model is unavailable.
 
 ### Taxonomy Card-Scope Titles Endpoint
 - Route: `POST /api/v1/taxonomy/view/card-scopes/titles`
@@ -257,7 +256,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
 3. Taxonomy storage remains the authoritative structure truth.
 
 ## Taxonomy Classification Flow
-1. Operator script resolves one scope by case-insensitive name or path, or scans all eligible directly assigned scopes. Direct assignments are exposed in taxonomy browsing as each selected scope's visible `Unclassified` card scope.
+1. Operator script resolves one scope by case-insensitive name or path, or scans all eligible directly assigned scopes.
 2. Operator script selects directly assigned cards from each selected scope in deterministic order (`nodes.id ASC` within each scope).
 3. Operator script skips selected scopes that have no regular direct child categories.
 4. Operator script submits one `taxonomy_classification` queue job per selected card.
@@ -334,7 +333,7 @@ out_of_scope: LLM reranking, cross-encoder reranking, Figma Workspace constructi
   - Workspace review checks verifying reviewer acceptance applies the formal domain change, transitions the proposal, and writes an apply audit
   - Workspace review checks verifying unauthorized reviewer/admin actions are rejected
   - `GET /api/v1/taxonomy/view/root`, `GET /api/v1/taxonomy/view/nodes/{id}`, `GET /api/v1/taxonomy/view/path/{route_path:path}`, `GET /api/v1/taxonomy/view/card-scopes/layout`, `POST /api/v1/taxonomy/view/card-scopes/titles`, and `POST /api/v1/taxonomy/view/card-scopes/details` contract checks
-  - taxonomy view checks verifying direct taxonomy-node assignments are exposed through visible virtual `Unclassified` card scopes without materializing real `Unclassified` taxonomy nodes or buckets
+  - taxonomy view checks verifying direct taxonomy-node assignments under `Root` or real branch nodes do not create browse-visible card scopes
   - taxonomy classification queue-contract checks
   - taxonomy classification webhook/reconcile checks
   - taxonomy classification assignment-move checks

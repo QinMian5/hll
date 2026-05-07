@@ -9,7 +9,7 @@ from collections import defaultdict
 from typing import Protocol
 
 from modules.taxonomy.dto import TaxonomyAssignmentCount, TaxonomyNodeRecord, TaxonomyScopeIdentity
-from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND, VIRTUAL_UNCLASSIFIED_SCOPE_KIND
+from modules.taxonomy.repo import TAXONOMY_NODE_SCOPE_KIND
 
 
 class TaxonomyScopeProjectionRebuildRepoPort(Protocol):
@@ -75,27 +75,17 @@ def _active_scope_identities(
         if count.taxonomy_node_id in direct_counts:
             direct_counts[count.taxonomy_node_id] = count.card_count
 
-    descendant_counts = dict(direct_counts)
-    for node in sorted(node_by_id.values(), key=lambda item: (item.depth, item.id), reverse=True):
-        if node.parent_id is not None:
-            descendant_counts[node.parent_id] += descendant_counts[node.id]
-
     identities: list[TaxonomyScopeIdentity] = []
     for node in sorted(node_by_id.values(), key=lambda item: (item.depth, item.name, item.id)):
-        if direct_counts[node.id] <= 0:
+        if (
+            direct_counts[node.id] <= 0
+            or node.parent_id is None
+            or child_ids_by_parent.get(node.id)
+        ):
             continue
-        visible_child_ids = [
-            child_id
-            for child_id in child_ids_by_parent.get(node.id, [])
-            if descendant_counts[child_id] > 0
-        ]
         identities.append(
             TaxonomyScopeIdentity(
-                scope_kind=(
-                    VIRTUAL_UNCLASSIFIED_SCOPE_KIND
-                    if visible_child_ids
-                    else TAXONOMY_NODE_SCOPE_KIND
-                ),
+                scope_kind=TAXONOMY_NODE_SCOPE_KIND,
                 taxonomy_node_id=node.id,
             )
         )

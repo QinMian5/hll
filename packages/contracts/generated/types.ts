@@ -477,9 +477,9 @@ export interface components {
       route_path: string;
       /**
        * Scope Kind
-       * @enum {string}
+       * @constant
        */
-      scope_kind: "taxonomy_node" | "virtual_unclassified";
+      scope_kind: "taxonomy_node";
       /** Taxonomy Node Id */
       taxonomy_node_id?: number | null;
     };
@@ -608,9 +608,9 @@ export interface components {
       route_slug: string;
       /**
        * Scope Kind
-       * @enum {string}
+       * @constant
        */
-      scope_kind: "taxonomy_node" | "virtual_unclassified";
+      scope_kind: "taxonomy_node";
       /** Taxonomy Node Id */
       taxonomy_node_id?: number | null;
     };
@@ -628,9 +628,9 @@ export interface components {
       route_slug: string;
       /**
        * Scope Kind
-       * @enum {string}
+       * @constant
        */
-      scope_kind: "taxonomy_node" | "virtual_unclassified";
+      scope_kind: "taxonomy_node";
       /** Taxonomy Node Id */
       taxonomy_node_id?: number | null;
     };

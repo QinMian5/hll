@@ -295,31 +295,6 @@ function makeBranchNodeView(
   } as TaxonomyNodeView;
 }
 
-function rootScope() {
-  return {
-    depth: 0,
-    name: "Root",
-    parent_taxonomy_node_id: null,
-    route_path: "",
-    route_slug: "root",
-    scope_kind: "taxonomy_node",
-    taxonomy_node_id: 1,
-  } as const;
-}
-
-function rootQueryStateAsPathQuery(): MockQueryResult<TaxonomyNodeView> {
-  return {
-    ...rootQueryState,
-    data: rootQueryState.data
-      ? makeBranchNodeView({
-          breadcrumb: [rootScope()],
-          children: rootQueryState.data.children,
-          current_scope: rootScope(),
-        })
-      : undefined,
-  };
-}
-
 beforeEach(() => {
   reactFlowMockState.nextMountId = 1;
   rerenderTaxonomyPage = undefined;
@@ -371,7 +346,7 @@ beforeEach(() => {
   mockUseTaxonomyNodeViewByPathQuery.mockImplementation((routePath) => {
     if (routePath === "") {
       return (pathQueryStates.get("") ??
-        rootQueryStateAsPathQuery()) as unknown as ReturnType<
+        makeQueryResult({ isPending: true })) as unknown as ReturnType<
         typeof taxonomyViewQueries.useTaxonomyNodeViewByPathQuery
       >;
     }
@@ -577,44 +552,19 @@ describe("TaxonomyViewPage", () => {
     expect(refetch).toHaveBeenCalledTimes(1);
   });
 
-  it("loads the root graph route through the path resolver so Root card-scope data can render", async () => {
-    pathQueryStates.set(
-      "",
-      makeQueryResult({
-        data: makeLeafNodeView({
-          breadcrumb: [
-            {
-              depth: 0,
-              name: "Root",
-              parent_taxonomy_node_id: null,
-              route_path: "",
-              route_slug: "root",
-              scope_kind: "taxonomy_node",
-              taxonomy_node_id: 1,
-            },
-          ],
-          current_scope: {
-            depth: 0,
-            name: "Root",
-            parent_taxonomy_node_id: null,
-            route_path: "",
-            route_slug: "root",
-            scope_kind: "taxonomy_node",
-            taxonomy_node_id: 1,
-          },
-          node_count: 56,
-        }),
-      }),
-    );
-
+  it("loads the root graph route through the root query instead of the path resolver", async () => {
     await renderWithRoute("/graph");
 
-    expect(mockUseTaxonomyNodeViewByPathQuery).toHaveBeenCalledWith("", {
+    expect(mockUseTaxonomyRootViewQuery).toHaveBeenCalledWith({
       enabled: true,
     });
+    expect(mockUseTaxonomyNodeViewByPathQuery).toHaveBeenCalledWith("", {
+      enabled: false,
+    });
+    expect(screen.getByText("Math")).toBeInTheDocument();
     expect(
-      await screen.findByTestId("taxonomy-leaf-renderer"),
-    ).toHaveTextContent("Root");
+      screen.queryByTestId("taxonomy-leaf-renderer"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders branch mode on React Flow and drills into leaf mode on the dedicated leaf renderer", async () => {
@@ -807,7 +757,9 @@ describe("TaxonomyViewPage", () => {
   it("renders a readable deep link without first visiting the root graph", async () => {
     await renderWithRoute("/graph/math");
 
-    expect(mockUseTaxonomyRootViewQuery).not.toHaveBeenCalled();
+    expect(mockUseTaxonomyRootViewQuery).toHaveBeenCalledWith({
+      enabled: false,
+    });
     expect(mockUseTaxonomyNodeViewByPathQuery).toHaveBeenCalledWith("math", {
       enabled: true,
     });
@@ -823,21 +775,21 @@ describe("TaxonomyViewPage", () => {
           {
             depth: 1,
             descendant_card_count: 54,
-            name: "Unclassified",
-            node_kind: "card_scope",
-            parent_taxonomy_node_id: 3,
-            route_path: "unclassified",
-            route_slug: "unclassified",
-            scope_kind: "virtual_unclassified",
-            taxonomy_node_id: 3,
+            name: "Science",
+            node_kind: "branch",
+            parent_taxonomy_node_id: 1,
+            route_path: "science",
+            route_slug: "science",
+            scope_kind: "taxonomy_node",
+            taxonomy_node_id: 2,
           },
         ],
       }),
     });
     pathQueryStates.set(
-      "unclassified",
+      "science",
       makeQueryResult({
-        data: makeLeafNodeView({
+        data: makeBranchNodeView({
           breadcrumb: [
             {
               depth: 0,
@@ -846,26 +798,26 @@ describe("TaxonomyViewPage", () => {
               route_path: "",
               route_slug: "root",
               scope_kind: "taxonomy_node",
-              taxonomy_node_id: 3,
+              taxonomy_node_id: 1,
             },
             {
               depth: 1,
-              name: "Unclassified",
-              parent_taxonomy_node_id: 3,
-              route_path: "unclassified",
-              route_slug: "unclassified",
-              scope_kind: "virtual_unclassified",
-              taxonomy_node_id: 3,
+              name: "Science",
+              parent_taxonomy_node_id: 1,
+              route_path: "science",
+              route_slug: "science",
+              scope_kind: "taxonomy_node",
+              taxonomy_node_id: 2,
             },
           ],
           current_scope: {
             depth: 1,
-            name: "Unclassified",
-            parent_taxonomy_node_id: 3,
-            route_path: "unclassified",
-            route_slug: "unclassified",
-            scope_kind: "virtual_unclassified",
-            taxonomy_node_id: 3,
+            name: "Science",
+            parent_taxonomy_node_id: 1,
+            route_path: "science",
+            route_slug: "science",
+            scope_kind: "taxonomy_node",
+            taxonomy_node_id: 2,
           },
         }),
       }),
@@ -873,21 +825,22 @@ describe("TaxonomyViewPage", () => {
 
     await renderWithRoute();
 
-    const unclassifiedNode = within(screen.getByTestId("reactflow-mock"))
-      .getByText("Unclassified")
+    const scienceNode = within(screen.getByTestId("reactflow-mock"))
+      .getByText("Science")
       .closest("[data-node-scope='branch']");
 
-    expect(unclassifiedNode).not.toBeNull();
+    expect(scienceNode).not.toBeNull();
 
-    fireEvent.click(unclassifiedNode as HTMLElement);
+    fireEvent.click(scienceNode as HTMLElement);
 
-    expect(
-      await screen.findByTestId("taxonomy-leaf-renderer"),
-    ).toHaveTextContent("Unclassified");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Science" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      ),
+    );
     expect(screen.getAllByRole("button", { name: "Root" })).toHaveLength(1);
-    expect(
-      screen.getByRole("button", { name: "Unclassified" }),
-    ).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("Unclassified")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("taxonomy-breadcrumb-separator")).toHaveLength(
       1,
     );

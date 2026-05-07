@@ -9,6 +9,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+def _single_value_schema_value(schema: dict[str, object]) -> str:
+    if "const" in schema:
+        value = schema["const"]
+        assert isinstance(value, str)
+        return value
+    enum = schema["enum"]
+    assert enum == ["taxonomy_node"]
+    return "taxonomy_node"
+
+
 @pytest.mark.contract
 def test_openapi_contains_search_and_ingestion_paths(
     client: TestClient,
@@ -53,6 +63,21 @@ def test_taxonomy_card_scope_openapi_includes_layout_status(
     assert card_scope_schema["properties"]["layout_status"]["enum"] == ["ready", "refreshing"]
     assert "layout_status" in layout_slice_schema["required"]
     assert layout_slice_schema["properties"]["layout_status"]["enum"] == ["ready", "refreshing"]
+
+
+@pytest.mark.contract
+def test_taxonomy_view_openapi_scope_kind_is_real_taxonomy_node_only(
+    client: TestClient,
+) -> None:
+    openapi = client.app.openapi()
+    scope_schema = openapi["components"]["schemas"]["TaxonomyViewScopeResponse"]
+    layout_slice_schema = openapi["components"]["schemas"]["TaxonomyCardScopeLayoutSliceResponse"]
+
+    assert _single_value_schema_value(scope_schema["properties"]["scope_kind"]) == "taxonomy_node"
+    assert (
+        _single_value_schema_value(layout_slice_schema["properties"]["scope_kind"])
+        == "taxonomy_node"
+    )
 
 
 @pytest.mark.contract

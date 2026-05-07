@@ -21,7 +21,7 @@ class _StubProjectionRepo:
     taxonomy_lookup_by_node_id: dict[int, int] = field(default_factory=lambda: {11: 9, 12: 4})
     scope_lookup_by_node_id: dict[int, TaxonomyScopeIdentity] = field(
         default_factory=lambda: {
-            11: TaxonomyScopeIdentity(scope_kind="virtual_unclassified", taxonomy_node_id=9),
+            11: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9),
             12: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=4),
         }
     )
@@ -72,7 +72,7 @@ async def test_assignment_to_root_delegates_without_cache_invalidation() -> None
 async def test_projected_edge_insert_delegates_without_cache_invalidation() -> None:
     repo = _StubProjectionRepo()
     port = TaxonomyProjectionPortAdapter(repo=repo)
-    scope_identity = TaxonomyScopeIdentity(scope_kind="virtual_unclassified", taxonomy_node_id=4)
+    scope_identity = TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=4)
 
     await port.add_projected_edge_ids_for_scope(
         scope_identity=scope_identity,
@@ -101,5 +101,5 @@ async def test_scope_lookup_delegates_without_invalidating_layout() -> None:
 
     assert result == {
         12: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=4),
-        11: TaxonomyScopeIdentity(scope_kind="virtual_unclassified", taxonomy_node_id=9),
+        11: TaxonomyScopeIdentity(scope_kind="taxonomy_node", taxonomy_node_id=9),
     }
