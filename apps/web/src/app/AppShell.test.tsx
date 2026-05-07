@@ -177,8 +177,23 @@ describe("AppShell", () => {
       expect(authTransport.startSilentSignIn).toHaveBeenCalledOnce(),
     );
     await waitFor(() =>
-      expect(screen.getAllByText("Knowledge Graph").length).toBeGreaterThan(0),
+      expect(
+        screen.getAllByText("Humanity's Last Library").length,
+      ).toBeGreaterThan(0),
     );
+    expect(screen.queryByText("Knowledge Graph")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^K$/)).not.toBeInTheDocument();
+    expect(screen.getAllByText("HLL").length).toBeGreaterThan(0);
+    for (const brandMark of screen.getAllByTestId("app-shell-brand-mark")) {
+      expect(brandMark).toHaveClass(
+        "size-knowledge-shell-brand-mark",
+        "rounded-knowledge-surface",
+        "bg-knowledge-brand",
+        "text-knowledge-brand-mark",
+        "text-knowledge-text-inverse",
+      );
+      expect(brandMark).not.toHaveClass("text-knowledge-rich-title");
+    }
     expect(screen.getByTestId("app-shell")).toHaveClass(
       "bg-knowledge-page-bg",
       "font-sans",

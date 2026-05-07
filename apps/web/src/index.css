@@ -117,6 +117,8 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --text-knowledge-body--line-height: 22px;
   --text-knowledge-caption: 13px;
   --text-knowledge-caption--line-height: 18px;
+  --text-knowledge-brand-mark: 11px;
+  --text-knowledge-brand-mark--line-height: 12px;
   --text-knowledge-shell-brand: 14px;
   --text-knowledge-shell-brand--line-height: 20px;
   --text-knowledge-shell-action: 13px;
@@ -233,6 +235,7 @@ out_of_scope: Feature-level node-layout algorithms and backend data orchestratio
   --spacing-knowledge-field-min-height: 80px;
   --spacing-knowledge-field-tall-min-height: 180px;
   --spacing-knowledge-scrollbar-width: 6px;
+  --spacing-knowledge-shell-brand-mark: 36px;
   --spacing-knowledge-shell-brand-row: 52px;
   --spacing-knowledge-shell-drawer-width: 320px;
   --spacing-knowledge-notification-width: 320px;

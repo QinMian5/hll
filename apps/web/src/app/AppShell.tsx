@@ -71,6 +71,7 @@ function isNavigationItemActive(pathname: string, itemTo: AppRoute): boolean {
 }
 
 const githubRepositoryUrl = "https://github.com/QinMian5/hll";
+const brandName = "Humanity's Last Library";
 
 const actionButtonClasses =
   "inline-flex h-10 w-full items-center justify-center rounded-lg bg-knowledge-brand px-3 text-knowledge-shell-action font-medium text-knowledge-text-inverse transition-colors hover:bg-knowledge-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-knowledge-brand";
@@ -106,9 +107,10 @@ function BrandMark() {
   return (
     <div
       aria-hidden="true"
-      className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-knowledge-brand text-knowledge-rich-title font-black text-knowledge-text-inverse"
+      className="flex size-knowledge-shell-brand-mark shrink-0 items-center justify-center rounded-knowledge-surface bg-knowledge-brand text-knowledge-brand-mark font-black text-knowledge-text-inverse"
+      data-testid="app-shell-brand-mark"
     >
-      K
+      HLL
     </div>
   );
 }
@@ -118,7 +120,7 @@ function BrandRow({ withClose }: { readonly withClose?: () => void }) {
     <div className="flex h-knowledge-shell-brand-row w-full shrink-0 items-center gap-3 overflow-hidden bg-knowledge-surface-card-solid p-2">
       <BrandMark />
       <span className="min-w-0 flex-1 truncate text-knowledge-shell-brand font-black text-knowledge-text-default">
-        Knowledge Graph
+        {brandName}
       </span>
       {withClose ? (
         <button
@@ -485,7 +487,7 @@ export function AppShell() {
           </button>
           <BrandMark />
           <span className="min-w-0 flex-1 truncate text-knowledge-shell-brand font-black text-knowledge-text-default">
-            Knowledge Graph
+            {brandName}
           </span>
         </header>
         <div className="min-h-0 flex-1 overflow-hidden">
