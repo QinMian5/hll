@@ -17,7 +17,7 @@ out_of_scope: Product feature behavior, deployment topology internals, and activ
 
 ## Constraint Projection
 - **Governing Constraints:** Repository documentation must support one consistent contributor entrypoint, keep active docs synchronized with current truth, and preserve the distinction between public product access surfaces and internal service APIs.
-- **Detail Commitments:** The root README is the concise public release entrypoint for Humanity's Last Library. Repository `docs/` files carry contributor, MCP client setup, and licensing detail. The web app `/docs` route carries the same end-user MCP client setup guidance in the product UI. Active `.orbital/specs/` documents remain implementation truth for project maintainers and are not the primary public-reader documentation entrypoint.
+- **Detail Commitments:** The root README is the concise public release entrypoint for Humanity's Last Library. Repository `docs/` files carry contributor, MCP client setup, and licensing detail. The web app `/docs` route carries the same end-user MCP client setup guidance in the product UI. Active `docs/specs/` documents remain implementation truth for project maintainers and are not the primary public-reader documentation entrypoint.
 - **Update Rule:** Requirement-level governance remains stable while publication structure, README positioning, and repository docs placement stay in this design document.
 
 ## Inputs & Outputs
@@ -61,14 +61,14 @@ out_of_scope: Product feature behavior, deployment topology internals, and activ
   - **MCP docs boundary:** `docs/mcp.md` owns end-user MCP client setup for Codex, Claude Code, and OpenClaw using Dashboard personal access tokens.
   - **Licensing docs boundary:** `docs/licensing.md` owns the public human-readable license summary, while `LICENSE`, `NOTICE`, and `DATA_LICENSE.md` own the operative repository license notices.
   - **Web docs boundary:** The web app `/docs` route remains the product UI version of the same MCP client setup surface for Codex, Claude Code, and OpenClaw, and README links to the production docs route.
-  - **Specs boundary:** `.orbital/specs/` remains active design truth for maintainers and is not presented as the main public documentation path.
+  - **Specs boundary:** `docs/specs/` remains active design truth for maintainers and is not presented as the main public documentation path.
 - **Interactions:**
   1. A public reader starts at `README.md`.
   2. A contributor follows README links to `docs/development.md`.
   3. An integrator follows README links to `docs/mcp.md`.
   4. An end user follows the web app `/docs` route for client-specific MCP setup.
   5. A reuser follows README links to `docs/licensing.md`, then reads `LICENSE`, `NOTICE`, and `DATA_LICENSE.md` for license details.
-  6. Maintainers use `.orbital/specs/` when changing behavior or architecture.
+  6. Maintainers use `docs/specs/` when changing behavior or architecture.
 
 ## Validation
 - **Checks:**

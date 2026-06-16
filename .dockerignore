@@ -4,7 +4,7 @@
 .gitignore
 .DS_Store
 .worktrees
-.orbital/specs/plans
+docs/specs/plans
 .venv
 **/__pycache__
 **/.pytest_cache

@@ -7,7 +7,7 @@ out_of_scope: Module-level implementation details, file-path prescriptions, and 
 
 This document defines stable constraints for the full-stack repository. Detailed structure,
 file paths, and implementation-facing decisions are projected into design documents under
-`.orbital/specs/designs/`.
+`docs/specs/designs/`.
 
 ## Authoring Constraints
 - This document SHALL contain only stable, project-level constraints and expected outcomes.

@@ -29,7 +29,7 @@ repo/
     contracts/
   infra/
   scripts/
-  .orbital/specs/
+  docs/specs/
   Makefile
   package.json
   pnpm-workspace.yaml
@@ -48,7 +48,7 @@ repo/
 - `packages/contracts`: OpenAPI snapshot, generated clients/types, contracts scripts.
 - `infra`: deployment/environment templates.
 - `scripts`: repository automation scripts.
-- `.orbital/specs`: active requirements/design/plan documents.
+- `docs/specs`: active requirements/design/plan documents.
 
 ## API Application Layout (`apps/api`)
 ```text
