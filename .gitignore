@@ -4,7 +4,6 @@
 /.worktrees/
 __pycache__/
 
-/.orbital/specs/plans
 /logs/
 /apps/knowledge_corpus/uv.lock
 
