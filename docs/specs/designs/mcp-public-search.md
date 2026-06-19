@@ -68,7 +68,7 @@ out_of_scope: Browser web sessions, private FastAPI route ownership, non-search 
   - **Token-exchange cache:** Redis may cache exchanged access tokens by PAT fingerprint until access-token expiry with a safety margin. PAT revocation is enforced once cached access expires or immediately when exchange is retried and Logto rejects the PAT.
   - **Private search access:** The MCP service calls private `GET /api/v1/search` over the backend Docker network using a generated internal Python client derived from the OpenAPI artifact. It does not import FastAPI route internals or graph persistence internals.
   - **Error handling:** Authentication failure maps to MCP-compatible auth errors without exposing token text. Quota failure returns a tool error that includes safe retry metadata. Internal search dependency failures preserve correlation through logs and safe MCP error content.
-  - **Origin and transport security:** Streamable HTTP requests without an `Origin` header are accepted for non-browser MCP clients. Requests with an `Origin` header are accepted only when the origin matches the configured MCP allowed-origin list. Production serves the public MCP endpoint only through HTTPS at the shared proxy boundary.
+  - **Origin and transport security:** Streamable HTTP requests without an `Origin` header are accepted for non-browser MCP clients. Requests with an `Origin` header are accepted only when the origin matches the configured MCP allowed-origin list. Production serves the public MCP endpoint only through HTTPS at the Cloudflare Tunnel ingress boundary.
 - **Interactions:**
   1. User creates a Logto personal access token while signed in to the knowledge system.
   2. User configures an MCP client with the public MCP endpoint and bearer PAT.

@@ -20,6 +20,7 @@ def _settings() -> SimpleNamespace:
         redis_url="redis://cache-redis:6379/0",
         search_max_matched=3,
         search_max_connected=7,
+        search_vector_candidate_pool_size=64,
         search_response_cache_ttl_seconds=60,
         search_embedding_cache_ttl_seconds=86400,
         embedding_model="text-embedding-3-small",

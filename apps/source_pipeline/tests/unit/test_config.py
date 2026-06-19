@@ -116,9 +116,11 @@ def test_prod_compose_requires_knowledge_logto_for_webhook_receiver() -> None:
     base_logto_block = _service_block(BASE_COMPOSE, "logto")
     base_receiver_block = _service_block(BASE_COMPOSE, "source_pipeline_webhook_receiver")
     prod_nginx_block = _service_block(PROD_COMPOSE, "nginx")
+    prod_cloudflare_block = _service_block(PROD_COMPOSE, "cloudflare-ingress")
     stripped_logto = [line.strip() for line in base_logto_block]
     stripped_receiver = [line.strip() for line in base_receiver_block]
     stripped_nginx = [line.strip() for line in prod_nginx_block]
+    stripped_cloudflare = [line.strip() for line in prod_cloudflare_block]
     expected_endpoint = (
         "ENDPOINT: ${KNOWLEDGE_LOGTO_ENDPOINT:?KNOWLEDGE_LOGTO_ENDPOINT is required}"
     )
@@ -131,8 +133,13 @@ def test_prod_compose_requires_knowledge_logto_for_webhook_receiver() -> None:
     assert expected_admin_endpoint in stripped_logto
     assert "logto:" in stripped_receiver
     assert "condition: service_healthy" in stripped_receiver
-    assert "- knowledge-logto.orbitalis.org" in stripped_nginx
-    assert "- admin.knowledge-logto.internal.home.arpa" in stripped_nginx
+    assert "logto:" in stripped_nginx
+    assert "condition: service_healthy" in stripped_nginx
+    assert "nginx:" in stripped_cloudflare
+    assert "condition: service_healthy" in stripped_cloudflare
+    assert (
+        "TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}"
+    ) in stripped_cloudflare
 
 
 def test_compose_contains_explicit_low_frequency_reconcile_settings() -> None:

@@ -172,13 +172,24 @@ services:
       retries: 6
       start_period: 5s
     networks:
-      edge: {}
-      proxy:
-        aliases:
-          - knowledge-nginx
-          - knowledge.orbitalis.org
-          - knowledge-logto.orbitalis.org
-          - admin.knowledge-logto.internal.home.arpa
+      - edge
+
+  cloudflare-ingress:
+    image: cloudflare/cloudflared:latest
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
+    depends_on:
+      nginx:
+        condition: service_healthy
+    networks:
+      - edge
+      - egress
+    restart: unless-stopped
 
 volumes:
   knowledge_postgres_data:
@@ -199,8 +210,3 @@ volumes:
   knowledge_redis_data:
     external: true
     name: knowledge_redis_prod_data
-
-networks:
-  proxy:
-    external: true
-    name: proxy

@@ -16,7 +16,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Related Requirements: R-001, R-002, R-003, R-004, R-005, R-006, R-007.
 
 ## Deployment Topology (MVP)
-- Production external exposure is restricted to the shared host-level reverse proxy on `80/443`, routed through the project-local `nginx` app gateway to explicitly public web, public MCP, Logto, and webhook surfaces.
+- Production external exposure is restricted to the project-owned Cloudflare Tunnel connector, routed through the project-local `nginx` app gateway to explicitly public web, public MCP, Logto, and webhook surfaces.
 - Development exposes `web` on `5174`, `api` on `8001`, `db` on host `5432`, Logto auth on host `3011` via `knowledge-dev-logto.localhost`, and Logto admin on host `3012` via `knowledge-dev-logto-admin.localhost` for local debugging and operator setup.
 - Repository-owned container listener ports are fixed deployment topology, not operator configuration. Compose overlays own host port publishing with literal mappings, while environment files own only runtime configuration that must vary by environment or operator secret.
 - `api`, `db`, and `redis` remain internal-only in production.
@@ -26,12 +26,12 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Development may expose the knowledge corpus PostgreSQL service on a separate host port for local tooling; it must not reuse the online database host port.
 - Development may expose source-pipeline and MCP PostgreSQL services on separate host ports for local tooling; they must not reuse the online database or knowledge corpus host ports.
 - `redis` remains internal-only in both environments and is provided by a project-managed service definition.
-- Production runtime process topology includes one private `api` container, one `worker` container, one public `web` BFF container, one public `mcp` container, one taxonomy view layout runtime container, one source-pipeline `orchestrator` container, one source-pipeline webhook receiver container, one taxonomy-classification runtime container, and one taxonomy-classification webhook receiver container. The production identity topology additionally includes self-hosted `logto-postgres`, `logto-seed`, and `logto` services for the `knowledge` OAuth authority.
+- Production runtime process topology includes one private `api` container, one `worker` container, one public `web` BFF container, one public `mcp` container, one project-local `nginx` app gateway container, one Cloudflare Tunnel connector container, one taxonomy view layout runtime container, one source-pipeline `orchestrator` container, one source-pipeline webhook receiver container, one taxonomy-classification runtime container, and one taxonomy-classification webhook receiver container. The production identity topology additionally includes self-hosted `logto-postgres`, `logto-seed`, and `logto` services for the `knowledge` OAuth authority.
 - Development starts `api`, `worker`, and the taxonomy view layout runtime by default. Development also includes source-pipeline data and migration services as default app-local infrastructure. Source-pipeline and taxonomy-classification queue-connected runtimes are explicit opt-in profiles because local development must not accidentally submit jobs to the shared queue or expose webhook intake unintentionally.
 - Horizontal scaling is not an MVP requirement for `api`, `worker`, taxonomy view layout runtime, source-pipeline runtimes, or taxonomy-classification runtimes; production baseline keeps one running container per role.
-- Production search read chain is `shared proxy -> nginx -> web BFF -> api -> egress -> OpenAI Embeddings API + db`.
-- Production MCP search chain is `shared proxy -> nginx -> mcp -> api -> egress -> OpenAI Embeddings API + db`, with `mcp -> logto` for PAT token exchange and access-token validation metadata.
-- Production Dashboard token-management chain is `shared proxy -> nginx -> web BFF -> logto` for personal access token lifecycle operations and `web BFF -> mcp` over the backend network for usage summaries.
+- Production search read chain is `Cloudflare edge -> cloudflare-ingress -> nginx -> web BFF -> api -> egress -> OpenAI Embeddings API + db`.
+- Production MCP search chain is `Cloudflare edge -> cloudflare-ingress -> nginx -> mcp -> api -> egress -> OpenAI Embeddings API + db`, with `mcp -> logto` for PAT token exchange and access-token validation metadata.
+- Production Dashboard token-management chain is `Cloudflare edge -> cloudflare-ingress -> nginx -> web BFF -> logto` for personal access token lifecycle operations and `web BFF -> mcp` over the backend network for usage summaries.
 - Production web asset delivery treats browser HTML as a revalidation-bound application shell and Vite hashed assets as immutable static resources. Missing hashed asset paths return non-cacheable `404` responses and do not route to the application shell. Browser-side Vite preload failures use one controlled browser-session reload to recover the current application shell.
 - Production ingestion write chain is `api -> redis -> worker -> egress -> OpenAI Embeddings API + db`.
 - Production card-scope layout compute chain is `api -> db compute request + db durable layout + redis hot cache -> taxonomy_view_layout_runtime -> db durable layout + redis hot cache`.
@@ -50,10 +50,10 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Accepted first-version service names for the source pipeline database path are `source_pipeline_db` and `source_pipeline_migrate`.
 - MCP PostgreSQL may share a Docker network with other internal services or use its own internal network, but it must remain a separate service identity from the online graph database and must not reuse the `postgres` service name or lifecycle.
 - Accepted first-version service names for the MCP usage database path are `mcp_db` and `mcp_migrate`.
-- `edge` network contains `web`, `mcp`, self-hosted Logto, enabled webhook receiver roles, and the project-local `nginx` app gateway.
-- `egress` network contains only runtime roles that need outbound access to external HTTPS services. It is not used for public inbound exposure.
-- Production connects the project-local `nginx` app gateway to the external shared `proxy` network with stable `knowledge-nginx`, `knowledge.orbitalis.org`, `knowledge-logto.orbitalis.org`, and `admin.knowledge-logto.internal.home.arpa` aliases. It must not publish host `80/443` ports directly.
-- Production connects source-pipeline and taxonomy-classification result-consuming runtimes to `egress` for outbound `job-queue-mcp` API and token calls. These runtimes do not attach to the external shared `proxy` network.
+- `edge` network contains `web`, `mcp`, self-hosted Logto, enabled webhook receiver roles, the project-local `nginx` app gateway, and the Cloudflare Tunnel connector.
+- `egress` network contains only runtime and connector roles that need outbound access to external HTTPS services. It is not used for direct public host-port exposure.
+- Production connects the Cloudflare Tunnel connector to the project-local `nginx` app gateway over the `edge` network. The production `nginx` service must not publish host `80/443` ports directly.
+- Production connects source-pipeline and taxonomy-classification result-consuming runtimes to `egress` for outbound `job-queue-mcp` API and token calls.
 - Production `nginx` routes the public application host to `web` and does not route public `/api/` paths to the private `api` container.
 - Production `nginx` routes the public MCP endpoint path to `mcp` and does not route MCP traffic through the browser BFF.
 - Production exposes webhook receiver roles through the project-local `nginx` app gateway on dedicated webhook paths. Receiver containers remain container-only and must not publish host ports directly.
@@ -77,7 +77,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 ## Compose Layering Strategy
 - `docker-compose.base.yml`: shared service definitions plus logical network and volume keys. It must not own the compose project name, environment-specific image tags, explicit Docker volume names, explicit Docker network names, host port publishing, or listener-port environment indirection.
 - `docker-compose.dev.yml`: development-only overrides with project name `knowledge-dev`, development image tags, source mounts, debug commands, fixed literal local port exposure, no `nginx` service, default source-pipeline `source_pipeline_db` and `source_pipeline_migrate` services, default `mcp` service, and explicit opt-in profiles for `orchestrator`, `source_pipeline_webhook_receiver`, `taxonomy_classification_runtime`, and `taxonomy_classification_webhook_receiver`.
-- `docker-compose.prod.yml`: production-only overrides with project name `knowledge-prod`, production image tags, runtime restart policy, project-local `nginx` app gateway, public web BFF routing, public MCP routing, `nginx` shared `proxy` network attachment, packaged nginx route configuration, and production external volume bindings.
+- `docker-compose.prod.yml`: production-only overrides with project name `knowledge-prod`, production image tags, runtime restart policy, project-local `nginx` app gateway, Cloudflare Tunnel connector, public web BFF routing, public MCP routing, packaged nginx route configuration, and production external volume bindings.
 - `docker-compose.test.yml`: isolated test topology with project name `knowledge-test` and test image tags.
 - `docker-compose.prod.yml` must override accepted long-running and one-shot source-pipeline services with production image tags and production external volume binding for source-pipeline data.
 - Migration autogeneration uses the same base+dev layering and does not use a dedicated compose overlay file.
@@ -113,6 +113,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - `redis` uses fixed-tag official image `redis:7-bookworm`.
 - `web` uses a custom Dockerfile with separate dev/prod targets; the production target builds Vite assets and runs the Express BFF server.
 - `nginx` uses a project-owned image that copies repository route configuration at build time so production deploys immutable gateway configuration instead of live bind-mounted config files.
+- `cloudflare-ingress` uses the official `cloudflare/cloudflared` image and does not build from repository source.
 
 ## Process Role Command Contract
 - `api`, `worker`, and `taxonomy_view_layout_runtime` must each have a stable, role-specific startup command suitable for direct mapping to Kubernetes `Deployment.spec.template.spec.containers[].command/args`.
@@ -138,6 +139,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   4. `api`, `worker`, and `taxonomy_view_layout_runtime` start after `migrate`.
   5. `web` and `mcp` start after their private dependencies are healthy; `mcp` additionally waits for `mcp_migrate`.
   6. Production `nginx` starts after `web`, `mcp`, enabled webhook receiver roles, and Logto are available.
+  7. Production `cloudflare-ingress` starts after `nginx` is healthy.
 - Knowledge corpus startup/migration order is separate from the online stack:
   1. `knowledge_corpus_db` reaches healthy state.
   2. `knowledge_corpus_migrate` one-shot job runs and exits successfully.
@@ -218,6 +220,7 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
   - `KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_ID` and `KNOWLEDGE_WEB_MCP_USAGE_SUMMARY_CLIENT_SECRET` for the BFF usage-summary service client
   - `KNOWLEDGE_WEB_PAT_FINGERPRINT_SECRET` for computing MCP-compatible PAT fingerprints from Logto-returned token values
 - Production MCP runtime configuration provides settings for the public MCP base URL, internal API base URL, Redis URL, dedicated MCP PostgreSQL database URL, Logto issuer, Logto token endpoint, Logto discovery URL, MCP API resource/audience, required search scope, Logto token-exchange client credentials, PAT fingerprint secret, MCP usage-summary resource/audience, required usage-summary scope, allowed usage-summary service client id, MCP quota limits, MCP allowed origins, and MCP usage-recording behavior.
+- Production Cloudflare ingress connector configuration uses `CLOUDFLARE_TUNNEL_TOKEN` as its only connector secret.
 - MCP internal usage-summary configuration uses:
   - `KNOWLEDGE_MCP_USAGE_SUMMARY_AUTH_RESOURCE` for the internal usage-summary API resource/audience
   - `KNOWLEDGE_MCP_USAGE_SUMMARY_REQUIRED_SCOPE` with value `usage:read`

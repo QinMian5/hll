@@ -86,6 +86,12 @@ EXPECTED_PROD_RESOURCE_BUDGETS = {
     "web": {"mem_limit": "1024m", "memswap_limit": "1024m", "cpus": 0.75, "pids_limit": 128},
     "logto": {"mem_limit": "768m", "memswap_limit": "768m", "cpus": 0.75, "pids_limit": 128},
     "nginx": {"mem_limit": "128m", "memswap_limit": "128m", "cpus": 0.25, "pids_limit": 64},
+    "cloudflare-ingress": {
+        "mem_limit": "128m",
+        "memswap_limit": "128m",
+        "cpus": 0.25,
+        "pids_limit": 64,
+    },
 }
 EXPECTED_DEV_RESOURCE_BUDGETS = {
     "postgres": {"mem_limit": "768m", "memswap_limit": "768m", "cpus": 0.75, "pids_limit": 192},
@@ -540,6 +546,29 @@ def test_outbound_runtime_roles_use_dedicated_egress_network() -> None:
         assert service["networks"] == ["backend", "egress"]
 
 
+def test_prod_compose_uses_project_owned_cloudflare_tunnel_ingress() -> None:
+    prod = _compose_data(PROD_COMPOSE)
+    services = prod["services"]
+    assert isinstance(services, dict)
+    assert "cloudflare-ingress" in services
+
+    ingress = services["cloudflare-ingress"]
+    assert isinstance(ingress, dict)
+    assert ingress["image"] == "cloudflare/cloudflared:latest"
+    assert ingress["command"] == ["tunnel", "--no-autoupdate", "--protocol", "http2", "run"]
+    assert ingress["environment"] == {
+        "TUNNEL_TOKEN": "${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}",
+    }
+    assert ingress["depends_on"] == {"nginx": {"condition": "service_healthy"}}
+    assert ingress["networks"] == ["edge", "egress"]
+    assert ingress["restart"] == "unless-stopped"
+
+    nginx = services["nginx"]
+    assert isinstance(nginx, dict)
+    assert nginx["networks"] == ["edge"]
+    assert "proxy" not in prod.get("networks", {})
+
+
 def test_base_web_service_reaches_private_dependencies() -> None:
     web = _service_data(BASE_COMPOSE, "web")
 
@@ -749,6 +778,7 @@ def test_env_example_owns_compose_default_values() -> None:
         "KNOWLEDGE_API_LOG_LEVEL",
         "KNOWLEDGE_API_LOG_FILE_MAX_BYTES",
         "KNOWLEDGE_API_LOG_FILE_BACKUP_COUNT",
+        "CLOUDFLARE_TUNNEL_TOKEN",
         "SOURCE_PIPELINE_POLL_INTERVAL_SECONDS",
         "SOURCE_PIPELINE_POLL_BATCH_SIZE",
         "SOURCE_PIPELINE_RECONCILE_INTERVAL_SECONDS",
