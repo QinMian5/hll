@@ -2,20 +2,48 @@
 # out_of_scope: Application container runtime and production ingress networking.
 name: knowledge-test
 
+x-postgres-env-file: &postgres-env-file
+  - path: ../env/generated/.env.test.postgres.runtime
+    required: false
+    format: raw
+
+x-knowledge-corpus-db-env-file: &knowledge-corpus-db-env-file
+  - path: ../env/generated/.env.test.knowledge-corpus-db.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-db-env-file: &source-pipeline-db-env-file
+  - path: ../env/generated/.env.test.source-pipeline-db.runtime
+    required: false
+    format: raw
+
+x-mcp-db-env-file: &mcp-db-env-file
+  - path: ../env/generated/.env.test.mcp-db.runtime
+    required: false
+    format: raw
+
+x-knowledge-corpus-migrate-env-file: &knowledge-corpus-migrate-env-file
+  - path: ../env/generated/.env.test.knowledge-corpus-migrate.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-migrate-env-file: &source-pipeline-migrate-env-file
+  - path: ../env/generated/.env.test.source-pipeline-migrate.runtime
+    required: false
+    format: raw
+
+x-mcp-migrate-env-file: &mcp-migrate-env-file
+  - path: ../env/generated/.env.test.mcp-migrate.runtime
+    required: false
+    format: raw
+
 services:
   postgres:
     build:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
     image: knowledge-postgres:test
-    environment:
-      POSTGRES_DB: ${KNOWLEDGE_API_POSTGRES_DB:?KNOWLEDGE_API_POSTGRES_DB is required}
-      POSTGRES_USER: ${KNOWLEDGE_API_POSTGRES_USER:?KNOWLEDGE_API_POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${KNOWLEDGE_API_POSTGRES_PASSWORD:?KNOWLEDGE_API_POSTGRES_PASSWORD is required}
-      APP_DB_USER: ${KNOWLEDGE_API_DB_USER:?KNOWLEDGE_API_DB_USER is required}
-      APP_DB_PASSWORD: ${KNOWLEDGE_API_DB_PASSWORD:?KNOWLEDGE_API_DB_PASSWORD is required}
-      MIGRATION_DB_USER: ${KNOWLEDGE_API_MIGRATION_DB_USER:?KNOWLEDGE_API_MIGRATION_DB_USER is required}
-      MIGRATION_DB_PASSWORD: ${KNOWLEDGE_API_MIGRATION_DB_PASSWORD:?KNOWLEDGE_API_MIGRATION_DB_PASSWORD is required}
+    env_file: *postgres-env-file
     healthcheck:
       test:
         [
@@ -40,14 +68,7 @@ services:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
     image: knowledge-corpus-postgres:test
-    environment:
-      POSTGRES_DB: ${KNOWLEDGE_CORPUS_POSTGRES_DB:?KNOWLEDGE_CORPUS_POSTGRES_DB is required}
-      POSTGRES_USER: ${KNOWLEDGE_CORPUS_POSTGRES_USER:?KNOWLEDGE_CORPUS_POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${KNOWLEDGE_CORPUS_POSTGRES_PASSWORD:?KNOWLEDGE_CORPUS_POSTGRES_PASSWORD is required}
-      APP_DB_USER: ${KNOWLEDGE_CORPUS_APP_DB_USER:?KNOWLEDGE_CORPUS_APP_DB_USER is required}
-      APP_DB_PASSWORD: ${KNOWLEDGE_CORPUS_APP_DB_PASSWORD:?KNOWLEDGE_CORPUS_APP_DB_PASSWORD is required}
-      MIGRATION_DB_USER: ${KNOWLEDGE_CORPUS_MIGRATION_DB_USER:?KNOWLEDGE_CORPUS_MIGRATION_DB_USER is required}
-      MIGRATION_DB_PASSWORD: ${KNOWLEDGE_CORPUS_MIGRATION_DB_PASSWORD:?KNOWLEDGE_CORPUS_MIGRATION_DB_PASSWORD is required}
+    env_file: *knowledge-corpus-db-env-file
     healthcheck:
       test:
         [
@@ -72,14 +93,7 @@ services:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
     image: knowledge-source-pipeline-postgres:test
-    environment:
-      POSTGRES_DB: ${SOURCE_PIPELINE_POSTGRES_DB:?SOURCE_PIPELINE_POSTGRES_DB is required}
-      POSTGRES_USER: ${SOURCE_PIPELINE_POSTGRES_USER:?SOURCE_PIPELINE_POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${SOURCE_PIPELINE_POSTGRES_PASSWORD:?SOURCE_PIPELINE_POSTGRES_PASSWORD is required}
-      APP_DB_USER: ${SOURCE_PIPELINE_APP_DB_USER:?SOURCE_PIPELINE_APP_DB_USER is required}
-      APP_DB_PASSWORD: ${SOURCE_PIPELINE_APP_DB_PASSWORD:?SOURCE_PIPELINE_APP_DB_PASSWORD is required}
-      MIGRATION_DB_USER: ${SOURCE_PIPELINE_MIGRATION_DB_USER:?SOURCE_PIPELINE_MIGRATION_DB_USER is required}
-      MIGRATION_DB_PASSWORD: ${SOURCE_PIPELINE_MIGRATION_DB_PASSWORD:?SOURCE_PIPELINE_MIGRATION_DB_PASSWORD is required}
+    env_file: *source-pipeline-db-env-file
     healthcheck:
       test:
         [
@@ -104,14 +118,7 @@ services:
       context: ../..
       dockerfile: infra/docker/postgres/Dockerfile
     image: knowledge-mcp-postgres:test
-    environment:
-      POSTGRES_DB: ${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}
-      POSTGRES_USER: ${KNOWLEDGE_MCP_POSTGRES_USER:?KNOWLEDGE_MCP_POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${KNOWLEDGE_MCP_POSTGRES_PASSWORD:?KNOWLEDGE_MCP_POSTGRES_PASSWORD is required}
-      APP_DB_USER: ${KNOWLEDGE_MCP_DB_USER:?KNOWLEDGE_MCP_DB_USER is required}
-      APP_DB_PASSWORD: ${KNOWLEDGE_MCP_DB_PASSWORD:?KNOWLEDGE_MCP_DB_PASSWORD is required}
-      MIGRATION_DB_USER: ${KNOWLEDGE_MCP_MIGRATION_DB_USER:?KNOWLEDGE_MCP_MIGRATION_DB_USER is required}
-      MIGRATION_DB_PASSWORD: ${KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD:?KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD is required}
+    env_file: *mcp-db-env-file
     healthcheck:
       test:
         [
@@ -136,12 +143,10 @@ services:
       context: ../..
       dockerfile: infra/docker/knowledge_corpus/Dockerfile
     image: knowledge-corpus-migrate:test
+    env_file: *knowledge-corpus-migrate-env-file
     depends_on:
       knowledge_corpus_db:
         condition: service_healthy
-    environment:
-      KNOWLEDGE_CORPUS_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_CORPUS_APP_DB_USER:?KNOWLEDGE_CORPUS_APP_DB_USER is required}:${KNOWLEDGE_CORPUS_APP_DB_PASSWORD:?KNOWLEDGE_CORPUS_APP_DB_PASSWORD is required}@knowledge_corpus_db:5432/${KNOWLEDGE_CORPUS_POSTGRES_DB:?KNOWLEDGE_CORPUS_POSTGRES_DB is required}
-      KNOWLEDGE_CORPUS_MIGRATION_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_CORPUS_MIGRATION_DB_USER:?KNOWLEDGE_CORPUS_MIGRATION_DB_USER is required}:${KNOWLEDGE_CORPUS_MIGRATION_DB_PASSWORD:?KNOWLEDGE_CORPUS_MIGRATION_DB_PASSWORD is required}@knowledge_corpus_db:5432/${KNOWLEDGE_CORPUS_POSTGRES_DB:?KNOWLEDGE_CORPUS_POSTGRES_DB is required}
     command: ["alembic", "-c", "/app/apps/knowledge_corpus/alembic.ini", "upgrade", "head"]
     networks:
       - backend
@@ -158,11 +163,10 @@ services:
       additional_contexts:
         job_queue_mcp_python_client: ../../../job-queue-mcp/packages/python-client
     image: knowledge-source-pipeline:test
+    env_file: *source-pipeline-migrate-env-file
     depends_on:
       source_pipeline_db:
         condition: service_healthy
-    environment:
-      SOURCE_PIPELINE_MIGRATION_DATABASE_URL: postgresql+psycopg://${SOURCE_PIPELINE_MIGRATION_DB_USER:?SOURCE_PIPELINE_MIGRATION_DB_USER is required}:${SOURCE_PIPELINE_MIGRATION_DB_PASSWORD:?SOURCE_PIPELINE_MIGRATION_DB_PASSWORD is required}@source_pipeline_db:5432/${SOURCE_PIPELINE_POSTGRES_DB:?SOURCE_PIPELINE_POSTGRES_DB is required}
     command: ["alembic", "-c", "/app/apps/source_pipeline/alembic.ini", "upgrade", "head"]
     networks:
       - backend
@@ -179,12 +183,10 @@ services:
       additional_contexts:
         job_queue_mcp_python_client: ../../../job-queue-mcp/packages/python-client
     image: knowledge-mcp:test
+    env_file: *mcp-migrate-env-file
     depends_on:
       mcp_db:
         condition: service_healthy
-    environment:
-      KNOWLEDGE_MCP_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_MCP_DB_USER:?KNOWLEDGE_MCP_DB_USER is required}:${KNOWLEDGE_MCP_DB_PASSWORD:?KNOWLEDGE_MCP_DB_PASSWORD is required}@mcp_db:5432/${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}
-      KNOWLEDGE_MCP_MIGRATION_DATABASE_URL: postgresql+psycopg://${KNOWLEDGE_MCP_MIGRATION_DB_USER:?KNOWLEDGE_MCP_MIGRATION_DB_USER is required}:${KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD:?KNOWLEDGE_MCP_MIGRATION_DB_PASSWORD is required}@mcp_db:5432/${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}
     command: ["alembic", "-c", "/app/apps/mcp/alembic.ini", "upgrade", "head"]
     networks:
       - backend

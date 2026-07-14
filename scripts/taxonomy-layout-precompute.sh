@@ -11,6 +11,8 @@ ENVIRONMENT="${TAXONOMY_LAYOUT_PRECOMPUTE_ENVIRONMENT:-dev}"
 PRECOMPUTE_ARGS=()
 RUN_ARGS=(--rm)
 
+source "$ROOT_DIR/scripts/lib/runtime-env.sh"
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --environment)
@@ -42,7 +44,6 @@ case "$ENVIRONMENT" in
     COMPOSE_OVERLAY="$ROOT_DIR/infra/compose/docker-compose.prod.yml"
     RUN_ARGS+=(--no-deps)
     source "$ROOT_DIR/scripts/lib/prod-volumes.sh"
-    ensure_prod_external_volumes
     ;;
   *)
     echo "error: --environment must be dev or prod, got: $ENVIRONMENT" >&2
@@ -55,8 +56,12 @@ if [[ ! -f "$COMPOSE_ENV" ]]; then
   exit 1
 fi
 
+materialize_runtime_env "$ENVIRONMENT" "$COMPOSE_ENV"
+if [[ "$ENVIRONMENT" == "prod" ]]; then
+  ensure_prod_external_volumes
+fi
+
 compose_args=(
-  --env-file "$COMPOSE_ENV"
   -f "$COMPOSE_BASE"
   -f "$COMPOSE_OVERLAY"
   -f "$COMPOSE_PRECOMPUTE"

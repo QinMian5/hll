@@ -32,6 +32,7 @@ TAXONOMY_LAYOUT_PRECOMPUTE_SCRIPT = REPO_ROOT / "scripts" / "taxonomy-layout-pre
 TAXONOMY_LAYOUT_PRECOMPUTE_COMPOSE = (
     COMPOSE_DIR / "docker-compose.taxonomy-layout-precompute.yml"
 )
+RUNTIME_ENV_SCRIPT = REPO_ROOT / "scripts" / "lib" / "runtime-env.sh"
 RESOURCE_FIELDS = ("mem_limit", "memswap_limit", "cpus", "pids_limit")
 EXPECTED_PROD_RESOURCE_BUDGETS = {
     "postgres": {"mem_limit": "1536m", "memswap_limit": "1536m", "cpus": 1.5, "pids_limit": 256},
@@ -165,6 +166,17 @@ def _service_data(path: Path, service_name: str) -> dict[str, object]:
     service = services[service_name]
     assert isinstance(service, dict)
     return service
+
+
+def _assert_generated_env_file(path: Path, service_name: str, mode: str, role: str) -> None:
+    service = _service_data(path, service_name)
+    assert service["env_file"] == [
+        {
+            "path": f"../env/generated/.env.{mode}.{role}.runtime",
+            "required": False,
+            "format": "raw",
+        }
+    ]
 
 
 def _assert_resource_budget(path: Path, expected: dict[str, dict[str, object]]) -> None:
@@ -408,24 +420,28 @@ def test_logto_admin_container_port_is_fixed_and_dev_publishes_host_port() -> No
 
 def test_base_compose_defines_taxonomy_classification_runtime_with_job_queue_secret() -> None:
     runtime = _service_block(BASE_COMPOSE, "taxonomy_classification_runtime")
+    generator = _read(RUNTIME_ENV_SCRIPT)
 
     assert 'command: ["/app/bin/run-taxonomy-classification-runtime.sh"]' in runtime
     assert "KNOWLEDGE_API_ROLE" not in runtime
-    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME" in runtime
-    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET" in runtime
-    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CONTINUATION_REQUEST_BATCH_SIZE" in runtime
-    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CONTINUATION_FLUSH_INTERVAL_SECONDS" in runtime
-    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_PROJECTION_REFRESH_BATCH_SIZE" in runtime
+    assert "environment:" not in runtime
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME" in generator
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET" in generator
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CONTINUATION_REQUEST_BATCH_SIZE" in generator
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_CONTINUATION_FLUSH_INTERVAL_SECONDS" in generator
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_PROJECTION_REFRESH_BATCH_SIZE" in generator
     assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID" not in runtime
 
 
 def test_base_compose_defines_taxonomy_classification_webhook_without_job_queue_secret() -> None:
     receiver = _service_block(BASE_COMPOSE, "taxonomy_classification_webhook_receiver")
+    generator = _read(RUNTIME_ENV_SCRIPT)
 
     assert 'command: ["/app/bin/run-taxonomy-classification-webhook-receiver.sh"]' in receiver
     assert "KNOWLEDGE_API_ROLE" not in receiver
-    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME" in receiver
-    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID" in receiver
+    assert "environment:" not in receiver
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_QUEUE_NAME" in generator
+    assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_WEBHOOK_ALLOWED_CLIENT_ID" in generator
     assert "KNOWLEDGE_API_TAXONOMY_CLASSIFICATION_JOB_QUEUE_CLIENT_SECRET" not in receiver
 
 
@@ -440,8 +456,8 @@ def test_base_compose_defines_taxonomy_view_layout_runtime_with_private_dependen
         "migrate": {"condition": "service_completed_successfully"},
     }
 
-    environment = runtime["environment"]
-    assert isinstance(environment, dict)
+    assert "environment" not in runtime
+    generator = _read(RUNTIME_ENV_SCRIPT)
     for key in (
         "KNOWLEDGE_API_DATABASE_URL",
         "KNOWLEDGE_API_REDIS_URL",
@@ -451,8 +467,10 @@ def test_base_compose_defines_taxonomy_view_layout_runtime_with_private_dependen
         "KNOWLEDGE_API_EDGE_SEMANTIC_MIN_STRENGTH",
         "KNOWLEDGE_API_EDGE_SEMANTIC_CANDIDATE_LIMIT",
     ):
-        assert key in environment
-    assert "KNOWLEDGE_API_EMBEDDING_API_KEY" not in environment
+        assert key in generator
+    assert "KNOWLEDGE_API_EMBEDDING_API_KEY" not in _service_block(
+        BASE_COMPOSE, "taxonomy_view_layout_runtime"
+    )
 
 
 def test_base_compose_uses_current_edge_initialization_env_contract() -> None:
@@ -469,32 +487,32 @@ def test_base_compose_uses_current_edge_initialization_env_contract() -> None:
 
     for service_name in ("api", "worker", "taxonomy_view_layout_runtime"):
         service = _service_data(BASE_COMPOSE, service_name)
-        environment = service["environment"]
-        assert isinstance(environment, dict)
+        assert "environment" not in service
 
-        assert expected_edge_keys <= set(environment)
-        assert retired_edge_keys.isdisjoint(environment)
+    generator = _read(RUNTIME_ENV_SCRIPT)
+    assert all(key in generator for key in expected_edge_keys)
+    assert all(key not in generator for key in retired_edge_keys)
 
 
 def test_base_api_service_passes_taxonomy_view_cache_ttl_env_contract() -> None:
     api = _service_data(BASE_COMPOSE, "api")
-    environment = api["environment"]
+    generator = _read(RUNTIME_ENV_SCRIPT)
 
-    assert isinstance(environment, dict)
-    assert "KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE" in environment
-    assert "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS" in environment
-    assert "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS" in environment
-    assert "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS" in environment
+    assert "environment" not in api
+    assert "KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE" in generator
+    assert "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS" in generator
+    assert "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS" in generator
+    assert "KNOWLEDGE_API_TAXONOMY_VIEW_CACHE_TTL_SECONDS" in generator
 
 
 def test_base_worker_service_passes_required_cache_ttl_env_contract() -> None:
     worker = _service_data(BASE_COMPOSE, "worker")
-    environment = worker["environment"]
+    generator = _read(RUNTIME_ENV_SCRIPT)
 
-    assert isinstance(environment, dict)
-    assert "KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE" in environment
-    assert "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS" in environment
-    assert "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS" in environment
+    assert "environment" not in worker
+    assert "KNOWLEDGE_API_SEARCH_VECTOR_CANDIDATE_POOL_SIZE" in generator
+    assert "KNOWLEDGE_API_SEARCH_RESPONSE_CACHE_TTL_SECONDS" in generator
+    assert "KNOWLEDGE_API_SEARCH_EMBEDDING_CACHE_TTL_SECONDS" in generator
 
 
 def test_base_api_and_worker_services_pass_required_shared_runtime_env_contract() -> None:
@@ -508,10 +526,10 @@ def test_base_api_and_worker_services_pass_required_shared_runtime_env_contract(
 
     for service_name in ("api", "worker"):
         service = _service_data(BASE_COMPOSE, service_name)
-        environment = service["environment"]
+        assert "environment" not in service
 
-        assert isinstance(environment, dict)
-        assert required_keys <= set(environment)
+    generator = _read(RUNTIME_ENV_SCRIPT)
+    assert all(key in generator for key in required_keys)
 
 
 def test_dev_compose_keeps_taxonomy_classification_services_out_of_default_startup() -> None:
@@ -556,9 +574,13 @@ def test_prod_compose_uses_project_owned_cloudflare_tunnel_ingress() -> None:
     assert isinstance(ingress, dict)
     assert ingress["image"] == "cloudflare/cloudflared:latest"
     assert ingress["command"] == ["tunnel", "--no-autoupdate", "--protocol", "http2", "run"]
-    assert ingress["environment"] == {
-        "TUNNEL_TOKEN": "${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}",
-    }
+    assert ingress["env_file"] == [
+        {
+            "path": "../env/generated/.env.prod.cloudflare-ingress.runtime",
+            "required": False,
+            "format": "raw",
+        }
+    ]
     assert ingress["depends_on"] == {"nginx": {"condition": "service_healthy"}}
     assert ingress["networks"] == ["edge", "egress"]
     assert ingress["restart"] == "unless-stopped"
@@ -571,14 +593,14 @@ def test_prod_compose_uses_project_owned_cloudflare_tunnel_ingress() -> None:
 
 def test_base_web_service_reaches_private_dependencies() -> None:
     web = _service_data(BASE_COMPOSE, "web")
+    generator = _read(RUNTIME_ENV_SCRIPT)
 
     assert web["networks"] == ["backend", "edge"]
     assert set(web["depends_on"]) == {"api", "redis", "logto", "mcp"}
+    assert "environment" not in web
 
-    environment = web["environment"]
-    assert isinstance(environment, dict)
-    assert "KNOWLEDGE_WEB_HOST" not in environment
-    assert "KNOWLEDGE_WEB_PORT" not in environment
+    assert "KNOWLEDGE_WEB_HOST" not in generator
+    assert "KNOWLEDGE_WEB_PORT" not in generator
     for key in (
         "KNOWLEDGE_WEB_INTERNAL_API_BASE_URL",
         "KNOWLEDGE_WEB_REDIS_URL",
@@ -613,22 +635,22 @@ def test_base_web_service_reaches_private_dependencies() -> None:
         "KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_LIMIT",
         "KNOWLEDGE_WEB_TAXONOMY_VIEW_IP_TOTAL_WINDOW_SECONDS",
     ):
-        assert key in environment
-    assert "KNOWLEDGE_WEB_QUOTA_ROUTE_OVERRIDES_JSON" not in environment
+        assert key in generator
+    assert "KNOWLEDGE_WEB_QUOTA_ROUTE_OVERRIDES_JSON" not in generator
 
 
 def test_base_mcp_service_defines_internal_usage_summary_auth() -> None:
     mcp = _service_data(BASE_COMPOSE, "mcp")
-    environment = mcp["environment"]
+    generator = _read(RUNTIME_ENV_SCRIPT)
 
-    assert isinstance(environment, dict)
+    assert "environment" not in mcp
     for key in (
         "KNOWLEDGE_MCP_USAGE_SUMMARY_AUTH_RESOURCE",
         "KNOWLEDGE_MCP_USAGE_SUMMARY_REQUIRED_SCOPE",
         "KNOWLEDGE_MCP_USAGE_SUMMARY_ALLOWED_CLIENT_ID",
         "KNOWLEDGE_MCP_USAGE_SUMMARY_MAX_BATCH_SIZE",
     ):
-        assert key in environment
+        assert key in generator
 
 
 def test_prod_web_no_longer_exposes_browser_api_origin_config() -> None:
@@ -646,6 +668,49 @@ def test_dev_and_prod_web_set_explicit_node_env() -> None:
 
     assert dev_web["environment"] == {"NODE_ENV": "development"}
     assert prod_web["environment"] == {"NODE_ENV": "production"}
+
+
+def test_environment_overlays_use_service_scoped_generated_env_files() -> None:
+    runtime_roles = {
+        "postgres": "postgres",
+        "logto-postgres": "logto-postgres",
+        "knowledge_corpus_db": "knowledge-corpus-db",
+        "source_pipeline_db": "source-pipeline-db",
+        "mcp_db": "mcp-db",
+        "logto": "logto",
+        "logto-seed": "logto",
+        "migrate": "api-migrate",
+        "knowledge_corpus_migrate": "knowledge-corpus-migrate",
+        "source_pipeline_migrate": "source-pipeline-migrate",
+        "mcp_migrate": "mcp-migrate",
+        "api": "api-worker",
+        "worker": "api-worker",
+        "mcp": "mcp",
+        "taxonomy_view_layout_runtime": "taxonomy-view-layout",
+        "taxonomy_classification_runtime": "taxonomy-classification",
+        "taxonomy_classification_webhook_receiver": "taxonomy-classification-webhook",
+        "orchestrator": "source-pipeline-orchestrator",
+        "source_pipeline_webhook_receiver": "source-pipeline-webhook",
+        "web": "web",
+    }
+
+    for compose_file, mode in ((DEV_COMPOSE, "dev"), (PROD_COMPOSE, "prod")):
+        for service_name, role in runtime_roles.items():
+            _assert_generated_env_file(compose_file, service_name, mode, role)
+
+    _assert_generated_env_file(PROD_COMPOSE, "cloudflare-ingress", "prod", "cloudflare-ingress")
+
+    test_roles = {
+        "postgres": "postgres",
+        "knowledge_corpus_db": "knowledge-corpus-db",
+        "source_pipeline_db": "source-pipeline-db",
+        "mcp_db": "mcp-db",
+        "knowledge_corpus_migrate": "knowledge-corpus-migrate",
+        "source_pipeline_migrate": "source-pipeline-migrate",
+        "mcp_migrate": "mcp-migrate",
+    }
+    for service_name, role in test_roles.items():
+        _assert_generated_env_file(TEST_COMPOSE, service_name, "test", role)
 
 
 def test_dev_and_prod_compose_define_taxonomy_view_layout_runtime_image() -> None:
@@ -671,18 +736,7 @@ def test_base_compose_defines_mcp_migration_service() -> None:
     assert mcp_db["build"]["dockerfile"] == "infra/docker/postgres/Dockerfile"
     assert mcp_db["volumes"] == ["knowledge_mcp_postgres_data:/var/lib/postgresql"]
     assert mcp_db["networks"] == ["backend"]
-
-    mcp_db_environment = mcp_db["environment"]
-    assert isinstance(mcp_db_environment, dict)
-    assert mcp_db_environment["POSTGRES_DB"] == (
-        "${KNOWLEDGE_MCP_POSTGRES_DB:?KNOWLEDGE_MCP_POSTGRES_DB is required}"
-    )
-    assert mcp_db_environment["APP_DB_USER"] == (
-        "${KNOWLEDGE_MCP_DB_USER:?KNOWLEDGE_MCP_DB_USER is required}"
-    )
-    assert mcp_db_environment["MIGRATION_DB_USER"] == (
-        "${KNOWLEDGE_MCP_MIGRATION_DB_USER:?KNOWLEDGE_MCP_MIGRATION_DB_USER is required}"
-    )
+    assert "environment" not in mcp_db
 
     mcp_migrate = _service_data(BASE_COMPOSE, "mcp_migrate")
 
@@ -696,12 +750,17 @@ def test_base_compose_defines_mcp_migration_service() -> None:
     ]
     assert mcp_migrate["networks"] == ["backend"]
     assert mcp_migrate["depends_on"] == {"mcp_db": {"condition": "service_healthy"}}
+    assert "environment" not in mcp_migrate
 
-    environment = mcp_migrate["environment"]
-    assert isinstance(environment, dict)
-    assert environment["KNOWLEDGE_MCP_MIGRATION_DATABASE_URL"] == (
-        "${KNOWLEDGE_MCP_MIGRATION_DATABASE_URL:?KNOWLEDGE_MCP_MIGRATION_DATABASE_URL is required}"
-    )
+    generator = _read(RUNTIME_ENV_SCRIPT)
+    for key in (
+        "POSTGRES_DB=KNOWLEDGE_MCP_POSTGRES_DB",
+        "APP_DB_USER=KNOWLEDGE_MCP_DB_USER",
+        "MIGRATION_DB_USER=KNOWLEDGE_MCP_MIGRATION_DB_USER",
+        "KNOWLEDGE_MCP_DATABASE_URL",
+        "KNOWLEDGE_MCP_MIGRATION_DATABASE_URL",
+    ):
+        assert key in generator
 
 
 def test_base_compose_defines_public_mcp_service_with_private_dependencies() -> None:
@@ -712,11 +771,11 @@ def test_base_compose_defines_public_mcp_service_with_private_dependencies() -> 
     assert mcp["networks"] == ["backend", "edge"]
     assert "expose" not in mcp
     assert set(mcp["depends_on"]) == {"api", "redis", "mcp_db", "mcp_migrate", "logto"}
+    assert "environment" not in mcp
 
-    environment = mcp["environment"]
-    assert isinstance(environment, dict)
-    assert "KNOWLEDGE_MCP_HOST" not in environment
-    assert "KNOWLEDGE_MCP_PORT" not in environment
+    generator = _read(RUNTIME_ENV_SCRIPT)
+    assert "KNOWLEDGE_MCP_HOST" not in generator
+    assert "KNOWLEDGE_MCP_PORT" not in generator
     for key in (
         "KNOWLEDGE_MCP_PUBLIC_BASE_URL",
         "KNOWLEDGE_MCP_INTERNAL_API_BASE_URL",
@@ -735,7 +794,7 @@ def test_base_compose_defines_public_mcp_service_with_private_dependencies() -> 
         "KNOWLEDGE_MCP_USER_WEEKLY_LIMIT",
         "KNOWLEDGE_MCP_USER_WEEKLY_WINDOW_SECONDS",
     ):
-        assert key in environment
+        assert key in generator
 
 
 def test_compose_files_do_not_define_environment_variable_defaults() -> None:
@@ -743,6 +802,13 @@ def test_compose_files_do_not_define_environment_variable_defaults() -> None:
 
     for compose_file in (BASE_COMPOSE, DEV_COMPOSE, PROD_COMPOSE, TEST_COMPOSE):
         assert default_substitution_pattern.search(_read(compose_file)) is None
+
+
+def test_compose_files_do_not_require_cli_interpolation_environment() -> None:
+    required_substitution_pattern = re.compile(r"\$\{[A-Z0-9_]+(?::)?\?")
+
+    for compose_file in (BASE_COMPOSE, DEV_COMPOSE, PROD_COMPOSE, TEST_COMPOSE):
+        assert required_substitution_pattern.search(_read(compose_file)) is None
 
 
 def test_env_example_owns_compose_default_values() -> None:
@@ -763,7 +829,11 @@ def test_env_example_owns_compose_default_values() -> None:
         "KNOWLEDGE_MCP_PAT_TOTAL_WINDOW_SECONDS",
     )
     removed_topology_keys = (
+        "KNOWLEDGE_LOGTO_TAG",
         "KNOWLEDGE_LOGTO_ADMIN_PORT",
+        "KNOWLEDGE_CORPUS_DB_MAX_WAL_SIZE",
+        "KNOWLEDGE_CORPUS_DB_CHECKPOINT_TIMEOUT",
+        "KNOWLEDGE_CORPUS_DB_CHECKPOINT_COMPLETION_TARGET",
         "KNOWLEDGE_MCP_HOST",
         "KNOWLEDGE_MCP_PORT",
         "KNOWLEDGE_WEB_HOST",
@@ -773,7 +843,6 @@ def test_env_example_owns_compose_default_values() -> None:
 
     env_template = _read(REPO_ROOT / "infra" / "env" / ".env.example")
     for key in (
-        "KNOWLEDGE_LOGTO_TAG",
         "KNOWLEDGE_LOGTO_TRUST_PROXY_HEADER",
         "KNOWLEDGE_API_LOG_LEVEL",
         "KNOWLEDGE_API_LOG_FILE_MAX_BYTES",
@@ -853,7 +922,7 @@ def test_taxonomy_layout_precompute_script_uses_operator_module_entrypoint() -> 
 def test_taxonomy_layout_precompute_compose_sets_four_cpu_default() -> None:
     service = _service_data(TAXONOMY_LAYOUT_PRECOMPUTE_COMPOSE, "taxonomy_view_layout_runtime")
 
-    assert service["cpus"] == "${TAXONOMY_LAYOUT_PRECOMPUTE_CPUS:-4.0}"
+    assert service["cpus"] == 4.0
 
 
 def test_dev_and_prod_compose_define_mcp_image_and_ingress_dependencies() -> None:

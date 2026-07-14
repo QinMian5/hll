@@ -10,12 +10,14 @@ COMPOSE_ENV="$ROOT_DIR/infra/env/.env.dev"
 COMPOSE_DEV="$ROOT_DIR/infra/compose/docker-compose.dev.yml"
 
 source "$ROOT_DIR/scripts/lib/postgres-role-bootstrap.sh"
+source "$ROOT_DIR/scripts/lib/runtime-env.sh"
 
 compose_args=(
-  --env-file "$COMPOSE_ENV"
   -f "$COMPOSE_BASE"
   -f "$COMPOSE_DEV"
 )
+
+materialize_runtime_env dev "$COMPOSE_ENV"
 
 # Role provisioning belongs to database bootstrap, not Alembic migrations.
 converge_online_postgres_roles "${compose_args[@]}"

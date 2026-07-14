@@ -9,5 +9,6 @@ __pycache__/
 
 infra/env/.env*
 !infra/env/.env.example
+infra/env/generated/
 
 /backups/

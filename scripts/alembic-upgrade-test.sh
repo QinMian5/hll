@@ -12,7 +12,6 @@ ENV_FILE="$ROOT_DIR/infra/env/.env.test"
 source "$ROOT_DIR/scripts/lib/test-env-guards.sh"
 
 compose_args=(
-  --env-file "$ENV_FILE"
   -f "$COMPOSE_TEST"
 )
 

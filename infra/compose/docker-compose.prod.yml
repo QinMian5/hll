@@ -2,9 +2,105 @@
 # out_of_scope: Multi-region traffic management and non-Docker deployment targets.
 name: knowledge-prod
 
+x-postgres-env-file: &postgres-env-file
+  - path: ../env/generated/.env.prod.postgres.runtime
+    required: false
+    format: raw
+
+x-logto-postgres-env-file: &logto-postgres-env-file
+  - path: ../env/generated/.env.prod.logto-postgres.runtime
+    required: false
+    format: raw
+
+x-knowledge-corpus-db-env-file: &knowledge-corpus-db-env-file
+  - path: ../env/generated/.env.prod.knowledge-corpus-db.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-db-env-file: &source-pipeline-db-env-file
+  - path: ../env/generated/.env.prod.source-pipeline-db.runtime
+    required: false
+    format: raw
+
+x-mcp-db-env-file: &mcp-db-env-file
+  - path: ../env/generated/.env.prod.mcp-db.runtime
+    required: false
+    format: raw
+
+x-logto-env-file: &logto-env-file
+  - path: ../env/generated/.env.prod.logto.runtime
+    required: false
+    format: raw
+
+x-api-migrate-env-file: &api-migrate-env-file
+  - path: ../env/generated/.env.prod.api-migrate.runtime
+    required: false
+    format: raw
+
+x-knowledge-corpus-migrate-env-file: &knowledge-corpus-migrate-env-file
+  - path: ../env/generated/.env.prod.knowledge-corpus-migrate.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-migrate-env-file: &source-pipeline-migrate-env-file
+  - path: ../env/generated/.env.prod.source-pipeline-migrate.runtime
+    required: false
+    format: raw
+
+x-mcp-migrate-env-file: &mcp-migrate-env-file
+  - path: ../env/generated/.env.prod.mcp-migrate.runtime
+    required: false
+    format: raw
+
+x-api-worker-env-file: &api-worker-env-file
+  - path: ../env/generated/.env.prod.api-worker.runtime
+    required: false
+    format: raw
+
+x-mcp-env-file: &mcp-env-file
+  - path: ../env/generated/.env.prod.mcp.runtime
+    required: false
+    format: raw
+
+x-taxonomy-view-layout-env-file: &taxonomy-view-layout-env-file
+  - path: ../env/generated/.env.prod.taxonomy-view-layout.runtime
+    required: false
+    format: raw
+
+x-taxonomy-classification-env-file: &taxonomy-classification-env-file
+  - path: ../env/generated/.env.prod.taxonomy-classification.runtime
+    required: false
+    format: raw
+
+x-taxonomy-classification-webhook-env-file: &taxonomy-classification-webhook-env-file
+  - path: ../env/generated/.env.prod.taxonomy-classification-webhook.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-orchestrator-env-file: &source-pipeline-orchestrator-env-file
+  - path: ../env/generated/.env.prod.source-pipeline-orchestrator.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-webhook-env-file: &source-pipeline-webhook-env-file
+  - path: ../env/generated/.env.prod.source-pipeline-webhook.runtime
+    required: false
+    format: raw
+
+x-web-env-file: &web-env-file
+  - path: ../env/generated/.env.prod.web.runtime
+    required: false
+    format: raw
+
+x-cloudflare-ingress-env-file: &cloudflare-ingress-env-file
+  - path: ../env/generated/.env.prod.cloudflare-ingress.runtime
+    required: false
+    format: raw
+
 services:
   postgres:
     image: knowledge-postgres:prod
+    env_file: *postgres-env-file
     mem_limit: 1536m
     memswap_limit: 1536m
     cpus: 1.5
@@ -12,6 +108,7 @@ services:
 
   logto-postgres:
     image: postgres:18.3-bookworm
+    env_file: *logto-postgres-env-file
     mem_limit: 512m
     memswap_limit: 512m
     cpus: 0.5
@@ -19,6 +116,7 @@ services:
 
   knowledge_corpus_db:
     image: knowledge-corpus-postgres:prod
+    env_file: *knowledge-corpus-db-env-file
     mem_limit: 1024m
     memswap_limit: 1024m
     cpus: 1.0
@@ -26,6 +124,7 @@ services:
 
   source_pipeline_db:
     image: knowledge-source-pipeline-postgres:prod
+    env_file: *source-pipeline-db-env-file
     mem_limit: 768m
     memswap_limit: 768m
     cpus: 0.75
@@ -33,6 +132,7 @@ services:
 
   mcp_db:
     image: knowledge-mcp-postgres:prod
+    env_file: *mcp-db-env-file
     mem_limit: 512m
     memswap_limit: 512m
     cpus: 0.5
@@ -40,15 +140,22 @@ services:
 
   migrate:
     image: knowledge-api:prod
+    env_file: *api-migrate-env-file
 
   knowledge_corpus_migrate:
     image: knowledge-corpus-migrate:prod
+    env_file: *knowledge-corpus-migrate-env-file
 
   source_pipeline_migrate:
     image: knowledge-source-pipeline:prod
+    env_file: *source-pipeline-migrate-env-file
+
+  mcp_migrate:
+    env_file: *mcp-migrate-env-file
 
   api:
     image: knowledge-api:prod
+    env_file: *api-worker-env-file
     mem_limit: 768m
     memswap_limit: 768m
     cpus: 1.0
@@ -56,6 +163,7 @@ services:
 
   mcp:
     image: knowledge-mcp:prod
+    env_file: *mcp-env-file
     mem_limit: 512m
     memswap_limit: 512m
     cpus: 0.75
@@ -63,6 +171,7 @@ services:
 
   worker:
     image: knowledge-api:prod
+    env_file: *api-worker-env-file
     mem_limit: 1536m
     memswap_limit: 1536m
     cpus: 2.0
@@ -70,6 +179,7 @@ services:
 
   taxonomy_view_layout_runtime:
     image: knowledge-api:prod
+    env_file: *taxonomy-view-layout-env-file
     mem_limit: 512m
     memswap_limit: 512m
     cpus: 1.0
@@ -77,6 +187,7 @@ services:
 
   taxonomy_classification_runtime:
     image: knowledge-api:prod
+    env_file: *taxonomy-classification-env-file
     mem_limit: 768m
     memswap_limit: 768m
     cpus: 1.0
@@ -87,6 +198,7 @@ services:
 
   taxonomy_classification_webhook_receiver:
     image: knowledge-api:prod
+    env_file: *taxonomy-classification-webhook-env-file
     mem_limit: 384m
     memswap_limit: 384m
     cpus: 0.5
@@ -103,6 +215,7 @@ services:
     pids_limit: 128
 
   logto:
+    env_file: *logto-env-file
     mem_limit: 768m
     memswap_limit: 768m
     cpus: 0.75
@@ -110,13 +223,17 @@ services:
     environment:
       NODE_EXTRA_CA_CERTS: /etc/ssl/certs/knowledge-logto-extra-ca.crt
     volumes:
-      - ${KNOWLEDGE_LOGTO_EXTRA_CA_CERT_PATH:?KNOWLEDGE_LOGTO_EXTRA_CA_CERT_PATH is required}:/etc/ssl/certs/knowledge-logto-extra-ca.crt:ro
+      - ../env/generated/.env.prod.logto-extra-ca.crt:/etc/ssl/certs/knowledge-logto-extra-ca.crt:ro
     networks:
       - backend
       - edge
 
+  logto-seed:
+    env_file: *logto-env-file
+
   orchestrator:
     image: knowledge-source-pipeline:prod
+    env_file: *source-pipeline-orchestrator-env-file
     mem_limit: 384m
     memswap_limit: 384m
     cpus: 0.75
@@ -127,6 +244,7 @@ services:
 
   source_pipeline_webhook_receiver:
     image: knowledge-source-pipeline:prod
+    env_file: *source-pipeline-webhook-env-file
     mem_limit: 384m
     memswap_limit: 384m
     cpus: 0.5
@@ -137,6 +255,7 @@ services:
 
   web:
     image: knowledge-web:prod
+    env_file: *web-env-file
     mem_limit: 1024m
     memswap_limit: 1024m
     cpus: 0.75
@@ -176,13 +295,12 @@ services:
 
   cloudflare-ingress:
     image: cloudflare/cloudflared:latest
+    env_file: *cloudflare-ingress-env-file
     mem_limit: 128m
     memswap_limit: 128m
     cpus: 0.25
     pids_limit: 64
     command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "run"]
-    environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}
     depends_on:
       nginx:
         condition: service_healthy

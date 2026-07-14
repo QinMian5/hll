@@ -3,4 +3,4 @@
 
 services:
   taxonomy_view_layout_runtime:
-    cpus: ${TAXONOMY_LAYOUT_PRECOMPUTE_CPUS:-4.0}
+    cpus: 4.0

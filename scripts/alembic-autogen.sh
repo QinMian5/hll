@@ -12,9 +12,9 @@ APP="${APP:-api}"
 
 source "$ROOT_DIR/scripts/lib/test-env-guards.sh"
 source "$ROOT_DIR/scripts/lib/postgres-role-bootstrap.sh"
+source "$ROOT_DIR/scripts/lib/runtime-env.sh"
 
 compose_args=(
-  --env-file "$COMPOSE_ENV"
   -f "$COMPOSE_BASE"
   -f "$COMPOSE_DEV"
 )
@@ -30,6 +30,8 @@ set -a
 # shellcheck disable=SC1090
 source "$COMPOSE_ENV"
 set +a
+
+materialize_runtime_env dev "$COMPOSE_ENV"
 
 case "$APP" in
   api)

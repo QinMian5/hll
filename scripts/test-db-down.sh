@@ -6,9 +6,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_TEST="$ROOT_DIR/infra/compose/docker-compose.test.yml"
-ENV_FILE="$ROOT_DIR/infra/env/.env.test"
-
-source "$ROOT_DIR/scripts/lib/test-env-guards.sh"
 
 REMOVE_VOLUMES=false
 if [[ "${1:-}" == "--volumes" ]]; then
@@ -18,9 +15,6 @@ fi
 compose_args=(
   -f "$COMPOSE_TEST"
 )
-if [[ -f "$ENV_FILE" ]]; then
-  compose_args+=(--env-file "$ENV_FILE")
-fi
 
 if [[ "$REMOVE_VOLUMES" == "true" ]]; then
   docker compose "${compose_args[@]}" down --volumes --remove-orphans

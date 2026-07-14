@@ -16,6 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 BASE_COMPOSE = REPO_ROOT / "infra" / "compose" / "docker-compose.base.yml"
 DEV_COMPOSE = REPO_ROOT / "infra" / "compose" / "docker-compose.dev.yml"
 PROD_COMPOSE = REPO_ROOT / "infra" / "compose" / "docker-compose.prod.yml"
+RUNTIME_ENV_SCRIPT = REPO_ROOT / "scripts" / "lib" / "runtime-env.sh"
 
 
 def _service_block(path: Path, service_name: str) -> list[str]:
@@ -101,50 +102,45 @@ def test_webhook_receiver_role_does_not_require_orchestrator_credentials(
 def test_compose_contains_source_pipeline_webhook_receiver_service() -> None:
     base_block = _service_block(BASE_COMPOSE, "source_pipeline_webhook_receiver")
     dev_block = _service_block(DEV_COMPOSE, "source_pipeline_webhook_receiver")
+    runtime_env = RUNTIME_ENV_SCRIPT.read_text(encoding="utf-8")
     stripped_base = [line.strip() for line in base_block]
     stripped_dev = [line.strip() for line in dev_block]
 
     assert 'command: ["/app/bin/run-webhook-receiver.sh"]' in stripped_base
     assert "SOURCE_PIPELINE_ROLE: webhook_receiver" in stripped_base
-    assert any("SOURCE_PIPELINE_WEBHOOK_AUTH_ISSUER" in line for line in stripped_base)
+    assert "SOURCE_PIPELINE_WEBHOOK_AUTH_ISSUER" in runtime_env
     assert not any("SOURCE_PIPELINE_JOB_QUEUE_CLIENT_SECRET" in line for line in stripped_base)
     assert "ports:" not in stripped_base
+    assert "env_file: *source-pipeline-webhook-env-file" in stripped_dev
     assert 'profiles: ["webhook_receiver"]' in stripped_dev
 
 
 def test_prod_compose_requires_knowledge_logto_for_webhook_receiver() -> None:
-    base_logto_block = _service_block(BASE_COMPOSE, "logto")
     base_receiver_block = _service_block(BASE_COMPOSE, "source_pipeline_webhook_receiver")
     prod_nginx_block = _service_block(PROD_COMPOSE, "nginx")
     prod_cloudflare_block = _service_block(PROD_COMPOSE, "cloudflare-ingress")
-    stripped_logto = [line.strip() for line in base_logto_block]
+    runtime_env = RUNTIME_ENV_SCRIPT.read_text(encoding="utf-8")
     stripped_receiver = [line.strip() for line in base_receiver_block]
     stripped_nginx = [line.strip() for line in prod_nginx_block]
     stripped_cloudflare = [line.strip() for line in prod_cloudflare_block]
-    expected_endpoint = (
-        "ENDPOINT: ${KNOWLEDGE_LOGTO_ENDPOINT:?KNOWLEDGE_LOGTO_ENDPOINT is required}"
-    )
-    expected_admin_endpoint = (
-        "ADMIN_ENDPOINT: "
-        "${KNOWLEDGE_LOGTO_ADMIN_ENDPOINT:?KNOWLEDGE_LOGTO_ADMIN_ENDPOINT is required}"
-    )
 
-    assert expected_endpoint in stripped_logto
-    assert expected_admin_endpoint in stripped_logto
+    assert "ENDPOINT=KNOWLEDGE_LOGTO_ENDPOINT" in runtime_env
+    assert "ADMIN_ENDPOINT=KNOWLEDGE_LOGTO_ADMIN_ENDPOINT" in runtime_env
+    assert "TUNNEL_TOKEN=CLOUDFLARE_TUNNEL_TOKEN" in runtime_env
+    assert "environment:" not in stripped_cloudflare
     assert "logto:" in stripped_receiver
     assert "condition: service_healthy" in stripped_receiver
     assert "logto:" in stripped_nginx
     assert "condition: service_healthy" in stripped_nginx
     assert "nginx:" in stripped_cloudflare
     assert "condition: service_healthy" in stripped_cloudflare
-    assert (
-        "TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required}"
-    ) in stripped_cloudflare
 
 
 def test_compose_contains_explicit_low_frequency_reconcile_settings() -> None:
     base_block = _service_block(BASE_COMPOSE, "orchestrator")
+    runtime_env = RUNTIME_ENV_SCRIPT.read_text(encoding="utf-8")
     stripped_base = [line.strip() for line in base_block]
 
-    assert any("SOURCE_PIPELINE_RECONCILE_INTERVAL_SECONDS" in line for line in stripped_base)
-    assert any("SOURCE_PIPELINE_RECONCILE_BATCH_SIZE" in line for line in stripped_base)
+    assert "environment:" not in stripped_base
+    assert "SOURCE_PIPELINE_RECONCILE_INTERVAL_SECONDS" in runtime_env
+    assert "SOURCE_PIPELINE_RECONCILE_BATCH_SIZE" in runtime_env

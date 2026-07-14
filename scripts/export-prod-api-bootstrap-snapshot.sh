@@ -8,14 +8,12 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_DIR="$ROOT_DIR/apps/api"
 UV_CACHE_DIR="$ROOT_DIR/.uv-cache"
 COMPOSE_BASE="$ROOT_DIR/infra/compose/docker-compose.base.yml"
-COMPOSE_ENV="$ROOT_DIR/infra/env/.env.prod"
 COMPOSE_PROD="$ROOT_DIR/infra/compose/docker-compose.prod.yml"
 SNAPSHOT_PATH="${1:-$ROOT_DIR/apps/api/bootstrap/prod-api-bootstrap.sql}"
 SNAPSHOT_DIR="$(dirname "$SNAPSHOT_PATH")"
 TMP_PATH="$SNAPSHOT_PATH.tmp"
 
 compose_args=(
-  --env-file "$COMPOSE_ENV"
   -f "$COMPOSE_BASE"
   -f "$COMPOSE_PROD"
 )

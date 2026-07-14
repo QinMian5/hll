@@ -13,6 +13,7 @@ COMPOSE_DEV="$ROOT_DIR/infra/compose/docker-compose.dev.yml"
 SNAPSHOT_PATH="${1:-$ROOT_DIR/apps/api/bootstrap/prod-api-bootstrap.sql}"
 
 source "$ROOT_DIR/scripts/lib/postgres-role-bootstrap.sh"
+source "$ROOT_DIR/scripts/lib/runtime-env.sh"
 
 if [[ ! -f "$SNAPSHOT_PATH" ]]; then
   echo "error: snapshot file does not exist: $SNAPSHOT_PATH" >&2
@@ -28,11 +29,11 @@ truncate_sql="$(
 )"
 
 compose_args=(
-  --env-file "$COMPOSE_ENV"
   -f "$COMPOSE_BASE"
   -f "$COMPOSE_DEV"
 )
 
+materialize_runtime_env dev "$COMPOSE_ENV"
 converge_online_postgres_roles "${compose_args[@]}"
 docker compose "${compose_args[@]}" rm -f migrate >/dev/null 2>&1 || true
 docker compose "${compose_args[@]}" run --rm migrate

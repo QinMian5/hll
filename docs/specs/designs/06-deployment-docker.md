@@ -197,10 +197,14 @@ out_of_scope: Kubernetes orchestration, backup/restore policy details, and high-
 - Environment files use `.env.example`, `.env.dev`, `.env.prod`, and `.env.test` naming.
 - Only `.env.example` is tracked in version control; `.env.dev`, `.env.prod`, and `.env.test` remain local operator files.
 - Sensitive values are provided through runtime environment variables or local `.env` files and are not committed.
-- Compose commands inject environment values through outer `docker compose --env-file ...` invocation; service definitions must not declare `env_file`.
+- Lifecycle scripts materialize service-scoped runtime environment files under `infra/env/generated/` from the selected local operator file before starting or migrating a stack.
+- Generated runtime environment files are ignored, written with owner-only permissions, and replace the previous generated projection only after validation succeeds.
+- Compose service definitions consume generated runtime files through `env_file` entries with `required: false` and `format: raw` so Docker Compose and OrbStack can parse stack topology without caller-provided interpolation environment.
+- First stack materialization requires the matching `make` lifecycle entrypoint; after materialization, OrbStack and plain Compose may inspect, stop, start, and recreate the stack from the Compose files and generated runtime files.
+- Generated runtime files are service-scoped and must not inject the full operator environment into every container.
 - Docker Compose files must not provide environment-variable defaults through interpolation expressions such as `${VAR:-value}`.
 - Accepted default and example values are owned by environment files. `.env.example` carries the tracked template projection, while environment-specific local files carry operator-controlled values.
-- Compose service definitions may use required-variable interpolation to fail fast when an env-file value is missing. Values that may be intentionally blank must still be present in the injected environment file.
+- Lifecycle materialization must fail fast when a required operator env-file value is missing. Values that may be intentionally blank must still be present in the operator environment file.
 - Application code, test code, and migration code read only current process environment and must not load `.env` files directly.
 - Queue and embedding runtime configuration include:
   - `KNOWLEDGE_API_REDIS_URL` with backend-network address `redis://redis:6379/0`

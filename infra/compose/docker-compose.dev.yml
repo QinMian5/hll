@@ -2,9 +2,100 @@
 # out_of_scope: Production runtime hardening and host-level security controls.
 name: knowledge-dev
 
+x-postgres-env-file: &postgres-env-file
+  - path: ../env/generated/.env.dev.postgres.runtime
+    required: false
+    format: raw
+
+x-logto-postgres-env-file: &logto-postgres-env-file
+  - path: ../env/generated/.env.dev.logto-postgres.runtime
+    required: false
+    format: raw
+
+x-knowledge-corpus-db-env-file: &knowledge-corpus-db-env-file
+  - path: ../env/generated/.env.dev.knowledge-corpus-db.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-db-env-file: &source-pipeline-db-env-file
+  - path: ../env/generated/.env.dev.source-pipeline-db.runtime
+    required: false
+    format: raw
+
+x-mcp-db-env-file: &mcp-db-env-file
+  - path: ../env/generated/.env.dev.mcp-db.runtime
+    required: false
+    format: raw
+
+x-logto-env-file: &logto-env-file
+  - path: ../env/generated/.env.dev.logto.runtime
+    required: false
+    format: raw
+
+x-api-migrate-env-file: &api-migrate-env-file
+  - path: ../env/generated/.env.dev.api-migrate.runtime
+    required: false
+    format: raw
+
+x-knowledge-corpus-migrate-env-file: &knowledge-corpus-migrate-env-file
+  - path: ../env/generated/.env.dev.knowledge-corpus-migrate.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-migrate-env-file: &source-pipeline-migrate-env-file
+  - path: ../env/generated/.env.dev.source-pipeline-migrate.runtime
+    required: false
+    format: raw
+
+x-mcp-migrate-env-file: &mcp-migrate-env-file
+  - path: ../env/generated/.env.dev.mcp-migrate.runtime
+    required: false
+    format: raw
+
+x-api-worker-env-file: &api-worker-env-file
+  - path: ../env/generated/.env.dev.api-worker.runtime
+    required: false
+    format: raw
+
+x-mcp-env-file: &mcp-env-file
+  - path: ../env/generated/.env.dev.mcp.runtime
+    required: false
+    format: raw
+
+x-taxonomy-view-layout-env-file: &taxonomy-view-layout-env-file
+  - path: ../env/generated/.env.dev.taxonomy-view-layout.runtime
+    required: false
+    format: raw
+
+x-taxonomy-classification-env-file: &taxonomy-classification-env-file
+  - path: ../env/generated/.env.dev.taxonomy-classification.runtime
+    required: false
+    format: raw
+
+x-taxonomy-classification-webhook-env-file: &taxonomy-classification-webhook-env-file
+  - path: ../env/generated/.env.dev.taxonomy-classification-webhook.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-orchestrator-env-file: &source-pipeline-orchestrator-env-file
+  - path: ../env/generated/.env.dev.source-pipeline-orchestrator.runtime
+    required: false
+    format: raw
+
+x-source-pipeline-webhook-env-file: &source-pipeline-webhook-env-file
+  - path: ../env/generated/.env.dev.source-pipeline-webhook.runtime
+    required: false
+    format: raw
+
+x-web-env-file: &web-env-file
+  - path: ../env/generated/.env.dev.web.runtime
+    required: false
+    format: raw
+
 services:
   postgres:
     image: knowledge-postgres:dev
+    env_file: *postgres-env-file
     mem_limit: 768m
     memswap_limit: 768m
     cpus: 0.75
@@ -17,17 +108,20 @@ services:
 
   logto-postgres:
     image: postgres:18.3-bookworm
+    env_file: *logto-postgres-env-file
     mem_limit: 384m
     memswap_limit: 384m
     cpus: 0.5
     pids_limit: 128
 
   logto-seed:
+    env_file: *logto-env-file
     extra_hosts:
       - "knowledge-dev-logto.localhost:host-gateway"
       - "knowledge-dev-logto-admin.localhost:host-gateway"
 
   logto:
+    env_file: *logto-env-file
     mem_limit: 512m
     memswap_limit: 512m
     cpus: 0.5
@@ -41,6 +135,7 @@ services:
 
   knowledge_corpus_db:
     image: knowledge-corpus-postgres:dev
+    env_file: *knowledge-corpus-db-env-file
     mem_limit: 768m
     memswap_limit: 768m
     cpus: 0.75
@@ -48,11 +143,11 @@ services:
     command:
       - postgres
       - -c
-      - max_wal_size=${KNOWLEDGE_CORPUS_DB_MAX_WAL_SIZE:?KNOWLEDGE_CORPUS_DB_MAX_WAL_SIZE is required}
+      - max_wal_size=8GB
       - -c
-      - checkpoint_timeout=${KNOWLEDGE_CORPUS_DB_CHECKPOINT_TIMEOUT:?KNOWLEDGE_CORPUS_DB_CHECKPOINT_TIMEOUT is required}
+      - checkpoint_timeout=15min
       - -c
-      - checkpoint_completion_target=${KNOWLEDGE_CORPUS_DB_CHECKPOINT_COMPLETION_TARGET:?KNOWLEDGE_CORPUS_DB_CHECKPOINT_COMPLETION_TARGET is required}
+      - checkpoint_completion_target=0.9
     networks:
       - backend
       - edge
@@ -61,6 +156,7 @@ services:
 
   source_pipeline_db:
     image: knowledge-source-pipeline-postgres:dev
+    env_file: *source-pipeline-db-env-file
     mem_limit: 512m
     memswap_limit: 512m
     cpus: 0.5
@@ -68,6 +164,7 @@ services:
 
   mcp_db:
     image: knowledge-mcp-postgres:dev
+    env_file: *mcp-db-env-file
     mem_limit: 384m
     memswap_limit: 384m
     cpus: 0.5
@@ -81,6 +178,7 @@ services:
 
   migrate:
     image: knowledge-api:dev
+    env_file: *api-migrate-env-file
     volumes:
       - ../../apps/api/src:/app/apps/api/src
       - ../../apps/api/alembic:/app/apps/api/alembic
@@ -88,6 +186,7 @@ services:
 
   knowledge_corpus_migrate:
     image: knowledge-corpus-migrate:dev
+    env_file: *knowledge-corpus-migrate-env-file
     volumes:
       - ../../apps/knowledge_corpus/src:/app/apps/knowledge_corpus/src
       - ../../apps/knowledge_corpus/alembic:/app/apps/knowledge_corpus/alembic
@@ -95,6 +194,7 @@ services:
 
   source_pipeline_migrate:
     image: knowledge-source-pipeline:dev
+    env_file: *source-pipeline-migrate-env-file
     volumes:
       - ../../apps/source_pipeline/src:/app/apps/source_pipeline/src
       - ../../apps/source_pipeline/alembic:/app/apps/source_pipeline/alembic
@@ -102,6 +202,7 @@ services:
 
   mcp_migrate:
     image: knowledge-mcp:dev
+    env_file: *mcp-migrate-env-file
     volumes:
       - ../../apps/mcp/src:/app/apps/mcp/src
       - ../../apps/mcp/alembic:/app/apps/mcp/alembic
@@ -109,6 +210,7 @@ services:
 
   api:
     image: knowledge-api:dev
+    env_file: *api-worker-env-file
     mem_limit: 512m
     memswap_limit: 512m
     cpus: 0.75
@@ -124,6 +226,7 @@ services:
 
   mcp:
     image: knowledge-mcp:dev
+    env_file: *mcp-env-file
     mem_limit: 384m
     memswap_limit: 384m
     cpus: 0.5
@@ -141,6 +244,7 @@ services:
 
   worker:
     image: knowledge-api:dev
+    env_file: *api-worker-env-file
     mem_limit: 1024m
     memswap_limit: 1024m
     cpus: 1.0
@@ -148,6 +252,7 @@ services:
 
   taxonomy_view_layout_runtime:
     image: knowledge-api:dev
+    env_file: *taxonomy-view-layout-env-file
     mem_limit: 384m
     memswap_limit: 384m
     cpus: 0.75
@@ -159,6 +264,7 @@ services:
 
   taxonomy_classification_runtime:
     image: knowledge-api:dev
+    env_file: *taxonomy-classification-env-file
     profiles: ["taxonomy_classification_runtime"]
     volumes:
       - ../../apps/api/src:/app/apps/api/src
@@ -167,6 +273,7 @@ services:
 
   taxonomy_classification_webhook_receiver:
     image: knowledge-api:dev
+    env_file: *taxonomy-classification-webhook-env-file
     profiles: ["taxonomy_classification_webhook_receiver"]
     volumes:
       - ../../apps/api/src:/app/apps/api/src
@@ -175,10 +282,12 @@ services:
 
   orchestrator:
     image: knowledge-source-pipeline:dev
+    env_file: *source-pipeline-orchestrator-env-file
     profiles: ["orchestrator"]
 
   source_pipeline_webhook_receiver:
     image: knowledge-source-pipeline:dev
+    env_file: *source-pipeline-webhook-env-file
     profiles: ["webhook_receiver"]
     volumes:
       - ../../apps/source_pipeline/src:/app/apps/source_pipeline/src
@@ -189,6 +298,7 @@ services:
     build:
       target: dev
     image: knowledge-web:dev
+    env_file: *web-env-file
     mem_limit: 1024m
     memswap_limit: 1024m
     cpus: 0.5

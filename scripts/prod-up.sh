@@ -11,13 +11,14 @@ COMPOSE_PROD="$ROOT_DIR/infra/compose/docker-compose.prod.yml"
 
 source "$ROOT_DIR/scripts/lib/postgres-role-bootstrap.sh"
 source "$ROOT_DIR/scripts/lib/prod-volumes.sh"
+source "$ROOT_DIR/scripts/lib/runtime-env.sh"
 
 compose_args=(
-  --env-file "$COMPOSE_ENV"
   -f "$COMPOSE_BASE"
   -f "$COMPOSE_PROD"
 )
 
+materialize_runtime_env prod "$COMPOSE_ENV"
 ensure_prod_external_volumes
 
 # Role provisioning belongs to database bootstrap, not Alembic migrations.
